@@ -520,19 +520,19 @@ export default function ProfilePage() {
                   onChange={(e) => setNewUrl(e.target.value)}
                   placeholder="save a link..."
                   className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 text-sm"
-              />
-              <button
-                type="submit"
-                disabled={savingUrl || !newUrl}
-                className="px-6 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm"
-              >
-                {savingUrl ? 'saving...' : 'save'}
-              </button>
-              {saveSuccess && (
-                <span className="text-sm text-green-600 self-center animate-pulse">saved!</span>
-              )}
-            </div>
-          </form>
+                />
+                <button
+                  type="submit"
+                  disabled={savingUrl || !newUrl}
+                  className="px-6 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm"
+                >
+                  {savingUrl ? 'saving...' : 'save'}
+                </button>
+                {saveSuccess && (
+                  <span className="text-sm text-green-600 self-center animate-pulse">saved!</span>
+                )}
+              </div>
+            </form>
             <p className="text-xs text-gray-400 mt-2">
               or <Link href="/bookmarklet" className="underline hover:text-gray-600">add the save button</Link> to your browser to save from any page
             </p>
