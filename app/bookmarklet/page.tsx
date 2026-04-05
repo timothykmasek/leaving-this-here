@@ -1,66 +1,26 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 export default function BookmarkletPage() {
+  const supabase = createClient()
   const [bookmarkletCode, setBookmarkletCode] = useState('')
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    const origin = window.location.origin
-    const code = `javascript:(function(){var url=encodeURIComponent(window.location.href);var title=encodeURIComponent(document.title);window.open('${origin}/save?url='+url+'&title='+title,'lth','width=400,height=300')})();`
+    const origin = 'https://leaving-this-here.vercel.app'
+    const code = `javascript:(function(){const url=window.location.href;const title=document.title;window.open('${origin}/save?url='+encodeURIComponent(url)+'&title='+encodeURIComponent(title),'save_bookmark','width=400,height=500');})();`
     setBookmarkletCode(code)
   }, [])
 
+  const handleCopy = () => {
+    navigator.clipboard.writeText(bookmarkletCode)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   return (
     <main className="min-h-screen bg-white">
-      <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-light text-gray-900 mb-2">save from anywhere</h1>
-          <p className="text-gray-500 text-sm">drag the button below to your bookmarks bar to save links while browsing</p>
-        </div>
-
-        <div className="space-y-8">
-          <div className="border border-gray-100 rounded-lg p-8">
-            <p className="text-sm text-gray-500 mb-4">1. drag this button to your bookmarks bar</p>
-            <a
-              href={bookmarkletCode}
-              className="inline-block px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors cursor-grab active:cursor-grabbing text-sm"
-              onClick={(e) => e.preventDefault()}
-            >
-              ✚ leaving this here
-            </a>
-            <p className="text-xs text-gray-400 mt-4">or right-click → "Bookmark This Link"</p>
-          </div>
-
-          <div className="border border-gray-100 rounded-lg p-8">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">how it works</h2>
-            <ol className="space-y-3 text-sm text-gray-500">
-              <li><strong className="text-gray-900">1.</strong> click the bookmark while on any page</li>
-              <li><strong className="text-gray-900">2.</strong> a small popup confirms the save</li>
-              <li><strong className="text-gray-900">3.</strong> it appears on your profile automatically</li>
-            </ol>
-          </div>
-
-          <div className="border border-gray-100 rounded-lg p-8">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">or copy the code</h2>
-            <div className="bg-gray-50 p-4 rounded border border-gray-100 mb-4 font-mono text-xs overflow-x-auto">
-              {bookmarkletCode}
-            </div>
-            <button
-              onClick={() => { navigator.clipboard.writeText(bookmarkletCode); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-              className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-900 hover:border-gray-400 transition-colors"
-            >
-              {copied ? '✓ copied' : 'copy code'}
-            </button>
-          </div>
-
-          <div className="text-center pt-8 border-t border-gray-100">
-            <Link href="/discover" className="text-sm text-gray-400 hover:text-gray-900">← back to discover</Link>
-          </div>
-        </div>
-      </div>
-    </main>
-  )
-}
+      <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">ÆFb6Æ74æÖSÒ&Ö"Ó#à¢Æ6Æ74æÖSÒ'FWBÓ7ÂföçBÖÆvBFWBÖw&ÓÖ"Ó"#à¢6fRg&öÒçvW&P¢Âöà¢Ç6Æ74æÖSÒ'FWBÖw&ÓcFWB×6Ò#à¢G&rFR'WGFöâ&VÆ÷rFò÷W"&öö¶Ö&·2&"Fò6fRÆæ·2vÆP¢'&÷w6æp¢Â÷à¢ÂöFcà ¢ÆFb6Æ74æÖSÒ'76R×Ó#à¢²ò¢&öö¶Ö&¶ÆWB'WGFöâ¢÷Ð¢ÆFb6Æ74æÖSÒ&&÷&FW"&÷&FW"Öw&Ó#&÷VæFVBÖÆrÓ#à¢Ç6Æ74æÖSÒ'FWB×6ÒFWBÖw&ÓcÖ"ÓB#à¢â&vBÖ6Æ6²FR'WGFöâ&VÆ÷ræB6VÆV7B&&öö¶Ö&²F2Ææ² ¢Â÷à¢Æ¢&Vc×¶&öö¶Ö&¶ÆWD6öFWÐ¢6Æ74æÖSÒ&æÆæRÖ&Æö6²ÓbÓ2&rÖw&ÓFWB×vFR&÷VæFVBÖÆrföçBÖÖVFVÒ÷fW#¦&rÖw&ÓG&ç6FöâÖ6öÆ÷'27W'6÷"Öw&"7FfS¦7W'6÷"Öw&&&ær ¢öä6Æ6³×²RÓâRç&WfVçDFVfVÇBÐ¢à¢²ÆVfærF2W&P¢Âöà¢Ç6Æ74æÖSÒ'FWB×2FWBÖw&ÓS×BÓB#à¢FVâæÖRB6öÖWFærÆ¶R'6fR"f÷"V6²66W70¢Â÷à¢ÂöFcà ¢²ò¢÷rBv÷&·2¢÷Ð¢ÆFb6Æ74æÖSÒ&&÷&FW"&÷&FW"Öw&Ó#&÷VæFVBÖÆrÓ#à¢Æ"6Æ74æÖSÒ'FWBÖÆrföçBÖÖVFVÒFWBÖw&ÓÖ"ÓB#à¢÷rBv÷&·0¢Âö#à¢ÆöÂ6Æ74æÖSÒ'76R×Ó2FWB×6ÒFWBÖw&Óc#à¢ÆÆà¢Ç7G&öær6Æ74æÖSÒ'FWBÖw&Ó#ããÂ÷7G&öæsâ6Æ6²FR'WGFöà¢vÆR'&÷w6ærçvP¢ÂöÆà¢ÆÆà¢Ç7G&öær6Æ74æÖSÒ'FWBÖw&Ó#ã"ãÂ÷7G&öæsâ&WfWræ@¢6öæf&ÒFR&öö¶Ö&°¢ÂöÆà¢ÆÆà¢Ç7G&öær6Æ74æÖSÒ'FWBÖw&Ó#ã2ãÂ÷7G&öæsâBV'2öà¢÷W"&öfÆRWFöÖF6ÆÇ¢ÂöÆà¢ÂööÃà¢ÂöFcà ¢²ò¢ÖçVÂ6öFR¢÷Ð¢ÆFb6Æ74æÖSÒ&&÷&FW"&÷&FW"Öw&Ó#&÷VæFVBÖÆrÓ#à¢Æ"6Æ74æÖSÒ'FWBÖÆrföçBÖÖVFVÒFWBÖw&ÓÖ"ÓB#à¢÷"FBÖçVÆÇ¢Âö#à¢Ç6Æ74æÖSÒ'FWB×6ÒFWBÖw&ÓcÖ"ÓB#à¢bFR&öö¶Ö&¶ÆWB&ö6FöW6âwBv÷&²Â6÷F26öFS ¢Â÷à¢ÆFb6Æ74æÖSÒ&&rÖw&ÓSÓB&÷VæFVB&÷&FW"&÷&FW"Öw&Ó#Ö"ÓBföçBÖÖöæòFWB×2÷fW&fÆ÷r×ÖWFò#à¢¶&öö¶Ö&¶ÆWD6öFWÐ¢ÂöFcà¢Æ'WGFöà¢öä6Æ6³×¶æFÆT6÷Ð¢6Æ74æÖSÒ'ÓBÓ"&÷&FW"&÷&FW"Öw&Ó3&÷VæFVBÖÆrFWB×6ÒföçBÖÖVFVÒFWBÖw&Ó÷fW#¦&÷&FW"Öw&ÓCG&ç6FöâÖ6öÆ÷'2 ¢à¢¶6÷VBò~)É26÷VBr¢v6÷6öFRwÐ¢Âö'WGFöãà¢ÂöFcà ¢ÆFb6Æ74æÖSÒ'FWBÖ6VçFW"BÓ&÷&FW"×B&÷&FW"Öw&Ó##à¢ÄÆæ°¢&VcÒ"öF66÷fW" ¢6Æ74æÖSÒ'FWB×6ÒFWBÖw&Óc÷fW#§FWBÖw&Ó ¢à¢(i&6²FòF66÷fW ¢ÂôÆæ³à¢ÂöFcà¢ÂöFcà¢ÂöFcà¢ÂöÖãà¢§Ð
