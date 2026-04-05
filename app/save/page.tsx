@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export default function SavePage() {
+function SavePageInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
@@ -157,5 +157,17 @@ export default function SavePage() {
         </p>
       </div>
     </div>
+  )
+}
+
+export default function SavePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <p className="text-gray-500">loading...</p>
+      </div>
+    }>
+      <SavePageInner />
+    </Suspense>
   )
 }
