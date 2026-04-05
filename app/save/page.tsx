@@ -1,159 +1,161 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-type SaveState = 'loading' | 'saving' | 'saved' | 'already' | 'signed-out' | 'error'
-
-function SaveFlow() {
+export default function SavePage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = createClient()
-  const [state, setState] = useState<SaveState>('loading')
-  const [urlLabel, setUrlLabel] = useState('')
+
+  const [url, setUrl] = useState('')
+  const [title, setTitle] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const run = async () => {
-      const urlParam = searchParams.get('url')
-      if (!urlParam) { setState('error'); return }
+    const init = async () => {
+      // Check auth
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
 
-      // Show a readable version of the URL while saving
-      try { setUrlLabel(new URL(urlParam).hostname.replace('www.', '')) } catch { setUrlLabel(urlParam) }
+      if (!user) {
+        router.push('/login')
+        return
+      }
 
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { setState('signed-out'); return }
-
-      const { data: profile } = await supabase
+      // Get profile
+      const { data: profileData } = await supabase
         .from('profiles')
-        .select('id')
+        .select('*')
         .eq('id', user.id)
         .single()
 
-      if (!profile) { setState('error'); return }
+      setProfile(profileData)
 
-      setState('saving')
+      // Get URL and title from params
+      const urlParam = searchParams.get('url')
+      const titleParam = searchParams.get('title')
 
-      // Save immediately with just the URL — feels instant
-      const { data: inserted, error: insertError } = await supabase.from('bookmarks').insert({
+      setUrl(urlParam || '')
+      setTitle(titleParam || '')
+      setLoading(false)
+    }
+
+    init()
+  }, [router, supabase, searchParams])
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+
+    try {
+      if (!url) {
+        setError('URL is required')
+        return
+      }
+
+      // Fetch metadata from microlink
+      const response = await fetch(
+        `https://api.microlink.io?url=${encodeURIComponent(url)}`
+      )
+      const data = await response.json()
+
+      const { error: insertError } = await supabase.from('bookmarks').insert({
         user_id: profile.id,
-        url: urlParam,
-        title: searchParams.get('title') || urlParam,
+        url,
+        title: title || data.data?.title || url,
+        description: data.data?.description,
+        image_url: data.data?.image?.url,
+        screenshot_url: data.data?.screenshot?.url,
+        favicon_url: data.data?.logo?.url,
         tags: [],
-      }).select().single()
+      })
 
       if (insertError) {
         if (insertError.code === '23505') {
-          setState('already')
-          setTimeout(() => window.close(), 1500)
+          setError('you already saved this link')
         } else {
-          setState('error')
+          setError(insertError.message)
         }
         return
       }
 
-      // Show success right away
-      setState('saved')
-      setTimeout(() => window.close(), 1500)
+      setSaved(true)
 
-      // Enrich in the background (metadata + AI tags)
-      if (inserted) {
-        try {
-          const metaRes = await fetch(`https://api.microlink.io?url=${encodeURIComponent(urlParam)}`)
-          const meta = await metaRes.json()
-
-          // AI tags
-          let tags: string[] = []
-          try {
-            const tagRes = await fetch('/api/generate-tags', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                url: urlParam,
-                title: meta.data?.title || null,
-                description: meta.data?.description || null,
-              }),
-            })
-            const tagData = await tagRes.json()
-            tags = tagData.tags || []
-          } catch {}
-
-          await supabase.from('bookmarks').update({
-            title: meta.data?.title || urlParam,
-            description: meta.data?.description || null,
-            image_url: meta.data?.image?.url || null,
-            favicon_url: meta.data?.logo?.url || null,
-            tags,
-          }).eq('id', inserted.id)
-        } catch {}
-      }
+      // Auto-close after 1.5 seconds
+      setTimeout(() => {
+        window.close()
+      }, 1500)
+    } finally {
+      setSaving(false)
     }
+  }
 
-    run()
-  }, [searchParams, supabase])
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <p className="text-gray-500">loading...</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="min-h-screen bg-neutral-50/80 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 px-8 py-6 max-w-xs w-full text-center">
-        {state === 'loading' && (
-          <p className="text-sm text-neutral-400">loading...</p>
-        )}
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <div className="w-full max-w-sm">
+        <h1 className="text-2xl font-light text-gray-900 mb-6 text-center">
+          save this
+        </h1>
 
-        {state === 'saving' && (
-          <>
-            <div className="flex justify-center mb-3">
-              <div className="w-5 h-5 border-2 border-neutral-300 border-t-neutral-600 rounded-full animate-spin" />
-            </div>
-            <p className="text-sm font-medium text-neutral-700">Saving</p>
-            {urlLabel && <p className="text-xs text-neutral-400 mt-1">{urlLabel}</p>}
-          </>
-        )}
+        <form onSubmit={handleSave} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              url
+            </label>
+            <input
+              type="url"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-transparent text-sm"
+              required
+            />
+          </div>
 
-        {state === 'saved' && (
-          <>
-            <div className="flex justify-center mb-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center">
-                <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
-            <p className="text-sm font-medium text-neutral-700">Saved</p>
-            {urlLabel && <p className="text-xs text-neutral-400 mt-1">{urlLabel}</p>}
-          </>
-        )}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              title (optional)
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-transparent text-sm"
+            />
+          </div>
 
-        {state === 'already' && (
-          <>
-            <p className="text-sm font-medium text-neutral-700">Already saved</p>
-            {urlLabel && <p className="text-xs text-neutral-400 mt-1">{urlLabel}</p>}
-          </>
-        )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
 
-        {state === 'signed-out' && (
-          <>
-            <p className="text-sm font-medium text-neutral-700">Sign in first</p>
-            <a href="/" className="text-xs text-blue-500 hover:underline mt-2 inline-block">Go to leaving this here</a>
-          </>
-        )}
+          <button
+            type="submit"
+            disabled={saving || saved}
+            className={`w-full px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+              saved ? 'bg-green-600 text-white' : 'bg-gray-900 text-white hover:bg-gray-800'
+            }`}
+          >
+            {saved ? 'saved!' : saving ? 'saving...' : 'save'}
+          </button>
+        </form>
 
-        {state === 'error' && (
-          <p className="text-sm text-red-500">Something went wrong</p>
-        )}
+        <p className="text-xs text-gray-500 text-center mt-6">
+          {saved ? 'closing...' : 'this window will close automatically'}
+        </p>
       </div>
     </div>
-  )
-}
-
-export default function SavePage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-neutral-50/80 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 px-8 py-6 max-w-xs w-full text-center">
-          <p className="text-sm text-neutral-400">loading...</p>
-        </div>
-      </div>
-    }>
-      <SaveFlow />
-    </Suspense>
   )
 }
