@@ -39,7 +39,7 @@ function getGradient(url: string): string {
 }
 
 function getDomain(url: string): string {
-  try { return new URL(url).hostname.replace('www.', '') } catch { return url }
+  try { return new URL(url).hostname.replace('www.', '') } catch (e) { return url }
 }
 
 function getCleanTitle(title: string | null, url: string): string {
