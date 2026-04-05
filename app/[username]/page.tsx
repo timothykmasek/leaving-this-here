@@ -26,15 +26,67 @@ export default function ProfilePage() {
   const [savingUrl, setSavingUrl] = useState(false)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [editingProfile, setEditingProfile] = useState(false)
-  const [editDisplayName, setEditDisplayName] = useState('')
   const [editBio, setEditBio] = useState('')
   const [editLinks, setEditLinks] = useState<any>({})
   const [savingProfile, setSavingProfile] = useState(false)
-  const [importing, setImporting] = useState(false)
-  const [importText, setImportText] = useState('')
-  const [showImport, setShowImport] = useState(false)
-  const [saveSuccess, setSaveSuccess] = useState(false)
-  const [retagging, setRetagging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadMsg, setUploadMsg] = useState<string | null>(null)
+
+  const handleDownloadCSV = () => {
+    const rows = bookmarks.map((b) => b.url)
+    const csv = rows.join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${username}-links.csv`
+    a.click()
+  }
+
+  const handleUploadCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !profile) return
+    setUploading(true)
+    setUploadMsg(null)
+
+    try {
+      const text = await file.text()
+      const urls = text
+        .split(/[\r\n]+/)
+        .map((line) => line.trim().replace(/^["']|["']$/g, ''))
+        .filter((line) => line && (line.startsWith('http://') || line.startsWith('https://')))
+
+      if (urls.length === 0) {
+        setUploadMsg('no valid URLs found â make sure each row is a full link starting with http')
+        return
+      }
+
+      let added = 0
+      for (const linkUrl of urls) {
+        try {
+          const { error } = await supabase.from('bookmarks').insert({
+            user_id: profile.id,
+            url: linkUrl,
+            title: linkUrl,
+            tags: [],
+          })
+          if (!error) added++
+        } catch {}
+      }
+
+      // Refresh bookmarks
+      const { data: updated } = await supabase
+        .from('bookmarks')
+        .select('*')
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+      setBookmarks(updated || [])
+      setFiltered(updated || [])
+      setUploadMsg(`imported ${added} of ${urls.length} links`)
+    } finally {
+      setUploading(false)
+      e.target.value = ''
+    }
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -108,73 +160,41 @@ export default function ProfilePage() {
     ))
   }
 
-  // AI-powered tag generation — sends title + description to Claude Haiku
-  const generateTags = async (url: string, title: string | null, description: string | null): Promise<string[]> => {
-    try {
-      const res = await fetch('/api/generate-tags', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, title, description }),
-      })
-      const data = await res.json()
-      return data.tags || []
-    } catch {
-      return []
-    }
-  }
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newUrl || !profile) return
     setSavingUrl(true)
 
     try {
-      // Save immediately with just the URL — feels instant
-      const { data: inserted, error } = await supabase.from('bookmarks').insert({
+      // Fetch metadata + screenshot in parallel
+      const [metaRes, screenshotRes] = await Promise.all([
+        fetch(`https://api.microlink.io?url=${encodeURIComponent(newUrl)}`),
+        fetch(`https://api.microlink.io?url=${encodeURIComponent(newUrl)}&screenshot=true&meta=false&embed=screenshot.url`).then(r => r.text()).catch(() => ''),
+      ])
+      const meta = await metaRes.json()
+
+      const { error } = await supabase.from('bookmarks').insert({
         user_id: profile.id,
         url: newUrl,
-        title: newUrl,
+        title: meta.data?.title || newUrl,
+        description: meta.data?.description,
+        image_url: meta.data?.image?.url,
+        screenshot_url: screenshotRes || meta.data?.screenshot?.url,
+        favicon_url: meta.data?.logo?.url,
         tags: [],
-      }).select().single()
+      })
 
-      if (error || !inserted) { setSavingUrl(false); return }
-
-      // Show the card right away
-      const tempBookmark = inserted
-      setBookmarks(prev => [tempBookmark, ...prev])
-      setFiltered(prev => [tempBookmark, ...prev])
-      setNewUrl('')
-      setSavingUrl(false)
-      setSaveSuccess(true)
-      setTimeout(() => setSaveSuccess(false), 2000)
-
-      // Fetch metadata + AI tags in the background, then update
-      ;(async () => {
-        try {
-          const metaRes = await fetch(`https://api.microlink.io?url=${encodeURIComponent(tempBookmark.url)}`)
-          const meta = await metaRes.json()
-
-          const autoTags = await generateTags(
-            tempBookmark.url,
-            meta.data?.title,
-            meta.data?.description
-          )
-          const updates = {
-            title: meta.data?.title || tempBookmark.url,
-            description: meta.data?.description || null,
-            image_url: meta.data?.image?.url || null,
-            favicon_url: meta.data?.logo?.url || null,
-            tags: autoTags,
-          }
-          await supabase.from('bookmarks').update(updates).eq('id', tempBookmark.id)
-
-          // Update local state with the enriched data
-          const enriched = { ...tempBookmark, ...updates }
-          setBookmarks(prev => prev.map(b => b.id === tempBookmark.id ? enriched : b))
-          setFiltered(prev => prev.map(b => b.id === tempBookmark.id ? enriched : b))
-        } catch {}
-      })()
-    } catch {
+      if (!error) {
+        const { data: updated } = await supabase
+          .from('bookmarks')
+          .select('*')
+          .eq('user_id', profile.id)
+          .order('created_at', { ascending: false })
+        setBookmarks(updated || [])
+        setFiltered(updated || [])
+        setNewUrl('')
+      }
+    } finally {
       setSavingUrl(false)
     }
   }
@@ -217,84 +237,6 @@ export default function ProfilePage() {
     setFiltered(update)
   }
 
-  const handleExport = () => {
-    const data = bookmarks.map(b => ({
-      url: b.url,
-      title: b.title,
-      tags: b.tags || [],
-      saved: b.created_at,
-    }))
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${username}-links.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleImport = async () => {
-    if (!importText.trim() || !profile) return
-    setImporting(true)
-    const urls = importText.split('\n').map(l => l.trim()).filter(l => l && (l.startsWith('http://') || l.startsWith('https://')))
-    const existing = new Set(bookmarks.map(b => b.url))
-
-    for (const url of urls) {
-      if (existing.has(url)) continue
-      try {
-        const metaRes = await fetch(`https://api.microlink.io?url=${encodeURIComponent(url)}`)
-        const meta = await metaRes.json()
-        await supabase.from('bookmarks').insert({
-          user_id: profile.id,
-          url,
-          title: meta.data?.title || url,
-          description: meta.data?.description,
-          image_url: meta.data?.image?.url,
-          favicon_url: meta.data?.logo?.url,
-          tags: [],
-        })
-      } catch {
-        await supabase.from('bookmarks').insert({
-          user_id: profile.id,
-          url,
-          title: url,
-          tags: [],
-        })
-      }
-    }
-
-    // Reload bookmarks
-    const { data: updated } = await supabase
-      .from('bookmarks')
-      .select('*')
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false })
-    setBookmarks(updated || [])
-    setFiltered(updated || [])
-    setImportText('')
-    setShowImport(false)
-    setImporting(false)
-  }
-
-  // Re-tag all bookmarks using AI tagger
-  const handleRetagAll = async () => {
-    if (!profile) return
-    setRetagging(true)
-    const updated = [...bookmarks]
-    for (let i = 0; i < updated.length; i++) {
-      const b = updated[i]
-      const newTags = await generateTags(b.url, b.title, b.description)
-      if (newTags.length > 0) {
-        await supabase.from('bookmarks').update({ tags: newTags }).eq('id', b.id)
-        updated[i] = { ...b, tags: newTags }
-      }
-      // Update UI progressively so you can see it working
-      setBookmarks([...updated])
-      setFiltered([...updated])
-    }
-    setRetagging(false)
-  }
-
   // Get all tags
   const allTags = Array.from(new Set(bookmarks.flatMap((b) => b.tags || []))).sort()
 
@@ -320,17 +262,17 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-white">
-      <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
         {/* Profile header */}
-        <div className="mb-6 border-b border-gray-100 pb-6">
+        <div className="mb-12 border-b border-gray-100 pb-8">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <h1 className="text-3xl font-light text-gray-900 mb-2">
-                {(profile.display_name || profile.username)}&rsquo;s links
+                {profile.display_name || profile.username}
               </h1>
               {profile.bio && <p className="text-gray-500 text-sm mb-3">{profile.bio}</p>}
               {!profile.bio && isOwner && !editingProfile && (
-                <p className="text-gray-300 text-sm mb-3 italic cursor-pointer hover:text-gray-400" onClick={() => { setEditingProfile(true); setEditDisplayName(profile.display_name || ''); setEditBio(''); setEditLinks(profile.links || {}) }}>
+                <p className="text-gray-300 text-sm mb-3 italic cursor-pointer hover:text-gray-400" onClick={() => { setEditingProfile(true); setEditBio(''); setEditLinks(profile.links || {}) }}>
                   add a short bio...
                 </p>
               )}
@@ -354,7 +296,7 @@ export default function ProfilePage() {
             <div className="flex gap-2">
               {isOwner && !editingProfile && (
                 <button
-                  onClick={() => { setEditingProfile(true); setEditDisplayName(profile.display_name || ''); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
+                  onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
                   className="px-4 py-2 text-sm text-gray-400 hover:text-gray-900 transition-colors"
                 >
                   edit profile
@@ -378,17 +320,6 @@ export default function ProfilePage() {
           {/* Edit profile form */}
           {editingProfile && (
             <div className="bg-gray-50 rounded-lg border border-gray-100 p-6 mb-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">display name</label>
-                <input
-                  type="text"
-                  value={editDisplayName}
-                  onChange={(e) => setEditDisplayName(e.target.value)}
-                  placeholder="your name"
-                  maxLength={50}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                />
-              </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">bio</label>
                 <input
@@ -443,19 +374,17 @@ export default function ProfilePage() {
                   disabled={savingProfile}
                   onClick={async () => {
                     setSavingProfile(true)
-                    // Clean empty values from links
                     const cleanLinks: any = {}
                     if (editLinks.twitter?.trim()) cleanLinks.twitter = editLinks.twitter.trim()
                     if (editLinks.linkedin?.trim()) cleanLinks.linkedin = editLinks.linkedin.trim()
                     if (editLinks.website?.trim()) cleanLinks.website = editLinks.website.trim()
 
                     await supabase.from('profiles').update({
-                      display_name: editDisplayName.trim() || null,
                       bio: editBio.trim() || null,
                       links: cleanLinks,
                     }).eq('id', profile.id)
 
-                    setProfile({ ...profile, display_name: editDisplayName.trim() || null, bio: editBio.trim() || null, links: cleanLinks })
+                    setProfile({ ...profile, bio: editBio.trim() || null, links: cleanLinks })
                     setEditingProfile(false)
                     setSavingProfile(false)
                   }}
@@ -467,80 +396,53 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between">
-            <div className="flex gap-8 text-sm">
-              <span><strong className="text-gray-900">{bookmarks.length}</strong> <span className="text-gray-500">links</span></span>
-              <span><strong className="text-gray-900">{followers}</strong> <span className="text-gray-500">followers</span></span>
-              <span><strong className="text-gray-900">{following}</strong> <span className="text-gray-500">following</span></span>
-            </div>
-            {isOwner && (
-              <div className="flex gap-3 text-xs text-gray-400">
-                <button onClick={handleRetagAll} disabled={retagging} className="hover:text-gray-600 disabled:opacity-50">
-                  {retagging ? 'retagging...' : 're-tag all'}
-                </button>
-                <button onClick={() => setShowImport(!showImport)} className="hover:text-gray-600">import</button>
-                <button onClick={handleExport} className="hover:text-gray-600">export</button>
-              </div>
-            )}
+          <div className="flex gap-8 text-sm">
+            <span><strong className="text-gray-900">{bookmarks.length}</strong> <span className="text-gray-500">links</span></span>
+            <span><strong className="text-gray-900">{followers}</strong> <span className="text-gray-500">followers</span></span>
+            <span><strong className="text-gray-900">{following}</strong> <span className="text-gray-500">following</span></span>
           </div>
-
-          {/* Bulk import panel */}
-          {showImport && (
-            <div className="mt-4 bg-gray-50 rounded-lg border border-gray-100 p-4 space-y-3">
-              <p className="text-xs text-gray-500">Paste URLs, one per line:</p>
-              <textarea
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                placeholder={"https://example.com\nhttps://another-site.com"}
-                rows={5}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"
-              />
-              <div className="flex gap-2 justify-end">
-                <button onClick={() => { setShowImport(false); setImportText('') }} className="px-3 py-1.5 text-xs text-gray-500 hover:text-gray-900">cancel</button>
-                <button
-                  onClick={handleImport}
-                  disabled={importing || !importText.trim()}
-                  className="px-4 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-medium hover:bg-gray-800 disabled:opacity-50"
-                >
-                  {importing ? 'importing...' : 'import links'}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
+
+        {/* Bookmarklet nudge (owner only, when few bookmarks) */}
+        {isOwner && bookmarks.length < 4 && (
+          <Link
+            href="/bookmarklet"
+            className="block mb-8 p-4 border border-dashed border-gray-200 rounded-lg hover:border-gray-400 transition-colors group"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-900">save from anywhere</p>
+                <p className="text-xs text-gray-400 mt-0.5">add a bookmark button to your browser â save any page in one click</p>
+              </div>
+              <span className="text-xs text-gray-400 group-hover:text-gray-600">set up â</span>
+            </div>
+          </Link>
+        )}
 
         {/* Save input (owner only) */}
         {isOwner && (
-          <div className="mb-6">
-            <form onSubmit={handleSave}>
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  placeholder="save a link..."
-                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 text-sm"
-                />
-                <button
-                  type="submit"
-                  disabled={savingUrl || !newUrl}
-                  className="px-6 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm"
-                >
-                  {savingUrl ? 'saving...' : 'save'}
-                </button>
-                {saveSuccess && (
-                  <span className="text-sm text-green-600 self-center animate-pulse">saved!</span>
-                )}
-              </div>
-            </form>
-            <p className="text-xs text-gray-400 mt-2">
-              or <Link href="/bookmarklet" className="underline hover:text-gray-600">add the save button</Link> to your browser to save from any page
-            </p>
-          </div>
+          <form onSubmit={handleSave} className="mb-12">
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={newUrl}
+                onChange={(e) => setNewUrl(e.target.value)}
+                placeholder="paste a link..."
+                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 text-sm"
+              />
+              <button
+                type="submit"
+                disabled={savingUrl || !newUrl}
+                className="px-6 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm"
+              >
+                {savingUrl ? 'saving...' : 'save'}
+              </button>
+            </div>
+          </form>
         )}
 
         {/* Search + tags */}
-        <div className="mb-5 space-y-3">
+        <div className="mb-8 space-y-4">
           <SearchBar onSearch={handleSearch} placeholder="search links..." />
           {allTags.length > 0 && (
             <div className="flex gap-2 flex-wrap">
@@ -557,6 +459,29 @@ export default function ProfilePage() {
                   {tag}
                 </button>
               ))}
+            </div>
+          )}
+          {/* CSV import/export (owner only) */}
+          {isOwner && (
+            <div className="flex items-center gap-4 pt-2">
+              <button
+                onClick={handleDownloadCSV}
+                disabled={bookmarks.length === 0}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-30"
+              >
+                download links as csv
+              </button>
+              <label className="text-xs text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+                {uploading ? 'importing...' : 'import from csv'}
+                <input
+                  type="file"
+                  accept=".csv,.txt"
+                  onChange={handleUploadCSV}
+                  className="hidden"
+                  disabled={uploading}
+                />
+              </label>
+              {uploadMsg && <span className="text-xs text-gray-500">{uploadMsg}</span>}
             </div>
           )}
         </div>
