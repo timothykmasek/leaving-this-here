@@ -101,6 +101,7 @@ export default function DiscoverPage() {
                 <BookmarkCard
                   id={bookmark.id}
                   title={bookmark.title}
+                  description={bookmark.description}
                   url={bookmark.url}
                   imageUrl={bookmark.image_url}
                   screenshotUrl={bookmark.screenshot_url}
