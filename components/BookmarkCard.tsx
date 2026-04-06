@@ -14,6 +14,7 @@ interface BookmarkCardProps {
   allTags?: string[]
   isOwner: boolean
   isPrivate: boolean
+  cardType?: 'composite' | 'fullbleed' | 'screenshot' | 'profile' | null
   onDelete?: (id: string) => void
   onPrivacyToggle?: (id: string, isPrivate: boolean) => void
   onTagsUpdate?: (id: string, tags: string[]) => void
@@ -52,12 +53,262 @@ function getCleanTitle(title: string | null, url: string): string {
   return cleaned
 }
 
+function getBrandColors(domain: string): { bg: string; text: string; gradient: string } {
+  const colors: Record<string, { bg: string; text: string; gradient: string }> = {
+    instagram: {
+      bg: 'bg-gradient-to-br from-purple-400 via-pink-500 to-red-500',
+      text: 'text-white',
+      gradient: 'from-purple-400 via-pink-500 to-red-500',
+    },
+    twitter: {
+      bg: 'bg-[#1da1f2]',
+      text: 'text-white',
+      gradient: '#1da1f2',
+    },
+    x: {
+      bg: 'bg-black',
+      text: 'text-white',
+      gradient: 'from-black to-gray-900',
+    },
+    linkedin: {
+      bg: 'bg-[#0a66c2]',
+      text: 'text-white',
+      gradient: '#0a66c2',
+    },
+    tiktok: {
+      bg: 'bg-gradient-to-br from-black via-gray-900 to-black',
+      text: 'text-white',
+      gradient: 'from-black via-gray-900 to-black',
+    },
+    pinterest: {
+      bg: 'bg-[#e60023]',
+      text: 'text-white',
+      gradient: '#e60023',
+    },
+    threads: {
+      bg: 'bg-black',
+      text: 'text-white',
+      gradient: 'from-black to-gray-900',
+    },
+  }
+
+  const domainLower = domain.toLowerCase()
+  for (const [key, value] of Object.entries(colors)) {
+    if (domainLower.includes(key)) {
+      return value
+    }
+  }
+
+  return {
+    bg: 'bg-gradient-to-br from-gray-100 to-gray-50',
+    text: 'text-gray-600',
+    gradient: 'from-gray-100 to-gray-50',
+  }
+}
+
+function CompositeCard({ imageUrl, title, faviconUrl, url, isPrivate }: any) {
+  const [imgError, setImgError] = useState(false)
+  const domain = getDomain(url)
+  const cleanTitle = getCleanTitle(title, url)
+
+  return (
+    <div className="bg-[#faf9f7] rounded-xl overflow-hidden flex flex-col h-full border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all">
+      {/* Small favicon at top */}
+      <div className="flex items-center gap-2 p-3 border-b border-gray-200">
+        {faviconUrl && !imgError ? (
+          <img
+            src={faviconUrl}
+            alt=""
+            className="w-5 h-5 rounded-full"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xs font-medium">
+            {domain.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <span className="text-xs text-gray-600 font-medium truncate">{domain}</span>
+      </div>
+
+      {/* Title */}
+      <div className="px-3 py-2">
+        <h3 className="font-bold text-sm leading-tight text-gray-900 line-clamp-3">
+          {cleanTitle}
+        </h3>
+      </div>
+
+      {/* Image hero */}
+      {imageUrl && (
+        <div className="relative flex-1 min-h-[120px] bg-gray-200">
+          <img
+            src={imageUrl}
+            alt={cleanTitle}
+            className="w-full h-full object-cover"
+          />
+        </div>
+      )}
+
+      {isPrivate && (
+        <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
+          private
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FullbleedCard({ imageUrl, title, url, isPrivate }: any) {
+  const [imgError, setImgError] = useState(false)
+  const domain = getDomain(url)
+  const cleanTitle = getCleanTitle(title, url)
+
+  return (
+    <div className="relative w-full aspect-[4/3] overflow-hidden bg-white rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group">
+      {imageUrl && !imgError ? (
+        <img
+          src={imageUrl}
+          alt={cleanTitle}
+          className="w-full h-full object-contain"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400">
+          <span className="text-xs">no image</span>
+        </div>
+      )}
+
+      {isPrivate && (
+        <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
+          private
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ScreenshotCard({ imageUrl, title, url, isPrivate }: any) {
+  const [imgError, setImgError] = useState(false)
+  const domain = getDomain(url)
+  const cleanTitle = getCleanTitle(title, url)
+  const gradient = getGradient(url)
+
+  return (
+    <div className={`relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group bg-gradient-to-br ${gradient}`}>
+      {imageUrl && !imgError ? (
+        <img
+          src={imageUrl}
+          alt={cleanTitle}
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <span className="text-xs text-gray-400">loading...</span>
+        </div>
+      )}
+
+      {isPrivate && (
+        <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
+          private
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ProfileCard({ title, faviconUrl, url, isPrivate }: any) {
+  const [imgError, setImgError] = useState(false)
+  const domain = getDomain(url)
+  const cleanTitle = getCleanTitle(title, url)
+  const colors = getBrandColors(domain)
+
+  return (
+    <div className={`relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all ${colors.bg} flex flex-col items-center justify-center p-6 gap-3`}>
+      {faviconUrl && !imgError ? (
+        <img
+          src={faviconUrl}
+          alt=""
+          className="w-16 h-16 rounded-full"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-white text-2xl font-bold">
+          {domain.charAt(0).toUpperCase()}
+        </div>
+      )}
+      <p className={`text-center text-sm font-semibold line-clamp-2 ${colors.text}`}>
+        {cleanTitle}
+      </p>
+
+      {isPrivate && (
+        <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
+          private
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DefaultCard({ imageUrl, screenshotUrl, url, title, faviconUrl, isPrivate, gradient }: any) {
+  const [imgError, setImgError] = useState(false)
+  const domain = getDomain(url)
+  const cleanTitle = getCleanTitle(title, url)
+  const thumbnailUrl = `https://image.thum.io/get/width/800/crop/300/${url}`
+  const displayImage = screenshotUrl || imageUrl || thumbnailUrl
+
+  return (
+    <div className="relative">
+      <div className="group flex flex-col bg-white border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all overflow-hidden rounded-xl isolate">
+        {/* Hero image */}
+        <div className={`relative w-full aspect-[4/3] overflow-hidden bg-gradient-to-br ${gradient}`}>
+          {!imgError ? (
+            <img
+              src={displayImage}
+              alt={cleanTitle}
+              className="w-full h-full object-cover object-top"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6">
+              {faviconUrl ? (
+                <img
+                  src={faviconUrl}
+                  alt=""
+                  className="w-8 h-8 rounded opacity-40"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                />
+              ) : (
+                <div className="w-8 h-8 rounded bg-gray-200/50 flex items-center justify-center text-gray-400 text-xs font-medium">
+                  {domain.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="text-xs text-gray-400 font-medium tracking-wide">{domain}</span>
+            </div>
+          )}
+
+          {isPrivate && (
+            <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
+              private
+            </div>
+          )}
+        </div>
+
+        {/* Caption */}
+        <div className="px-3 py-2.5">
+          <h3 className="font-medium text-gray-900 line-clamp-1 text-sm leading-snug">
+            {cleanTitle}
+          </h3>
+          <p className="text-[11px] text-gray-400 mt-0.5">{domain}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function BookmarkCard({
   id, title, description, url, imageUrl, screenshotUrl, faviconUrl,
-  tags, allTags = [], isOwner, isPrivate, onDelete, onPrivacyToggle, onTagsUpdate,
+  tags, allTags = [], isOwner, isPrivate, onDelete, onPrivacyToggle, onTagsUpdate, cardType,
 }: BookmarkCardProps) {
-  const [imgError, setImgError] = useState(false)
-  const [screenshotFallback, setScreenshotFallback] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [editingTags, setEditingTags] = useState(false)
   const [tagInput, setTagInput] = useState('')
@@ -66,18 +317,9 @@ export function BookmarkCard({
   const menuRef = useRef<HTMLDivElement>(null)
   const tagInputRef = useRef<HTMLInputElement>(null)
 
-  // When main image fails, try fetching a live screenshot (but don't hang forever)
-  useEffect(() => {
-    if (imgError && !screenshotFallback) {
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 5000)
-      fetch(`https://api.microlink.io?url=${encodeURIComponent(url)}&screenshot=true&meta=false&embed=screenshot.url`, { signal: controller.signal })
-        .then(r => r.text())
-        .then(text => { if (text && text.startsWith('http')) setScreenshotFallback(text) })
-        .catch(() => {})
-        .finally(() => clearTimeout(timeout))
-    }
-  }, [imgError, url, screenshotFallback])
+  const domain = getDomain(url)
+  const cleanTitle = getCleanTitle(title, url)
+  const gradient = getGradient(url)
 
   // Close menu on outside click
   useEffect(() => {
@@ -101,11 +343,6 @@ export function BookmarkCard({
       tagInputRef.current.focus()
     }
   }, [editingTags])
-
-  const displayImage = !imgError ? (screenshotUrl || imageUrl) : screenshotFallback
-  const gradient = getGradient(url)
-  const domain = getDomain(url)
-  const cleanTitle = getCleanTitle(title, url)
 
   // Tag suggestions
   const suggestions = tagInput
@@ -147,55 +384,58 @@ export function BookmarkCard({
     }
   }
 
+  // Render card based on type
+  const cardContent = (
+    <>
+      {cardType === 'composite' && (
+        <CompositeCard
+          imageUrl={imageUrl}
+          title={title}
+          faviconUrl={faviconUrl}
+          url={url}
+          isPrivate={isPrivate}
+        />
+      )}
+      {cardType === 'fullbleed' && (
+        <FullbleedCard imageUrl={imageUrl} title={title} url={url} isPrivate={isPrivate} />
+      )}
+      {cardType === 'screenshot' && (
+        <ScreenshotCard imageUrl={screenshotUrl || imageUrl} title={title} url={url} isPrivate={isPrivate} />
+      )}
+      {cardType === 'profile' && (
+        <ProfileCard title={title} faviconUrl={faviconUrl} url={url} isPrivate={isPrivate} />
+      )}
+      {!cardType && (
+        <DefaultCard
+          imageUrl={imageUrl}
+          screenshotUrl={screenshotUrl}
+          url={url}
+          title={title}
+          faviconUrl={faviconUrl}
+          isPrivate={isPrivate}
+          gradient={gradient}
+        />
+      )}
+    </>
+  )
+
   return (
     <div className="relative">
       <a href={url} target="_blank" rel="noopener noreferrer">
-        <div className="group flex flex-col bg-white border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all overflow-hidden rounded-xl isolate">
-          {/* Hero image */}
-          <div className={`relative w-full aspect-[4/3] overflow-hidden bg-gradient-to-br ${gradient}`}>
-            {displayImage ? (
-              <img
-                src={displayImage}
-                alt={cleanTitle}
-                className="w-full h-full object-cover object-top"
-                onError={() => setImgError(true)}
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6">
-                {faviconUrl ? (
-                  <img
-                    src={faviconUrl}
-                    alt=""
-                    className="w-8 h-8 rounded opacity-40"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded bg-gray-200/50 flex items-center justify-center text-gray-400 text-xs font-medium">
-                    {domain.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <span className="text-xs text-gray-400 font-medium tracking-wide">{domain}</span>
-              </div>
-            )}
-
-            {isPrivate && (
-              <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-                private
-              </div>
-            )}
-          </div>
-
-          {/* Caption */}
-          <div className="px-3 py-2.5">
-            <h3 className="font-medium text-gray-900 line-clamp-1 text-sm leading-snug">
-              {cleanTitle}
-            </h3>
-            <p className="text-[11px] text-gray-400 mt-0.5">{domain}</p>
-          </div>
-        </div>
+        {cardContent}
       </a>
 
-      {/* Owner menu â subtle "..." button in top right */}
+      {/* Info section (always shown below) */}
+      {cardType && (
+        <div className="px-3 py-2.5 bg-white border-t border-gray-100 rounded-b-xl">
+          <h3 className="font-medium text-gray-900 line-clamp-1 text-sm leading-snug">
+            {cleanTitle}
+          </h3>
+          <p className="text-[11px] text-gray-400 mt-0.5">{domain}</p>
+        </div>
+      )}
+
+      {/* Owner menu — subtle "..." button in top right */}
       {isOwner && (
         <div className="absolute top-2 right-2" ref={menuRef}>
           <button
@@ -205,7 +445,7 @@ export function BookmarkCard({
             onMouseEnter={(e) => { (e.target as HTMLElement).style.opacity = '1' }}
             onMouseLeave={(e) => { if (!menuOpen) (e.target as HTMLElement).style.opacity = '' }}
           >
-            Â·Â·Â·
+            ···
           </button>
 
           {menuOpen && !editingTags && (

@@ -56,7 +56,7 @@ export default function ProfilePage() {
         .filter((line) => line && (line.startsWith('http://') || line.startsWith('https://')))
 
       if (urls.length === 0) {
-        setUploadMsg('no valid URLs found â make sure each row is a full link starting with http')
+        setUploadMsg('no valid URLs found — make sure each row is a full link starting with http')
         return
       }
 
@@ -70,7 +70,7 @@ export default function ProfilePage() {
             tags: [],
           })
           if (!error) added++
-        } catch {}
+        } catch (e) {}
       }
 
       // Refresh bookmarks
@@ -166,21 +166,25 @@ export default function ProfilePage() {
     setSavingUrl(true)
 
     try {
-      // Fetch metadata + screenshot in parallel
-      const [metaRes, screenshotRes] = await Promise.all([
-        fetch(`https://api.microlink.io?url=${encodeURIComponent(newUrl)}`),
-        fetch(`https://api.microlink.io?url=${encodeURIComponent(newUrl)}&screenshot=true&meta=false&embed=screenshot.url`).then(r => r.text()).catch(() => ''),
-      ])
+      // Fetch metadata from our own API (no third-party rate limits)
+      const metaRes = await fetch('/api/fetch-metadata', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: newUrl }),
+      })
       const meta = await metaRes.json()
+
+      // Generate screenshot URL for landing pages / fallback
+      const ssUrl = `https://api.screenshotone.com/take?access_key=C3xT-xTVEXsWww&url=${encodeURIComponent(newUrl)}&viewport_width=1280&viewport_height=900&format=webp&image_quality=90&block_ads=true&block_cookie_banners=true&block_chats=true&delay=2&cache=true&cache_ttl=86400`
 
       const { error } = await supabase.from('bookmarks').insert({
         user_id: profile.id,
         url: newUrl,
-        title: meta.data?.title || newUrl,
-        description: meta.data?.description,
-        image_url: meta.data?.image?.url,
-        screenshot_url: screenshotRes || meta.data?.screenshot?.url,
-        favicon_url: meta.data?.logo?.url,
+        title: meta.title || newUrl,
+        description: meta.description,
+        image_url: meta.image || null,
+        screenshot_url: ssUrl,
+        favicon_url: meta.favicon,
         tags: [],
       })
 
@@ -412,9 +416,9 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-900">save from anywhere</p>
-                <p className="text-xs text-gray-400 mt-0.5">add a bookmark button to your browser â save any page in one click</p>
+                <p className="text-xs text-gray-400 mt-0.5">add a bookmark button to your browser — save any page in one click</p>
               </div>
-              <span className="text-xs text-gray-400 group-hover:text-gray-600">set up â</span>
+              <span className="text-xs text-gray-400 group-hover:text-gray-600">set up →</span>
             </div>
           </Link>
         )}
@@ -503,6 +507,7 @@ export default function ProfilePage() {
                 allTags={allTags}
                 isOwner={isOwner}
                 isPrivate={b.is_private}
+                cardType={b.card_type}
                 onDelete={handleDelete}
                 onPrivacyToggle={handlePrivacyToggle}
                 onTagsUpdate={handleTagsUpdate}
