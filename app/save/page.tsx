@@ -67,7 +67,7 @@ function SavePageInner() {
       )
       const data = await response.json()
 
-      const { error: insertError } = await supabase.from('bookmarks').insert({
+      const { data: inserted, error: insertError } = await supabase.from('bookmarks').insert({
         user_id: profile.id,
         url,
         title: title || data.data?.title || url,
@@ -76,7 +76,7 @@ function SavePageInner() {
         screenshot_url: data.data?.screenshot?.url,
         favicon_url: data.data?.logo?.url,
         tags: [],
-      })
+      }).select('id').single()
 
       if (insertError) {
         if (insertError.code === '23505') {
@@ -85,6 +85,15 @@ function SavePageInner() {
           setError(insertError.message)
         }
         return
+      }
+
+      // Generate embedding in the background (non-fatal)
+      if (inserted?.id) {
+        fetch('/api/embed-bookmark', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: inserted.id }),
+        }).catch(() => {})
       }
 
       setSaved(true)
