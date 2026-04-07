@@ -124,15 +124,16 @@ function extractMetaPrefix(html: string, prefix: 'og' | 'twitter'): Record<strin
     const attrs = match[1]
 
     // Extract property= or name=
-    const propMatch = attrs.match(/(?:property|name)=["']([^"']+)["']/i)
+    const propMatch = attrs.match(/(?:property|name)=(["'])([^"']+)\1/i)
     if (!propMatch) continue
-    const prop = propMatch[1].toLowerCase()
+    const prop = propMatch[2].toLowerCase()
     if (!prop.startsWith(`${prefix}:`)) continue
 
-    // Extract content=
-    const contentMatch = attrs.match(/content=["']([^"']*)["']/i)
+    // Extract content= (using backref so apostrophes inside double-quoted
+    // values don't prematurely terminate the match, e.g. content="Men's Health")
+    const contentMatch = attrs.match(/content=(["'])([\s\S]*?)\1/i)
     if (!contentMatch) continue
-    const content = decodeHtmlEntities(contentMatch[1]).trim()
+    const content = decodeHtmlEntities(contentMatch[2]).trim()
     if (!content) continue
 
     // Strip the prefix: "og:title" → "title", "og:image:width" → "image:width"
@@ -153,13 +154,13 @@ function extractMetaNames(html: string): Record<string, string> {
   let match: RegExpExecArray | null
   while ((match = regex.exec(html)) !== null) {
     const attrs = match[1]
-    const nameMatch = attrs.match(/name=["']([^"']+)["']/i)
+    const nameMatch = attrs.match(/name=(["'])([^"']+)\1/i)
     if (!nameMatch) continue
-    const name = nameMatch[1].toLowerCase()
+    const name = nameMatch[2].toLowerCase()
     if (name.startsWith('og:') || name.startsWith('twitter:')) continue
-    const contentMatch = attrs.match(/content=["']([^"']*)["']/i)
+    const contentMatch = attrs.match(/content=(["'])([\s\S]*?)\1/i)
     if (!contentMatch) continue
-    const content = decodeHtmlEntities(contentMatch[1]).trim()
+    const content = decodeHtmlEntities(contentMatch[2]).trim()
     if (!content) continue
     if (!(name in result)) result[name] = content
   }
