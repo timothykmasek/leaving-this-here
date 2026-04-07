@@ -36,8 +36,14 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect these routes — redirect to login if not signed in
-  const protectedPaths = ['/discover', '/bookmarklet', '/save', '/setup']
+  // Protect these routes — redirect to login if not signed in.
+  // NOTE: /save and /bookmarklet are intentionally NOT protected.
+  //   - /save needs to preserve the ?url= and ?title= query params that the
+  //     bookmarklet sends; a middleware redirect would lose them. The page
+  //     handles the signed-out state itself with a "Sign in first" message.
+  //   - /bookmarklet is a public setup/helper page so prospective users can
+  //     preview how saving works before signing up.
+  const protectedPaths = ['/discover', '/setup']
   if (protectedPaths.includes(request.nextUrl.pathname) && !user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
@@ -46,5 +52,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/discover', '/bookmarklet', '/save', '/setup'],
+  matcher: ['/discover', '/setup'],
 }

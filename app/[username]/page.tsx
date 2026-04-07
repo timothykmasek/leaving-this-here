@@ -7,6 +7,45 @@ import { BookmarkCard } from '@/components/BookmarkCard'
 import { SearchBar } from '@/components/SearchBar'
 import Link from 'next/link'
 
+// Token-based search with synonym expansion — a deliberate stopgap before
+// real embeddings. Lets queries like "can" find "sexywater" (beverage brand).
+const SYNONYMS: Record<string, string[]> = {
+  can: ['beverage', 'drink', 'soda', 'water', 'canned', 'bottle'],
+  drink: ['beverage', 'can', 'soda', 'water', 'cocktail'],
+  beverage: ['drink', 'can', 'soda', 'water'],
+  water: ['drink', 'beverage', 'can', 'hydration'],
+  food: ['recipe', 'cooking', 'meal', 'kitchen', 'restaurant'],
+  recipe: ['food', 'cooking', 'meal'],
+  car: ['vehicle', 'auto', 'automobile', 'driving'],
+  clothes: ['fashion', 'apparel', 'clothing', 'style', 'outfit'],
+  fashion: ['clothes', 'apparel', 'clothing', 'style'],
+  home: ['house', 'interior', 'decor', 'furniture'],
+  house: ['home', 'interior', 'decor'],
+  design: ['ui', 'ux', 'graphic', 'typography', 'visual'],
+  tech: ['technology', 'software', 'hardware', 'gadget'],
+  ai: ['ml', 'artificial intelligence', 'machine learning', 'llm'],
+  money: ['finance', 'crypto', 'investing', 'bank'],
+  travel: ['trip', 'vacation', 'flight', 'hotel'],
+}
+
+function expandTokens(query: string): string[] {
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean)
+  const expanded = new Set<string>(tokens)
+  for (const t of tokens) {
+    if (SYNONYMS[t]) {
+      for (const s of SYNONYMS[t]) expanded.add(s)
+    }
+    // reverse lookup — if the token appears in a synonym list, add the key and siblings
+    for (const [key, syns] of Object.entries(SYNONYMS)) {
+      if (syns.includes(t)) {
+        expanded.add(key)
+        for (const s of syns) expanded.add(s)
+      }
+    }
+  }
+  return Array.from(expanded)
+}
+
 export default function ProfilePage() {
   const params = useParams()
   const router = useRouter()
@@ -35,6 +74,7 @@ export default function ProfilePage() {
   const [showImport, setShowImport] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [retagging, setRetagging] = useState(false)
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -98,14 +138,52 @@ export default function ProfilePage() {
     load()
   }, [username, supabase, router])
 
-  const handleSearch = (query: string) => {
-    const q = query.toLowerCase()
-    if (!q) { setFiltered(bookmarks); return }
-    setFiltered(bookmarks.filter((b) =>
-      [b.title, b.description, b.url, ...(b.tags || [])].some(
-        (field) => field && field.toLowerCase().includes(q)
-      )
-    ))
+  // Token-based fallback: hostname + synonym-expanded token matching.
+  // Used when semantic search is unavailable or returns nothing.
+  const tokenSearch = (query: string): any[] => {
+    const tokens = expandTokens(query)
+    return bookmarks.filter((b) => {
+      let host = ''
+      try { host = new URL(b.url).hostname } catch {}
+      const haystack = [b.title, b.description, b.url, host, ...(b.tags || [])]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      return tokens.some((t) => haystack.includes(t))
+    })
+  }
+
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) { setFiltered(bookmarks); return }
+    if (!profile) return
+
+    // Try semantic search first
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, user_id: profile.id }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        const ids: string[] = (data.bookmarks || []).map((b: any) => b.id)
+        if (ids.length > 0) {
+          // Reorder the bookmarks we already have client-side so rendering
+          // uses the same BookmarkCard props without refetching.
+          const byId = new Map(bookmarks.map((b) => [b.id, b]))
+          const ordered = ids.map((id) => byId.get(id)).filter(Boolean)
+          if (ordered.length > 0) {
+            setFiltered(ordered as any[])
+            return
+          }
+        }
+      }
+    } catch {
+      // fall through to token search
+    }
+
+    // Fallback: token + synonym search
+    setFiltered(tokenSearch(query))
   }
 
   // AI-powered tag generation — sends title + description to Claude Haiku
@@ -172,6 +250,13 @@ export default function ProfilePage() {
           const enriched = { ...tempBookmark, ...updates }
           setBookmarks(prev => prev.map(b => b.id === tempBookmark.id ? enriched : b))
           setFiltered(prev => prev.map(b => b.id === tempBookmark.id ? enriched : b))
+
+          // Generate embedding for semantic search (non-fatal if it fails)
+          fetch('/api/embed-bookmark', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: tempBookmark.id }),
+          }).catch(() => {})
         } catch {}
       })()
     } catch {
@@ -299,14 +384,13 @@ export default function ProfilePage() {
   const allTags = Array.from(new Set(bookmarks.flatMap((b) => b.tags || []))).sort()
 
   const handleTagToggle = (tag: string) => {
-    const next = selectedTags.includes(tag)
-      ? selectedTags.filter((t) => t !== tag)
-      : [...selectedTags, tag]
+    // Single-select: clicking the active tag clears it, clicking a new one replaces
+    const next = selectedTags[0] === tag ? [] : [tag]
     setSelectedTags(next)
     if (next.length === 0) {
       setFiltered(bookmarks)
     } else {
-      setFiltered(bookmarks.filter((b) => next.every((t) => b.tags?.includes(t))))
+      setFiltered(bookmarks.filter((b) => b.tags?.includes(next[0])))
     }
   }
 
@@ -374,6 +458,13 @@ export default function ProfilePage() {
               )}
             </div>
           </div>
+
+          {/* Profile save error/notice */}
+          {profileSaveError && (
+            <div className="mb-4 rounded-lg border border-amber-100 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+              {profileSaveError}
+            </div>
+          )}
 
           {/* Edit profile form */}
           {editingProfile && (
@@ -443,19 +534,46 @@ export default function ProfilePage() {
                   disabled={savingProfile}
                   onClick={async () => {
                     setSavingProfile(true)
+                    setProfileSaveError(null)
+
                     // Clean empty values from links
                     const cleanLinks: any = {}
                     if (editLinks.twitter?.trim()) cleanLinks.twitter = editLinks.twitter.trim()
                     if (editLinks.linkedin?.trim()) cleanLinks.linkedin = editLinks.linkedin.trim()
                     if (editLinks.website?.trim()) cleanLinks.website = editLinks.website.trim()
 
-                    await supabase.from('profiles').update({
-                      display_name: editDisplayName.trim() || null,
-                      bio: editBio.trim() || null,
+                    const trimmedName = editDisplayName.trim() || null
+                    const trimmedBio = editBio.trim() || null
+
+                    // Try with links first
+                    const { error: errWithLinks } = await supabase.from('profiles').update({
+                      display_name: trimmedName,
+                      bio: trimmedBio,
                       links: cleanLinks,
                     }).eq('id', profile.id)
 
-                    setProfile({ ...profile, display_name: editDisplayName.trim() || null, bio: editBio.trim() || null, links: cleanLinks })
+                    if (errWithLinks) {
+                      // Fallback: retry without links (schema may be missing the column)
+                      const { error: errNoLinks } = await supabase.from('profiles').update({
+                        display_name: trimmedName,
+                        bio: trimmedBio,
+                      }).eq('id', profile.id)
+
+                      if (errNoLinks) {
+                        setProfileSaveError(`couldn't save: ${errNoLinks.message}`)
+                        setSavingProfile(false)
+                        return
+                      }
+
+                      // Saved name + bio but links column is missing
+                      setProfile({ ...profile, display_name: trimmedName, bio: trimmedBio })
+                      setProfileSaveError('saved — but social links need a db migration to persist')
+                      setEditingProfile(false)
+                      setSavingProfile(false)
+                      return
+                    }
+
+                    setProfile({ ...profile, display_name: trimmedName, bio: trimmedBio, links: cleanLinks })
                     setEditingProfile(false)
                     setSavingProfile(false)
                   }}
@@ -470,8 +588,12 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between">
             <div className="flex gap-8 text-sm">
               <span><strong className="text-gray-900">{bookmarks.length}</strong> <span className="text-gray-500">links</span></span>
-              <span><strong className="text-gray-900">{followers}</strong> <span className="text-gray-500">followers</span></span>
-              <span><strong className="text-gray-900">{following}</strong> <span className="text-gray-500">following</span></span>
+              <Link href={`/${username}/followers`} className="hover:text-gray-900 transition-colors">
+                <strong className="text-gray-900">{followers}</strong> <span className="text-gray-500">followers</span>
+              </Link>
+              <Link href={`/${username}/following`} className="hover:text-gray-900 transition-colors">
+                <strong className="text-gray-900">{following}</strong> <span className="text-gray-500">following</span>
+              </Link>
             </div>
             {isOwner && (
               <div className="flex gap-3 text-xs text-gray-400">
@@ -533,15 +655,21 @@ export default function ProfilePage() {
                 )}
               </div>
             </form>
-            <p className="text-xs text-gray-400 mt-2">
-              or <Link href="/bookmarklet" className="underline hover:text-gray-600">add the save button</Link> to your browser to save from any page
-            </p>
+            <div className="mt-3 flex items-center gap-2 text-xs text-gray-500">
+              <span className="text-gray-400">or save from any page →</span>
+              <Link
+                href="/bookmarklet"
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-gray-200 bg-white hover:border-gray-400 hover:text-gray-900 transition-colors"
+              >
+                add the save button to your browser
+              </Link>
+            </div>
           </div>
         )}
 
         {/* Search + tags */}
         <div className="mb-5 space-y-3">
-          <SearchBar onSearch={handleSearch} placeholder="search links..." />
+          <SearchBar onSearch={handleSearch} placeholder="search your mind..." />
           {allTags.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               {allTags.map((tag) => (

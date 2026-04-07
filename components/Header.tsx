@@ -52,6 +52,12 @@ export function Header() {
                 >
                   discover
                 </Link>
+                <Link
+                  href="/bookmarklet"
+                  className={`text-sm ${pathname === '/bookmarklet' ? 'text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-900'}`}
+                >
+                  save button
+                </Link>
               </>
             )}
 
@@ -65,9 +71,17 @@ export function Header() {
                 </button>
               </div>
             ) : (
-              <Link href="/login" className="text-sm text-gray-500 hover:text-gray-900">
-                sign in
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link href="/login" className="text-sm text-gray-500 hover:text-gray-900">
+                  log in
+                </Link>
+                <Link
+                  href="/login?mode=signup"
+                  className="text-sm px-4 py-1.5 bg-gray-900 text-white rounded-full hover:bg-gray-800 transition-colors"
+                >
+                  sign up
+                </Link>
+              </div>
             )}
           </div>
         </div>

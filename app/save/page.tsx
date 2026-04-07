@@ -84,6 +84,13 @@ function SaveFlow() {
             favicon_url: meta.data?.logo?.url || null,
             tags,
           }).eq('id', inserted.id)
+
+          // Generate embedding for semantic search (non-fatal)
+          fetch('/api/embed-bookmark', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: inserted.id }),
+          }).catch(() => {})
         } catch {}
       }
     }

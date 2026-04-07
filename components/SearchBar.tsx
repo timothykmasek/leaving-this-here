@@ -17,7 +17,7 @@ export function SearchBar({ onSearch, placeholder = 'search...' }: SearchBarProp
         value={query}
         onChange={(e) => { setQuery(e.target.value); onSearch(e.target.value) }}
         placeholder={placeholder}
-        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-300 text-sm"
+        className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-300 text-sm placeholder:italic placeholder:text-gray-400"
       />
       {query && (
         <button
