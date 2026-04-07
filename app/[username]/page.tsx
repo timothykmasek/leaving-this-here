@@ -185,6 +185,7 @@ export default function ProfilePage() {
         image_url: meta.image || null,
         screenshot_url: ssUrl,
         favicon_url: meta.favicon,
+        raw_metadata: meta.raw || null,
         tags: [],
       })
 

@@ -108,42 +108,44 @@ function getBrandColors(domain: string): { bg: string; text: string; gradient: s
 
 function CompositeCard({ imageUrl, title, faviconUrl, url, isPrivate }: any) {
   const [imgError, setImgError] = useState(false)
+  const [heroError, setHeroError] = useState(false)
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
 
   return (
-    <div className="bg-[#faf9f7] rounded-xl overflow-hidden flex flex-col h-full border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all">
-      {/* Small favicon at top */}
-      <div className="flex items-center gap-2 p-3 border-b border-gray-200">
+    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+      {/* Favicon + domain pill */}
+      <div className="flex items-center gap-2 px-4 pt-4 pb-2">
         {faviconUrl && !imgError ? (
           <img
             src={faviconUrl}
             alt=""
-            className="w-5 h-5 rounded-full"
+            className="w-4 h-4 rounded-sm"
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 text-xs font-medium">
+          <div className="w-4 h-4 rounded-sm bg-gray-200 flex items-center justify-center text-gray-400 text-[9px] font-medium">
             {domain.charAt(0).toUpperCase()}
           </div>
         )}
-        <span className="text-xs text-gray-600 font-medium truncate">{domain}</span>
+        <span className="text-[11px] text-gray-500 font-medium truncate tracking-tight">{domain}</span>
       </div>
 
       {/* Title */}
-      <div className="px-3 py-2">
-        <h3 className="font-bold text-sm leading-tight text-gray-900 line-clamp-3">
+      <div className="px-4 pb-3">
+        <h3 className="font-semibold text-[15px] leading-[1.3] text-gray-900 line-clamp-3 tracking-tight">
           {cleanTitle}
         </h3>
       </div>
 
       {/* Image hero */}
-      {imageUrl && (
-        <div className="relative flex-1 min-h-[120px] bg-gray-200">
+      {imageUrl && !heroError && (
+        <div className="relative aspect-[16/10] bg-gray-50 overflow-hidden mx-3 mb-3 rounded-lg">
           <img
             src={imageUrl}
             alt={cleanTitle}
             className="w-full h-full object-cover"
+            onError={() => setHeroError(true)}
           />
         </div>
       )}
@@ -425,8 +427,8 @@ export function BookmarkCard({
         {cardContent}
       </a>
 
-      {/* Info section (always shown below) */}
-      {cardType && (
+      {/* Info section — skipped for composite (renders its own title/domain) */}
+      {cardType && cardType !== 'composite' && (
         <div className="px-3 py-2.5 bg-white border-t border-gray-100 rounded-b-xl">
           <h3 className="font-medium text-gray-900 line-clamp-1 text-sm leading-snug">
             {cleanTitle}
