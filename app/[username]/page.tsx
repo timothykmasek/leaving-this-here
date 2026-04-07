@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
-import { SearchBar } from '@/components/SearchBar'
 import Link from 'next/link'
 
 export default function ProfilePage() {
@@ -29,6 +28,7 @@ export default function ProfilePage() {
   const [editBio, setEditBio] = useState('')
   const [editLinks, setEditLinks] = useState<any>({})
   const [savingProfile, setSavingProfile] = useState(false)
+  const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadMsg, setUploadMsg] = useState<string | null>(null)
 
@@ -150,14 +150,59 @@ export default function ProfilePage() {
     load()
   }, [username, supabase, router])
 
+  // Lightweight semantic-ish search so it isn't purely literal.
+  // Maps a query token to related terms we'll also accept as a match.
+  // (A real embedding-based search will replace this — this is the
+  // pragmatic fix that makes "can" find beverage bookmarks today.)
+  const SYNONYMS: Record<string, string[]> = {
+    can: ['beverage', 'drink', 'soda', 'water', 'cola', 'aluminum'],
+    drink: ['beverage', 'can', 'soda', 'water'],
+    video: ['youtube', 'vimeo', 'film', 'movie'],
+    article: ['blog', 'post', 'essay', 'medium', 'substack'],
+    code: ['github', 'gitlab', 'repo', 'repository'],
+    design: ['figma', 'dribbble', 'behance', 'ui', 'ux'],
+    tweet: ['x.com', 'twitter'],
+    paper: ['arxiv', 'pdf', 'research'],
+    shop: ['store', 'product', 'buy', 'shopify'],
+  }
+
+  const tokenize = (s: string) =>
+    s.toLowerCase().split(/[\s,]+/).map((t) => t.trim()).filter(Boolean)
+
+  const expandTokens = (tokens: string[]) => {
+    const out = new Set<string>()
+    for (const t of tokens) {
+      out.add(t)
+      for (const syn of SYNONYMS[t] || []) out.add(syn)
+    }
+    return Array.from(out)
+  }
+
+  const haystackFor = (b: any) => {
+    let host = ''
+    try { host = new URL(b.url).hostname.replace(/^www\./, '') } catch {}
+    return [b.title, b.description, b.url, host, ...(b.tags || [])]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase()
+  }
+
+  const applyTagFilter = (list: any[], tags: string[]) => {
+    if (tags.length === 0) return list
+    return list.filter((b) => tags.every((t) => b.tags?.includes(t)))
+  }
+
   const handleSearch = (query: string) => {
-    const q = query.toLowerCase()
-    if (!q) { setFiltered(bookmarks); return }
-    setFiltered(bookmarks.filter((b) =>
-      [b.title, b.description, b.url, ...(b.tags || [])].some(
-        (field) => field && field.toLowerCase().includes(q)
-      )
-    ))
+    const tokens = tokenize(query)
+    if (tokens.length === 0) { setFiltered(applyTagFilter(bookmarks, selectedTags)); return }
+    const expanded = expandTokens(tokens)
+    const base = applyTagFilter(bookmarks, selectedTags)
+    setFiltered(
+      base.filter((b) => {
+        const hay = haystackFor(b)
+        return expanded.some((t) => hay.includes(t))
+      })
+    )
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -245,16 +290,11 @@ export default function ProfilePage() {
   // Get all tags
   const allTags = Array.from(new Set(bookmarks.flatMap((b) => b.tags || []))).sort()
 
+  // Single-select: clicking a tag selects only it; clicking the active tag clears it.
   const handleTagToggle = (tag: string) => {
-    const next = selectedTags.includes(tag)
-      ? selectedTags.filter((t) => t !== tag)
-      : [...selectedTags, tag]
+    const next = selectedTags[0] === tag ? [] : [tag]
     setSelectedTags(next)
-    if (next.length === 0) {
-      setFiltered(bookmarks)
-    } else {
-      setFiltered(bookmarks.filter((b) => next.every((t) => b.tags?.includes(t))))
-    }
+    setFiltered(applyTagFilter(bookmarks, next))
   }
 
   if (loading) {
@@ -368,9 +408,12 @@ export default function ProfilePage() {
                   />
                 </div>
               </div>
+              {profileSaveError && (
+                <p className="text-xs text-red-500">{profileSaveError}</p>
+              )}
               <div className="flex gap-2 justify-end">
                 <button
-                  onClick={() => setEditingProfile(false)}
+                  onClick={() => { setEditingProfile(false); setProfileSaveError(null) }}
                   className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900"
                 >
                   cancel
@@ -379,15 +422,42 @@ export default function ProfilePage() {
                   disabled={savingProfile}
                   onClick={async () => {
                     setSavingProfile(true)
+                    setProfileSaveError(null)
                     const cleanLinks: any = {}
                     if (editLinks.twitter?.trim()) cleanLinks.twitter = editLinks.twitter.trim()
                     if (editLinks.linkedin?.trim()) cleanLinks.linkedin = editLinks.linkedin.trim()
                     if (editLinks.website?.trim()) cleanLinks.website = editLinks.website.trim()
 
-                    await supabase.from('profiles').update({
-                      bio: editBio.trim() || null,
-                      links: cleanLinks,
-                    }).eq('id', profile.id)
+                    // Try saving bio + links together first.
+                    let { error } = await supabase
+                      .from('profiles')
+                      .update({
+                        bio: editBio.trim() || null,
+                        links: cleanLinks,
+                      })
+                      .eq('id', profile.id)
+
+                    // Graceful fallback: if the `links` column doesn't exist
+                    // yet (migration 003 not applied), still save the bio so
+                    // the user never sees a silent failure.
+                    if (error && /links/i.test(error.message || '')) {
+                      const retry = await supabase
+                        .from('profiles')
+                        .update({ bio: editBio.trim() || null })
+                        .eq('id', profile.id)
+                      error = retry.error
+                      if (!error) {
+                        setProfileSaveError(
+                          'bio saved — social links need a quick db migration before they can be stored'
+                        )
+                      }
+                    }
+
+                    if (error) {
+                      setProfileSaveError(error.message || 'something went wrong saving your profile')
+                      setSavingProfile(false)
+                      return
+                    }
 
                     setProfile({ ...profile, bio: editBio.trim() || null, links: cleanLinks })
                     setEditingProfile(false)
@@ -402,43 +472,42 @@ export default function ProfilePage() {
           )}
 
           <div className="flex gap-8 text-sm">
-            <span><strong className="text-gray-900">{bookmarks.length}</strong> <span className="text-gray-500">links</span></span>
-            <span><strong className="text-gray-900">{followers}</strong> <span className="text-gray-500">followers</span></span>
-            <span><strong className="text-gray-900">{following}</strong> <span className="text-gray-500">following</span></span>
+            <span>
+              <strong className="text-gray-900">{bookmarks.length}</strong>{' '}
+              <span className="text-gray-500">links</span>
+            </span>
+            <Link
+              href={`/${username}/followers`}
+              className="hover:text-gray-900 transition-colors"
+            >
+              <strong className="text-gray-900">{followers}</strong>{' '}
+              <span className="text-gray-500 hover:text-gray-900">followers</span>
+            </Link>
+            <Link
+              href={`/${username}/following`}
+              className="hover:text-gray-900 transition-colors"
+            >
+              <strong className="text-gray-900">{following}</strong>{' '}
+              <span className="text-gray-500 hover:text-gray-900">following</span>
+            </Link>
           </div>
         </div>
 
-        {/* Bookmarklet nudge (owner only, when few bookmarks) */}
-        {isOwner && bookmarks.length < 4 && (
-          <Link
-            href="/bookmarklet"
-            className="block mb-8 p-4 border border-dashed border-gray-200 rounded-lg hover:border-gray-400 transition-colors group"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-900">save from anywhere</p>
-                <p className="text-xs text-gray-400 mt-0.5">add a bookmark button to your browser — save any page in one click</p>
-              </div>
-              <span className="text-xs text-gray-400 group-hover:text-gray-600">set up →</span>
-            </div>
-          </Link>
-        )}
-
         {/* Save input (owner only) */}
         {isOwner && (
-          <form onSubmit={handleSave} className="mb-12">
+          <form onSubmit={handleSave} className="mb-6">
             <div className="flex gap-2">
               <input
                 type="url"
                 value={newUrl}
                 onChange={(e) => setNewUrl(e.target.value)}
                 placeholder="paste a link..."
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 text-sm"
+                className="flex-1 px-5 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-gray-400 text-sm"
               />
               <button
                 type="submit"
                 disabled={savingUrl || !newUrl}
-                className="px-6 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm"
+                className="px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm"
               >
                 {savingUrl ? 'saving...' : 'save'}
               </button>
@@ -446,17 +515,25 @@ export default function ProfilePage() {
           </form>
         )}
 
-        {/* Search + tags */}
-        <div className="mb-8 space-y-4">
-          <SearchBar onSearch={handleSearch} placeholder="search links..." />
+        {/* Search experience — larger, more inviting */}
+        <div className="mb-8 space-y-5">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="search your mind..."
+              onChange={(e) => handleSearch(e.target.value)}
+              className="w-full px-6 py-4 text-lg font-light italic text-gray-700 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50/50 placeholder:text-gray-400"
+            />
+          </div>
+
           {allTags.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               {allTags.map((tag) => (
                 <button
                   key={tag}
                   onClick={() => handleTagToggle(tag)}
-                  className={`text-xs px-3 py-1 rounded border transition-colors ${
-                    selectedTags.includes(tag)
+                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+                    selectedTags[0] === tag
                       ? 'bg-gray-900 text-white border-gray-900'
                       : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
                   }`}
@@ -466,9 +543,17 @@ export default function ProfilePage() {
               ))}
             </div>
           )}
-          {/* CSV import/export (owner only) */}
+
+          {/* Owner-only utilities: save-from-anywhere, CSV import/export */}
           {isOwner && (
-            <div className="flex items-center gap-4 pt-2">
+            <div className="flex items-center gap-5 pt-1 flex-wrap">
+              <Link
+                href="/bookmarklet"
+                className="text-xs text-gray-500 hover:text-gray-900 transition-colors underline-offset-4 hover:underline"
+              >
+                + add the “save a link” button to your browser
+              </Link>
+              <span className="text-gray-200">·</span>
               <button
                 onClick={handleDownloadCSV}
                 disabled={bookmarks.length === 0}

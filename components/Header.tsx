@@ -65,9 +65,20 @@ export function Header() {
                 </button>
               </div>
             ) : (
-              <Link href="/login" className="text-sm text-gray-500 hover:text-gray-900">
-                sign in
-              </Link>
+              <div className="flex items-center gap-3">
+                <Link
+                  href="/login"
+                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                >
+                  log in
+                </Link>
+                <Link
+                  href="/login?mode=signup"
+                  className="text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 px-4 py-1.5 rounded-full transition-colors"
+                >
+                  sign up
+                </Link>
+              </div>
             )}
           </div>
         </div>
