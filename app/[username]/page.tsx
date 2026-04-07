@@ -31,6 +31,8 @@ export default function ProfilePage() {
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const [uploadMsg, setUploadMsg] = useState<string | null>(null)
+  const [reembedding, setReembedding] = useState(false)
+  const [reembedMsg, setReembedMsg] = useState<string | null>(null)
 
   const handleDownloadCSV = () => {
     const rows = bookmarks.map((b) => b.url)
@@ -85,6 +87,33 @@ export default function ProfilePage() {
     } finally {
       setUploading(false)
       e.target.value = ''
+    }
+  }
+
+  // Backfill embeddings for any of the owner's bookmarks that don't have one yet.
+  // Idempotent — the API only touches rows where embedding is null.
+  const handleReembedAll = async () => {
+    setReembedding(true)
+    setReembedMsg('embedding...')
+    try {
+      const res = await fetch('/api/backfill-embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setReembedMsg(`error: ${data.error || 'unknown'}`)
+      } else if (data.processed === 0) {
+        setReembedMsg('nothing to embed')
+      } else {
+        setReembedMsg(`embedded ${data.processed}${data.errors ? ` (${data.errors} errors)` : ''}`)
+      }
+    } catch (err: any) {
+      setReembedMsg(`error: ${err.message || 'unknown'}`)
+    } finally {
+      setReembedding(false)
+      setTimeout(() => setReembedMsg(null), 4000)
     }
   }
 
@@ -192,17 +221,51 @@ export default function ProfilePage() {
     return list.filter((b) => tags.every((t) => b.tags?.includes(t)))
   }
 
-  const handleSearch = (query: string) => {
+  // Token + synonym fallback — used when semantic search is unavailable
+  // or returns nothing.
+  const tokenSearch = (query: string) => {
     const tokens = tokenize(query)
-    if (tokens.length === 0) { setFiltered(applyTagFilter(bookmarks, selectedTags)); return }
+    if (tokens.length === 0) return applyTagFilter(bookmarks, selectedTags)
     const expanded = expandTokens(tokens)
     const base = applyTagFilter(bookmarks, selectedTags)
-    setFiltered(
-      base.filter((b) => {
-        const hay = haystackFor(b)
-        return expanded.some((t) => hay.includes(t))
+    return base.filter((b) => {
+      const hay = haystackFor(b)
+      return expanded.some((t) => hay.includes(t))
+    })
+  }
+
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) { setFiltered(applyTagFilter(bookmarks, selectedTags)); return }
+    if (!profile) return
+
+    // Try real semantic search first (Voyage + pgvector)
+    try {
+      const res = await fetch('/api/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, user_id: profile.id }),
       })
-    )
+      if (res.ok) {
+        const data = await res.json()
+        const ids: string[] = (data.bookmarks || []).map((b: any) => b.id)
+        if (ids.length > 0) {
+          // Reorder existing client-side bookmarks so we keep the full
+          // BookmarkCard props without refetching.
+          const byId = new Map(bookmarks.map((b) => [b.id, b]))
+          const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as any[]
+          const filteredByTag = applyTagFilter(ordered, selectedTags)
+          if (filteredByTag.length > 0) {
+            setFiltered(filteredByTag)
+            return
+          }
+        }
+      }
+    } catch {
+      // fall through to token search
+    }
+
+    // Fallback: token + synonym search
+    setFiltered(tokenSearch(query))
   }
 
   const handleSave = async (e: React.FormEvent) => {
@@ -222,7 +285,7 @@ export default function ProfilePage() {
       // Generate screenshot URL for landing pages / fallback
       const ssUrl = `https://api.screenshotone.com/take?access_key=C3xT-xTVEXsWww&url=${encodeURIComponent(newUrl)}&viewport_width=1280&viewport_height=900&format=webp&image_quality=90&block_ads=true&block_cookie_banners=true&block_chats=true&delay=2&cache=true&cache_ttl=86400`
 
-      const { error } = await supabase.from('bookmarks').insert({
+      const { data: inserted, error } = await supabase.from('bookmarks').insert({
         user_id: profile.id,
         url: newUrl,
         title: meta.title || newUrl,
@@ -232,7 +295,7 @@ export default function ProfilePage() {
         favicon_url: meta.favicon,
         raw_metadata: meta.raw || null,
         tags: [],
-      })
+      }).select('id').single()
 
       if (!error) {
         const { data: updated } = await supabase
@@ -243,6 +306,15 @@ export default function ProfilePage() {
         setBookmarks(updated || [])
         setFiltered(updated || [])
         setNewUrl('')
+
+        // Generate embedding in the background (non-fatal)
+        if (inserted?.id) {
+          fetch('/api/embed-bookmark', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: inserted.id }),
+          }).catch(() => {})
+        }
       }
     } finally {
       setSavingUrl(false)
@@ -572,6 +644,15 @@ export default function ProfilePage() {
                 />
               </label>
               {uploadMsg && <span className="text-xs text-gray-500">{uploadMsg}</span>}
+              <span className="text-gray-200">·</span>
+              <button
+                onClick={handleReembedAll}
+                disabled={reembedding || bookmarks.length === 0}
+                className="text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-30"
+              >
+                {reembedding ? 'embedding...' : 're-embed all'}
+              </button>
+              {reembedMsg && <span className="text-xs text-gray-500">{reembedMsg}</span>}
             </div>
           )}
         </div>
