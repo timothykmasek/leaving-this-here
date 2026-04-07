@@ -25,6 +25,7 @@ export async function POST(req: Request) {
     let processed = 0
     let errors = 0
     let batches = 0
+    let firstError: string | null = null
 
     while (batches < maxBatches) {
       const { data: rows, error } = await supabase
@@ -68,16 +69,21 @@ export async function POST(req: Request) {
 
       // Write each vector back. Supabase client doesn't do efficient bulk
       // upsert of vector columns, so we do one update per row. N is small.
+      //
+      // IMPORTANT: pgvector expects the string literal format `[0.1, 0.2, ...]`
+      // when going through PostgREST. Passing a raw JS array can silently fail
+      // depending on the supabase-js version, so we serialize explicitly.
       for (let k = 0; k < indexedTexts.length; k++) {
         const rowIdx = indexedTexts[k].i
         const bookmarkId = rows[rowIdx].id
-        const vector = vectors[k]
+        const vectorLiteral = `[${vectors[k].join(',')}]`
         const { error: updErr } = await supabase
           .from('bookmarks')
-          .update({ embedding: vector as any })
+          .update({ embedding: vectorLiteral as any })
           .eq('id', bookmarkId)
         if (updErr) {
           errors++
+          if (!firstError) firstError = updErr.message || 'unknown update error'
         } else {
           processed++
         }
@@ -87,7 +93,7 @@ export async function POST(req: Request) {
       if (rows.length < batchSize) break
     }
 
-    return NextResponse.json({ ok: true, processed, errors, batches })
+    return NextResponse.json({ ok: true, processed, errors, batches, firstError })
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'unknown error' }, { status: 500 })
   }

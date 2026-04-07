@@ -26,8 +26,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: `embed failed: ${err.message}` }, { status: 500 })
     }
 
+    // pgvector RPC params: serialize as string literal for consistency with
+    // how we store embeddings (raw JS arrays can silently fail).
+    const queryVectorLiteral = `[${queryVector.join(',')}]`
+
     const { data, error } = await supabase.rpc('match_bookmarks', {
-      query_embedding: queryVector as any,
+      query_embedding: queryVectorLiteral as any,
       target_user_id: user_id,
       include_private: isOwner,
       match_threshold: 0.3,

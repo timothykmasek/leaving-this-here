@@ -33,9 +33,13 @@ export async function POST(req: Request) {
 
     const [vector] = await embed([text], 'document')
 
+    // pgvector expects the string literal format `[0.1, 0.2, ...]` via PostgREST.
+    // Raw JS arrays can silently fail depending on the supabase-js version.
+    const vectorLiteral = `[${vector.join(',')}]`
+
     const { error: updateErr } = await supabase
       .from('bookmarks')
-      .update({ embedding: vector as any })
+      .update({ embedding: vectorLiteral as any })
       .eq('id', id)
 
     if (updateErr) {
