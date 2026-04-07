@@ -74,6 +74,8 @@ export default function ProfilePage() {
   const [showImport, setShowImport] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [retagging, setRetagging] = useState(false)
+  const [reembedding, setReembedding] = useState(false)
+  const [reembedStatus, setReembedStatus] = useState<string | null>(null)
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -361,6 +363,33 @@ export default function ProfilePage() {
     setImporting(false)
   }
 
+  // Re-embed all bookmarks missing an embedding. Idempotent — the API only
+  // touches rows where embedding is null.
+  const handleReembedAll = async () => {
+    setReembedding(true)
+    setReembedStatus('embedding...')
+    try {
+      const res = await fetch('/api/backfill-embeddings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setReembedStatus(`error: ${data.error || 'unknown'}`)
+      } else if (data.processed === 0) {
+        setReembedStatus('nothing to embed')
+      } else {
+        setReembedStatus(`embedded ${data.processed}${data.errors ? ` (${data.errors} errors)` : ''}`)
+      }
+    } catch (err: any) {
+      setReembedStatus(`error: ${err.message || 'unknown'}`)
+    } finally {
+      setReembedding(false)
+      setTimeout(() => setReembedStatus(null), 4000)
+    }
+  }
+
   // Re-tag all bookmarks using AI tagger
   const handleRetagAll = async () => {
     if (!profile) return
@@ -596,10 +625,14 @@ export default function ProfilePage() {
               </Link>
             </div>
             {isOwner && (
-              <div className="flex gap-3 text-xs text-gray-400">
+              <div className="flex items-center gap-3 text-xs text-gray-400">
                 <button onClick={handleRetagAll} disabled={retagging} className="hover:text-gray-600 disabled:opacity-50">
                   {retagging ? 'retagging...' : 're-tag all'}
                 </button>
+                <button onClick={handleReembedAll} disabled={reembedding} className="hover:text-gray-600 disabled:opacity-50">
+                  {reembedding ? 'embedding...' : 're-embed all'}
+                </button>
+                {reembedStatus && <span className="text-gray-500">{reembedStatus}</span>}
                 <button onClick={() => setShowImport(!showImport)} className="hover:text-gray-600">import</button>
                 <button onClick={handleExport} className="hover:text-gray-600">export</button>
               </div>
