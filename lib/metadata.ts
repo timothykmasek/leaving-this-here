@@ -27,6 +27,12 @@ export interface ProductInfo {
   priceFormatted: string | null
 }
 
+export interface BookInfo {
+  title: string | null
+  author: string | null
+  image: string | null
+}
+
 export interface MetadataResult {
   title: string | null
   image: string | null
@@ -34,6 +40,7 @@ export interface MetadataResult {
   siteName: string | null
   favicon: string | null
   product: ProductInfo | null
+  book: BookInfo | null
   raw: RawMetadata | null
 }
 
@@ -66,15 +73,41 @@ export async function fetchHtml(url: string): Promise<string> {
 
 // ── Low-level extractors ────────────────────────────────────────────
 
-function decodeHtmlEntities(str: string): string {
-  return str
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&nbsp;/g, ' ')
+// Comprehensive entity decoder. Handles named entities (&mdash;, &rsquo;…),
+// numeric entities (&#039;, &#8217;), and hex entities (&#x27;).
+// Run *twice* defensively in case stored values were already partially decoded
+// with the old narrow decoder, leaving e.g. "&amp;#039;".
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ',
+  mdash: '—', ndash: '–', hellip: '…',
+  lsquo: '\u2018', rsquo: '\u2019', sbquo: '\u201A',
+  ldquo: '\u201C', rdquo: '\u201D', bdquo: '\u201E',
+  laquo: '«', raquo: '»', lsaquo: '‹', rsaquo: '›',
+  trade: '™', copy: '©', reg: '®', deg: '°',
+  middot: '·', bull: '•', hearts: '♥',
+  iexcl: '¡', iquest: '¿', cent: '¢', pound: '£', yen: '¥', euro: '€',
+  times: '×', divide: '÷',
+}
+
+export function decodeHtmlEntities(str: string): string {
+  if (!str) return str
+  let out = str
+  for (let pass = 0; pass < 2; pass++) {
+    out = out
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+        const cp = parseInt(hex, 16)
+        return Number.isFinite(cp) ? String.fromCodePoint(cp) : _
+      })
+      .replace(/&#(\d+);/g, (_, dec) => {
+        const cp = parseInt(dec, 10)
+        return Number.isFinite(cp) ? String.fromCodePoint(cp) : _
+      })
+      .replace(/&([a-zA-Z][a-zA-Z0-9]+);/g, (m, name) => {
+        const v = NAMED_ENTITIES[name] ?? NAMED_ENTITIES[name.toLowerCase()]
+        return v ?? m
+      })
+  }
+  return out
 }
 
 /**
@@ -282,12 +315,12 @@ export function pickBestTitle(raw: RawMetadata | null): string | null {
 
   for (const c of candidates) {
     if (isMeaningful(c)) {
-      return stripSiteSuffix(c.trim(), siteName)
+      return decodeHtmlEntities(stripSiteSuffix(c.trim(), siteName))
     }
   }
 
   // Last-resort fallback: return htmlTitle even if it matches site name — better than nothing
-  if (raw.htmlTitle) return stripSiteSuffix(raw.htmlTitle.trim(), siteName)
+  if (raw.htmlTitle) return decodeHtmlEntities(stripSiteSuffix(raw.htmlTitle.trim(), siteName))
   return null
 }
 
@@ -447,13 +480,94 @@ export function pickProduct(raw: RawMetadata | null): ProductInfo | null {
     if (typeof rawCurrency === 'string') currency = rawCurrency.toUpperCase()
   }
 
-  // Require a price for the card to render as product.
-  // Without price, it's just a product-shaped image — better handled as composite.
-  if (price === null) return null
+  // Price is OPTIONAL. A real schema.org/Product node with name + image is
+  // strong enough signal to render as a product card. The price chip is
+  // a nice-to-have but absent doesn't disqualify (e.g. Rimowa publishes
+  // Product JSON-LD with no offers).
+  const priceFormatted = price !== null ? formatPrice(price, currency) : null
 
-  const priceFormatted = formatPrice(price, currency)
+  return {
+    name: decodeHtmlEntities(name),
+    image,
+    price,
+    currency,
+    priceFormatted,
+  }
+}
 
-  return { name, image, price, currency, priceFormatted }
+/**
+ * Pick book info from JSON-LD schema.org/Book, if present.
+ * Books get their own card type (portrait cover, author below).
+ */
+export function pickBook(raw: RawMetadata | null): BookInfo | null {
+  if (!raw) return null
+
+  const book = findJsonLdNodeByType(raw.jsonLd, 'Book')
+  if (!book) return null
+
+  let title: string | null = null
+  if (typeof book.name === 'string' && book.name.trim()) title = decodeHtmlEntities(book.name.trim())
+  else if (typeof book.headline === 'string' && book.headline.trim()) title = decodeHtmlEntities(book.headline.trim())
+  if (!title) return null
+
+  let author: string | null = null
+  const a = book.author
+  if (typeof a === 'string') author = a
+  else if (Array.isArray(a) && a.length) {
+    const first = a[0]
+    if (typeof first === 'string') author = first
+    else if (first && typeof first === 'object' && typeof first.name === 'string') author = first.name
+  } else if (a && typeof a === 'object' && typeof a.name === 'string') {
+    author = a.name
+  }
+  if (author) author = decodeHtmlEntities(author.trim())
+
+  let image: string | null = null
+  const img = book.image
+  if (typeof img === 'string') image = img
+  else if (Array.isArray(img) && img.length && typeof img[0] === 'string') image = img[0]
+  else if (img && typeof img === 'object' && typeof img.url === 'string') image = img.url
+  if (image) image = resolveUrl(image, raw.url)
+
+  return { title, author, image }
+}
+
+function findJsonLdNodeByType(jsonLd: any[], wantedType: string): any | null {
+  const typeMatches = (t: any): boolean => {
+    if (!t) return false
+    if (typeof t === 'string') return t === wantedType || t.endsWith('/' + wantedType)
+    if (Array.isArray(t)) return t.some(typeMatches)
+    return false
+  }
+  const walk = (node: any): any | null => {
+    if (!node || typeof node !== 'object') return null
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        const found = walk(item)
+        if (found) return found
+      }
+      return null
+    }
+    if (typeMatches(node['@type'])) return node
+    if (Array.isArray(node['@graph'])) {
+      const found = walk(node['@graph'])
+      if (found) return found
+    }
+    return null
+  }
+  return walk(jsonLd)
+}
+
+/**
+ * Returns true if a URL strongly looks like a logo / wordmark / brand asset.
+ * Used to downgrade cards that would otherwise render a giant brand logo.
+ */
+export function looksLikeLogoUrl(urlStr: string | null | undefined): boolean {
+  if (!urlStr) return false
+  const lower = urlStr.toLowerCase()
+  if (/\b(logo|favicon|brandmark|wordmark|sprite|symbol|emblem)\b/.test(lower)) return true
+  if (/\/(icons?|logos?|brand|brandmarks)\//.test(lower)) return true
+  return false
 }
 
 function formatPrice(price: number, currency: string | null): string {
@@ -500,13 +614,13 @@ function findProductNode(jsonLd: any[]): any | null {
  */
 export function pickBestDescription(raw: RawMetadata | null): string | null {
   if (!raw) return null
-  return (
+  const d =
     raw.og['description'] ||
     raw.twitter['description'] ||
     raw.metaName['description'] ||
     extractJsonLdText(raw.jsonLd, ['description']) ||
     null
-  )
+  return d ? decodeHtmlEntities(d) : null
 }
 
 /**
@@ -555,6 +669,7 @@ export async function extractMetadata(url: string): Promise<MetadataResult> {
       siteName: null,
       favicon: null,
       product: null,
+      book: null,
       raw: null,
     }
   }
@@ -567,6 +682,7 @@ export async function extractMetadata(url: string): Promise<MetadataResult> {
     siteName: pickSiteName(raw),
     favicon: pickFavicon(raw),
     product: pickProduct(raw),
+    book: pickBook(raw),
     raw,
   }
 }
@@ -584,6 +700,7 @@ export function deriveFromRaw(raw: RawMetadata | null): MetadataResult {
     siteName: pickSiteName(raw),
     favicon: pickFavicon(raw),
     product: pickProduct(raw),
+    book: pickBook(raw),
     raw,
   }
 }

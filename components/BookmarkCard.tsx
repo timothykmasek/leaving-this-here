@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { pickProduct } from '@/lib/metadata'
+import { pickProduct, pickBook } from '@/lib/metadata'
 
 interface BookmarkCardProps {
   id: string
@@ -16,7 +16,16 @@ interface BookmarkCardProps {
   allTags?: string[]
   isOwner: boolean
   isPrivate: boolean
-  cardType?: 'composite' | 'fullbleed' | 'screenshot' | 'profile' | 'product' | null
+  cardType?:
+    | 'composite'
+    | 'fullbleed'
+    | 'screenshot'
+    | 'profile'
+    | 'product'
+    | 'article'
+    | 'book'
+    | 'lth'
+    | null
   onDelete?: (id: string) => void
   onPrivacyToggle?: (id: string, isPrivate: boolean) => void
   onTagsUpdate?: (id: string, tags: string[]) => void
@@ -265,6 +274,153 @@ function ProductCard({ imageUrl, title, url, isPrivate, priceFormatted }: any) {
   )
 }
 
+/**
+ * LTH fallback — soft grey gradient with the "LTH" mark in the middle.
+ * Used whenever we have no usable image (paywall, logo-only OG, fetch fail).
+ * Also exported as a primitive that other cards swap to on <img> error.
+ */
+function LTHFallbackCard({ title, url, isPrivate }: any) {
+  const domain = getDomain(url)
+  const cleanTitle = getCleanTitle(title, url)
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+      <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 flex items-center justify-center">
+        <span className="text-gray-300 text-2xl font-light tracking-[0.3em] select-none">LTH</span>
+        {isPrivate && (
+          <div className="absolute top-3 left-3 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
+            private
+          </div>
+        )}
+      </div>
+      <div className="px-4 py-3">
+        <h3 className="font-medium text-gray-900 line-clamp-2 text-[14px] leading-snug tracking-tight">
+          {cleanTitle}
+        </h3>
+        <p className="text-[11px] text-gray-400 mt-1">{domain}</p>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "One moment. I'm saving this for you." — placeholder shown while a freshly
+ * added bookmark waits for its first metadata fetch. No spinner, just a quiet
+ * static message.
+ */
+function SavingPlaceholderCard({ url, isPrivate }: any) {
+  const domain = getDomain(url)
+  return (
+    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150">
+      <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center px-6">
+        <p className="text-gray-400 text-[13px] text-center leading-snug">
+          One moment.<br />
+          I&rsquo;m saving this for you.
+        </p>
+        {isPrivate && (
+          <div className="absolute top-3 left-3 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
+            private
+          </div>
+        )}
+      </div>
+      <div className="px-4 py-3">
+        <p className="text-[11px] text-gray-400">{domain}</p>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Article card — image on top, title + favicon row below. The standard
+ * editorial layout. Replaces the old "composite for articles" pattern.
+ */
+function ArticleCard({ imageUrl, title, faviconUrl, url, isPrivate }: any) {
+  const [imgError, setImgError] = useState(false)
+  const [iconError, setIconError] = useState(false)
+  const domain = getDomain(url)
+  const cleanTitle = getCleanTitle(title, url)
+
+  // If image fails or never existed, fall back to LTH so the grid stays clean.
+  if (!imageUrl || imgError) {
+    return <LTHFallbackCard title={title} url={url} isPrivate={isPrivate} />
+  }
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+      <div className="relative aspect-[16/10] bg-gray-50 overflow-hidden">
+        <img
+          src={imageUrl}
+          alt={cleanTitle}
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+        {isPrivate && (
+          <div className="absolute top-3 left-3 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
+            private
+          </div>
+        )}
+      </div>
+      <div className="px-4 pt-3 pb-3">
+        <h3 className="font-semibold text-[15px] leading-[1.3] text-gray-900 line-clamp-3 tracking-tight">
+          {cleanTitle}
+        </h3>
+        <div className="flex items-center gap-1.5 mt-2">
+          {faviconUrl && !iconError ? (
+            <img
+              src={faviconUrl}
+              alt=""
+              className="w-3.5 h-3.5 rounded-sm"
+              onError={() => setIconError(true)}
+            />
+          ) : (
+            <div className="w-3.5 h-3.5 rounded-sm bg-gray-200" />
+          )}
+          <span className="text-[11px] text-gray-500 font-medium truncate tracking-tight">{domain}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Book card — portrait cover, title and author below. Mirrors the product
+ * card pattern but with a 2:3 cover crop and no price chip.
+ */
+function BookCard({ imageUrl, title, author, url, isPrivate }: any) {
+  const [imgError, setImgError] = useState(false)
+  const cleanTitle = getCleanTitle(title, url)
+
+  if (!imageUrl || imgError) {
+    return <LTHFallbackCard title={title} url={url} isPrivate={isPrivate} />
+  }
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+      <div className="relative aspect-[2/3] bg-gradient-to-br from-gray-50 via-white to-gray-50 overflow-hidden flex items-center justify-center p-8">
+        <img
+          src={imageUrl}
+          alt={cleanTitle}
+          className="max-w-full max-h-full object-contain shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
+          onError={() => setImgError(true)}
+        />
+        {isPrivate && (
+          <div className="absolute top-3 left-3 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
+            private
+          </div>
+        )}
+      </div>
+      <div className="px-4 py-3 text-center">
+        <h3 className="text-[14px] text-gray-900 font-semibold line-clamp-2 tracking-tight leading-snug">
+          {cleanTitle}
+        </h3>
+        {author && (
+          <p className="text-[11px] text-gray-500 mt-1 italic">{author}</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function ProfileCard({ title, faviconUrl, url, isPrivate }: any) {
   const [imgError, setImgError] = useState(false)
   const domain = getDomain(url)
@@ -298,59 +454,29 @@ function ProfileCard({ title, faviconUrl, url, isPrivate }: any) {
   )
 }
 
-function DefaultCard({ imageUrl, screenshotUrl, url, title, faviconUrl, isPrivate, gradient }: any) {
-  const [imgError, setImgError] = useState(false)
-  const domain = getDomain(url)
-  const cleanTitle = getCleanTitle(title, url)
-  const thumbnailUrl = `https://image.thum.io/get/width/800/crop/300/${url}`
-  const displayImage = screenshotUrl || imageUrl || thumbnailUrl
+/**
+ * DefaultCard — used when a bookmark has no card_type yet (very fresh).
+ * No more thum.io: if there's no usable image we show the
+ * "saving this for you" placeholder, then the LTH fallback if metadata
+ * lands without an image.
+ */
+function DefaultCard({ imageUrl, screenshotUrl, url, title, faviconUrl, isPrivate }: any) {
+  const displayImage = screenshotUrl || imageUrl
 
+  // No image at all → "saving this for you" placeholder.
+  if (!displayImage) {
+    return <SavingPlaceholderCard url={url} isPrivate={isPrivate} />
+  }
+
+  // ArticleCard handles its own error state and falls back to LTH internally.
   return (
-    <div className="relative">
-      <div className="group flex flex-col bg-white border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all overflow-hidden rounded-xl isolate">
-        {/* Hero image */}
-        <div className={`relative w-full aspect-[4/3] overflow-hidden bg-gradient-to-br ${gradient}`}>
-          {!imgError ? (
-            <img
-              src={displayImage}
-              alt={cleanTitle}
-              className="w-full h-full object-cover object-top"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center gap-3 p-6">
-              {faviconUrl ? (
-                <img
-                  src={faviconUrl}
-                  alt=""
-                  className="w-8 h-8 rounded opacity-40"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                />
-              ) : (
-                <div className="w-8 h-8 rounded bg-gray-200/50 flex items-center justify-center text-gray-400 text-xs font-medium">
-                  {domain.charAt(0).toUpperCase()}
-                </div>
-              )}
-              <span className="text-xs text-gray-400 font-medium tracking-wide">{domain}</span>
-            </div>
-          )}
-
-          {isPrivate && (
-            <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-              private
-            </div>
-          )}
-        </div>
-
-        {/* Caption */}
-        <div className="px-3 py-2.5">
-          <h3 className="font-medium text-gray-900 line-clamp-1 text-sm leading-snug">
-            {cleanTitle}
-          </h3>
-          <p className="text-[11px] text-gray-400 mt-0.5">{domain}</p>
-        </div>
-      </div>
-    </div>
+    <ArticleCard
+      imageUrl={displayImage}
+      title={title}
+      faviconUrl={faviconUrl}
+      url={url}
+      isPrivate={isPrivate}
+    />
   )
 }
 
@@ -358,8 +484,9 @@ export function BookmarkCard({
   id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
   tags, allTags = [], isOwner, isPrivate, onDelete, onPrivacyToggle, onTagsUpdate, cardType,
 }: BookmarkCardProps) {
-  // Derive product info from stored raw_metadata (free, no network)
+  // Derive product / book info from stored raw_metadata (free, no network)
   const product = cardType === 'product' && rawMetadata ? pickProduct(rawMetadata) : null
+  const book = cardType === 'book' && rawMetadata ? pickBook(rawMetadata) : null
   const [menuOpen, setMenuOpen] = useState(false)
   const [editingTags, setEditingTags] = useState(false)
   const [tagInput, setTagInput] = useState('')
@@ -370,7 +497,6 @@ export function BookmarkCard({
 
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
-  const gradient = getGradient(url)
 
   // Close menu on outside click
   useEffect(() => {
@@ -465,6 +591,27 @@ export function BookmarkCard({
           priceFormatted={product?.priceFormatted || null}
         />
       )}
+      {cardType === 'article' && (
+        <ArticleCard
+          imageUrl={imageUrl}
+          title={title}
+          faviconUrl={faviconUrl}
+          url={url}
+          isPrivate={isPrivate}
+        />
+      )}
+      {cardType === 'book' && (
+        <BookCard
+          imageUrl={imageUrl || book?.image}
+          title={title || book?.title}
+          author={book?.author}
+          url={url}
+          isPrivate={isPrivate}
+        />
+      )}
+      {cardType === 'lth' && (
+        <LTHFallbackCard title={title} url={url} isPrivate={isPrivate} />
+      )}
       {!cardType && (
         <DefaultCard
           imageUrl={imageUrl}
@@ -473,7 +620,6 @@ export function BookmarkCard({
           title={title}
           faviconUrl={faviconUrl}
           isPrivate={isPrivate}
-          gradient={gradient}
         />
       )}
     </>
@@ -485,8 +631,13 @@ export function BookmarkCard({
         {cardContent}
       </a>
 
-      {/* Info section — skipped for composite/product (they render their own title) */}
-      {cardType && cardType !== 'composite' && cardType !== 'product' && (
+      {/* Info section — skipped for cards that render their own title row */}
+      {cardType &&
+        cardType !== 'composite' &&
+        cardType !== 'product' &&
+        cardType !== 'article' &&
+        cardType !== 'book' &&
+        cardType !== 'lth' && (
         <div className="px-3 py-2.5 bg-white border-t border-gray-100 rounded-b-xl">
           <h3 className="font-medium text-gray-900 line-clamp-1 text-sm leading-snug">
             {cleanTitle}
