@@ -306,13 +306,30 @@ export function pickBestTitle(raw: RawMetadata | null): string | null {
     return true
   }
 
-  const candidates: Array<string | null | undefined> = [
-    raw.og['title'],
-    raw.twitter['title'],
-    extractJsonLdText(raw.jsonLd, ['headline', 'name']),
-    raw.firstH1,
-    raw.htmlTitle,
-  ]
+  // Detect truncation: if og:title was captured by an older extractor that
+  // stopped at an apostrophe inside a double-quoted attribute, firstH1 (which
+  // is read from the DOM, not a regex) will contain the full string. When the
+  // og:title is a strict prefix of firstH1 and firstH1 is longer, trust H1.
+  const ogTitle = raw.og['title']?.trim() || null
+  const h1 = raw.firstH1?.trim() || null
+  const ogLooksTruncated =
+    ogTitle && h1 && h1.length > ogTitle.length && h1.startsWith(ogTitle)
+
+  const candidates: Array<string | null | undefined> = ogLooksTruncated
+    ? [
+        raw.firstH1,
+        raw.og['title'],
+        raw.twitter['title'],
+        extractJsonLdText(raw.jsonLd, ['headline', 'name']),
+        raw.htmlTitle,
+      ]
+    : [
+        raw.og['title'],
+        raw.twitter['title'],
+        extractJsonLdText(raw.jsonLd, ['headline', 'name']),
+        raw.firstH1,
+        raw.htmlTitle,
+      ]
 
   for (const c of candidates) {
     if (isMeaningful(c)) {
