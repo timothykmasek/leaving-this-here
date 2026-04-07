@@ -504,6 +504,7 @@ export default function ProfilePage() {
                 imageUrl={b.image_url}
                 screenshotUrl={b.screenshot_url}
                 faviconUrl={b.favicon_url}
+                rawMetadata={b.raw_metadata}
                 tags={b.tags || []}
                 allTags={allTags}
                 isOwner={isOwner}

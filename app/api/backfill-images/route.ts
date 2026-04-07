@@ -13,7 +13,7 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 )
 
-type CardType = 'composite' | 'fullbleed' | 'screenshot' | 'profile'
+type CardType = 'composite' | 'fullbleed' | 'screenshot' | 'profile' | 'product'
 
 // ── Classification helpers ──────────────────────────────────────────
 
@@ -43,6 +43,12 @@ function classifyCardType(url: string, meta: MetadataResult): CardType {
     const urlLower = url.toLowerCase()
     const hostname = new URL(url).hostname.replace('www.', '')
     const pathname = new URL(url).pathname
+
+    // Product pages — highest priority when JSON-LD schema.org/Product is present
+    // with a price. The product picker already validates name + price.
+    if (meta.product && meta.product.name && meta.product.price !== null) {
+      return 'product'
+    }
 
     // Social profiles
     if (SOCIAL_PROFILE_DOMAINS.some(d => hostname.includes(d))) {
@@ -158,19 +164,27 @@ export async function POST(request: NextRequest) {
 
         const update: Record<string, any> = { card_type: cardType }
 
-        if (meta.image && cardType !== 'screenshot') {
-          update.image_url = meta.image
+        // Product cards prefer product.name / product.image over og:*
+        if (cardType === 'product' && meta.product) {
+          if (meta.product.image) update.image_url = meta.product.image
+          else if (meta.image) update.image_url = meta.image
+          update.title = meta.product.name
+        } else {
+          if (meta.image && cardType !== 'screenshot') {
+            update.image_url = meta.image
+          }
+          if (meta.title) {
+            // Always overwrite title with the picker's choice
+            update.title = meta.title
+          }
         }
+
         if (cardType === 'screenshot' && !bm.image_url?.includes('screenshotone')) {
           // Only generate a new screenshot URL if we don't already have one
           update.screenshot_url = screenshotUrl(bm.url)
         }
         if (meta.favicon) {
           update.favicon_url = meta.favicon
-        }
-        if (meta.title) {
-          // Always overwrite title with the picker's choice — that's the point of this route
-          update.title = meta.title
         }
         if (meta.description && !bm.description) {
           update.description = meta.description

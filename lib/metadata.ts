@@ -19,12 +19,21 @@ export interface RawMetadata {
   url: string
 }
 
+export interface ProductInfo {
+  name: string | null
+  image: string | null
+  price: number | null
+  currency: string | null
+  priceFormatted: string | null
+}
+
 export interface MetadataResult {
   title: string | null
   image: string | null
   description: string | null
   siteName: string | null
   favicon: string | null
+  product: ProductInfo | null
   raw: RawMetadata | null
 }
 
@@ -382,6 +391,111 @@ function extractJsonLdImage(jsonLd: any[]): string | null {
 }
 
 /**
+ * Pick product info from JSON-LD schema.org/Product, if present.
+ *
+ * Returns null unless the page declares itself a Product with at least a name.
+ * Price is optional but strongly preferred — a Product without a price probably
+ * isn't a retail product page.
+ */
+export function pickProduct(raw: RawMetadata | null): ProductInfo | null {
+  if (!raw) return null
+
+  const product = findProductNode(raw.jsonLd)
+  if (!product) return null
+
+  // Name: Product.name
+  let name: string | null = null
+  if (typeof product.name === 'string' && product.name.trim()) {
+    name = product.name.trim()
+  }
+  if (!name) return null
+
+  // Image: Product.image (string | string[] | {url})
+  let image: string | null = null
+  const img = product.image
+  if (typeof img === 'string') image = img
+  else if (Array.isArray(img) && img.length) {
+    const first = img[0]
+    if (typeof first === 'string') image = first
+    else if (first && typeof first === 'object' && typeof first.url === 'string') image = first.url
+  } else if (img && typeof img === 'object' && typeof img.url === 'string') {
+    image = img.url
+  }
+  if (image) image = resolveUrl(image, raw.url)
+
+  // Price: Product.offers.price (offers can be object or array)
+  let price: number | null = null
+  let currency: string | null = null
+  const offers = product.offers
+  const firstOffer =
+    Array.isArray(offers) && offers.length ? offers[0] :
+    offers && typeof offers === 'object' ? offers : null
+
+  if (firstOffer) {
+    // price can be number, string, or nested inside priceSpecification
+    const rawPrice = firstOffer.price ?? firstOffer.lowPrice ?? firstOffer.priceSpecification?.price
+    if (typeof rawPrice === 'number' && !isNaN(rawPrice)) {
+      price = rawPrice
+    } else if (typeof rawPrice === 'string') {
+      const parsed = parseFloat(rawPrice.replace(/[^0-9.]/g, ''))
+      if (!isNaN(parsed)) price = parsed
+    }
+    const rawCurrency =
+      firstOffer.priceCurrency ||
+      firstOffer.priceSpecification?.priceCurrency ||
+      null
+    if (typeof rawCurrency === 'string') currency = rawCurrency.toUpperCase()
+  }
+
+  // Require a price for the card to render as product.
+  // Without price, it's just a product-shaped image — better handled as composite.
+  if (price === null) return null
+
+  const priceFormatted = formatPrice(price, currency)
+
+  return { name, image, price, currency, priceFormatted }
+}
+
+function formatPrice(price: number, currency: string | null): string {
+  const symbolMap: Record<string, string> = {
+    USD: '$', EUR: '€', GBP: '£', JPY: '¥', CAD: 'CA$', AUD: 'A$',
+  }
+  const symbol = currency ? (symbolMap[currency] || currency + ' ') : '$'
+  // Drop trailing .00 — "$130" looks cleaner than "$130.00"
+  const isWhole = Math.abs(price - Math.round(price)) < 0.01
+  const formatted = isWhole ? String(Math.round(price)) : price.toFixed(2)
+  return symbol + formatted
+}
+
+function findProductNode(jsonLd: any[]): any | null {
+  const typeMatches = (t: any): boolean => {
+    if (!t) return false
+    if (typeof t === 'string') return t === 'Product' || t.endsWith('/Product')
+    if (Array.isArray(t)) return t.some(typeMatches)
+    return false
+  }
+
+  const walk = (node: any): any | null => {
+    if (!node || typeof node !== 'object') return null
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        const found = walk(item)
+        if (found) return found
+      }
+      return null
+    }
+    if (typeMatches(node['@type'])) return node
+    if (Array.isArray(node['@graph'])) {
+      const found = walk(node['@graph'])
+      if (found) return found
+    }
+    return null
+  }
+
+  return walk(jsonLd)
+}
+
+/**
  * Pick the best description.
  */
 export function pickBestDescription(raw: RawMetadata | null): string | null {
@@ -440,6 +554,7 @@ export async function extractMetadata(url: string): Promise<MetadataResult> {
       description: null,
       siteName: null,
       favicon: null,
+      product: null,
       raw: null,
     }
   }
@@ -451,6 +566,7 @@ export async function extractMetadata(url: string): Promise<MetadataResult> {
     description: pickBestDescription(raw),
     siteName: pickSiteName(raw),
     favicon: pickFavicon(raw),
+    product: pickProduct(raw),
     raw,
   }
 }
@@ -467,6 +583,7 @@ export function deriveFromRaw(raw: RawMetadata | null): MetadataResult {
     description: pickBestDescription(raw),
     siteName: pickSiteName(raw),
     favicon: pickFavicon(raw),
+    product: pickProduct(raw),
     raw,
   }
 }

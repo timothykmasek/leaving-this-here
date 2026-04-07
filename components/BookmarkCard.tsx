@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { pickProduct } from '@/lib/metadata'
 
 interface BookmarkCardProps {
   id: string
@@ -10,11 +11,12 @@ interface BookmarkCardProps {
   imageUrl: string | null
   screenshotUrl: string | null
   faviconUrl: string | null
+  rawMetadata?: any
   tags: string[]
   allTags?: string[]
   isOwner: boolean
   isPrivate: boolean
-  cardType?: 'composite' | 'fullbleed' | 'screenshot' | 'profile' | null
+  cardType?: 'composite' | 'fullbleed' | 'screenshot' | 'profile' | 'product' | null
   onDelete?: (id: string) => void
   onPrivacyToggle?: (id: string, isPrivate: boolean) => void
   onTagsUpdate?: (id: string, tags: string[]) => void
@@ -218,6 +220,51 @@ function ScreenshotCard({ imageUrl, title, url, isPrivate }: any) {
   )
 }
 
+function ProductCard({ imageUrl, title, url, isPrivate, priceFormatted }: any) {
+  const [imgError, setImgError] = useState(false)
+  const cleanTitle = getCleanTitle(title, url)
+
+  return (
+    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+      {/* Product image — clean background, product-shot crop */}
+      <div className="relative aspect-[4/3] bg-gray-50 overflow-hidden">
+        {imageUrl && !imgError ? (
+          <img
+            src={imageUrl}
+            alt={cleanTitle}
+            className="w-full h-full object-contain p-6"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <span className="text-xs text-gray-400">no image</span>
+          </div>
+        )}
+
+        {/* Price chip, top-right */}
+        {priceFormatted && (
+          <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-sm border border-gray-150 text-gray-900 text-[12px] font-semibold px-2.5 py-1 rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            {priceFormatted}
+          </div>
+        )}
+
+        {isPrivate && (
+          <div className="absolute top-3 left-3 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
+            private
+          </div>
+        )}
+      </div>
+
+      {/* Title only — no domain row, like mymind */}
+      <div className="px-4 py-3 text-center">
+        <h3 className="text-[13px] text-gray-900 line-clamp-2 tracking-tight">
+          {cleanTitle}
+        </h3>
+      </div>
+    </div>
+  )
+}
+
 function ProfileCard({ title, faviconUrl, url, isPrivate }: any) {
   const [imgError, setImgError] = useState(false)
   const domain = getDomain(url)
@@ -308,9 +355,11 @@ function DefaultCard({ imageUrl, screenshotUrl, url, title, faviconUrl, isPrivat
 }
 
 export function BookmarkCard({
-  id, title, description, url, imageUrl, screenshotUrl, faviconUrl,
+  id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
   tags, allTags = [], isOwner, isPrivate, onDelete, onPrivacyToggle, onTagsUpdate, cardType,
 }: BookmarkCardProps) {
+  // Derive product info from stored raw_metadata (free, no network)
+  const product = cardType === 'product' && rawMetadata ? pickProduct(rawMetadata) : null
   const [menuOpen, setMenuOpen] = useState(false)
   const [editingTags, setEditingTags] = useState(false)
   const [tagInput, setTagInput] = useState('')
@@ -407,6 +456,15 @@ export function BookmarkCard({
       {cardType === 'profile' && (
         <ProfileCard title={title} faviconUrl={faviconUrl} url={url} isPrivate={isPrivate} />
       )}
+      {cardType === 'product' && (
+        <ProductCard
+          imageUrl={imageUrl}
+          title={title}
+          url={url}
+          isPrivate={isPrivate}
+          priceFormatted={product?.priceFormatted || null}
+        />
+      )}
       {!cardType && (
         <DefaultCard
           imageUrl={imageUrl}
@@ -427,8 +485,8 @@ export function BookmarkCard({
         {cardContent}
       </a>
 
-      {/* Info section — skipped for composite (renders its own title/domain) */}
-      {cardType && cardType !== 'composite' && (
+      {/* Info section — skipped for composite/product (they render their own title) */}
+      {cardType && cardType !== 'composite' && cardType !== 'product' && (
         <div className="px-3 py-2.5 bg-white border-t border-gray-100 rounded-b-xl">
           <h3 className="font-medium text-gray-900 line-clamp-1 text-sm leading-snug">
             {cleanTitle}
