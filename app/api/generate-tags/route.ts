@@ -3,9 +3,10 @@ import { NextResponse } from 'next/server'
 export async function POST(req: Request) {
   const { url, title, description } = await req.json()
 
+  const debug = new URL(req.url).searchParams.get('debug') === '1'
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    return NextResponse.json({ tags: [] })
+    return NextResponse.json({ tags: [], ...(debug ? { reason: 'ANTHROPIC_API_KEY not set' } : {}) })
   }
 
   const prompt = `You are a bookmark tagging assistant. Given a saved link's URL, title, and description, return 2-4 short, lowercase tags that describe what the site IS — its category, industry, or vibe.
@@ -35,6 +36,14 @@ Return ONLY a JSON array of tags, nothing else. Example: ["design", "agency", "b
     })
 
     const data = await res.json()
+
+    if (!res.ok) {
+      return NextResponse.json({
+        tags: [],
+        ...(debug ? { reason: 'anthropic api error', status: res.status, detail: data } : {}),
+      })
+    }
+
     const text = data?.content?.[0]?.text || '[]'
 
     // Extract the JSON array from the response
@@ -47,8 +56,14 @@ Return ONLY a JSON array of tags, nothing else. Example: ["design", "agency", "b
       return NextResponse.json({ tags })
     }
 
-    return NextResponse.json({ tags: [] })
-  } catch {
-    return NextResponse.json({ tags: [] })
+    return NextResponse.json({
+      tags: [],
+      ...(debug ? { reason: 'no json array in response', rawText: text.slice(0, 300) } : {}),
+    })
+  } catch (err: any) {
+    return NextResponse.json({
+      tags: [],
+      ...(debug ? { reason: 'fetch threw', error: err.message || String(err) } : {}),
+    })
   }
 }
