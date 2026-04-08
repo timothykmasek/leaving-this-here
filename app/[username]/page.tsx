@@ -592,7 +592,7 @@ export default function ProfilePage() {
           <div className="relative">
             <input
               type="text"
-              placeholder="search your mind..."
+              placeholder="search your links..."
               onChange={(e) => handleSearch(e.target.value)}
               className="w-full px-6 py-4 text-lg font-light italic text-gray-700 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50/50 placeholder:text-gray-400"
             />
@@ -644,15 +644,6 @@ export default function ProfilePage() {
                 />
               </label>
               {uploadMsg && <span className="text-xs text-gray-500">{uploadMsg}</span>}
-              <span className="text-gray-200">·</span>
-              <button
-                onClick={handleReembedAll}
-                disabled={reembedding || bookmarks.length === 0}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-30"
-              >
-                {reembedding ? 'embedding...' : 're-embed all'}
-              </button>
-              {reembedMsg && <span className="text-xs text-gray-500">{reembedMsg}</span>}
             </div>
           )}
         </div>

@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       query_embedding: queryVectorLiteral as any,
       target_user_id: user_id,
       include_private: isOwner,
-      match_threshold: 0.3,
+      match_threshold: 0.55,
       match_count: 50,
     })
 

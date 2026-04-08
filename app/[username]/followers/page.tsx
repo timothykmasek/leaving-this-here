@@ -56,7 +56,7 @@ export default function FollowersPage() {
     <main className="min-h-screen bg-white">
       <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
         <Link href={`/${username}`} className="text-xs text-gray-400 hover:text-gray-900">
-          ← back to {profile.display_name || profile.username}
+          ← back to profile
         </Link>
         <h1 className="mt-4 text-3xl font-light text-gray-900">followers</h1>
         <p className="text-sm text-gray-500 mb-8">

@@ -43,8 +43,8 @@ export default async function Home() {
 
           <p className="mt-6 text-lg text-gray-600 max-w-xl mx-auto leading-relaxed">
             a quiet corner of the internet for the things worth keeping. bookmark
-            anything in one click, see what others are reading, and follow people
-            whose taste you trust.
+            anything in one click, find it again later, and share only what you
+            want.
           </p>
 
           <div className="mt-10 flex items-center justify-center gap-3">
@@ -61,10 +61,6 @@ export default async function Home() {
               sign up — it&apos;s free
             </Link>
           </div>
-
-          <p className="mt-4 text-xs text-gray-400">
-            no algorithms, no noise, no ads
-          </p>
         </div>
       </section>
 
@@ -85,7 +81,7 @@ export default async function Home() {
 
           <div className="mb-5">
             <div className="w-full px-5 py-3 text-base italic text-gray-400 border border-gray-200 rounded-xl bg-white">
-              search your mind...
+              search your links...
             </div>
           </div>
 
@@ -125,10 +121,10 @@ export default async function Home() {
             </p>
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">discover good taste</p>
+            <p className="text-sm font-medium text-gray-900 mb-1">yours to share</p>
             <p className="text-xs text-gray-500 leading-relaxed">
-              follow people whose taste you trust, and find new ones through the
-              tags you both care about.
+              browse by tags and themes. share your collection publicly, or keep
+              it just for you.
             </p>
           </div>
         </div>
@@ -139,7 +135,7 @@ export default async function Home() {
             href="/login?mode=signup"
             className="inline-block text-sm font-semibold text-white bg-gray-900 hover:bg-gray-800 px-8 py-4 rounded-full shadow-sm transition-colors"
           >
-            start your collection
+            start saving
           </Link>
         </div>
       </section>

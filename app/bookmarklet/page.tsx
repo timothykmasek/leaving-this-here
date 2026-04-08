@@ -48,7 +48,7 @@ export default function BookmarkletPage() {
               + leaving this here
             </a>
             <p className="text-xs text-gray-500 mt-4">
-              then name it something like "save" for quick access
+              then name it "leaving this here"
             </p>
           </div>
 
