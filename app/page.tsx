@@ -1,6 +1,7 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { BookmarkCard } from '@/components/BookmarkCard'
 
 export default async function Home() {
   const supabase = await createSupabaseServer()
@@ -19,6 +20,36 @@ export default async function Home() {
       redirect('/setup')
     }
   }
+
+  // Public preview — recent community bookmarks for non-logged-in visitors.
+  // Anon role + RLS allows reading non-private bookmarks, so this just works.
+  // We pull enough rows to span every active persona, then keep only one
+  // bookmark per user so the grid always shows 12 *different* people.
+  const { data: rawPreview } = await supabase
+    .from('bookmarks')
+    .select(
+      'id, url, title, description, image_url, screenshot_url, favicon_url, tags, raw_metadata, user_id, created_at, profiles:user_id(username, display_name)'
+    )
+    .eq('is_private', false)
+    .not('image_url', 'is', null)
+    .order('created_at', { ascending: false })
+    .limit(400)
+
+  // Group by user, keep most-recent per user, then take 12 distinct users.
+  // Shuffle the user order so the grid feels fresh on each request.
+  const seenUsers = new Set<string>()
+  const oneEach: any[] = []
+  for (const b of rawPreview || []) {
+    if (seenUsers.has(b.user_id)) continue
+    seenUsers.add(b.user_id)
+    oneEach.push(b)
+  }
+  // Fisher-Yates shuffle for variety on reload
+  for (let i = oneEach.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[oneEach[i], oneEach[j]] = [oneEach[j], oneEach[i]]
+  }
+  const previewBookmarks = oneEach.slice(0, 12)
 
   return (
     <main className="min-h-screen bg-white">
@@ -64,44 +95,57 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Product preview */}
-      <section className="mx-auto max-w-5xl px-4 pb-24 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-gray-100 bg-gradient-to-b from-gray-50 to-white p-6 sm:p-10 shadow-sm">
-          <div className="mb-6">
-            <h2 className="text-xl font-medium text-gray-900">alice</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              bookmarks that caught my attention
-            </p>
-            <div className="mt-3 flex gap-6 text-sm">
-              <span><strong className="text-gray-900">24</strong> <span className="text-gray-500">links</span></span>
-              <span><strong className="text-gray-900">8</strong> <span className="text-gray-500">followers</span></span>
-              <span><strong className="text-gray-900">12</strong> <span className="text-gray-500">following</span></span>
-            </div>
-          </div>
+      {/* Live community preview */}
+      <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6 lg:px-8">
+        <div className="text-center mb-10">
+          <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">
+            recently saved
+          </p>
+          <h2 className="text-2xl font-light text-gray-900">
+            real links from real people
+          </h2>
+        </div>
 
-          <div className="mb-5">
-            <div className="w-full px-5 py-3 text-base italic text-gray-400 border border-gray-200 rounded-xl bg-white">
-              search your links...
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              'from-orange-100 to-amber-50',
-              'from-stone-100 to-stone-50',
-              'from-rose-100 to-rose-50',
-              'from-sky-100 to-sky-50',
-              'from-emerald-100 to-emerald-50',
-              'from-violet-100 to-violet-50',
-              'from-zinc-100 to-zinc-50',
-              'from-yellow-100 to-yellow-50',
-            ].map((g, i) => (
-              <div
-                key={i}
-                className={`aspect-square bg-gradient-to-br ${g} rounded-xl border border-gray-100`}
-              />
+        {previewBookmarks && previewBookmarks.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {previewBookmarks.map((bookmark: any) => (
+              <div key={bookmark.id}>
+                <BookmarkCard
+                  id={bookmark.id}
+                  title={bookmark.title}
+                  description={bookmark.description}
+                  url={bookmark.url}
+                  imageUrl={bookmark.image_url}
+                  screenshotUrl={bookmark.screenshot_url}
+                  faviconUrl={bookmark.favicon_url}
+                  rawMetadata={bookmark.raw_metadata}
+                  tags={bookmark.tags || []}
+                  isOwner={false}
+                  isPrivate={false}
+                />
+                <div className="mt-1.5 px-1">
+                  <Link
+                    href={`/${bookmark.profiles?.username}`}
+                    className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    saved by{' '}
+                    <span className="font-medium">
+                      {bookmark.profiles?.display_name || bookmark.profiles?.username}
+                    </span>
+                  </Link>
+                </div>
+              </div>
             ))}
           </div>
+        )}
+
+        <div className="mt-10 text-center">
+          <Link
+            href="/discover"
+            className="text-sm text-gray-600 hover:text-gray-900 underline underline-offset-4"
+          >
+            see more on discover →
+          </Link>
         </div>
 
         {/* Three-up value props */}

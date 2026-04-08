@@ -23,78 +23,89 @@ export default function DiscoverPage() {
           data: { user },
         } = await supabase.auth.getUser()
 
-        if (!user) {
-          router.push('/login')
-          return
-        }
+        // Logged-in user — load personalized following + similar feeds.
+        // Anonymous visitors skip these and only see the community feed below.
+        if (user) {
+          // 1. Following
+          const { data: followingData } = await supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', user.id)
 
-        // 1. Following
-        const { data: followingData } = await supabase
-          .from('follows')
-          .select('following_id')
-          .eq('follower_id', user.id)
+          const followingIds = followingData?.map((f) => f.following_id) || []
 
-        const followingIds = followingData?.map((f) => f.following_id) || []
+          if (followingIds.length > 0) {
+            const { data: followedData } = await supabase
+              .from('bookmarks')
+              .select(`*, profiles:user_id(username, display_name)`)
+              .in('user_id', followingIds)
+              .eq('is_private', false)
+              .order('created_at', { ascending: false })
+              .limit(50)
+            setFollowingBookmarks(followedData || [])
+          }
 
-        if (followingIds.length > 0) {
-          const { data: followedData } = await supabase
+          // 2. Similar interests — based on tag overlap with current user.
+          // Pull current user's tags from their own bookmarks.
+          const { data: myBookmarks } = await supabase
             .from('bookmarks')
-            .select(`*, profiles:user_id(username, display_name)`)
-            .in('user_id', followingIds)
-            .eq('is_private', false)
-            .order('created_at', { ascending: false })
-            .limit(50)
-          setFollowingBookmarks(followedData || [])
-        }
+            .select('tags')
+            .eq('user_id', user.id)
 
-        // 2. Similar interests — based on tag overlap with current user.
-        // Pull current user's tags from their own bookmarks.
-        const { data: myBookmarks } = await supabase
-          .from('bookmarks')
-          .select('tags')
-          .eq('user_id', user.id)
-
-        const myTags = Array.from(
-          new Set(
-            (myBookmarks || []).flatMap((b: any) => b.tags || []).filter(Boolean)
+          const myTags = Array.from(
+            new Set(
+              (myBookmarks || []).flatMap((b: any) => b.tags || []).filter(Boolean)
+            )
           )
-        )
 
-        if (myTags.length > 0) {
-          // Find public bookmarks that share at least one tag,
-          // excluding ones from the user themselves and from people they follow
-          // (those are already covered by the Following feed).
-          const exclude = [user.id, ...followingIds]
-          const { data: tagMatches } = await supabase
-            .from('bookmarks')
-            .select(`*, profiles:user_id(username, display_name)`)
-            .overlaps('tags', myTags)
-            .eq('is_private', false)
-            .not('user_id', 'in', `(${exclude.join(',')})`)
-            .order('created_at', { ascending: false })
-            .limit(50)
+          if (myTags.length > 0) {
+            // Find public bookmarks that share at least one tag,
+            // excluding ones from the user themselves and from people they follow
+            // (those are already covered by the Following feed).
+            const exclude = [user.id, ...followingIds]
+            const { data: tagMatches } = await supabase
+              .from('bookmarks')
+              .select(`*, profiles:user_id(username, display_name)`)
+              .overlaps('tags', myTags)
+              .eq('is_private', false)
+              .not('user_id', 'in', `(${exclude.join(',')})`)
+              .order('created_at', { ascending: false })
+              .limit(50)
 
-          // Rank by how many shared tags each bookmark has
-          const ranked = (tagMatches || [])
-            .map((b: any) => ({
-              ...b,
-              _overlap: (b.tags || []).filter((t: string) => myTags.includes(t)).length,
-            }))
-            .sort((a: any, b: any) => b._overlap - a._overlap)
+            // Rank by how many shared tags each bookmark has
+            const ranked = (tagMatches || [])
+              .map((b: any) => ({
+                ...b,
+                _overlap: (b.tags || []).filter((t: string) => myTags.includes(t)).length,
+              }))
+              .sort((a: any, b: any) => b._overlap - a._overlap)
 
-          setSimilarBookmarks(ranked.slice(0, 24))
-          setSharedTags(myTags.slice(0, 6))
+            setSimilarBookmarks(ranked.slice(0, 24))
+            setSharedTags(myTags.slice(0, 6))
+          }
         }
 
-        // 3. Fallback / fresh community feed
-        const { data: communityData } = await supabase
+        // 3. Community feed — shown to everyone (logged-in or not).
+        // For logged-in users we exclude their own bookmarks; for anonymous
+        // visitors we show all public bookmarks. We over-fetch and dedupe by
+        // user_id so the grid shows diverse people, not 24 saves from whoever
+        // happened to add bookmarks last.
+        let communityQuery = supabase
           .from('bookmarks')
           .select(`*, profiles:user_id(username, display_name)`)
-          .neq('user_id', user.id)
           .eq('is_private', false)
           .order('created_at', { ascending: false })
-          .limit(24)
-        setCommunityBookmarks(communityData || [])
+          .limit(400)
+        if (user) communityQuery = communityQuery.neq('user_id', user.id)
+        const { data: communityData } = await communityQuery
+        const seenCommunity = new Set<string>()
+        const oneEachCommunity: any[] = []
+        for (const b of communityData || []) {
+          if (seenCommunity.has(b.user_id)) continue
+          seenCommunity.add(b.user_id)
+          oneEachCommunity.push(b)
+        }
+        setCommunityBookmarks(oneEachCommunity.slice(0, 24))
       } finally {
         setLoading(false)
       }
@@ -155,7 +166,7 @@ export default function DiscoverPage() {
         <div className="mb-10">
           <h1 className="text-3xl font-light text-gray-900 mb-2">discover</h1>
           <p className="text-gray-500 text-sm">
-            recent saves from people you follow and people who share your taste
+            recent saves from across leaving this here
           </p>
         </div>
 

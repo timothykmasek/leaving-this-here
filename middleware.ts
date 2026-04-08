@@ -37,7 +37,7 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Protect these routes — redirect to login if not signed in
-  const protectedPaths = ['/discover', '/bookmarklet', '/save', '/setup']
+  const protectedPaths = ['/bookmarklet', '/save', '/setup']
   if (protectedPaths.includes(request.nextUrl.pathname) && !user) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
@@ -46,5 +46,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/discover', '/bookmarklet', '/save', '/setup'],
+  matcher: ['/bookmarklet', '/save', '/setup'],
 }
