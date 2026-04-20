@@ -210,21 +210,6 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Differentiator */}
-      <section className="border-t border-gray-100">
-        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8 text-center">
-          <div className="space-y-1 text-lg text-gray-500 leading-relaxed">
-            <p>Pinterest is where you collect.</p>
-            <p>Are.na is where you study.</p>
-            <p>Substack is where you write.</p>
-            <p className="text-gray-900 font-medium pt-2">
-              <em className="italic">leaving this here</em> is where you curate — as a
-              publishing act, with an audience you own.
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* Bottom CTA with handle input */}
       <section className="border-t border-gray-100 bg-gray-50/50">
         <div className="mx-auto max-w-2xl px-4 py-24 sm:px-6 lg:px-8 text-center">
