@@ -37,7 +37,6 @@ export default function ProfilePage() {
   // Subscribe modal — stub in Phase 1, wired up in Phase 2 (folio_subscribers + Resend).
   const [subscribeOpen, setSubscribeOpen] = useState(false)
   const [subscribeEmail, setSubscribeEmail] = useState('')
-  const [subscribeConsent, setSubscribeConsent] = useState(true)
   const [subscribeDone, setSubscribeDone] = useState(false)
 
   const handleDownloadCSV = () => {
@@ -721,8 +720,7 @@ export default function ProfilePage() {
                 </h2>
                 <p className="text-sm text-gray-500 leading-relaxed mb-6">
                   You&apos;ll get a digest when {profile.display_name || profile.username} saves
-                  10 new links — or once a month, whichever comes first. One unsubscribe link in
-                  every email. No spam.
+                  10 new links — or once a month, whichever comes first.
                 </p>
                 <form
                   onSubmit={(e) => {
@@ -735,7 +733,6 @@ export default function ProfilePage() {
                       const existing = JSON.parse(localStorage.getItem(key) || '[]')
                       existing.push({
                         email: subscribeEmail.trim(),
-                        consent_cross_platform: subscribeConsent,
                         created_at: new Date().toISOString(),
                       })
                       localStorage.setItem(key, JSON.stringify(existing))
@@ -752,18 +749,6 @@ export default function ProfilePage() {
                     placeholder="your@email.com"
                     className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
                   />
-                  <label className="flex items-start gap-2 text-xs text-gray-500 leading-relaxed cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={subscribeConsent}
-                      onChange={(e) => setSubscribeConsent(e.target.checked)}
-                      className="mt-0.5"
-                    />
-                    <span>
-                      Also add me to {profile.display_name || profile.username}&apos;s other
-                      mailing lists (newsletter, Substack, etc.) if they have any.
-                    </span>
-                  </label>
                   <div className="flex gap-2 justify-end pt-2">
                     <button
                       type="button"
@@ -776,7 +761,7 @@ export default function ProfilePage() {
                       type="submit"
                       className="px-5 py-2 bg-gray-900 text-white rounded-full text-sm font-medium hover:bg-gray-800"
                     >
-                      get the digest
+                      subscribe
                     </button>
                   </div>
                 </form>
