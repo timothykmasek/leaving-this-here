@@ -1,7 +1,6 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { BookmarkCard } from '@/components/BookmarkCard'
 
 export default async function Home() {
   const supabase = await createSupabaseServer()
@@ -21,41 +20,48 @@ export default async function Home() {
     }
   }
 
-  // Public preview — recent community bookmarks for non-logged-in visitors.
-  // Anon role + RLS allows reading non-private bookmarks, so this just works.
-  // We pull enough rows to span every active persona, then keep only one
-  // bookmark per user so the grid always shows 12 *different* people.
+  // Public landing — showcase 6 folios (one per creator) with 3 recent link
+  // thumbnails each. Anon role + RLS allows reading non-private bookmarks.
   const { data: rawPreview } = await supabase
     .from('bookmarks')
     .select(
-      'id, url, title, description, image_url, screenshot_url, favicon_url, tags, raw_metadata, user_id, created_at, profiles:user_id(username, display_name)'
+      'id, url, title, image_url, screenshot_url, favicon_url, user_id, created_at, profiles:user_id(username, display_name, bio)'
     )
     .eq('is_private', false)
     .or('image_url.not.is.null,screenshot_url.not.is.null')
     .order('created_at', { ascending: false })
-    .limit(400)
+    .limit(500)
 
-  // Group by user, keep most-recent per user, then take 12 distinct users.
-  // Shuffle the user order so the grid feels fresh on each request.
-  const seenUsers = new Set<string>()
-  const oneEach: any[] = []
+  // Group by user; keep up to 3 most-recent bookmarks per user for thumbnails.
+  type Folio = {
+    user_id: string
+    profile: any
+    thumbnails: any[]
+    total: number
+  }
+  const byUser = new Map<string, Folio>()
   for (const b of rawPreview || []) {
-    if (seenUsers.has(b.user_id)) continue
-    seenUsers.add(b.user_id)
-    oneEach.push(b)
+    let entry = byUser.get(b.user_id)
+    if (!entry) {
+      entry = { user_id: b.user_id, profile: b.profiles, thumbnails: [], total: 0 }
+      byUser.set(b.user_id, entry)
+    }
+    if (entry.thumbnails.length < 3) entry.thumbnails.push(b)
+    entry.total += 1
   }
-  // Fisher-Yates shuffle for variety on reload
-  for (let i = oneEach.length - 1; i > 0; i--) {
+
+  // Shuffle so the showcase feels fresh on each load, then take 6 folios.
+  const folios = Array.from(byUser.values()).filter((f) => f.profile?.username)
+  for (let i = folios.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1))
-    ;[oneEach[i], oneEach[j]] = [oneEach[j], oneEach[i]]
+    ;[folios[i], folios[j]] = [folios[j], folios[i]]
   }
-  const previewBookmarks = oneEach.slice(0, 12)
+  const showcase = folios.slice(0, 6)
 
   return (
     <main className="min-h-screen bg-white">
       {/* Hero */}
       <section className="relative overflow-hidden">
-        {/* Soft warm gradient backdrop */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 -top-32 mx-auto h-[640px] max-w-4xl rounded-full opacity-60 blur-3xl"
@@ -64,123 +70,189 @@ export default async function Home() {
               'radial-gradient(closest-side, rgba(255,180,140,0.55), rgba(255,220,190,0.35) 40%, rgba(255,255,255,0) 70%)',
           }}
         />
-
-        <div className="relative mx-auto max-w-4xl px-4 pt-20 pb-16 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl sm:text-6xl font-light tracking-tight text-gray-900 leading-[1.05]">
-            save what you find.
+        <div className="relative mx-auto max-w-4xl px-4 pt-24 pb-20 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-6xl sm:text-7xl font-light tracking-tight text-gray-900 leading-[1.05]">
+            Save. Publish.
             <br />
-            <span className="italic text-gray-700">share what you love.</span>
+            <span className="italic text-gray-700">Subscribe.</span>
           </h1>
 
-          <p className="mt-6 text-lg text-gray-600 max-w-xl mx-auto leading-relaxed">
-            a quiet corner of the internet for the things worth keeping. bookmark
-            anything in one click, find it again later, and share only what you
-            want.
+          <p className="mt-8 text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+            The lightest way to publish online. Save a link while you browse, your
+            folio builds itself, readers subscribe to your taste.
           </p>
 
           <div className="mt-10 flex items-center justify-center gap-3">
             <Link
-              href="/login"
+              href="/login?mode=signup"
+              className="text-sm font-semibold text-white bg-gray-900 hover:bg-gray-800 px-7 py-3.5 rounded-full shadow-sm transition-colors"
+            >
+              start your folio
+            </Link>
+            <a
+              href="#showcase"
               className="text-sm font-medium text-gray-700 hover:text-gray-900 px-5 py-3 rounded-full transition-colors"
             >
-              log in
-            </Link>
-            <Link
-              href="/login?mode=signup"
-              className="text-sm font-semibold text-white bg-gray-900 hover:bg-gray-800 px-6 py-3 rounded-full shadow-sm transition-colors"
-            >
-              sign up — it&apos;s free
-            </Link>
+              explore folios
+            </a>
           </div>
         </div>
       </section>
 
-      {/* Live community preview */}
-      <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">
-            recently saved
-          </p>
-          <h2 className="text-2xl font-light text-gray-900">
-            real links from real people
-          </h2>
+      {/* Folio showcase */}
+      <section id="showcase" className="mx-auto max-w-6xl px-4 pb-24 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
+          <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">showcase</p>
+          <h2 className="text-3xl font-light text-gray-900">folios worth subscribing to</h2>
         </div>
 
-        {previewBookmarks && previewBookmarks.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {previewBookmarks.map((bookmark: any) => (
-              <div key={bookmark.id}>
-                <BookmarkCard
-                  id={bookmark.id}
-                  title={bookmark.title}
-                  description={bookmark.description}
-                  url={bookmark.url}
-                  imageUrl={bookmark.image_url}
-                  screenshotUrl={bookmark.screenshot_url}
-                  faviconUrl={bookmark.favicon_url}
-                  rawMetadata={bookmark.raw_metadata}
-                  tags={bookmark.tags || []}
-                  isOwner={false}
-                  isPrivate={false}
-                />
-                <div className="mt-1.5 px-1">
-                  <Link
-                    href={`/${bookmark.profiles?.username}`}
-                    className="text-[11px] text-gray-400 hover:text-gray-600 transition-colors"
-                  >
-                    saved by{' '}
-                    <span className="font-medium">
-                      {bookmark.profiles?.display_name || bookmark.profiles?.username}
-                    </span>
-                  </Link>
+        {showcase.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {showcase.map((folio) => (
+              <Link
+                key={folio.user_id}
+                href={`/${folio.profile.username}`}
+                className="group block rounded-2xl border border-gray-100 bg-white p-5 hover:border-gray-200 hover:shadow-sm transition-all"
+              >
+                {/* Thumbnail strip */}
+                <div className="grid grid-cols-3 gap-1.5 mb-5">
+                  {folio.thumbnails.map((t) => {
+                    const src = t.image_url || t.screenshot_url || t.favicon_url
+                    return (
+                      <div
+                        key={t.id}
+                        className="aspect-[4/3] rounded-md overflow-hidden bg-gray-50"
+                      >
+                        {src ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={src}
+                            alt=""
+                            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                          />
+                        ) : null}
+                      </div>
+                    )
+                  })}
                 </div>
-              </div>
+
+                {/* Folio meta */}
+                <div>
+                  <h3 className="text-xl font-medium text-gray-900 group-hover:underline underline-offset-4 decoration-gray-300">
+                    {folio.profile.display_name || folio.profile.username}
+                  </h3>
+                  {folio.profile.bio && (
+                    <p className="text-sm text-gray-500 italic mt-1.5 leading-snug line-clamp-2">
+                      {folio.profile.bio}
+                    </p>
+                  )}
+                  <p className="text-xs uppercase tracking-wider text-gray-400 mt-3">
+                    {folio.total} {folio.total === 1 ? 'link' : 'links'}
+                  </p>
+                </div>
+              </Link>
             ))}
           </div>
         )}
+      </section>
 
-        <div className="mt-10 text-center">
-          <Link
-            href="/discover"
-            className="text-sm text-gray-600 hover:text-gray-900 underline underline-offset-4"
-          >
-            see more on discover →
-          </Link>
-        </div>
-
-        {/* Three-up value props */}
-        <div className="mt-16 grid sm:grid-cols-3 gap-10 text-center">
-          <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">save anything</p>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              one-click bookmark from any browser. articles, products, videos,
-              tweets — they all land in the same calm place.
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">find it again</p>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              search across everything you&apos;ve saved. fuzzy, forgiving, fast —
-              search by what you remember, not what you typed.
-            </p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">yours to share</p>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              browse by tags and themes. share your collection publicly, or keep
-              it just for you.
-            </p>
+      {/* How it works */}
+      <section className="border-t border-gray-100 bg-gray-50/50">
+        <div className="mx-auto max-w-5xl px-4 py-20 sm:px-6 lg:px-8">
+          <div className="grid sm:grid-cols-3 gap-10">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">1 · save</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">one click, from any page</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                articles, videos, podcasts, tweets — it all lands in the same place.
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">2 · publish</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">your folio writes itself</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                every save shows up on your public page, beautifully rendered — no extra work.
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">3 · subscribe</p>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">readers follow your taste</h3>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                a digest lands in their inbox every 10 links — or once a month, whichever comes first.
+              </p>
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Final CTA */}
-        <div className="mt-20 text-center">
-          <Link
-            href="/login?mode=signup"
-            className="inline-block text-sm font-semibold text-white bg-gray-900 hover:bg-gray-800 px-8 py-4 rounded-full shadow-sm transition-colors"
-          >
-            start saving
-          </Link>
+      {/* Who it's for */}
+      <section className="mx-auto max-w-5xl px-4 py-20 sm:px-6 lg:px-8">
+        <div className="text-center mb-10">
+          <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">who it&apos;s for</p>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
+          <div>
+            <p className="text-sm font-medium text-gray-900 mb-1">designers</p>
+            <p className="text-xs text-gray-500">curating inspiration</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900 mb-1">writers</p>
+            <p className="text-xs text-gray-500">publishing what&apos;s on their mind</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900 mb-1">vcs</p>
+            <p className="text-xs text-gray-500">sharing weekend reading</p>
+          </div>
+          <div>
+            <p className="text-sm font-medium text-gray-900 mb-1">teams</p>
+            <p className="text-xs text-gray-500">building a public reading list</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Differentiator */}
+      <section className="border-t border-gray-100">
+        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6 lg:px-8 text-center">
+          <div className="space-y-1 text-lg text-gray-500 leading-relaxed">
+            <p>Pinterest is where you collect.</p>
+            <p>Are.na is where you study.</p>
+            <p>Substack is where you write.</p>
+            <p className="text-gray-900 font-medium pt-2">
+              <em className="italic">leaving this here</em> is where you curate — as a
+              publishing act, with an audience you own.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Bottom CTA with handle input */}
+      <section className="border-t border-gray-100 bg-gray-50/50">
+        <div className="mx-auto max-w-2xl px-4 py-24 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl font-light text-gray-900 mb-4">start your folio →</h2>
+          <p className="text-sm text-gray-500 mb-8">
+            pick a handle, start saving, watch your folio take shape.
+          </p>
+          <form action="/login" method="get" className="flex items-stretch gap-2 max-w-md mx-auto">
+            <input type="hidden" name="mode" value="signup" />
+            <div className="flex-1 flex items-stretch border border-gray-200 rounded-full bg-white overflow-hidden focus-within:ring-1 focus-within:ring-gray-400">
+              <span className="flex items-center pl-5 pr-1 text-sm text-gray-400 select-none">
+                leavingthishere.com/
+              </span>
+              <input
+                type="text"
+                name="handle"
+                placeholder="yourname"
+                autoComplete="off"
+                className="flex-1 py-3 pr-4 text-sm bg-transparent focus:outline-none"
+              />
+            </div>
+            <button
+              type="submit"
+              className="px-6 py-3 bg-gray-900 text-white rounded-full text-sm font-semibold hover:bg-gray-800 transition-colors whitespace-nowrap"
+            >
+              claim it
+            </button>
+          </form>
         </div>
       </section>
     </main>
