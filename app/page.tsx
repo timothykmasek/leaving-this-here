@@ -31,7 +31,7 @@ export default async function Home() {
       'id, url, title, description, image_url, screenshot_url, favicon_url, tags, raw_metadata, user_id, created_at, profiles:user_id(username, display_name)'
     )
     .eq('is_private', false)
-    .not('image_url', 'is', null)
+    .or('image_url.not.is.null,screenshot_url.not.is.null')
     .order('created_at', { ascending: false })
     .limit(400)
 
