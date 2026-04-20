@@ -34,6 +34,12 @@ export default function ProfilePage() {
   const [reembedding, setReembedding] = useState(false)
   const [reembedMsg, setReembedMsg] = useState<string | null>(null)
 
+  // Subscribe modal — stub in Phase 1, wired up in Phase 2 (folio_subscribers + Resend).
+  const [subscribeOpen, setSubscribeOpen] = useState(false)
+  const [subscribeEmail, setSubscribeEmail] = useState('')
+  const [subscribeConsent, setSubscribeConsent] = useState(true)
+  const [subscribeDone, setSubscribeDone] = useState(false)
+
   const handleDownloadCSV = () => {
     const rows = bookmarks.map((b) => b.url)
     const csv = rows.join('\n')
@@ -380,23 +386,30 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-white">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-        {/* Profile header */}
-        <div className="mb-12 border-b border-gray-100 pb-8">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <h1 className="text-3xl font-light text-gray-900 mb-2">
+        {/* Folio hero */}
+        <div className="mb-12 border-b border-gray-100 pb-10">
+          <div className="flex items-start justify-between gap-6 mb-6">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-4xl sm:text-5xl font-light tracking-tight text-gray-900 mb-4 leading-[1.1]">
                 {profile.display_name || profile.username}
               </h1>
-              {profile.bio && <p className="text-gray-500 text-sm mb-3">{profile.bio}</p>}
+              {profile.bio && (
+                <p className="text-gray-600 italic text-lg leading-relaxed max-w-2xl mb-4">
+                  {profile.bio}
+                </p>
+              )}
               {!profile.bio && isOwner && !editingProfile && (
-                <p className="text-gray-300 text-sm mb-3 italic cursor-pointer hover:text-gray-400" onClick={() => { setEditingProfile(true); setEditBio(''); setEditLinks(profile.links || {}) }}>
-                  add a short bio...
+                <p
+                  className="text-gray-300 text-base mb-4 italic cursor-pointer hover:text-gray-400"
+                  onClick={() => { setEditingProfile(true); setEditBio(''); setEditLinks(profile.links || {}) }}
+                >
+                  add a short tagline...
                 </p>
               )}
 
               {/* Social links */}
               {profile.links && Object.keys(profile.links).length > 0 && (
-                <div className="flex gap-4 mb-3">
+                <div className="flex gap-4 flex-wrap">
                   {profile.links.twitter && (
                     <a href={`https://x.com/${profile.links.twitter}`} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600">x.com/{profile.links.twitter}</a>
                   )}
@@ -410,25 +423,30 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <div className="flex gap-2">
+            {/* Actions — subscribe is the primary CTA, follow is demoted secondary */}
+            <div className="flex flex-col items-end gap-2 shrink-0">
+              {!isOwner && (
+                <button
+                  onClick={() => { setSubscribeOpen(true); setSubscribeDone(false); setSubscribeEmail('') }}
+                  className="px-6 py-2.5 bg-gray-900 text-white rounded-full font-medium text-sm hover:bg-gray-800 transition-colors shadow-sm"
+                >
+                  subscribe
+                </button>
+              )}
+              {currentUserId && !isOwner && (
+                <button
+                  onClick={handleFollow}
+                  className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+                >
+                  {isFollowing ? 'following' : 'follow'}
+                </button>
+              )}
               {isOwner && !editingProfile && (
                 <button
                   onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
                   className="px-4 py-2 text-sm text-gray-400 hover:text-gray-900 transition-colors"
                 >
                   edit profile
-                </button>
-              )}
-              {currentUserId && !isOwner && (
-                <button
-                  onClick={handleFollow}
-                  className={`px-6 py-2 rounded-lg font-medium text-sm transition-colors ${
-                    isFollowing
-                      ? 'bg-gray-100 text-gray-900 hover:bg-gray-200'
-                      : 'bg-gray-900 text-white hover:bg-gray-800'
-                  }`}
-                >
-                  {isFollowing ? 'following' : 'follow'}
                 </button>
               )}
             </div>
@@ -438,12 +456,12 @@ export default function ProfilePage() {
           {editingProfile && (
             <div className="bg-gray-50 rounded-lg border border-gray-100 p-6 mb-4 space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">bio</label>
+                <label className="block text-xs font-medium text-gray-500 mb-1">tagline</label>
                 <input
                   type="text"
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
-                  placeholder="bookmarks that caught my attention"
+                  placeholder="the short line that describes your folio"
                   maxLength={160}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
                 />
@@ -543,24 +561,26 @@ export default function ProfilePage() {
             </div>
           )}
 
-          <div className="flex gap-8 text-sm">
+          {/* Quiet meta row — folio stats live here, de-emphasized */}
+          <div className="flex gap-5 text-xs uppercase tracking-wider text-gray-400">
             <span>
-              <strong className="text-gray-900">{bookmarks.length}</strong>{' '}
-              <span className="text-gray-500">links</span>
+              <span className="text-gray-900 font-medium">{bookmarks.length}</span>{' '}
+              <span>links</span>
             </span>
-            <Link
-              href={`/${username}/followers`}
-              className="hover:text-gray-900 transition-colors"
-            >
-              <strong className="text-gray-900">{followers}</strong>{' '}
-              <span className="text-gray-500 hover:text-gray-900">followers</span>
+            {(() => {
+              const latest = bookmarks[0]?.created_at
+              if (!latest) return null
+              const days = Math.floor((Date.now() - new Date(latest).getTime()) / 86400000)
+              const label = days === 0 ? 'updated today' : days === 1 ? 'updated yesterday' : days < 30 ? `updated ${days}d ago` : days < 365 ? `updated ${Math.floor(days / 30)}mo ago` : `updated ${Math.floor(days / 365)}y ago`
+              return <span>{label}</span>
+            })()}
+            <Link href={`/${username}/followers`} className="hover:text-gray-700 transition-colors">
+              <span className="text-gray-900 font-medium">{followers}</span>{' '}
+              <span>followers</span>
             </Link>
-            <Link
-              href={`/${username}/following`}
-              className="hover:text-gray-900 transition-colors"
-            >
-              <strong className="text-gray-900">{following}</strong>{' '}
-              <span className="text-gray-500 hover:text-gray-900">following</span>
+            <Link href={`/${username}/following`} className="hover:text-gray-700 transition-colors">
+              <span className="text-gray-900 font-medium">{following}</span>{' '}
+              <span>following</span>
             </Link>
           </div>
         </div>
@@ -681,6 +701,106 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Subscribe modal — Phase 1 stub. Stores to localStorage so we can demo
+          the flow end-to-end. Phase 2 swaps this for a real POST to
+          /api/folio-subscribers that writes to Supabase + triggers double opt-in. */}
+      {subscribeOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          onClick={() => setSubscribeOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {!subscribeDone ? (
+              <>
+                <h2 className="text-2xl font-light text-gray-900 mb-2">
+                  Subscribe to {profile.display_name || profile.username}
+                </h2>
+                <p className="text-sm text-gray-500 leading-relaxed mb-6">
+                  You&apos;ll get a digest when {profile.display_name || profile.username} saves
+                  10 new links — or once a month, whichever comes first. One unsubscribe link in
+                  every email. No spam.
+                </p>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    if (!subscribeEmail.trim()) return
+                    // Phase 1 stub — store locally so the flow is demo-able end-to-end.
+                    // Phase 2 will replace with a real API call + double opt-in email.
+                    try {
+                      const key = `folio_subscribers:${profile.id}`
+                      const existing = JSON.parse(localStorage.getItem(key) || '[]')
+                      existing.push({
+                        email: subscribeEmail.trim(),
+                        consent_cross_platform: subscribeConsent,
+                        created_at: new Date().toISOString(),
+                      })
+                      localStorage.setItem(key, JSON.stringify(existing))
+                    } catch {}
+                    setSubscribeDone(true)
+                  }}
+                  className="space-y-4"
+                >
+                  <input
+                    type="email"
+                    required
+                    value={subscribeEmail}
+                    onChange={(e) => setSubscribeEmail(e.target.value)}
+                    placeholder="your@email.com"
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  />
+                  <label className="flex items-start gap-2 text-xs text-gray-500 leading-relaxed cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={subscribeConsent}
+                      onChange={(e) => setSubscribeConsent(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      Also add me to {profile.display_name || profile.username}&apos;s other
+                      mailing lists (newsletter, Substack, etc.) if they have any.
+                    </span>
+                  </label>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setSubscribeOpen(false)}
+                      className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900"
+                    >
+                      cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-5 py-2 bg-gray-900 text-white rounded-full text-sm font-medium hover:bg-gray-800"
+                    >
+                      get the digest
+                    </button>
+                  </div>
+                </form>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-light text-gray-900 mb-2">You&apos;re in.</h2>
+                <p className="text-sm text-gray-500 leading-relaxed mb-6">
+                  We&apos;ll send you {profile.display_name || profile.username}&apos;s first
+                  digest when they hit 10 new links — or once a month, whichever comes first.
+                </p>
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setSubscribeOpen(false)}
+                    className="px-5 py-2 bg-gray-900 text-white rounded-full text-sm font-medium hover:bg-gray-800"
+                  >
+                    done
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   )
 }
