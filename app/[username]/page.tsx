@@ -364,6 +364,19 @@ export default function ProfilePage() {
     setFiltered(update)
   }
 
+  const handleNoteUpdate = async (id: string, newNote: string | null) => {
+    // Graceful fallback: if migration 005 hasn't been applied yet, the update
+    // errors with "column note does not exist". Keep the optimistic UI state
+    // so the owner sees their note locally, and surface a quiet console warning.
+    const { error } = await supabase.from('bookmarks').update({ note: newNote }).eq('id', id)
+    if (error && /note/i.test(error.message || '')) {
+      console.warn('bookmarks.note column missing — apply migrations/005_bookmarks_note.sql in the Supabase SQL editor')
+    }
+    const update = (list: any[]) => list.map((b) => b.id === id ? { ...b, note: newNote } : b)
+    setBookmarks(update)
+    setFiltered(update)
+  }
+
   // Get all tags
   const allTags = Array.from(new Set(bookmarks.flatMap((b) => b.tags || []))).sort()
 
@@ -683,12 +696,14 @@ export default function ProfilePage() {
                 rawMetadata={b.raw_metadata}
                 tags={b.tags || []}
                 allTags={allTags}
+                note={b.note}
                 isOwner={isOwner}
                 isPrivate={b.is_private}
                 cardType={b.card_type}
                 onDelete={handleDelete}
                 onPrivacyToggle={handlePrivacyToggle}
                 onTagsUpdate={handleTagsUpdate}
+                onNoteUpdate={handleNoteUpdate}
               />
             ))}
           </div>

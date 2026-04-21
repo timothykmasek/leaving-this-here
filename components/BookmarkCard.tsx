@@ -14,6 +14,7 @@ interface BookmarkCardProps {
   rawMetadata?: any
   tags: string[]
   allTags?: string[]
+  note?: string | null
   isOwner: boolean
   isPrivate: boolean
   cardType?:
@@ -29,6 +30,7 @@ interface BookmarkCardProps {
   onDelete?: (id: string) => void
   onPrivacyToggle?: (id: string, isPrivate: boolean) => void
   onTagsUpdate?: (id: string, tags: string[]) => void
+  onNoteUpdate?: (id: string, note: string | null) => void
 }
 
 function getGradient(url: string): string {
@@ -482,25 +484,29 @@ function DefaultCard({ imageUrl, screenshotUrl, url, title, faviconUrl, isPrivat
 
 export function BookmarkCard({
   id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  tags, allTags = [], isOwner, isPrivate, onDelete, onPrivacyToggle, onTagsUpdate, cardType,
+  tags, allTags = [], note, isOwner, isPrivate, onDelete, onPrivacyToggle, onTagsUpdate, onNoteUpdate, cardType,
 }: BookmarkCardProps) {
   // Derive product / book info from stored raw_metadata (free, no network)
   const product = cardType === 'product' && rawMetadata ? pickProduct(rawMetadata) : null
   const book = cardType === 'book' && rawMetadata ? pickBook(rawMetadata) : null
   const [menuOpen, setMenuOpen] = useState(false)
   const [editingTags, setEditingTags] = useState(false)
+  const [editingNote, setEditingNote] = useState(false)
+  const [noteDraft, setNoteDraft] = useState<string>(note || '')
   const [tagInput, setTagInput] = useState('')
   const [localTags, setLocalTags] = useState<string[]>(tags)
+  const [localNote, setLocalNote] = useState<string | null>(note ?? null)
   const [suggestIndex, setSuggestIndex] = useState(-1)
   const menuRef = useRef<HTMLDivElement>(null)
   const tagInputRef = useRef<HTMLInputElement>(null)
+  const noteTextareaRef = useRef<HTMLTextAreaElement>(null)
 
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
 
   // Close menu on outside click
   useEffect(() => {
-    if (!menuOpen && !editingTags) return
+    if (!menuOpen && !editingTags && !editingNote) return
     const handleClick = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false)
@@ -508,11 +514,15 @@ export function BookmarkCard({
           setEditingTags(false)
           onTagsUpdate?.(id, localTags)
         }
+        if (editingNote) {
+          saveNote()
+        }
       }
     }
     document.addEventListener('mousedown', handleClick)
     return () => document.removeEventListener('mousedown', handleClick)
-  }, [menuOpen, editingTags, localTags, id, onTagsUpdate])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuOpen, editingTags, editingNote, localTags, noteDraft, id, onTagsUpdate])
 
   // Focus tag input when opening
   useEffect(() => {
@@ -520,6 +530,28 @@ export function BookmarkCard({
       tagInputRef.current.focus()
     }
   }, [editingTags])
+
+  // Focus note textarea when opening
+  useEffect(() => {
+    if (editingNote && noteTextareaRef.current) {
+      noteTextareaRef.current.focus()
+      noteTextareaRef.current.setSelectionRange(noteDraft.length, noteDraft.length)
+    }
+  }, [editingNote])
+
+  // Keep local note in sync when the server refetch brings in a new value.
+  useEffect(() => {
+    setLocalNote(note ?? null)
+    setNoteDraft(note || '')
+  }, [note])
+
+  const saveNote = () => {
+    const cleaned = noteDraft.trim()
+    const next = cleaned.length > 0 ? cleaned : null
+    setLocalNote(next)
+    setEditingNote(false)
+    onNoteUpdate?.(id, next)
+  }
 
   // Tag suggestions
   const suggestions = tagInput
@@ -626,7 +658,7 @@ export function BookmarkCard({
   )
 
   return (
-    <div className="relative">
+    <div className="relative group">
       <a href={url} target="_blank" rel="noopener noreferrer">
         {cardContent}
       </a>
@@ -646,6 +678,13 @@ export function BookmarkCard({
         </div>
       )}
 
+      {/* Curator note — the editorial voice. Italic, quiet, below the card. */}
+      {localNote && (
+        <p className="mt-2 px-1 text-sm text-gray-600 italic leading-snug whitespace-pre-wrap">
+          {localNote}
+        </p>
+      )}
+
       {/* Owner menu — subtle "..." button in top right */}
       {isOwner && (
         <div className="absolute top-2 right-2" ref={menuRef}>
@@ -659,8 +698,19 @@ export function BookmarkCard({
             ···
           </button>
 
-          {menuOpen && !editingTags && (
-            <div className="absolute right-0 top-9 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[140px] z-50">
+          {menuOpen && !editingTags && !editingNote && (
+            <div className="absolute right-0 top-9 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[150px] z-50">
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setEditingNote(true)
+                  setMenuOpen(false)
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                {localNote ? 'edit note' : 'add note'}
+              </button>
               <button
                 onClick={(e) => {
                   e.preventDefault()
@@ -694,6 +744,60 @@ export function BookmarkCard({
               >
                 delete
               </button>
+            </div>
+          )}
+
+          {/* Note editor — inline textarea for the curator's editorial voice. */}
+          {editingNote && (
+            <div
+              className="absolute right-0 top-9 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-[260px] z-50"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <label className="block text-[11px] uppercase tracking-wider text-gray-400 mb-1.5">
+                curator note
+              </label>
+              <textarea
+                ref={noteTextareaRef}
+                value={noteDraft}
+                onChange={(e) => setNoteDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') {
+                    setEditingNote(false)
+                    setNoteDraft(localNote || '')
+                  } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault()
+                    saveNote()
+                  }
+                }}
+                placeholder="why you're sharing this..."
+                rows={3}
+                maxLength={280}
+                className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"
+              />
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-[10px] text-gray-400">{noteDraft.length}/280</span>
+                <div className="flex gap-1">
+                  {localNote && (
+                    <button
+                      onClick={() => {
+                        setNoteDraft('')
+                        setLocalNote(null)
+                        setEditingNote(false)
+                        onNoteUpdate?.(id, null)
+                      }}
+                      className="px-2 py-1 text-[11px] text-gray-500 hover:text-red-600"
+                    >
+                      clear
+                    </button>
+                  )}
+                  <button
+                    onClick={saveNote}
+                    className="px-3 py-1 bg-gray-900 text-white rounded text-[11px] font-medium hover:bg-gray-800"
+                  >
+                    save
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
