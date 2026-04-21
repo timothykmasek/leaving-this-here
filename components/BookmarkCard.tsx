@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { pickProduct, pickBook } from '@/lib/metadata'
+import { detectEmbed } from '@/lib/rich-embed'
+import { RichEmbedCard } from '@/components/RichEmbed'
 
 interface BookmarkCardProps {
   id: string
@@ -504,6 +506,11 @@ export function BookmarkCard({
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
 
+  // Rich embed detection — if the URL matches YouTube / Spotify / Vimeo, we
+  // render an inline player card instead of the standard bookmark layout.
+  // Pure URL parsing, no network calls.
+  const embed = detectEmbed(url)
+
   // Close menu on outside click
   useEffect(() => {
     if (!menuOpen && !editingTags && !editingNote) return
@@ -659,12 +666,18 @@ export function BookmarkCard({
 
   return (
     <div className="relative group">
-      <a href={url} target="_blank" rel="noopener noreferrer">
-        {cardContent}
-      </a>
+      {embed ? (
+        // Rich-embed cards manage their own interaction (play button, iframe,
+        // clickable title row) — don't wrap in an outer <a> or clicks break.
+        <RichEmbedCard info={embed} title={title} url={url} isPrivate={isPrivate} />
+      ) : (
+        <a href={url} target="_blank" rel="noopener noreferrer">
+          {cardContent}
+        </a>
+      )}
 
       {/* Info section — skipped for cards that render their own title row */}
-      {cardType &&
+      {!embed && cardType &&
         cardType !== 'composite' &&
         cardType !== 'product' &&
         cardType !== 'article' &&
