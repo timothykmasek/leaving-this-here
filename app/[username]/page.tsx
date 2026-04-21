@@ -34,10 +34,13 @@ export default function ProfilePage() {
   const [reembedding, setReembedding] = useState(false)
   const [reembedMsg, setReembedMsg] = useState<string | null>(null)
 
-  // Subscribe modal — stub in Phase 1, wired up in Phase 2 (folio_subscribers + Resend).
+  // Subscribe modal — Phase 2: real API call + double opt-in via Resend.
   const [subscribeOpen, setSubscribeOpen] = useState(false)
   const [subscribeEmail, setSubscribeEmail] = useState('')
   const [subscribeDone, setSubscribeDone] = useState(false)
+  const [subscribeSubmitting, setSubscribeSubmitting] = useState(false)
+  const [subscribeError, setSubscribeError] = useState<string | null>(null)
+  const [subscribeAlready, setSubscribeAlready] = useState(false)
 
   const handleDownloadCSV = () => {
     const rows = bookmarks.map((b) => b.url)
@@ -738,21 +741,31 @@ export default function ProfilePage() {
                   10 new links — or once a month, whichever comes first.
                 </p>
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault()
-                    if (!subscribeEmail.trim()) return
-                    // Phase 1 stub — store locally so the flow is demo-able end-to-end.
-                    // Phase 2 will replace with a real API call + double opt-in email.
+                    const email = subscribeEmail.trim()
+                    if (!email) return
+                    setSubscribeSubmitting(true)
+                    setSubscribeError(null)
+                    setSubscribeAlready(false)
                     try {
-                      const key = `folio_subscribers:${profile.id}`
-                      const existing = JSON.parse(localStorage.getItem(key) || '[]')
-                      existing.push({
-                        email: subscribeEmail.trim(),
-                        created_at: new Date().toISOString(),
+                      const res = await fetch('/api/folio/subscribe', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, email }),
                       })
-                      localStorage.setItem(key, JSON.stringify(existing))
-                    } catch {}
-                    setSubscribeDone(true)
+                      const data = await res.json().catch(() => ({}))
+                      if (!res.ok) {
+                        setSubscribeError(data?.error || 'something went wrong')
+                      } else {
+                        setSubscribeAlready(!!data?.already)
+                        setSubscribeDone(true)
+                      }
+                    } catch (err: any) {
+                      setSubscribeError(err?.message || 'network error')
+                    } finally {
+                      setSubscribeSubmitting(false)
+                    }
                   }}
                   className="space-y-4"
                 >
@@ -762,8 +775,12 @@ export default function ProfilePage() {
                     value={subscribeEmail}
                     onChange={(e) => setSubscribeEmail(e.target.value)}
                     placeholder="your@email.com"
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                    disabled={subscribeSubmitting}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 disabled:opacity-60"
                   />
+                  {subscribeError && (
+                    <p className="text-xs text-red-500">{subscribeError}</p>
+                  )}
                   <div className="flex gap-2 justify-end pt-2">
                     <button
                       type="button"
@@ -774,19 +791,23 @@ export default function ProfilePage() {
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2 bg-gray-900 text-white rounded-full text-sm font-medium hover:bg-gray-800"
+                      disabled={subscribeSubmitting}
+                      className="px-5 py-2 bg-gray-900 text-white rounded-full text-sm font-medium hover:bg-gray-800 disabled:opacity-60"
                     >
-                      subscribe
+                      {subscribeSubmitting ? 'subscribing...' : 'subscribe'}
                     </button>
                   </div>
                 </form>
               </>
             ) : (
               <>
-                <h2 className="text-2xl font-light text-gray-900 mb-2">You&apos;re in.</h2>
+                <h2 className="text-2xl font-light text-gray-900 mb-2">
+                  {subscribeAlready ? 'You’re already subscribed.' : 'Check your inbox.'}
+                </h2>
                 <p className="text-sm text-gray-500 leading-relaxed mb-6">
-                  We&apos;ll send you {profile.display_name || profile.username}&apos;s first
-                  digest when they hit 10 new links — or once a month, whichever comes first.
+                  {subscribeAlready
+                    ? `${profile.display_name || profile.username}'s next digest will land in your inbox when they hit 10 new links — or once a month, whichever comes first.`
+                    : `We sent you a confirmation link. Click it and you're on the list for ${profile.display_name || profile.username}'s folio.`}
                 </p>
                 <div className="flex justify-end">
                   <button
