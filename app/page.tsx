@@ -72,14 +72,13 @@ export default async function Home() {
         />
         <div className="relative mx-auto max-w-4xl px-4 pt-24 pb-20 sm:px-6 lg:px-8 text-center">
           <h1 className="text-6xl sm:text-7xl font-light tracking-tight text-gray-900 leading-[1.05]">
-            Save. Publish.
+            You are what
             <br />
-            <span className="italic text-gray-700">Subscribe.</span>
+            <span className="italic text-gray-700">you save.</span>
           </h1>
 
           <p className="mt-8 text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            The lightest way to publish online. Save a link while you browse, your
-            folio builds itself, readers subscribe to your taste.
+            Save links for yourself. Others can follow along.
           </p>
 
           <div className="mt-10 flex items-center justify-center gap-3">
