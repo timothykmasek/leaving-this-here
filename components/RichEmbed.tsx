@@ -30,8 +30,8 @@ function getDomain(url: string): string {
 }
 
 export function YouTubeEmbed({
-  info, title, url, isPrivate,
-}: { info: EmbedInfo; title: string | null; url: string; isPrivate: boolean }) {
+  info, title, url,
+}: { info: EmbedInfo; title: string | null; url: string }) {
   const [playing, setPlaying] = useState(false)
   const cleanTitle = title?.trim() || getDomain(url)
 
@@ -69,11 +69,6 @@ export function YouTubeEmbed({
             className="w-full h-full"
           />
         )}
-        {isPrivate && (
-          <div className="absolute top-3 left-3 bg-black/60 text-white px-2 py-0.5 rounded text-xs">
-            private
-          </div>
-        )}
       </div>
       <a href={url} target="_blank" rel="noopener noreferrer" className="block px-4 py-3 hover:bg-gray-50 transition-colors">
         <h3 className="font-semibold text-[14px] leading-snug text-gray-900 line-clamp-2 tracking-tight">
@@ -86,8 +81,8 @@ export function YouTubeEmbed({
 }
 
 export function VimeoEmbed({
-  info, title, url, isPrivate,
-}: { info: EmbedInfo; title: string | null; url: string; isPrivate: boolean }) {
+  info, title, url,
+}: { info: EmbedInfo; title: string | null; url: string }) {
   const [playing, setPlaying] = useState(false)
   const cleanTitle = title?.trim() || getDomain(url)
 
@@ -117,11 +112,6 @@ export function VimeoEmbed({
             className="w-full h-full"
           />
         )}
-        {isPrivate && (
-          <div className="absolute top-3 left-3 bg-black/60 text-white px-2 py-0.5 rounded text-xs">
-            private
-          </div>
-        )}
       </div>
       <a href={url} target="_blank" rel="noopener noreferrer" className="block px-4 py-3 hover:bg-gray-50 transition-colors">
         <h3 className="font-semibold text-[14px] leading-snug text-gray-900 line-clamp-2 tracking-tight">
@@ -134,8 +124,8 @@ export function VimeoEmbed({
 }
 
 export function SpotifyEmbed({
-  info, title, url, isPrivate,
-}: { info: EmbedInfo; title: string | null; url: string; isPrivate: boolean }) {
+  info, title, url,
+}: { info: EmbedInfo; title: string | null; url: string }) {
   const cleanTitle = title?.trim() || getDomain(url)
   const isShort = info.spotifyType === 'track' || info.spotifyType === 'episode'
   // Spotify's official embed heights: 152 for track/episode, 352+ for
@@ -155,11 +145,6 @@ export function SpotifyEmbed({
           className="w-full block"
           style={{ border: 0 }}
         />
-        {isPrivate && (
-          <div className="absolute top-3 left-3 bg-black/60 text-white px-2 py-0.5 rounded text-xs">
-            private
-          </div>
-        )}
       </div>
       <a href={url} target="_blank" rel="noopener noreferrer" className="block px-4 py-3 hover:bg-gray-50 transition-colors">
         <h3 className="font-semibold text-[14px] leading-snug text-gray-900 line-clamp-2 tracking-tight">
@@ -172,13 +157,13 @@ export function SpotifyEmbed({
 }
 
 export function RichEmbedCard({
-  info, title, url, isPrivate,
-}: { info: EmbedInfo; title: string | null; url: string; isPrivate: boolean }) {
+  info, title, url,
+}: { info: EmbedInfo; title: string | null; url: string }) {
   if (info.kind === 'youtube')
-    return <YouTubeEmbed info={info} title={title} url={url} isPrivate={isPrivate} />
+    return <YouTubeEmbed info={info} title={title} url={url} />
   if (info.kind === 'spotify')
-    return <SpotifyEmbed info={info} title={title} url={url} isPrivate={isPrivate} />
+    return <SpotifyEmbed info={info} title={title} url={url} />
   if (info.kind === 'vimeo')
-    return <VimeoEmbed info={info} title={title} url={url} isPrivate={isPrivate} />
+    return <VimeoEmbed info={info} title={title} url={url} />
   return null
 }

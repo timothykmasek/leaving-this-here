@@ -7,7 +7,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 // a generic site logo.
 
 export const runtime = 'edge'
-export const alt = 'leaving this here — folio'
+export const alt = 'internet gems — collection'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -20,7 +20,7 @@ export default async function OgImage({ params }: { params: { username: string }
     .single()
 
   const name = profile?.display_name || profile?.username || params.username
-  const tagline = profile?.bio || 'a folio on leaving this here'
+  const tagline = profile?.bio || 'a collection on internet gems'
 
   // Link count — quiet meta line. Best effort; skipped if query fails.
   let linkCount: number | null = null
@@ -29,7 +29,6 @@ export default async function OgImage({ params }: { params: { username: string }
       .from('bookmarks')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', profile.id)
-      .eq('is_private', false)
     linkCount = count ?? null
   }
 
@@ -39,7 +38,7 @@ export default async function OgImage({ params }: { params: { username: string }
         style={{
           width: '100%',
           height: '100%',
-          background: 'linear-gradient(135deg, #fff 0%, #ffe9d6 55%, #fff 100%)',
+          background: 'linear-gradient(135deg, #fff 0%, #dbeafe 55%, #fff 100%)',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -57,7 +56,7 @@ export default async function OgImage({ params }: { params: { username: string }
             marginBottom: 20,
           }}
         >
-          leaving this here
+          💎 internet gems
         </div>
 
         <div
@@ -106,11 +105,11 @@ export default async function OgImage({ params }: { params: { username: string }
             gap: 20,
           }}
         >
-          <span>leavingthishere.com/{profile?.username || params.username}</span>
+          <span>internetgems.com/{profile?.username || params.username}</span>
           {typeof linkCount === 'number' && (
             <>
               <span style={{ color: '#ddd' }}>·</span>
-              <span>{linkCount} {linkCount === 1 ? 'link' : 'links'}</span>
+              <span>{linkCount} {linkCount === 1 ? 'gem' : 'gems'}</span>
             </>
           )}
         </div>

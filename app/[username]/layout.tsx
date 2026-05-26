@@ -18,20 +18,20 @@ export async function generateMetadata({
     .single()
 
   const name = profile?.display_name || profile?.username || params.username
-  const description = profile?.bio || `${name}'s folio on leaving this here — a public reading list you can subscribe to.`
+  const description = profile?.bio || `${name}'s collection on internet gems — a public reading list of links worth keeping.`
 
   return {
-    title: `${name} · leaving this here`,
+    title: `${name} · internet gems`,
     description,
     openGraph: {
-      title: `${name}'s folio`,
+      title: `${name}'s gems`,
       description,
       type: 'profile',
       url: `/${params.username}`,
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${name}'s folio`,
+      title: `${name}'s gems`,
       description,
     },
   }

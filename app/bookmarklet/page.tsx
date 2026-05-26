@@ -10,7 +10,9 @@ export default function BookmarkletPage() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    const origin = 'https://leaving-this-here.vercel.app'
+    // Use the current origin so the bookmarklet self-configures regardless of
+    // which domain the app is deployed on.
+    const origin = window.location.origin
     const code = `javascript:(function(){const url=window.location.href;const title=document.title;window.open('${origin}/save?url='+encodeURIComponent(url)+'&title='+encodeURIComponent(title),'save_bookmark','width=400,height=500');})();`
     setBookmarkletCode(code)
   }, [])
@@ -26,7 +28,7 @@ export default function BookmarkletPage() {
       <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-light text-gray-900 mb-2">
-            save from anywhere
+            save gems from anywhere 💎
           </h1>
           <p className="text-gray-600 text-sm">
             drag the button below to your bookmarks bar to save links while
@@ -45,10 +47,10 @@ export default function BookmarkletPage() {
               className="inline-block px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors cursor-grab active:cursor-grabbing"
               onClick={(e) => e.preventDefault()}
             >
-              + leaving this here
+              + save to internet gems
             </a>
             <p className="text-xs text-gray-500 mt-4">
-              then name it "leaving this here"
+              then name it "save to internet gems"
             </p>
           </div>
 

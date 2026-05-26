@@ -34,14 +34,6 @@ export default function ProfilePage() {
   const [reembedding, setReembedding] = useState(false)
   const [reembedMsg, setReembedMsg] = useState<string | null>(null)
 
-  // Subscribe modal — Phase 2: real API call + double opt-in via Resend.
-  const [subscribeOpen, setSubscribeOpen] = useState(false)
-  const [subscribeEmail, setSubscribeEmail] = useState('')
-  const [subscribeDone, setSubscribeDone] = useState(false)
-  const [subscribeSubmitting, setSubscribeSubmitting] = useState(false)
-  const [subscribeError, setSubscribeError] = useState<string | null>(null)
-  const [subscribeAlready, setSubscribeAlready] = useState(false)
-
   const handleDownloadCSV = () => {
     const rows = bookmarks.map((b) => b.url)
     const csv = rows.join('\n')
@@ -141,19 +133,12 @@ export default function ProfilePage() {
       setProfile(prof)
       setIsOwner(user?.id === prof.id)
 
-      // Get bookmarks
-      let query = supabase
+      // Get bookmarks — all public, no per-link privacy in v1
+      const { data: bmarks } = await supabase
         .from('bookmarks')
         .select('*')
         .eq('user_id', prof.id)
         .order('created_at', { ascending: false })
-
-      // Non-owners only see public bookmarks
-      if (user?.id !== prof.id) {
-        query = query.eq('is_private', false)
-      }
-
-      const { data: bmarks } = await query
       setBookmarks(bmarks || [])
       setFiltered(bmarks || [])
 
@@ -353,13 +338,6 @@ export default function ProfilePage() {
     setFiltered((prev) => prev.filter((b) => b.id !== id))
   }
 
-  const handlePrivacyToggle = async (id: string, newPrivate: boolean) => {
-    await supabase.from('bookmarks').update({ is_private: newPrivate }).eq('id', id)
-    const update = (list: any[]) => list.map((b) => b.id === id ? { ...b, is_private: newPrivate } : b)
-    setBookmarks(update)
-    setFiltered(update)
-  }
-
   const handleTagsUpdate = async (id: string, newTags: string[]) => {
     await supabase.from('bookmarks').update({ tags: newTags }).eq('id', id)
     const update = (list: any[]) => list.map((b) => b.id === id ? { ...b, tags: newTags } : b)
@@ -438,20 +416,12 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {/* Actions — subscribe is the primary CTA, follow is demoted secondary */}
+            {/* Actions */}
             <div className="flex flex-col items-end gap-2 shrink-0">
-              {!isOwner && (
-                <button
-                  onClick={() => { setSubscribeOpen(true); setSubscribeDone(false); setSubscribeEmail('') }}
-                  className="px-6 py-2.5 bg-gray-900 text-white rounded-full font-medium text-sm hover:bg-gray-800 transition-colors shadow-sm"
-                >
-                  subscribe
-                </button>
-              )}
               {currentUserId && !isOwner && (
                 <button
                   onClick={handleFollow}
-                  className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+                  className="px-5 py-2 text-sm font-medium border border-gray-200 rounded-full hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
                 >
                   {isFollowing ? 'following' : 'follow'}
                 </button>
@@ -701,10 +671,8 @@ export default function ProfilePage() {
                 allTags={allTags}
                 note={b.note}
                 isOwner={isOwner}
-                isPrivate={b.is_private}
                 cardType={b.card_type}
                 onDelete={handleDelete}
-                onPrivacyToggle={handlePrivacyToggle}
                 onTagsUpdate={handleTagsUpdate}
                 onNoteUpdate={handleNoteUpdate}
               />
@@ -713,115 +681,11 @@ export default function ProfilePage() {
         ) : (
           <div className="text-center py-16">
             <p className="text-gray-500 text-sm">
-              {bookmarks.length === 0 ? 'no links yet' : 'no matches'}
+              {bookmarks.length === 0 ? 'no gems yet 💎' : 'no matches'}
             </p>
           </div>
         )}
       </div>
-
-      {/* Subscribe modal — Phase 1 stub. Stores to localStorage so we can demo
-          the flow end-to-end. Phase 2 swaps this for a real POST to
-          /api/folio-subscribers that writes to Supabase + triggers double opt-in. */}
-      {subscribeOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
-          onClick={() => setSubscribeOpen(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {!subscribeDone ? (
-              <>
-                <h2 className="text-2xl font-light text-gray-900 mb-2">
-                  Subscribe to {profile.display_name || profile.username}
-                </h2>
-                <p className="text-sm text-gray-500 leading-relaxed mb-6">
-                  You&apos;ll get a digest when {profile.display_name || profile.username} saves
-                  10 new links — or once a month, whichever comes first.
-                </p>
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault()
-                    const email = subscribeEmail.trim()
-                    if (!email) return
-                    setSubscribeSubmitting(true)
-                    setSubscribeError(null)
-                    setSubscribeAlready(false)
-                    try {
-                      const res = await fetch('/api/folio/subscribe', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, email }),
-                      })
-                      const data = await res.json().catch(() => ({}))
-                      if (!res.ok) {
-                        setSubscribeError(data?.error || 'something went wrong')
-                      } else {
-                        setSubscribeAlready(!!data?.already)
-                        setSubscribeDone(true)
-                      }
-                    } catch (err: any) {
-                      setSubscribeError(err?.message || 'network error')
-                    } finally {
-                      setSubscribeSubmitting(false)
-                    }
-                  }}
-                  className="space-y-4"
-                >
-                  <input
-                    type="email"
-                    required
-                    value={subscribeEmail}
-                    onChange={(e) => setSubscribeEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    disabled={subscribeSubmitting}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 disabled:opacity-60"
-                  />
-                  {subscribeError && (
-                    <p className="text-xs text-red-500">{subscribeError}</p>
-                  )}
-                  <div className="flex gap-2 justify-end pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setSubscribeOpen(false)}
-                      className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900"
-                    >
-                      cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={subscribeSubmitting}
-                      className="px-5 py-2 bg-gray-900 text-white rounded-full text-sm font-medium hover:bg-gray-800 disabled:opacity-60"
-                    >
-                      {subscribeSubmitting ? 'subscribing...' : 'subscribe'}
-                    </button>
-                  </div>
-                </form>
-              </>
-            ) : (
-              <>
-                <h2 className="text-2xl font-light text-gray-900 mb-2">
-                  {subscribeAlready ? 'You’re already subscribed.' : 'Check your inbox.'}
-                </h2>
-                <p className="text-sm text-gray-500 leading-relaxed mb-6">
-                  {subscribeAlready
-                    ? `${profile.display_name || profile.username}'s next digest will land in your inbox when they hit 10 new links — or once a month, whichever comes first.`
-                    : `We sent you a confirmation link. Click it and you're on the list for ${profile.display_name || profile.username}'s folio.`}
-                </p>
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => setSubscribeOpen(false)}
-                    className="px-5 py-2 bg-gray-900 text-white rounded-full text-sm font-medium hover:bg-gray-800"
-                  >
-                    done
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </main>
   )
 }

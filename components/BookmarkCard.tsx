@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { pickProduct, pickBook } from '@/lib/metadata'
 import { detectEmbed } from '@/lib/rich-embed'
 import { RichEmbedCard } from '@/components/RichEmbed'
+import { GemLogo } from '@/components/GemLogo'
 
 interface BookmarkCardProps {
   id: string
@@ -18,7 +19,6 @@ interface BookmarkCardProps {
   allTags?: string[]
   note?: string | null
   isOwner: boolean
-  isPrivate: boolean
   cardType?:
     | 'composite'
     | 'fullbleed'
@@ -30,7 +30,6 @@ interface BookmarkCardProps {
     | 'lth'
     | null
   onDelete?: (id: string) => void
-  onPrivacyToggle?: (id: string, isPrivate: boolean) => void
   onTagsUpdate?: (id: string, tags: string[]) => void
   onNoteUpdate?: (id: string, note: string | null) => void
 }
@@ -121,7 +120,7 @@ function getBrandColors(domain: string): { bg: string; text: string; gradient: s
   }
 }
 
-function CompositeCard({ imageUrl, title, faviconUrl, url, isPrivate }: any) {
+function CompositeCard({ imageUrl, title, faviconUrl, url }: any) {
   const [imgError, setImgError] = useState(false)
   const [heroError, setHeroError] = useState(false)
   const domain = getDomain(url)
@@ -129,7 +128,6 @@ function CompositeCard({ imageUrl, title, faviconUrl, url, isPrivate }: any) {
 
   return (
     <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
-      {/* Favicon + domain pill */}
       <div className="flex items-center gap-2 px-4 pt-4 pb-2">
         {faviconUrl && !imgError ? (
           <img
@@ -146,14 +144,12 @@ function CompositeCard({ imageUrl, title, faviconUrl, url, isPrivate }: any) {
         <span className="text-[11px] text-gray-500 font-medium truncate tracking-tight">{domain}</span>
       </div>
 
-      {/* Title */}
       <div className="px-4 pb-3">
         <h3 className="font-semibold text-[15px] leading-[1.3] text-gray-900 line-clamp-3 tracking-tight">
           {cleanTitle}
         </h3>
       </div>
 
-      {/* Image hero */}
       {imageUrl && !heroError && (
         <div className="relative aspect-[16/10] bg-gray-50 overflow-hidden mx-3 mb-3 rounded-lg">
           <img
@@ -164,19 +160,12 @@ function CompositeCard({ imageUrl, title, faviconUrl, url, isPrivate }: any) {
           />
         </div>
       )}
-
-      {isPrivate && (
-        <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-          private
-        </div>
-      )}
     </div>
   )
 }
 
-function FullbleedCard({ imageUrl, title, url, isPrivate }: any) {
+function FullbleedCard({ imageUrl, title, url }: any) {
   const [imgError, setImgError] = useState(false)
-  const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
 
   return (
@@ -193,19 +182,12 @@ function FullbleedCard({ imageUrl, title, url, isPrivate }: any) {
           <span className="text-xs">no image</span>
         </div>
       )}
-
-      {isPrivate && (
-        <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-          private
-        </div>
-      )}
     </div>
   )
 }
 
-function ScreenshotCard({ imageUrl, title, url, isPrivate }: any) {
+function ScreenshotCard({ imageUrl, title, url }: any) {
   const [imgError, setImgError] = useState(false)
-  const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
   const gradient = getGradient(url)
 
@@ -223,23 +205,16 @@ function ScreenshotCard({ imageUrl, title, url, isPrivate }: any) {
           <span className="text-xs text-gray-400">loading...</span>
         </div>
       )}
-
-      {isPrivate && (
-        <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-          private
-        </div>
-      )}
     </div>
   )
 }
 
-function ProductCard({ imageUrl, title, url, isPrivate, priceFormatted }: any) {
+function ProductCard({ imageUrl, title, url, priceFormatted }: any) {
   const [imgError, setImgError] = useState(false)
   const cleanTitle = getCleanTitle(title, url)
 
   return (
     <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
-      {/* Product image — clean background, product-shot crop */}
       <div className="relative aspect-[4/3] bg-gray-50 overflow-hidden">
         {imageUrl && !imgError ? (
           <img
@@ -254,21 +229,13 @@ function ProductCard({ imageUrl, title, url, isPrivate, priceFormatted }: any) {
           </div>
         )}
 
-        {/* Price chip, top-right */}
         {priceFormatted && (
           <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-sm border border-gray-150 text-gray-900 text-[12px] font-semibold px-2.5 py-1 rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {priceFormatted}
           </div>
         )}
-
-        {isPrivate && (
-          <div className="absolute top-3 left-3 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-            private
-          </div>
-        )}
       </div>
 
-      {/* Title only — no domain row, like mymind */}
       <div className="px-4 py-3 text-center">
         <h3 className="text-[13px] text-gray-900 line-clamp-2 tracking-tight">
           {cleanTitle}
@@ -279,23 +246,17 @@ function ProductCard({ imageUrl, title, url, isPrivate, priceFormatted }: any) {
 }
 
 /**
- * LTH fallback — soft grey gradient with the "LTH" mark in the middle.
+ * Gem fallback — soft grey gradient with the gem mark in the middle.
  * Used whenever we have no usable image (paywall, logo-only OG, fetch fail).
- * Also exported as a primitive that other cards swap to on <img> error.
  */
-function LTHFallbackCard({ title, url, isPrivate }: any) {
+function GemFallbackCard({ title, url }: any) {
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
 
   return (
     <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
-      <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 flex items-center justify-center">
-        <span className="text-gray-300 text-2xl font-light tracking-[0.3em] select-none">LTH</span>
-        {isPrivate && (
-          <div className="absolute top-3 left-3 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-            private
-          </div>
-        )}
+      <div className="relative aspect-[4/3] bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 flex items-center justify-center">
+        <GemLogo size={56} fill="#dbeafe" stroke="#94a3b8" />
       </div>
       <div className="px-4 py-3">
         <h3 className="font-medium text-gray-900 line-clamp-2 text-[14px] leading-snug tracking-tight">
@@ -308,24 +269,18 @@ function LTHFallbackCard({ title, url, isPrivate }: any) {
 }
 
 /**
- * "One moment. I'm saving this for you." — placeholder shown while a freshly
- * added bookmark waits for its first metadata fetch. No spinner, just a quiet
- * static message.
+ * Placeholder shown while a freshly added bookmark waits for its first
+ * metadata fetch.
  */
-function SavingPlaceholderCard({ url, isPrivate }: any) {
+function SavingPlaceholderCard({ url }: any) {
   const domain = getDomain(url)
   return (
     <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150">
       <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center px-6">
         <p className="text-gray-400 text-[13px] text-center leading-snug">
           One moment.<br />
-          I&rsquo;m saving this for you.
+          Polishing this gem.
         </p>
-        {isPrivate && (
-          <div className="absolute top-3 left-3 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-            private
-          </div>
-        )}
       </div>
       <div className="px-4 py-3">
         <p className="text-[11px] text-gray-400">{domain}</p>
@@ -334,19 +289,14 @@ function SavingPlaceholderCard({ url, isPrivate }: any) {
   )
 }
 
-/**
- * Article card — image on top, title + favicon row below. The standard
- * editorial layout. Replaces the old "composite for articles" pattern.
- */
-function ArticleCard({ imageUrl, title, faviconUrl, url, isPrivate }: any) {
+function ArticleCard({ imageUrl, title, faviconUrl, url }: any) {
   const [imgError, setImgError] = useState(false)
   const [iconError, setIconError] = useState(false)
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
 
-  // If image fails or never existed, fall back to LTH so the grid stays clean.
   if (!imageUrl || imgError) {
-    return <LTHFallbackCard title={title} url={url} isPrivate={isPrivate} />
+    return <GemFallbackCard title={title} url={url} />
   }
 
   return (
@@ -358,11 +308,6 @@ function ArticleCard({ imageUrl, title, faviconUrl, url, isPrivate }: any) {
           className="w-full h-full object-cover"
           onError={() => setImgError(true)}
         />
-        {isPrivate && (
-          <div className="absolute top-3 left-3 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-            private
-          </div>
-        )}
       </div>
       <div className="px-4 pt-3 pb-3">
         <h3 className="font-semibold text-[15px] leading-[1.3] text-gray-900 line-clamp-3 tracking-tight">
@@ -386,16 +331,12 @@ function ArticleCard({ imageUrl, title, faviconUrl, url, isPrivate }: any) {
   )
 }
 
-/**
- * Book card — portrait cover, title and author below. Mirrors the product
- * card pattern but with a 2:3 cover crop and no price chip.
- */
-function BookCard({ imageUrl, title, author, url, isPrivate }: any) {
+function BookCard({ imageUrl, title, author, url }: any) {
   const [imgError, setImgError] = useState(false)
   const cleanTitle = getCleanTitle(title, url)
 
   if (!imageUrl || imgError) {
-    return <LTHFallbackCard title={title} url={url} isPrivate={isPrivate} />
+    return <GemFallbackCard title={title} url={url} />
   }
 
   return (
@@ -407,11 +348,6 @@ function BookCard({ imageUrl, title, author, url, isPrivate }: any) {
           className="max-w-full max-h-full object-contain shadow-[0_8px_24px_rgba(0,0,0,0.12)]"
           onError={() => setImgError(true)}
         />
-        {isPrivate && (
-          <div className="absolute top-3 left-3 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-            private
-          </div>
-        )}
       </div>
       <div className="px-4 py-3 text-center">
         <h3 className="text-[14px] text-gray-900 font-semibold line-clamp-2 tracking-tight leading-snug">
@@ -425,7 +361,7 @@ function BookCard({ imageUrl, title, author, url, isPrivate }: any) {
   )
 }
 
-function ProfileCard({ title, faviconUrl, url, isPrivate }: any) {
+function ProfileCard({ title, faviconUrl, url }: any) {
   const [imgError, setImgError] = useState(false)
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
@@ -448,47 +384,31 @@ function ProfileCard({ title, faviconUrl, url, isPrivate }: any) {
       <p className={`text-center text-sm font-semibold line-clamp-2 ${colors.text}`}>
         {cleanTitle}
       </p>
-
-      {isPrivate && (
-        <div className="absolute top-2 left-2 bg-black/40 text-white px-2 py-0.5 rounded text-xs">
-          private
-        </div>
-      )}
     </div>
   )
 }
 
-/**
- * DefaultCard — used when a bookmark has no card_type yet (very fresh).
- * No more thum.io: if there's no usable image we show the
- * "saving this for you" placeholder, then the LTH fallback if metadata
- * lands without an image.
- */
-function DefaultCard({ imageUrl, screenshotUrl, url, title, faviconUrl, isPrivate }: any) {
+function DefaultCard({ imageUrl, screenshotUrl, url, title, faviconUrl }: any) {
   const displayImage = screenshotUrl || imageUrl
 
-  // No image at all → "saving this for you" placeholder.
   if (!displayImage) {
-    return <SavingPlaceholderCard url={url} isPrivate={isPrivate} />
+    return <SavingPlaceholderCard url={url} />
   }
 
-  // ArticleCard handles its own error state and falls back to LTH internally.
   return (
     <ArticleCard
       imageUrl={displayImage}
       title={title}
       faviconUrl={faviconUrl}
       url={url}
-      isPrivate={isPrivate}
     />
   )
 }
 
 export function BookmarkCard({
   id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  tags, allTags = [], note, isOwner, isPrivate, onDelete, onPrivacyToggle, onTagsUpdate, onNoteUpdate, cardType,
+  tags, allTags = [], note, isOwner, onDelete, onTagsUpdate, onNoteUpdate, cardType,
 }: BookmarkCardProps) {
-  // Derive product / book info from stored raw_metadata (free, no network)
   const product = cardType === 'product' && rawMetadata ? pickProduct(rawMetadata) : null
   const book = cardType === 'book' && rawMetadata ? pickBook(rawMetadata) : null
   const [menuOpen, setMenuOpen] = useState(false)
@@ -506,12 +426,8 @@ export function BookmarkCard({
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
 
-  // Rich embed detection — if the URL matches YouTube / Spotify / Vimeo, we
-  // render an inline player card instead of the standard bookmark layout.
-  // Pure URL parsing, no network calls.
   const embed = detectEmbed(url)
 
-  // Close menu on outside click
   useEffect(() => {
     if (!menuOpen && !editingTags && !editingNote) return
     const handleClick = (e: MouseEvent) => {
@@ -531,14 +447,12 @@ export function BookmarkCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [menuOpen, editingTags, editingNote, localTags, noteDraft, id, onTagsUpdate])
 
-  // Focus tag input when opening
   useEffect(() => {
     if (editingTags && tagInputRef.current) {
       tagInputRef.current.focus()
     }
   }, [editingTags])
 
-  // Focus note textarea when opening
   useEffect(() => {
     if (editingNote && noteTextareaRef.current) {
       noteTextareaRef.current.focus()
@@ -546,7 +460,6 @@ export function BookmarkCard({
     }
   }, [editingNote])
 
-  // Keep local note in sync when the server refetch brings in a new value.
   useEffect(() => {
     setLocalNote(note ?? null)
     setNoteDraft(note || '')
@@ -560,7 +473,6 @@ export function BookmarkCard({
     onNoteUpdate?.(id, next)
   }
 
-  // Tag suggestions
   const suggestions = tagInput
     ? allTags.filter(t => t.toLowerCase().includes(tagInput.toLowerCase()) && !localTags.includes(t))
     : []
@@ -600,7 +512,6 @@ export function BookmarkCard({
     }
   }
 
-  // Render card based on type
   const cardContent = (
     <>
       {cardType === 'composite' && (
@@ -609,24 +520,22 @@ export function BookmarkCard({
           title={title}
           faviconUrl={faviconUrl}
           url={url}
-          isPrivate={isPrivate}
         />
       )}
       {cardType === 'fullbleed' && (
-        <FullbleedCard imageUrl={imageUrl} title={title} url={url} isPrivate={isPrivate} />
+        <FullbleedCard imageUrl={imageUrl} title={title} url={url} />
       )}
       {cardType === 'screenshot' && (
-        <ScreenshotCard imageUrl={screenshotUrl || imageUrl} title={title} url={url} isPrivate={isPrivate} />
+        <ScreenshotCard imageUrl={screenshotUrl || imageUrl} title={title} url={url} />
       )}
       {cardType === 'profile' && (
-        <ProfileCard title={title} faviconUrl={faviconUrl} url={url} isPrivate={isPrivate} />
+        <ProfileCard title={title} faviconUrl={faviconUrl} url={url} />
       )}
       {cardType === 'product' && (
         <ProductCard
           imageUrl={imageUrl}
           title={title}
           url={url}
-          isPrivate={isPrivate}
           priceFormatted={product?.priceFormatted || null}
         />
       )}
@@ -636,7 +545,6 @@ export function BookmarkCard({
           title={title}
           faviconUrl={faviconUrl}
           url={url}
-          isPrivate={isPrivate}
         />
       )}
       {cardType === 'book' && (
@@ -645,11 +553,10 @@ export function BookmarkCard({
           title={title || book?.title}
           author={book?.author}
           url={url}
-          isPrivate={isPrivate}
         />
       )}
       {cardType === 'lth' && (
-        <LTHFallbackCard title={title} url={url} isPrivate={isPrivate} />
+        <GemFallbackCard title={title} url={url} />
       )}
       {!cardType && (
         <DefaultCard
@@ -658,7 +565,6 @@ export function BookmarkCard({
           url={url}
           title={title}
           faviconUrl={faviconUrl}
-          isPrivate={isPrivate}
         />
       )}
     </>
@@ -667,16 +573,13 @@ export function BookmarkCard({
   return (
     <div className="relative group">
       {embed ? (
-        // Rich-embed cards manage their own interaction (play button, iframe,
-        // clickable title row) — don't wrap in an outer <a> or clicks break.
-        <RichEmbedCard info={embed} title={title} url={url} isPrivate={isPrivate} />
+        <RichEmbedCard info={embed} title={title} url={url} />
       ) : (
         <a href={url} target="_blank" rel="noopener noreferrer">
           {cardContent}
         </a>
       )}
 
-      {/* Info section — skipped for cards that render their own title row */}
       {!embed && cardType &&
         cardType !== 'composite' &&
         cardType !== 'product' &&
@@ -691,14 +594,12 @@ export function BookmarkCard({
         </div>
       )}
 
-      {/* Curator note — the editorial voice. Italic, quiet, below the card. */}
       {localNote && (
         <p className="mt-2 px-1 text-sm text-gray-600 italic leading-snug whitespace-pre-wrap">
           {localNote}
         </p>
       )}
 
-      {/* Owner menu — subtle "..." button in top right */}
       {isOwner && (
         <div className="absolute top-2 right-2" ref={menuRef}>
           <button
@@ -739,17 +640,6 @@ export function BookmarkCard({
                 onClick={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  onPrivacyToggle?.(id, !isPrivate)
-                  setMenuOpen(false)
-                }}
-                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              >
-                {isPrivate ? 'make public' : 'make private'}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
                   onDelete?.(id)
                   setMenuOpen(false)
                 }}
@@ -760,7 +650,6 @@ export function BookmarkCard({
             </div>
           )}
 
-          {/* Note editor — inline textarea for the curator's editorial voice. */}
           {editingNote && (
             <div
               className="absolute right-0 top-9 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-[260px] z-50"
@@ -782,7 +671,7 @@ export function BookmarkCard({
                     saveNote()
                   }
                 }}
-                placeholder="why you're sharing this..."
+                placeholder="why this one's a gem..."
                 rows={3}
                 maxLength={280}
                 className="w-full px-2 py-1.5 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-gray-400 resize-none"
@@ -814,7 +703,6 @@ export function BookmarkCard({
             </div>
           )}
 
-          {/* Tag editor */}
           {editingTags && (
             <div className="absolute right-0 top-9 bg-white border border-gray-200 rounded-lg shadow-lg p-3 min-w-[220px] z-50" onClick={(e) => e.stopPropagation()}>
               <div className="flex flex-wrap gap-1 mb-2">

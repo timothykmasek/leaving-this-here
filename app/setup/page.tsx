@@ -127,7 +127,6 @@ function SetupInner() {
         favicon_url: meta.favicon,
         raw_metadata: meta.raw || null,
         tags: [],
-        is_private: false,
       })
       if (error) throw new Error(error.message)
       setStep('done')
@@ -154,15 +153,15 @@ function SetupInner() {
 
         {step === 'handle' && (
           <div>
-            <h1 className="text-3xl font-light text-gray-900 mb-2">Claim your space.</h1>
+            <h1 className="text-3xl font-light text-gray-900 mb-2">Claim your collection.</h1>
             <p className="text-sm text-gray-500 mb-8">
-              This is where your taste lives — a public URL anyone can subscribe to.
+              A public URL for the internet gems you don&rsquo;t want to lose.
             </p>
             <form onSubmit={claimHandle} className="space-y-5">
               <div>
                 <div className="flex items-stretch border border-gray-200 rounded-full bg-white overflow-hidden focus-within:ring-1 focus-within:ring-gray-400">
                   <span className="flex items-center pl-5 pr-1 text-sm text-gray-400 select-none">
-                    leavingthishere.com/
+                    internetgems.com/
                   </span>
                   <input
                     type="text"
@@ -197,7 +196,7 @@ function SetupInner() {
                 disabled={handleLoading || !username.trim()}
                 className="w-full px-5 py-3 bg-gray-900 text-white rounded-full text-sm font-semibold hover:bg-gray-800 disabled:opacity-60"
               >
-                {handleLoading ? 'claiming...' : 'claim your folio →'}
+                {handleLoading ? 'claiming...' : 'claim your collection →'}
               </button>
             </form>
           </div>
@@ -247,10 +246,10 @@ function SetupInner() {
 
         {step === 'first-save' && (
           <div>
-            <h1 className="text-3xl font-light text-gray-900 mb-2">Your first save.</h1>
+            <h1 className="text-3xl font-light text-gray-900 mb-2">Your first gem.</h1>
             <p className="text-sm text-gray-500 mb-8">
-              Paste a URL you&apos;ve been meaning to read. It&apos;ll appear on your folio — the
-              page subscribers will see.
+              Paste a URL you&apos;ve been meaning to read. It&apos;ll appear on your public
+              collection page.
             </p>
             <form onSubmit={saveFirstLink} className="space-y-4">
               <input
@@ -263,7 +262,7 @@ function SetupInner() {
                 className="w-full px-5 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 disabled:opacity-60"
               />
               <p className="text-xs text-gray-400 px-1">
-                Saves are public by default. You can make any save private later.
+                Everything you save is public.
               </p>
               {firstSaveError && <p className="text-sm text-red-600">{firstSaveError}</p>}
               <button
@@ -271,7 +270,7 @@ function SetupInner() {
                 disabled={firstSaveBusy || !firstSaveUrl.trim()}
                 className="w-full px-5 py-3 bg-gray-900 text-white rounded-full text-sm font-semibold hover:bg-gray-800 disabled:opacity-60"
               >
-                {firstSaveBusy ? 'saving...' : 'publish to folio →'}
+                {firstSaveBusy ? 'saving...' : 'add this gem →'}
               </button>
               <button
                 type="button"
@@ -286,11 +285,11 @@ function SetupInner() {
 
         {step === 'done' && (
           <div className="text-center pt-4">
-            <h1 className="text-3xl font-light text-gray-900 mb-3">You&apos;re live.</h1>
+            <h1 className="text-3xl font-light text-gray-900 mb-3">You&apos;re live. 💎</h1>
             <p className="text-sm text-gray-500 mb-8 leading-relaxed">
-              <span className="font-mono text-gray-700">leavingthishere.com/{username}</span>
+              <span className="font-mono text-gray-700">internetgems.com/{username}</span>
               <br />
-              is now your folio. Taking you there...
+              is now your collection. Taking you there...
             </p>
           </div>
         )}

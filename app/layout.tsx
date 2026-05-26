@@ -3,8 +3,8 @@ import { Header } from '@/components/Header'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'leaving this here',
-  description: 'Your bookmarks, out loud.',
+  title: 'internet gems',
+  description: 'Save the links worth keeping.',
 }
 
 export default function RootLayout({

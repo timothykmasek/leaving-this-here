@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { GemLogo } from '@/components/GemLogo'
 
 export function Header() {
   const pathname = usePathname()
@@ -39,8 +40,9 @@ export function Header() {
     <header className="border-b border-gray-100 bg-white">
       <nav className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-lg font-medium tracking-tight text-gray-900">
-            leaving this here
+          <Link href="/" className="flex items-center gap-2 text-lg font-medium tracking-tight text-gray-900">
+            <GemLogo size={20} />
+            <span>internet gems</span>
           </Link>
 
           <div className="flex items-center gap-6">
