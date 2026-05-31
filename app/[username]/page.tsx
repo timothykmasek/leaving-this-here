@@ -233,25 +233,25 @@ export default function ProfilePage() {
   const allTags = Array.from(new Set(bookmarks.flatMap((b) => b.tags || []))).sort()
 
   if (loading) {
-    return <main className="min-h-screen bg-white"><div className="mx-auto max-w-6xl px-4 py-12"><p className="text-gray-400">loading...</p></div></main>
+    return <main className="min-h-screen bg-paper"><div className="mx-auto max-w-6xl px-4 py-12"><p className="text-gray-400">loading...</p></div></main>
   }
 
   if (!profile) {
-    return <main className="min-h-screen bg-white"><div className="mx-auto max-w-6xl px-4 py-12 text-center"><p className="text-gray-500">user not found</p></div></main>
+    return <main className="min-h-screen bg-paper"><div className="mx-auto max-w-6xl px-4 py-12 text-center"><p className="text-gray-500">user not found</p></div></main>
   }
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-paper">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
         {/* Hero — `group` enables the hover-reveal edit icon below */}
         <div className="mb-10 border-b border-gray-100 pb-8 group">
           <div className="flex items-start justify-between gap-6 mb-4">
             <div className="flex-1 min-w-0">
-              <h1 className="text-4xl sm:text-5xl font-light tracking-tight text-gray-900 mb-3 leading-[1.1]">
+              <h1 className="font-serif text-5xl sm:text-6xl font-normal tracking-tight text-ink mb-3 leading-[1.05]">
                 {profile.display_name || profile.username}
               </h1>
               {profile.bio && (
-                <p className="text-gray-600 italic text-lg leading-relaxed max-w-2xl mb-4">
+                <p className="font-serif italic text-gray-600 text-xl leading-relaxed max-w-2xl mb-4">
                   {profile.bio}
                 </p>
               )}
@@ -501,22 +501,22 @@ export default function ProfilePage() {
 
         {/* Search — owner only */}
         {isOwner && (
-          <div className="mb-8">
+          <div className="mb-10">
             <input
               type="text"
-              placeholder="search your gems..."
+              placeholder="search your gems…"
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-full px-6 py-4 text-lg font-light italic text-gray-700 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50/50 placeholder:text-gray-400"
+              className="w-full bg-transparent border-0 border-b border-stone-300 pb-3 font-serif text-2xl sm:text-3xl italic text-ink placeholder:text-stone-400 focus:outline-none focus:border-stone-500 transition-colors"
             />
           </div>
         )}
 
-        {/* Bookmark grid */}
+        {/* Bookmark grid — masonry (variable-height cards flow like a gem wall) */}
         {filtered.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 [column-fill:_balance]">
             {filtered.map((b) => (
+              <div key={b.id} className="mb-3 break-inside-avoid">
               <BookmarkCard
-                key={b.id}
                 id={b.id}
                 title={b.title}
                 description={b.description}
@@ -534,6 +534,7 @@ export default function ProfilePage() {
                 onTagsUpdate={handleTagsUpdate}
                 onNoteUpdate={handleNoteUpdate}
               />
+              </div>
             ))}
           </div>
         ) : (

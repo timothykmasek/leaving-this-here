@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { pickProduct, pickBook } from '@/lib/metadata'
 import { detectEmbed } from '@/lib/rich-embed'
 import { RichEmbedCard } from '@/components/RichEmbed'
+import { GemGlyph } from '@/components/GemGlyph'
 
 interface BookmarkCardProps {
   id: string
@@ -119,6 +120,24 @@ function getBrandColors(domain: string): { bg: string; text: string; gradient: s
   }
 }
 
+// Shared card frame (full ink keyline + faint shadow) and footer, so every
+// card type is framed identically — image AND title/domain inside one border.
+const CARD_FRAME =
+  'bg-white rounded-none overflow-hidden flex flex-col h-full border border-[#26221c]/30 hover:border-[#26221c]/60 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-all'
+
+function CardFooter({ title, url }: any) {
+  const domain = getDomain(url)
+  const cleanTitle = getCleanTitle(title, url)
+  return (
+    <div className="px-4 pt-3 pb-3">
+      <h3 className="font-serif font-medium text-ink line-clamp-2 text-[15px] leading-snug tracking-tight">
+        {cleanTitle}
+      </h3>
+      <p className="text-[10px] uppercase tracking-[0.13em] text-stone-500 font-serif mt-1.5">{domain}</p>
+    </div>
+  )
+}
+
 function CompositeCard({ imageUrl, title, faviconUrl, url }: any) {
   const [imgError, setImgError] = useState(false)
   const [heroError, setHeroError] = useState(false)
@@ -126,7 +145,7 @@ function CompositeCard({ imageUrl, title, faviconUrl, url }: any) {
   const cleanTitle = getCleanTitle(title, url)
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+    <div className="bg-white rounded-none overflow-hidden flex flex-col h-full border border-[#26221c]/30 hover:border-[#26221c]/60 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-all">
       <div className="flex items-center gap-2 px-4 pt-4 pb-2">
         {faviconUrl && !imgError ? (
           <img
@@ -140,17 +159,17 @@ function CompositeCard({ imageUrl, title, faviconUrl, url }: any) {
             {domain.charAt(0).toUpperCase()}
           </div>
         )}
-        <span className="text-[11px] text-gray-500 font-medium truncate tracking-tight">{domain}</span>
+        <span className="text-[10px] uppercase tracking-[0.13em] text-stone-500 font-serif truncate">{domain}</span>
       </div>
 
       <div className="px-4 pb-3">
-        <h3 className="font-semibold text-[15px] leading-[1.3] text-gray-900 line-clamp-3 tracking-tight">
+        <h3 className="font-serif font-medium text-[16px] leading-[1.25] text-ink line-clamp-3 tracking-tight">
           {cleanTitle}
         </h3>
       </div>
 
       {imageUrl && !heroError && (
-        <div className="relative aspect-[16/10] bg-gray-50 overflow-hidden mx-3 mb-3 rounded-lg">
+        <div className="relative aspect-[16/10] bg-gray-50 overflow-hidden mx-3 mb-3">
           <img
             src={imageUrl}
             alt={cleanTitle}
@@ -167,20 +186,21 @@ function FullbleedCard({ imageUrl, title, url }: any) {
   const [imgError, setImgError] = useState(false)
   const cleanTitle = getCleanTitle(title, url)
 
+  if (!imageUrl || imgError) {
+    return <GemFallbackCard title={title} url={url} cardType="fullbleed" />
+  }
+
   return (
-    <div className="relative w-full aspect-[4/3] overflow-hidden bg-white rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group">
-      {imageUrl && !imgError ? (
+    <div className={CARD_FRAME}>
+      <div className="relative w-full aspect-[4/3] overflow-hidden bg-white">
         <img
           src={imageUrl}
           alt={cleanTitle}
           className="w-full h-full object-contain"
           onError={() => setImgError(true)}
         />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center bg-gray-50 text-gray-400">
-          <span className="text-xs">no image</span>
-        </div>
-      )}
+      </div>
+      <CardFooter title={title} url={url} />
     </div>
   )
 }
@@ -193,17 +213,20 @@ function ScreenshotCard({ imageUrl, title, url }: any) {
   // No screenshot, or it failed to load (dead domain, blocked, expired
   // cache) → render the branded fallback instead of a permanent "loading…".
   if (!imageUrl || imgError) {
-    return <GemFallbackCard title={title} url={url} />
+    return <GemFallbackCard title={title} url={url} cardType="screenshot" />
   }
 
   return (
-    <div className={`relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group bg-gradient-to-br ${gradient}`}>
-      <img
-        src={imageUrl}
-        alt={cleanTitle}
-        className="w-full h-full object-cover"
-        onError={() => setImgError(true)}
-      />
+    <div className={CARD_FRAME}>
+      <div className={`relative w-full aspect-[4/3] overflow-hidden bg-gradient-to-br ${gradient}`}>
+        <img
+          src={imageUrl}
+          alt={cleanTitle}
+          className="w-full h-full object-cover"
+          onError={() => setImgError(true)}
+        />
+      </div>
+      <CardFooter title={title} url={url} />
     </div>
   )
 }
@@ -213,7 +236,7 @@ function ProductCard({ imageUrl, title, url, priceFormatted }: any) {
   const cleanTitle = getCleanTitle(title, url)
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+    <div className="bg-white rounded-none overflow-hidden flex flex-col h-full border border-[#26221c]/30 hover:border-[#26221c]/60 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-all">
       <div className="relative aspect-[4/3] bg-gray-50 overflow-hidden">
         {imageUrl && !imgError ? (
           <img
@@ -229,14 +252,14 @@ function ProductCard({ imageUrl, title, url, priceFormatted }: any) {
         )}
 
         {priceFormatted && (
-          <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-sm border border-gray-150 text-gray-900 text-[12px] font-semibold px-2.5 py-1 rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <div className="absolute top-3 right-3 bg-white/95 backdrop-blur-sm border border-stone-200/80 text-gray-900 text-[12px] font-semibold px-2.5 py-1 rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
             {priceFormatted}
           </div>
         )}
       </div>
 
       <div className="px-4 py-3 text-center">
-        <h3 className="text-[13px] text-gray-900 line-clamp-2 tracking-tight">
+        <h3 className="font-serif text-[14px] text-ink line-clamp-2 tracking-tight">
           {cleanTitle}
         </h3>
       </div>
@@ -245,24 +268,16 @@ function ProductCard({ imageUrl, title, url, priceFormatted }: any) {
 }
 
 /**
- * Gem fallback — soft grey gradient with the gem mark in the middle.
- * Used whenever we have no usable image (paywall, logo-only OG, fetch fail).
+ * Branded fallback — used whenever we have no usable image (paywall, logo-only
+ * OG, dead screenshot). A muted panel with the small line-gem mark + footer.
  */
 function GemFallbackCard({ title, url }: any) {
-  const domain = getDomain(url)
-  const cleanTitle = getCleanTitle(title, url)
-
   return (
-    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
-      <div className="relative aspect-[4/3] bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 flex items-center justify-center">
-        <span aria-hidden className="text-5xl opacity-80">💎</span>
+    <div className={CARD_FRAME}>
+      <div className="flex aspect-[4/3] items-center justify-center" style={{ backgroundColor: '#ece6d8' }}>
+        <GemGlyph className="h-8 w-8 text-ink/20" />
       </div>
-      <div className="px-4 py-3">
-        <h3 className="font-medium text-gray-900 line-clamp-2 text-[14px] leading-snug tracking-tight">
-          {cleanTitle}
-        </h3>
-        <p className="text-[11px] text-gray-400 mt-1">{domain}</p>
-      </div>
+      <CardFooter title={title} url={url} />
     </div>
   )
 }
@@ -274,7 +289,7 @@ function GemFallbackCard({ title, url }: any) {
 function SavingPlaceholderCard({ url }: any) {
   const domain = getDomain(url)
   return (
-    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150">
+    <div className="bg-white rounded-none overflow-hidden flex flex-col h-full border border-[#26221c]/30 shadow-[0_1px_3px_rgba(40,30,25,0.08)]">
       <div className="relative aspect-[4/3] bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center px-6">
         <p className="text-gray-400 text-[13px] text-center leading-snug">
           One moment.<br />
@@ -295,11 +310,11 @@ function ArticleCard({ imageUrl, title, faviconUrl, url }: any) {
   const cleanTitle = getCleanTitle(title, url)
 
   if (!imageUrl || imgError) {
-    return <GemFallbackCard title={title} url={url} />
+    return <GemFallbackCard title={title} url={url} cardType="article" />
   }
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+    <div className="bg-white rounded-none overflow-hidden flex flex-col h-full border border-[#26221c]/30 hover:border-[#26221c]/60 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-all">
       <div className="relative aspect-[16/10] bg-gray-50 overflow-hidden">
         <img
           src={imageUrl}
@@ -309,7 +324,7 @@ function ArticleCard({ imageUrl, title, faviconUrl, url }: any) {
         />
       </div>
       <div className="px-4 pt-3 pb-3">
-        <h3 className="font-semibold text-[15px] leading-[1.3] text-gray-900 line-clamp-3 tracking-tight">
+        <h3 className="font-serif font-medium text-[16px] leading-[1.25] text-ink line-clamp-3 tracking-tight">
           {cleanTitle}
         </h3>
         <div className="flex items-center gap-1.5 mt-2">
@@ -323,7 +338,7 @@ function ArticleCard({ imageUrl, title, faviconUrl, url }: any) {
           ) : (
             <div className="w-3.5 h-3.5 rounded-sm bg-gray-200" />
           )}
-          <span className="text-[11px] text-gray-500 font-medium truncate tracking-tight">{domain}</span>
+          <span className="text-[10px] uppercase tracking-[0.13em] text-stone-500 font-serif truncate">{domain}</span>
         </div>
       </div>
     </div>
@@ -335,11 +350,11 @@ function BookCard({ imageUrl, title, author, url }: any) {
   const cleanTitle = getCleanTitle(title, url)
 
   if (!imageUrl || imgError) {
-    return <GemFallbackCard title={title} url={url} />
+    return <GemFallbackCard title={title} url={url} cardType="book" />
   }
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+    <div className="bg-white rounded-none overflow-hidden flex flex-col h-full border border-[#26221c]/30 hover:border-[#26221c]/60 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-all">
       <div className="relative aspect-[2/3] bg-gradient-to-br from-gray-50 via-white to-gray-50 overflow-hidden flex items-center justify-center p-8">
         <img
           src={imageUrl}
@@ -349,7 +364,7 @@ function BookCard({ imageUrl, title, author, url }: any) {
         />
       </div>
       <div className="px-4 py-3 text-center">
-        <h3 className="text-[14px] text-gray-900 font-semibold line-clamp-2 tracking-tight leading-snug">
+        <h3 className="font-serif text-[15px] text-ink font-medium line-clamp-2 tracking-tight leading-snug">
           {cleanTitle}
         </h3>
         {author && (
@@ -367,22 +382,22 @@ function ProfileCard({ title, faviconUrl, url }: any) {
   const colors = getBrandColors(domain)
 
   return (
-    <div className={`relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all ${colors.bg} flex flex-col items-center justify-center p-6 gap-3`}>
-      {faviconUrl && !imgError ? (
-        <img
-          src={faviconUrl}
-          alt=""
-          className="w-16 h-16 rounded-full"
-          onError={() => setImgError(true)}
-        />
-      ) : (
-        <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-white text-2xl font-bold">
-          {domain.charAt(0).toUpperCase()}
-        </div>
-      )}
-      <p className={`text-center text-sm font-semibold line-clamp-2 ${colors.text}`}>
-        {cleanTitle}
-      </p>
+    <div className={CARD_FRAME}>
+      <div className={`relative w-full aspect-[4/3] overflow-hidden ${colors.bg} flex items-center justify-center p-6`}>
+        {faviconUrl && !imgError ? (
+          <img
+            src={faviconUrl}
+            alt=""
+            className="w-16 h-16 rounded-full"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-white text-2xl font-bold">
+            {domain.charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+      <CardFooter title={title} url={url} />
     </div>
   )
 }
@@ -555,7 +570,7 @@ export function BookmarkCard({
         />
       )}
       {cardType === 'lth' && (
-        <GemFallbackCard title={title} url={url} />
+        <GemFallbackCard title={title} url={url} cardType={cardType} />
       )}
       {!cardType && (
         <DefaultCard
@@ -577,20 +592,6 @@ export function BookmarkCard({
         <a href={url} target="_blank" rel="noopener noreferrer">
           {cardContent}
         </a>
-      )}
-
-      {!embed && cardType &&
-        cardType !== 'composite' &&
-        cardType !== 'product' &&
-        cardType !== 'article' &&
-        cardType !== 'book' &&
-        cardType !== 'lth' && (
-        <div className="px-3 py-2.5 bg-white border-t border-gray-100 rounded-b-xl">
-          <h3 className="font-medium text-gray-900 line-clamp-1 text-sm leading-snug">
-            {cleanTitle}
-          </h3>
-          <p className="text-[11px] text-gray-400 mt-0.5">{domain}</p>
-        </div>
       )}
 
       {localNote && (

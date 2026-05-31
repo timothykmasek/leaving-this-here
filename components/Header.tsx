@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { GemGlyph } from '@/components/GemGlyph'
 
 export function Header() {
   const pathname = usePathname()
@@ -36,11 +37,12 @@ export function Header() {
   }
 
   return (
-    <header className="border-b border-gray-100 bg-white">
+    <header className="border-b border-stone-300/60 bg-paper/80 backdrop-blur-sm">
       <nav className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
-          <Link href="/" className="text-lg font-medium tracking-tight text-gray-900">
-            <span aria-hidden className="mr-1.5">💎</span>internet gems
+          <Link href="/" className="flex items-center gap-2 font-serif text-lg tracking-tight text-ink">
+            <GemGlyph className="h-[18px] w-[18px] text-ink/65" />
+            <span>internet gems</span>
           </Link>
 
           <div className="flex items-center gap-6">

@@ -36,7 +36,7 @@ export function YouTubeEmbed({
   const cleanTitle = title?.trim() || getDomain(url)
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+    <div className="bg-white rounded-none overflow-hidden border border-[#26221c]/30 hover:border-[#26221c]/60 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-all">
       <div className="relative aspect-video bg-black overflow-hidden">
         {!playing ? (
           <button
@@ -87,7 +87,7 @@ export function VimeoEmbed({
   const cleanTitle = title?.trim() || getDomain(url)
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+    <div className="bg-white rounded-none overflow-hidden border border-[#26221c]/30 hover:border-[#26221c]/60 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-all">
       <div className="relative aspect-video bg-black overflow-hidden">
         {!playing ? (
           <button
@@ -134,7 +134,7 @@ export function SpotifyEmbed({
   const iframeHeight = isShort ? 152 : 352
 
   return (
-    <div className="bg-white rounded-xl overflow-hidden border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
+    <div className="bg-white rounded-none overflow-hidden border border-[#26221c]/30 hover:border-[#26221c]/60 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-all">
       <div className="relative">
         <iframe
           src={info.embedUrl}
