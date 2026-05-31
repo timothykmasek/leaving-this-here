@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react'
 import { pickProduct, pickBook } from '@/lib/metadata'
 import { detectEmbed } from '@/lib/rich-embed'
 import { RichEmbedCard } from '@/components/RichEmbed'
-import { GemLogo } from '@/components/GemLogo'
 
 interface BookmarkCardProps {
   id: string
@@ -191,20 +190,20 @@ function ScreenshotCard({ imageUrl, title, url }: any) {
   const cleanTitle = getCleanTitle(title, url)
   const gradient = getGradient(url)
 
+  // No screenshot, or it failed to load (dead domain, blocked, expired
+  // cache) → render the branded fallback instead of a permanent "loading…".
+  if (!imageUrl || imgError) {
+    return <GemFallbackCard title={title} url={url} />
+  }
+
   return (
     <div className={`relative w-full aspect-[4/3] overflow-hidden rounded-xl border border-gray-100 hover:border-gray-300 hover:shadow-sm transition-all group bg-gradient-to-br ${gradient}`}>
-      {imageUrl && !imgError ? (
-        <img
-          src={imageUrl}
-          alt={cleanTitle}
-          className="w-full h-full object-cover"
-          onError={() => setImgError(true)}
-        />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
-          <span className="text-xs text-gray-400">loading...</span>
-        </div>
-      )}
+      <img
+        src={imageUrl}
+        alt={cleanTitle}
+        className="w-full h-full object-cover"
+        onError={() => setImgError(true)}
+      />
     </div>
   )
 }
@@ -256,7 +255,7 @@ function GemFallbackCard({ title, url }: any) {
   return (
     <div className="bg-white rounded-xl overflow-hidden flex flex-col h-full border border-gray-150 hover:border-gray-300 hover:shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-all">
       <div className="relative aspect-[4/3] bg-gradient-to-br from-blue-50 via-gray-50 to-purple-50 flex items-center justify-center">
-        <GemLogo size={56} fill="#dbeafe" stroke="#94a3b8" />
+        <span aria-hidden className="text-5xl opacity-80">💎</span>
       </div>
       <div className="px-4 py-3">
         <h3 className="font-medium text-gray-900 line-clamp-2 text-[14px] leading-snug tracking-tight">

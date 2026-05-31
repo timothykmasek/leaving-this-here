@@ -1,7 +1,7 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { GemLogo } from '@/components/GemLogo'
+import { BookmarkCard } from '@/components/BookmarkCard'
 
 export default async function Home() {
   const supabase = await createSupabaseServer()
@@ -21,40 +21,14 @@ export default async function Home() {
     }
   }
 
-  // Public landing — showcase 6 folios (one per creator) with 3 recent link
-  // thumbnails each.
-  const { data: rawPreview } = await supabase
+  // Public landing — pull recent community bookmarks (with images, so the
+  // grid looks alive on first paint). No attribution per v1.
+  const { data: recent } = await supabase
     .from('bookmarks')
-    .select(
-      'id, url, title, image_url, screenshot_url, favicon_url, user_id, created_at, profiles:user_id(username, display_name, bio)'
-    )
+    .select('*')
     .or('image_url.not.is.null,screenshot_url.not.is.null')
     .order('created_at', { ascending: false })
-    .limit(500)
-
-  type Folio = {
-    user_id: string
-    profile: any
-    thumbnails: any[]
-    total: number
-  }
-  const byUser = new Map<string, Folio>()
-  for (const b of rawPreview || []) {
-    let entry = byUser.get(b.user_id)
-    if (!entry) {
-      entry = { user_id: b.user_id, profile: b.profiles, thumbnails: [], total: 0 }
-      byUser.set(b.user_id, entry)
-    }
-    if (entry.thumbnails.length < 3) entry.thumbnails.push(b)
-    entry.total += 1
-  }
-
-  const folios = Array.from(byUser.values()).filter((f) => f.profile?.username)
-  for (let i = folios.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[folios[i], folios[j]] = [folios[j], folios[i]]
-  }
-  const showcase = folios.slice(0, 6)
+    .limit(12)
 
   return (
     <main className="min-h-screen bg-white">
@@ -69,88 +43,48 @@ export default async function Home() {
           }}
         />
         <div className="relative mx-auto max-w-4xl px-4 pt-24 pb-20 sm:px-6 lg:px-8 text-center">
-          <div className="flex justify-center mb-6">
-            <GemLogo size={56} />
-          </div>
-          <h1 className="text-6xl sm:text-7xl font-light tracking-tight text-gray-900 leading-[1.05]">
-            You are what
+          <div className="flex justify-center mb-6 text-6xl" aria-hidden>💎</div>
+          <h1 className="text-5xl sm:text-6xl font-light tracking-tight text-gray-900 leading-[1.1] max-w-3xl mx-auto">
+            A home for the internet gems
             <br />
-            <span className="italic text-gray-700">you save.</span>
+            <span className="italic text-gray-700">you don&rsquo;t want to lose.</span>
           </h1>
 
-          <p className="mt-8 text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            A home for the internet gems you don&rsquo;t want to lose.
-          </p>
-
-          <div className="mt-10 flex items-center justify-center gap-3">
+          <div className="mt-10 flex items-center justify-center">
             <Link
               href="/login?mode=signup"
               className="text-sm font-semibold text-white bg-gray-900 hover:bg-gray-800 px-7 py-3.5 rounded-full shadow-sm transition-colors"
             >
               start collecting
             </Link>
-            <a
-              href="#showcase"
-              className="text-sm font-medium text-gray-700 hover:text-gray-900 px-5 py-3 rounded-full transition-colors"
-            >
-              browse the gems
-            </a>
           </div>
         </div>
       </section>
 
-      {/* Folio showcase */}
+      {/* Recent community bookmarks */}
       <section id="showcase" className="mx-auto max-w-6xl px-4 pb-24 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">showcase</p>
-          <h2 className="text-3xl font-light text-gray-900">collections worth a look</h2>
+        <div className="text-center mb-8">
+          <p className="text-xs uppercase tracking-wider text-gray-400">recent gems from the community</p>
         </div>
 
-        {showcase.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {showcase.map((folio) => (
-              <Link
-                key={folio.user_id}
-                href={`/${folio.profile.username}`}
-                className="group block rounded-2xl border border-gray-100 bg-white p-5 hover:border-gray-200 hover:shadow-sm transition-all"
-              >
-                {/* Thumbnail strip */}
-                <div className="grid grid-cols-3 gap-1.5 mb-5">
-                  {folio.thumbnails.map((t) => {
-                    const src = t.image_url || t.screenshot_url || t.favicon_url
-                    return (
-                      <div
-                        key={t.id}
-                        className="aspect-[4/3] rounded-md overflow-hidden bg-gray-50"
-                      >
-                        {src ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={src}
-                            alt=""
-                            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                          />
-                        ) : null}
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* Folio meta */}
-                <div>
-                  <h3 className="text-xl font-medium text-gray-900 group-hover:underline underline-offset-4 decoration-gray-300">
-                    {folio.profile.display_name || folio.profile.username}
-                  </h3>
-                  {folio.profile.bio && (
-                    <p className="text-sm text-gray-500 italic mt-1.5 leading-snug line-clamp-2">
-                      {folio.profile.bio}
-                    </p>
-                  )}
-                  <p className="text-xs uppercase tracking-wider text-gray-400 mt-3">
-                    {folio.total} {folio.total === 1 ? 'gem' : 'gems'}
-                  </p>
-                </div>
-              </Link>
+        {recent && recent.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {recent.map((b) => (
+              <BookmarkCard
+                key={b.id}
+                id={b.id}
+                title={b.title}
+                description={b.description}
+                url={b.url}
+                imageUrl={b.image_url}
+                screenshotUrl={b.screenshot_url}
+                faviconUrl={b.favicon_url}
+                rawMetadata={b.raw_metadata}
+                tags={b.tags || []}
+                note={b.note}
+                isOwner={false}
+                cardType={b.card_type}
+              />
             ))}
           </div>
         )}
@@ -178,37 +112,10 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Who it's for */}
-      <section className="mx-auto max-w-5xl px-4 py-20 sm:px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">who it&apos;s for</p>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 text-center">
-          <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">designers</p>
-            <p className="text-xs text-gray-500">curating inspiration</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">writers</p>
-            <p className="text-xs text-gray-500">collecting what shines</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">researchers</p>
-            <p className="text-xs text-gray-500">keeping sources close</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-900 mb-1">teams</p>
-            <p className="text-xs text-gray-500">a shared reading list</p>
-          </div>
-        </div>
-      </section>
-
       {/* Bottom CTA with handle input */}
       <section className="border-t border-gray-100 bg-gray-50/50">
         <div className="mx-auto max-w-2xl px-4 py-24 sm:px-6 lg:px-8 text-center">
-          <div className="flex justify-center mb-4">
-            <GemLogo size={32} />
-          </div>
+          <div className="flex justify-center mb-4 text-3xl" aria-hidden>💎</div>
           <h2 className="text-4xl font-light text-gray-900 mb-4">start your collection →</h2>
           <p className="text-sm text-gray-500 mb-8">
             pick a handle, start saving, watch your gems pile up.

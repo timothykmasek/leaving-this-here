@@ -31,7 +31,7 @@ export default function BookmarkletPage() {
             save gems from anywhere 💎
           </h1>
           <p className="text-gray-600 text-sm">
-            drag the button below to your bookmarks bar to save links while
+            drag the button below to your bookmarks bar to save gems while
             browsing
           </p>
         </div>
@@ -47,10 +47,10 @@ export default function BookmarkletPage() {
               className="inline-block px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors cursor-grab active:cursor-grabbing"
               onClick={(e) => e.preventDefault()}
             >
-              + save to internet gems
+              save 💎
             </a>
             <p className="text-xs text-gray-500 mt-4">
-              then name it "save to internet gems"
+              then name it &ldquo;save 💎&rdquo;
             </p>
           </div>
 
@@ -69,8 +69,8 @@ export default function BookmarkletPage() {
                 confirm the bookmark
               </li>
               <li>
-                <strong className="text-gray-900">3.</strong> it appears on
-                your profile automatically
+                <strong className="text-gray-900">3.</strong> it appears in
+                your collection automatically
               </li>
             </ol>
           </div>

@@ -115,20 +115,28 @@ function SetupInner() {
         body: JSON.stringify({ url }),
       })
       const meta = await metaRes.json()
-      const ssUrl = `https://api.screenshotone.com/take?access_key=C3xT-xTVEXsWww&url=${encodeURIComponent(url)}&viewport_width=1280&viewport_height=900&format=webp&image_quality=90&block_ads=true&block_cookie_banners=true&block_chats=true&delay=2&cache=true&cache_ttl=86400`
 
-      const { error } = await supabase.from('bookmarks').insert({
+      const { data: inserted, error } = await supabase.from('bookmarks').insert({
         user_id: profileId,
         url,
         title: meta.title || url,
         description: meta.description,
         image_url: meta.image || null,
-        screenshot_url: ssUrl,
+        // screenshot captured + persisted server-side after insert
+        screenshot_url: null,
         favicon_url: meta.favicon,
         raw_metadata: meta.raw || null,
         tags: [],
-      })
+      }).select('id').single()
       if (error) throw new Error(error.message)
+
+      if (inserted?.id) {
+        fetch('/api/persist-screenshots', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: inserted.id }),
+        }).catch(() => {})
+      }
       setStep('done')
       setTimeout(() => router.push(`/${username}`), 1400)
     } catch (err: any) {

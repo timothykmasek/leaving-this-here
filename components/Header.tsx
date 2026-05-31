@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { GemLogo } from '@/components/GemLogo'
 
 export function Header() {
   const pathname = usePathname()
@@ -40,9 +39,8 @@ export function Header() {
     <header className="border-b border-gray-100 bg-white">
       <nav className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-lg font-medium tracking-tight text-gray-900">
-            <GemLogo size={20} />
-            <span>internet gems</span>
+          <Link href="/" className="text-lg font-medium tracking-tight text-gray-900">
+            <span aria-hidden className="mr-1.5">💎</span>internet gems
           </Link>
 
           <div className="flex items-center gap-6">
@@ -67,20 +65,12 @@ export function Header() {
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/login"
-                  className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  log in
-                </Link>
-                <Link
-                  href="/login?mode=signup"
-                  className="text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 px-4 py-1.5 rounded-full transition-colors"
-                >
-                  sign up
-                </Link>
-              </div>
+              <Link
+                href="/login"
+                className="text-sm font-medium text-white bg-gray-900 hover:bg-gray-800 px-4 py-1.5 rounded-full transition-colors"
+              >
+                sign in
+              </Link>
             )}
           </div>
         </div>

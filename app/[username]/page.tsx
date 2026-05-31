@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
+import { SocialLinks } from '@/components/SocialLinks'
 import Link from 'next/link'
 
 export default function ProfilePage() {
@@ -17,112 +18,24 @@ export default function ProfilePage() {
   const [filtered, setFiltered] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isOwner, setIsOwner] = useState(false)
-  const [isFollowing, setIsFollowing] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [followers, setFollowers] = useState(0)
-  const [following, setFollowing] = useState(0)
   const [newUrl, setNewUrl] = useState('')
   const [savingUrl, setSavingUrl] = useState(false)
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  // Save panel — collapsed by default, auto-opens on empty collections as
+  // the onboarding affordance. After the user has any gems, they re-open
+  // it manually via the "+ save a gem" pill in the hero.
+  const [saveOpen, setSaveOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState(false)
   const [editBio, setEditBio] = useState('')
   const [editLinks, setEditLinks] = useState<any>({})
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadMsg, setUploadMsg] = useState<string | null>(null)
-  const [reembedding, setReembedding] = useState(false)
-  const [reembedMsg, setReembedMsg] = useState<string | null>(null)
-
-  const handleDownloadCSV = () => {
-    const rows = bookmarks.map((b) => b.url)
-    const csv = rows.join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `${username}-links.csv`
-    a.click()
-  }
-
-  const handleUploadCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !profile) return
-    setUploading(true)
-    setUploadMsg(null)
-
-    try {
-      const text = await file.text()
-      const urls = text
-        .split(/[\r\n]+/)
-        .map((line) => line.trim().replace(/^["']|["']$/g, ''))
-        .filter((line) => line && (line.startsWith('http://') || line.startsWith('https://')))
-
-      if (urls.length === 0) {
-        setUploadMsg('no valid URLs found — make sure each row is a full link starting with http')
-        return
-      }
-
-      let added = 0
-      for (const linkUrl of urls) {
-        try {
-          const { error } = await supabase.from('bookmarks').insert({
-            user_id: profile.id,
-            url: linkUrl,
-            title: linkUrl,
-            tags: [],
-          })
-          if (!error) added++
-        } catch (e) {}
-      }
-
-      // Refresh bookmarks
-      const { data: updated } = await supabase
-        .from('bookmarks')
-        .select('*')
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-      setBookmarks(updated || [])
-      setFiltered(updated || [])
-      setUploadMsg(`imported ${added} of ${urls.length} links`)
-    } finally {
-      setUploading(false)
-      e.target.value = ''
-    }
-  }
-
-  // Backfill embeddings for any of the owner's bookmarks that don't have one yet.
-  // Idempotent — the API only touches rows where embedding is null.
-  const handleReembedAll = async () => {
-    setReembedding(true)
-    setReembedMsg('embedding...')
-    try {
-      const res = await fetch('/api/backfill-embeddings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        setReembedMsg(`error: ${data.error || 'unknown'}`)
-      } else if (data.processed === 0) {
-        setReembedMsg('nothing to embed')
-      } else {
-        setReembedMsg(`embedded ${data.processed}${data.errors ? ` (${data.errors} errors)` : ''}`)
-      }
-    } catch (err: any) {
-      setReembedMsg(`error: ${err.message || 'unknown'}`)
-    } finally {
-      setReembedding(false)
-      setTimeout(() => setReembedMsg(null), 4000)
-    }
-  }
 
   useEffect(() => {
     const load = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setCurrentUserId(user?.id || null)
 
-      // Get profile
       const { data: prof, error } = await supabase
         .from('profiles')
         .select('*')
@@ -133,7 +46,6 @@ export default function ProfilePage() {
       setProfile(prof)
       setIsOwner(user?.id === prof.id)
 
-      // Get bookmarks — all public, no per-link privacy in v1
       const { data: bmarks } = await supabase
         .from('bookmarks')
         .select('*')
@@ -142,28 +54,10 @@ export default function ProfilePage() {
       setBookmarks(bmarks || [])
       setFiltered(bmarks || [])
 
-      // Counts
-      const { count: followerCount } = await supabase
-        .from('follows')
-        .select('*', { count: 'exact', head: true })
-        .eq('following_id', prof.id)
-      setFollowers(followerCount || 0)
-
-      const { count: followingCount } = await supabase
-        .from('follows')
-        .select('*', { count: 'exact', head: true })
-        .eq('follower_id', prof.id)
-      setFollowing(followingCount || 0)
-
-      // Check if following
-      if (user && user.id !== prof.id) {
-        const { data: f } = await supabase
-          .from('follows')
-          .select('follower_id')
-          .eq('follower_id', user.id)
-          .eq('following_id', prof.id)
-          .single()
-        setIsFollowing(!!f)
+      // Auto-open the save panel for the owner when the collection is empty
+      // — this is the onboarding moment where setup matters most.
+      if (user?.id === prof.id && (!bmarks || bmarks.length === 0)) {
+        setSaveOpen(true)
       }
 
       setLoading(false)
@@ -172,13 +66,8 @@ export default function ProfilePage() {
     load()
   }, [username, supabase, router])
 
-  // Lightweight semantic-ish search so it isn't purely literal.
-  // Maps a query token to related terms we'll also accept as a match.
-  // (A real embedding-based search will replace this — this is the
-  // pragmatic fix that makes "can" find beverage bookmarks today.)
+  // Token + synonym fallback used when semantic search returns nothing.
   const SYNONYMS: Record<string, string[]> = {
-    can: ['beverage', 'drink', 'soda', 'water', 'cola', 'aluminum'],
-    drink: ['beverage', 'can', 'soda', 'water'],
     video: ['youtube', 'vimeo', 'film', 'movie'],
     article: ['blog', 'post', 'essay', 'medium', 'substack'],
     code: ['github', 'gitlab', 'repo', 'repository'],
@@ -209,29 +98,20 @@ export default function ProfilePage() {
       .toLowerCase()
   }
 
-  const applyTagFilter = (list: any[], tags: string[]) => {
-    if (tags.length === 0) return list
-    return list.filter((b) => tags.every((t) => b.tags?.includes(t)))
-  }
-
-  // Token + synonym fallback — used when semantic search is unavailable
-  // or returns nothing.
   const tokenSearch = (query: string) => {
     const tokens = tokenize(query)
-    if (tokens.length === 0) return applyTagFilter(bookmarks, selectedTags)
+    if (tokens.length === 0) return bookmarks
     const expanded = expandTokens(tokens)
-    const base = applyTagFilter(bookmarks, selectedTags)
-    return base.filter((b) => {
+    return bookmarks.filter((b) => {
       const hay = haystackFor(b)
       return expanded.some((t) => hay.includes(t))
     })
   }
 
   const handleSearch = async (query: string) => {
-    if (!query.trim()) { setFiltered(applyTagFilter(bookmarks, selectedTags)); return }
+    if (!query.trim()) { setFiltered(bookmarks); return }
     if (!profile) return
 
-    // Try real semantic search first (Voyage + pgvector)
     try {
       const res = await fetch('/api/search', {
         method: 'POST',
@@ -242,13 +122,10 @@ export default function ProfilePage() {
         const data = await res.json()
         const ids: string[] = (data.bookmarks || []).map((b: any) => b.id)
         if (ids.length > 0) {
-          // Reorder existing client-side bookmarks so we keep the full
-          // BookmarkCard props without refetching.
           const byId = new Map(bookmarks.map((b) => [b.id, b]))
           const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as any[]
-          const filteredByTag = applyTagFilter(ordered, selectedTags)
-          if (filteredByTag.length > 0) {
-            setFiltered(filteredByTag)
+          if (ordered.length > 0) {
+            setFiltered(ordered)
             return
           }
         }
@@ -257,7 +134,6 @@ export default function ProfilePage() {
       // fall through to token search
     }
 
-    // Fallback: token + synonym search
     setFiltered(tokenSearch(query))
   }
 
@@ -267,7 +143,6 @@ export default function ProfilePage() {
     setSavingUrl(true)
 
     try {
-      // Fetch metadata from our own API (no third-party rate limits)
       const metaRes = await fetch('/api/fetch-metadata', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -275,16 +150,14 @@ export default function ProfilePage() {
       })
       const meta = await metaRes.json()
 
-      // Generate screenshot URL for landing pages / fallback
-      const ssUrl = `https://api.screenshotone.com/take?access_key=C3xT-xTVEXsWww&url=${encodeURIComponent(newUrl)}&viewport_width=1280&viewport_height=900&format=webp&image_quality=90&block_ads=true&block_cookie_banners=true&block_chats=true&delay=2&cache=true&cache_ttl=86400`
-
       const { data: inserted, error } = await supabase.from('bookmarks').insert({
         user_id: profile.id,
         url: newUrl,
         title: meta.title || newUrl,
         description: meta.description,
         image_url: meta.image || null,
-        screenshot_url: ssUrl,
+        // screenshot is captured + persisted server-side after insert
+        screenshot_url: null,
         favicon_url: meta.favicon,
         raw_metadata: meta.raw || null,
         tags: [],
@@ -300,36 +173,37 @@ export default function ProfilePage() {
         setFiltered(updated || [])
         setNewUrl('')
 
-        // Generate embedding in the background (non-fatal)
         if (inserted?.id) {
           fetch('/api/embed-bookmark', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: inserted.id }),
           }).catch(() => {})
+
+          // Capture + persist the screenshot server-side, then refresh so the
+          // new card swaps from its branded fallback to the real image.
+          fetch('/api/persist-screenshots', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: inserted.id }),
+          })
+            .then(async () => {
+              const { data: refreshed } = await supabase
+                .from('bookmarks')
+                .select('*')
+                .eq('user_id', profile.id)
+                .order('created_at', { ascending: false })
+              if (refreshed) {
+                setBookmarks(refreshed)
+                setFiltered(refreshed)
+              }
+            })
+            .catch(() => {})
         }
       }
     } finally {
       setSavingUrl(false)
     }
-  }
-
-  const handleFollow = async () => {
-    if (!currentUserId || !profile) { router.push('/login'); return }
-
-    if (isFollowing) {
-      await supabase.from('follows').delete()
-        .eq('follower_id', currentUserId)
-        .eq('following_id', profile.id)
-      setFollowers((f) => f - 1)
-    } else {
-      await supabase.from('follows').insert({
-        follower_id: currentUserId,
-        following_id: profile.id,
-      })
-      setFollowers((f) => f + 1)
-    }
-    setIsFollowing(!isFollowing)
   }
 
   const handleDelete = async (id: string) => {
@@ -346,9 +220,6 @@ export default function ProfilePage() {
   }
 
   const handleNoteUpdate = async (id: string, newNote: string | null) => {
-    // Graceful fallback: if migration 005 hasn't been applied yet, the update
-    // errors with "column note does not exist". Keep the optimistic UI state
-    // so the owner sees their note locally, and surface a quiet console warning.
     const { error } = await supabase.from('bookmarks').update({ note: newNote }).eq('id', id)
     if (error && /note/i.test(error.message || '')) {
       console.warn('bookmarks.note column missing — apply migrations/005_bookmarks_note.sql in the Supabase SQL editor')
@@ -358,15 +229,8 @@ export default function ProfilePage() {
     setFiltered(update)
   }
 
-  // Get all tags
+  // Collect all tags (still needed for tag-editor suggestions on owner cards).
   const allTags = Array.from(new Set(bookmarks.flatMap((b) => b.tags || []))).sort()
-
-  // Single-select: clicking a tag selects only it; clicking the active tag clears it.
-  const handleTagToggle = (tag: string) => {
-    const next = selectedTags[0] === tag ? [] : [tag]
-    setSelectedTags(next)
-    setFiltered(applyTagFilter(bookmarks, next))
-  }
 
   if (loading) {
     return <main className="min-h-screen bg-white"><div className="mx-auto max-w-6xl px-4 py-12"><p className="text-gray-400">loading...</p></div></main>
@@ -379,11 +243,11 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-white">
       <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-        {/* Folio hero */}
-        <div className="mb-12 border-b border-gray-100 pb-10">
-          <div className="flex items-start justify-between gap-6 mb-6">
+        {/* Hero — `group` enables the hover-reveal edit icon below */}
+        <div className="mb-10 border-b border-gray-100 pb-8 group">
+          <div className="flex items-start justify-between gap-6 mb-4">
             <div className="flex-1 min-w-0">
-              <h1 className="text-4xl sm:text-5xl font-light tracking-tight text-gray-900 mb-4 leading-[1.1]">
+              <h1 className="text-4xl sm:text-5xl font-light tracking-tight text-gray-900 mb-3 leading-[1.1]">
                 {profile.display_name || profile.username}
               </h1>
               {profile.bio && (
@@ -400,41 +264,40 @@ export default function ProfilePage() {
                 </p>
               )}
 
-              {/* Social links */}
-              {profile.links && Object.keys(profile.links).length > 0 && (
-                <div className="flex gap-4 flex-wrap">
-                  {profile.links.twitter && (
-                    <a href={`https://x.com/${profile.links.twitter}`} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600">x.com/{profile.links.twitter}</a>
-                  )}
-                  {profile.links.linkedin && (
-                    <a href={`https://linkedin.com/in/${profile.links.linkedin}`} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600">linkedin.com/in/{profile.links.linkedin}</a>
-                  )}
-                  {profile.links.website && (
-                    <a href={profile.links.website.startsWith('http') ? profile.links.website : `https://${profile.links.website}`} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600">{profile.links.website.replace(/^https?:\/\//, '')}</a>
-                  )}
-                </div>
-              )}
+              <SocialLinks links={profile.links} />
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-col items-end gap-2 shrink-0">
-              {currentUserId && !isOwner && (
+            {isOwner && !editingProfile && (
+              <div className="shrink-0 flex items-center gap-1">
                 <button
-                  onClick={handleFollow}
-                  className="px-5 py-2 text-sm font-medium border border-gray-200 rounded-full hover:border-gray-400 text-gray-700 hover:text-gray-900 transition-colors"
+                  onClick={() => setSaveOpen((v) => !v)}
+                  className="relative inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-gray-200 rounded-full text-gray-700 hover:text-gray-900 hover:border-gray-400 transition-colors"
                 >
-                  {isFollowing ? 'following' : 'follow'}
+                  <span aria-hidden>+</span> save a gem
+                  {/* Quiet pulse for early-stage users who haven't installed the
+                      bookmarklet yet — fades out once they have ≥ 5 gems. */}
+                  {bookmarks.length > 0 && bookmarks.length < 5 && !saveOpen && (
+                    <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+                    </span>
+                  )}
                 </button>
-              )}
-              {isOwner && !editingProfile && (
+                {/* Edit-profile pencil — hover-revealed on desktop, persistently
+                    faint on mobile (touch has no hover state). */}
                 <button
                   onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-gray-900 transition-colors"
+                  aria-label="edit profile"
+                  title="edit profile"
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-all opacity-40 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
                 >
-                  edit profile
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
+                  </svg>
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Edit profile form */}
@@ -446,39 +309,39 @@ export default function ProfilePage() {
                   type="text"
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
-                  placeholder="the short line that describes your folio"
+                  placeholder="a short line about you"
                   maxLength={160}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">x.com handle</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">x.com link</label>
                   <input
-                    type="text"
+                    type="url"
                     value={editLinks.twitter || ''}
-                    onChange={(e) => setEditLinks({ ...editLinks, twitter: e.target.value.replace('@', '') })}
-                    placeholder="handle"
+                    onChange={(e) => setEditLinks({ ...editLinks, twitter: e.target.value })}
+                    placeholder="https://x.com/yourname"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">linkedin</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">linkedin link</label>
                   <input
-                    type="text"
+                    type="url"
                     value={editLinks.linkedin || ''}
                     onChange={(e) => setEditLinks({ ...editLinks, linkedin: e.target.value })}
-                    placeholder="username"
+                    placeholder="https://linkedin.com/in/yourname"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">website</label>
                   <input
-                    type="text"
+                    type="url"
                     value={editLinks.website || ''}
                     onChange={(e) => setEditLinks({ ...editLinks, website: e.target.value })}
-                    placeholder="yoursite.com"
+                    placeholder="https://yoursite.com"
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
                   />
                 </div>
@@ -503,7 +366,6 @@ export default function ProfilePage() {
                     if (editLinks.linkedin?.trim()) cleanLinks.linkedin = editLinks.linkedin.trim()
                     if (editLinks.website?.trim()) cleanLinks.website = editLinks.website.trim()
 
-                    // Try saving bio + links together first.
                     let { error } = await supabase
                       .from('profiles')
                       .update({
@@ -512,9 +374,6 @@ export default function ProfilePage() {
                       })
                       .eq('id', profile.id)
 
-                    // Graceful fallback: if the `links` column doesn't exist
-                    // yet (migration 003 not applied), still save the bio so
-                    // the user never sees a silent failure.
                     if (error && /links/i.test(error.message || '')) {
                       const retry = await supabase
                         .from('profiles')
@@ -546,11 +405,11 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Quiet meta row — folio stats live here, de-emphasized */}
+          {/* Quiet meta row */}
           <div className="flex gap-5 text-xs uppercase tracking-wider text-gray-400">
             <span>
               <span className="text-gray-900 font-medium">{bookmarks.length}</span>{' '}
-              <span>links</span>
+              <span>{bookmarks.length === 1 ? 'gem' : 'gems'}</span>
             </span>
             {(() => {
               const latest = bookmarks[0]?.created_at
@@ -559,99 +418,98 @@ export default function ProfilePage() {
               const label = days === 0 ? 'updated today' : days === 1 ? 'updated yesterday' : days < 30 ? `updated ${days}d ago` : days < 365 ? `updated ${Math.floor(days / 30)}mo ago` : `updated ${Math.floor(days / 365)}y ago`
               return <span>{label}</span>
             })()}
-            <Link href={`/${username}/followers`} className="hover:text-gray-700 transition-colors">
-              <span className="text-gray-900 font-medium">{followers}</span>{' '}
-              <span>followers</span>
-            </Link>
-            <Link href={`/${username}/following`} className="hover:text-gray-700 transition-colors">
-              <span className="text-gray-900 font-medium">{following}</span>{' '}
-              <span>following</span>
-            </Link>
           </div>
         </div>
 
-        {/* Save input (owner only) */}
-        {isOwner && (
-          <form onSubmit={handleSave} className="mb-6">
-            <div className="flex gap-2">
-              <input
-                type="url"
-                value={newUrl}
-                onChange={(e) => setNewUrl(e.target.value)}
-                placeholder="paste a link..."
-                className="flex-1 px-5 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-gray-400 text-sm"
-              />
-              <button
-                type="submit"
-                disabled={savingUrl || !newUrl}
-                className="px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm"
-              >
-                {savingUrl ? 'saving...' : 'save'}
-              </button>
-            </div>
-          </form>
+        {/* Owner-only save panel — collapsible. Empty state gets larger
+            messaging (onboarding); populated state is more compact. */}
+        {isOwner && saveOpen && (
+          <div className="mb-10 rounded-2xl border border-gray-200 bg-gray-50/50 p-6 relative">
+            <button
+              onClick={() => setSaveOpen(false)}
+              aria-label="close save panel"
+              className="absolute top-3 right-3 w-7 h-7 rounded-full text-gray-300 hover:text-gray-600 hover:bg-white transition-colors flex items-center justify-center text-sm"
+            >
+              ✕
+            </button>
+
+            {bookmarks.length === 0 ? (
+              <div className="mb-4">
+                <h2 className="text-xl font-light text-gray-900 mb-1">save your first gem 💎</h2>
+                <p className="text-sm text-gray-500">
+                  paste any link to get started — articles, videos, products, anything.
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs uppercase tracking-wider text-gray-400 mb-3">save a link</p>
+            )}
+
+            <form onSubmit={handleSave}>
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  value={newUrl}
+                  onChange={(e) => setNewUrl(e.target.value)}
+                  placeholder="paste a link..."
+                  autoFocus
+                  className="flex-1 px-5 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-gray-400 text-sm bg-white"
+                />
+                <button
+                  type="submit"
+                  disabled={savingUrl || !newUrl}
+                  className="px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm"
+                >
+                  {savingUrl ? 'saving...' : 'save'}
+                </button>
+              </div>
+            </form>
+
+            {/* Bookmarklet promo — gets visual weight only in the empty state,
+                where setup actually matters. Otherwise it's a quiet one-liner. */}
+            {bookmarks.length === 0 ? (
+              <div className="mt-5 pt-5 border-t border-gray-200">
+                <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">
+                  the one-click way
+                </p>
+                <p className="text-sm text-gray-700 mb-2">
+                  Install the save-link button in your browser.
+                </p>
+                <p className="text-xs text-gray-500 leading-relaxed mb-3">
+                  Then grab any internet gem with one click — no more pasting URLs.
+                </p>
+                <Link
+                  href="/bookmarklet"
+                  className="inline-block text-sm font-medium text-gray-900 underline underline-offset-4 decoration-gray-300 hover:decoration-gray-700"
+                >
+                  install the save button →
+                </Link>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-gray-400">
+                or{' '}
+                <Link
+                  href="/bookmarklet"
+                  className="underline underline-offset-4 hover:text-gray-700"
+                >
+                  install the save button
+                </Link>{' '}
+                to grab gems with one click from any page.
+              </p>
+            )}
+          </div>
         )}
 
-        {/* Search experience — larger, more inviting */}
-        <div className="mb-8 space-y-5">
-          <div className="relative">
+        {/* Search — owner only */}
+        {isOwner && (
+          <div className="mb-8">
             <input
               type="text"
-              placeholder="search your links..."
+              placeholder="search your gems..."
               onChange={(e) => handleSearch(e.target.value)}
               className="w-full px-6 py-4 text-lg font-light italic text-gray-700 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-gray-400 bg-gray-50/50 placeholder:text-gray-400"
             />
           </div>
-
-          {allTags.length > 0 && (
-            <div className="flex gap-2 flex-wrap">
-              {allTags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => handleTagToggle(tag)}
-                  className={`text-xs px-3 py-1 rounded-full border transition-colors ${
-                    selectedTags[0] === tag
-                      ? 'bg-gray-900 text-white border-gray-900'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                  }`}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Owner-only utilities: save-from-anywhere, CSV import/export */}
-          {isOwner && (
-            <div className="flex items-center gap-5 pt-1 flex-wrap">
-              <Link
-                href="/bookmarklet"
-                className="text-xs text-gray-500 hover:text-gray-900 transition-colors underline-offset-4 hover:underline"
-              >
-                + add the “save a link” button to your browser
-              </Link>
-              <span className="text-gray-200">·</span>
-              <button
-                onClick={handleDownloadCSV}
-                disabled={bookmarks.length === 0}
-                className="text-xs text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-30"
-              >
-                download links as csv
-              </button>
-              <label className="text-xs text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
-                {uploading ? 'importing...' : 'import from csv'}
-                <input
-                  type="file"
-                  accept=".csv,.txt"
-                  onChange={handleUploadCSV}
-                  className="hidden"
-                  disabled={uploading}
-                />
-              </label>
-              {uploadMsg && <span className="text-xs text-gray-500">{uploadMsg}</span>}
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Bookmark grid */}
         {filtered.length > 0 ? (

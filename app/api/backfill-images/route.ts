@@ -7,6 +7,7 @@ import {
   type MetadataResult,
   type RawMetadata,
 } from '@/lib/metadata'
+import { screenshotApiUrl } from '@/lib/screenshot'
 
 // Use service role key if available (bypasses RLS), else anon key + RPC.
 const supabaseAdmin = createClient(
@@ -134,9 +135,10 @@ function classifyCardType(url: string, meta: MetadataResult): CardType {
   }
 }
 
+// Live screenshotone URL (env key). persist-screenshots later captures this
+// once and swaps screenshot_url for a permanent Supabase Storage copy.
 function screenshotUrl(url: string): string {
-  const encoded = encodeURIComponent(url)
-  return `https://api.screenshotone.com/take?access_key=C3xT-xTVEXsWww&url=${encoded}&viewport_width=1280&viewport_height=900&format=webp&image_quality=90&block_ads=true&block_cookie_banners=true&block_chats=true&delay=2&cache=true&cache_ttl=86400`
+  return screenshotApiUrl(url)
 }
 
 async function applyUpdate(bookmarkId: string, update: Record<string, any>, raw: RawMetadata | null) {

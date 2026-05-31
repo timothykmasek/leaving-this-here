@@ -1,0 +1,171 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import {
+  captureAndStore,
+  ensureBucket,
+  isPersistedScreenshot,
+} from '@/lib/screenshot'
+
+// Capture screenshots ONCE and persist them to Supabase Storage, then point
+// screenshot_url at the permanent CDN copy. Replaces the old model where cards
+// re-requested a live screenshotone capture on every page view (which
+// rate-limited at grid scale).
+//
+// Processes `screenshot` and `lth` cards — the ones that rely on a screenshot
+// for their visual. `lth` rows that capture successfully are promoted to
+// `screenshot` so they render the image instead of the 💎 fallback.
+//
+// Requires SUPABASE_SERVICE_ROLE_KEY and SCREENSHOTONE_ACCESS_KEY in env.
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } },
+)
+
+export async function POST(request: NextRequest) {
+  if (!process.env.SCREENSHOTONE_ACCESS_KEY) {
+    return NextResponse.json(
+      { error: 'SCREENSHOTONE_ACCESS_KEY is not set' },
+      { status: 500 },
+    )
+  }
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return NextResponse.json(
+      { error: 'SUPABASE_SERVICE_ROLE_KEY is not set' },
+      { status: 500 },
+    )
+  }
+
+  const body = await request.json().catch(() => ({}))
+  const { limit = 8, offset = 0, id = null } = body
+
+  try {
+    await ensureBucket(supabaseAdmin)
+  } catch (err) {
+    return NextResponse.json({ error: String(err) }, { status: 500 })
+  }
+
+  // Single-bookmark mode (used by the live save path).
+  let query = supabaseAdmin
+    .from('bookmarks')
+    .select('id, url, card_type, screenshot_url')
+
+  if (id) {
+    query = query.eq('id', id)
+  } else {
+    // Drain-based: only rows that still need a persisted screenshot (null, or a
+    // live screenshotone URL). Persisted rows point at Supabase Storage and
+    // drop out of this set, so the runner can keep offset at 0 and the unfinished
+    // set shrinks each pass — rate-limited rows are naturally retried next batch.
+    query = query
+      .in('card_type', ['screenshot', 'lth'])
+      .or('screenshot_url.is.null,screenshot_url.ilike.*screenshotone*')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+  }
+
+  const { data: rows, error } = await query
+  if (error || !rows) {
+    return NextResponse.json(
+      { error: error?.message || 'query failed' },
+      { status: 500 },
+    )
+  }
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  const isRateLimit = (e: string | null) => !!e && /limit|429|too many/i.test(e)
+
+  // Bounded concurrency: capture several rows at once to use the headroom under
+  // screenshotone's 40/min limit (sequential left us at ~7/min). 3 in-flight ×
+  // ~5s each ≈ 36/min — under the cap, with the retry below absorbing trips.
+  const CONCURRENCY = 3
+
+  let persisted = 0
+  let skipped = 0
+  let failed = 0
+  let rateLimited = 0
+  let marked = 0
+  const failures: Array<{ url: string; error: string }> = []
+
+  const processRow = async (row: any) => {
+    if (isPersistedScreenshot(row.screenshot_url)) {
+      skipped++
+      return
+    }
+
+    let { publicUrl, error: capError } = await captureAndStore(
+      supabaseAdmin,
+      row.id,
+      row.url,
+    )
+
+    // One backoff retry if we tripped the per-minute rate limit.
+    if (!publicUrl && isRateLimit(capError)) {
+      await sleep(8000)
+      ;({ publicUrl, error: capError } = await captureAndStore(
+        supabaseAdmin,
+        row.id,
+        row.url,
+      ))
+    }
+
+    if (!publicUrl) {
+      failed++
+      failures.push({ url: row.url, error: capError || 'unknown' })
+      if (isRateLimit(capError)) {
+        // Transient — leave the row as-is so it's retried on a later pass.
+        rateLimited++
+      } else {
+        // Permanent (dead domain, host error). Mark with an empty sentinel so
+        // it leaves the drain set (renders the branded fallback) instead of
+        // reappearing at the front of every batch and blocking the queue.
+        await supabaseAdmin
+          .from('bookmarks')
+          .update({ screenshot_url: '' })
+          .eq('id', row.id)
+        marked++
+      }
+      return
+    }
+
+    const update: Record<string, any> = { screenshot_url: publicUrl }
+    // A captured lth row now has a real visual — render it as a screenshot.
+    if (row.card_type === 'lth') update.card_type = 'screenshot'
+
+    const { error: updateError } = await supabaseAdmin
+      .from('bookmarks')
+      .update(update)
+      .eq('id', row.id)
+
+    if (updateError) {
+      failed++
+      failures.push({ url: row.url, error: updateError.message })
+    } else {
+      persisted++
+    }
+  }
+
+  // Worker pool over the batch.
+  const queue = [...rows]
+  const workers = Array.from({ length: CONCURRENCY }, async () => {
+    while (queue.length) {
+      const row = queue.shift()
+      if (row) await processRow(row)
+    }
+  })
+  await Promise.all(workers)
+
+  return NextResponse.json({
+    total: rows.length,
+    persisted,
+    skipped,
+    failed,
+    rateLimited,
+    marked,
+    failures: failures.slice(0, 10),
+    // Drain-based: more work remains as long as this batch still found
+    // unpersisted rows. The runner stops on sustained zero progress.
+    hasMore: !id && rows.length > 0,
+  })
+}
