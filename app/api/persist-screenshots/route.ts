@@ -81,6 +81,9 @@ export async function POST(request: NextRequest) {
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
   const isRateLimit = (e: string | null) => !!e && /limit|429|too many/i.test(e)
+  // Only DNS-dead domains are permanent. Everything else (bot-blocks, timeouts,
+  // transient connect errors) is retryable — never freeze those as placeholders.
+  const isPermanent = (e: string | null) => !!e && /not resolved|name_not_resolved|name not resolved/i.test(e)
 
   // Bounded concurrency: capture several rows at once to use the headroom under
   // screenshotone's 40/min limit (sequential left us at ~7/min). 3 in-flight ×
@@ -119,19 +122,17 @@ export async function POST(request: NextRequest) {
     if (!publicUrl) {
       failed++
       failures.push({ url: row.url, error: capError || 'unknown' })
-      if (isRateLimit(capError)) {
-        // Transient — leave the row as-is so it's retried on a later pass.
-        rateLimited++
-      } else {
-        // Permanent (dead domain, host error). Mark with an empty sentinel so
-        // it leaves the drain set (renders the branded fallback) instead of
-        // reappearing at the front of every batch and blocking the queue.
+      if (isRateLimit(capError)) rateLimited++
+      if (isPermanent(capError)) {
+        // Genuinely dead (DNS not resolved) — mark with an empty sentinel so it
+        // leaves the queue and renders the branded fallback.
         await supabaseAdmin
           .from('bookmarks')
           .update({ screenshot_url: '' })
           .eq('id', row.id)
         marked++
       }
+      // Otherwise: leave screenshot_url null → retryable on a later pass.
       return
     }
 

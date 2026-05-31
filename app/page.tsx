@@ -1,8 +1,10 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { BookmarkCard } from '@/components/BookmarkCard'
 import { GemGlyph } from '@/components/GemGlyph'
+import { Carousel } from '@/components/Carousel'
+import { CarouselCard } from '@/components/CarouselCard'
+import { FEATURED_URLS } from '@/lib/featured'
 
 export default async function Home() {
   const supabase = await createSupabaseServer()
@@ -22,14 +24,21 @@ export default async function Home() {
     }
   }
 
-  // Public landing — pull recent community bookmarks (with images, so the
-  // grid looks alive on first paint). No attribution per v1.
-  const { data: recent } = await supabase
-    .from('bookmarks')
-    .select('*')
-    .or('image_url.not.is.null,screenshot_url.not.is.null')
-    .order('created_at', { ascending: false })
-    .limit(12)
+  // Public landing examples: curated picks (FEATURED_URLS) in their given
+  // order, else fall back to recent image-bearing gems.
+  let recent: any[] = []
+  if (FEATURED_URLS.length > 0) {
+    const { data } = await supabase.from('bookmarks').select('*').in('url', FEATURED_URLS)
+    recent = FEATURED_URLS.map((u) => (data || []).find((b) => b.url === u)).filter(Boolean)
+  } else {
+    const { data } = await supabase
+      .from('bookmarks')
+      .select('*')
+      .or('image_url.not.is.null,screenshot_url.not.is.null')
+      .order('created_at', { ascending: false })
+      .limit(12)
+    recent = data || []
+  }
 
   return (
     <main className="min-h-screen bg-paper">
@@ -60,26 +69,11 @@ export default async function Home() {
         </div>
 
         {recent && recent.length > 0 && (
-          <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 [column-fill:_balance]">
+          <Carousel>
             {recent.map((b) => (
-              <div key={b.id} className="mb-3 break-inside-avoid">
-              <BookmarkCard
-                id={b.id}
-                title={b.title}
-                description={b.description}
-                url={b.url}
-                imageUrl={b.image_url}
-                screenshotUrl={b.screenshot_url}
-                faviconUrl={b.favicon_url}
-                rawMetadata={b.raw_metadata}
-                tags={b.tags || []}
-                note={b.note}
-                isOwner={false}
-                cardType={b.card_type}
-              />
-              </div>
+              <CarouselCard key={b.id} b={b} />
             ))}
-          </div>
+          </Carousel>
         )}
       </section>
 

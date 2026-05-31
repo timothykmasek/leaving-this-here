@@ -46,26 +46,10 @@ export function Header() {
           </Link>
 
           <div className="flex items-center gap-6">
-            {user && (
-              <>
-                <Link
-                  href="/discover"
-                  className={`text-sm ${pathname === '/discover' ? 'text-gray-900 font-medium' : 'text-gray-500 hover:text-gray-900'}`}
-                >
-                  discover
-                </Link>
-              </>
-            )}
-
             {user && profile ? (
-              <div className="flex items-center gap-4">
-                <Link href={`/${profile.username}`} className="text-sm text-gray-500 hover:text-gray-900">
-                  profile
-                </Link>
-                <button onClick={handleSignOut} className="text-sm text-gray-400 hover:text-gray-900">
-                  sign out
-                </button>
-              </div>
+              <button onClick={handleSignOut} className="text-sm text-gray-400 hover:text-gray-900">
+                sign out
+              </button>
             ) : (
               <Link
                 href="/login"

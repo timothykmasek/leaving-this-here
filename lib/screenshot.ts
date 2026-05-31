@@ -37,6 +37,9 @@ export function screenshotApiUrl(url: string): string {
     delay: '2',
     cache: 'true',
     cache_ttl: '2592000',
+    // Many live sites bot-block or return non-2xx to the crawler but still
+    // render fine — capture them anyway instead of failing.
+    ignore_host_errors: 'true',
   })
   return `${SCREENSHOTONE_BASE}?${params.toString()}`
 }

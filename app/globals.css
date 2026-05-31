@@ -32,3 +32,21 @@ body > * {
   position: relative;
   z-index: 1;
 }
+
+/* Auto-scrolling carousel (marquee). Track holds two copies of the items, so
+   translating by -50% loops seamlessly. Pauses on hover; respects reduced motion. */
+@keyframes gem-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.gem-marquee {
+  animation: gem-marquee 70s linear infinite;
+}
+.gem-marquee:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gem-marquee {
+    animation: none;
+  }
+}

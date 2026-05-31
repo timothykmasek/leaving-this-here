@@ -96,10 +96,10 @@ export default function BookmarkletPage() {
 
           <div className="text-center pt-8 border-t border-gray-200">
             <Link
-              href="/discover"
+              href="/"
               className="text-sm text-gray-600 hover:text-gray-900"
             >
-              â back to discover
+              â back home
             </Link>
           </div>
         </div>

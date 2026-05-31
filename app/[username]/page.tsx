@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
+import { Masonry } from '@/components/Masonry'
 import { SocialLinks } from '@/components/SocialLinks'
 import Link from 'next/link'
 
@@ -247,22 +248,9 @@ export default function ProfilePage() {
         <div className="mb-10 border-b border-gray-100 pb-8 group">
           <div className="flex items-start justify-between gap-6 mb-4">
             <div className="flex-1 min-w-0">
-              <h1 className="font-serif text-5xl sm:text-6xl font-normal tracking-tight text-ink mb-3 leading-[1.05]">
+              <h1 className="font-serif text-2xl sm:text-[28px] font-normal tracking-tight text-ink leading-tight mb-3">
                 {profile.display_name || profile.username}
               </h1>
-              {profile.bio && (
-                <p className="font-serif italic text-gray-600 text-xl leading-relaxed max-w-2xl mb-4">
-                  {profile.bio}
-                </p>
-              )}
-              {!profile.bio && isOwner && !editingProfile && (
-                <p
-                  className="text-gray-300 text-base mb-4 italic cursor-pointer hover:text-gray-400"
-                  onClick={() => { setEditingProfile(true); setEditBio(''); setEditLinks(profile.links || {}) }}
-                >
-                  add a short tagline...
-                </p>
-              )}
 
               <SocialLinks links={profile.links} />
             </div>
@@ -511,12 +499,12 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Bookmark grid — masonry (variable-height cards flow like a gem wall) */}
+        {/* Bookmark grid — order-preserving masonry (newest first, left-to-right) */}
         {filtered.length > 0 ? (
-          <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 [column-fill:_balance]">
+          <Masonry>
             {filtered.map((b) => (
-              <div key={b.id} className="mb-3 break-inside-avoid">
               <BookmarkCard
+                key={b.id}
                 id={b.id}
                 title={b.title}
                 description={b.description}
@@ -534,9 +522,8 @@ export default function ProfilePage() {
                 onTagsUpdate={handleTagsUpdate}
                 onNoteUpdate={handleNoteUpdate}
               />
-              </div>
             ))}
-          </div>
+          </Masonry>
         ) : (
           <div className="text-center py-16">
             <p className="text-gray-500 text-sm">
