@@ -17,11 +17,8 @@ import {
 //
 // Requires SUPABASE_SERVICE_ROLE_KEY and SCREENSHOTONE_ACCESS_KEY in env.
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false } },
-)
+// Never evaluate route module side-effects at build time.
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   if (!process.env.SCREENSHOTONE_ACCESS_KEY) {
@@ -36,6 +33,15 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     )
   }
+
+  // Lazily create the admin client INSIDE the handler — creating it at module
+  // top-level runs during the build's "collect page data" step, where the
+  // service-role key isn't present, and throws "supabaseKey is required".
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
+  )
 
   const body = await request.json().catch(() => ({}))
   const { limit = 8, offset = 0, id = null } = body
