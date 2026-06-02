@@ -169,7 +169,7 @@ function SetupInner() {
               <div>
                 <div className="flex items-stretch border border-gray-200 rounded-full bg-white overflow-hidden focus-within:ring-1 focus-within:ring-gray-400">
                   <span className="flex items-center pl-5 pr-1 text-sm text-gray-400 select-none">
-                    internetgems.com/
+                    internet-gems.com/
                   </span>
                   <input
                     type="text"
@@ -295,7 +295,7 @@ function SetupInner() {
           <div className="text-center pt-4">
             <h1 className="text-3xl font-light text-gray-900 mb-3">You&apos;re live. 💎</h1>
             <p className="text-sm text-gray-500 mb-8 leading-relaxed">
-              <span className="font-mono text-gray-700">internetgems.com/{username}</span>
+              <span className="font-mono text-gray-700">internet-gems.com/{username}</span>
               <br />
               is now your collection. Taking you there...
             </p>

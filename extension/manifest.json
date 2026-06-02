@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "internet gems — save anything",
+  "version": "0.1.0",
+  "description": "Save any page, image, or quote to your internet gems collection in one click.",
+  "permissions": ["identity", "storage", "contextMenus", "activeTab", "scripting", "notifications"],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://internet-gems.com/*",
+    "https://*.vercel.app/*",
+    "https://*.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Save to internet gems",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

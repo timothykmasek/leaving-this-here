@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div id="app">
+      <!-- Loading -->
+      <section id="view-loading" class="view">
+        <p class="muted center">loading…</p>
+      </section>
+
+      <!-- Signed out -->
+      <section id="view-signin" class="view hidden">
+        <div class="brand">💎 internet gems</div>
+        <p class="muted">save anything you find — one click, auto-tagged.</p>
+        <button id="btn-signin" class="primary">continue with google</button>
+        <p id="signin-hint" class="hint hidden"></p>
+      </section>
+
+      <!-- Signed in -->
+      <section id="view-save" class="view hidden">
+        <div class="topbar">
+          <span class="brand-sm">💎 internet gems</span>
+          <button id="btn-signout" class="link">sign out</button>
+        </div>
+
+        <div id="preview" class="preview">
+          <div id="preview-title" class="preview-title"></div>
+          <div id="preview-url" class="preview-url"></div>
+        </div>
+
+        <textarea
+          id="note"
+          class="note"
+          rows="2"
+          placeholder="add a note (optional)"
+        ></textarea>
+
+        <button id="btn-save" class="primary">save 💎</button>
+        <p id="status" class="hint hidden"></p>
+      </section>
+    </div>
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,134 @@
+// Auth + API helpers, shared by the popup and the background worker.
+//
+// Sign-in uses Supabase's GoTrue OAuth endpoint with Chrome's
+// `launchWebAuthFlow`. We deliberately do NOT bundle supabase-js — hitting
+// /auth/v1/authorize WITHOUT a PKCE code_challenge makes Supabase use the
+// implicit grant, so the final redirect lands on our chromiumapp.org URL with
+// `#access_token=...&refresh_token=...` in the fragment. We parse that and
+// stash the tokens in chrome.storage.local. Keeps the extension buildless.
+
+import { CONFIG } from './config.js'
+
+const STORAGE_KEY = 'ig_session'
+
+export function getRedirectUri() {
+  // e.g. https://<extension-id>.chromiumapp.org/
+  return chrome.identity.getRedirectURL()
+}
+
+export async function getSession() {
+  const { [STORAGE_KEY]: session } = await chrome.storage.local.get(STORAGE_KEY)
+  return session || null
+}
+
+async function setSession(session) {
+  await chrome.storage.local.set({ [STORAGE_KEY]: session })
+}
+
+export async function signOut() {
+  await chrome.storage.local.remove(STORAGE_KEY)
+}
+
+// Kick off the Google OAuth flow and persist the resulting tokens.
+export async function signIn() {
+  const redirectUri = getRedirectUri()
+  const authUrl =
+    `${CONFIG.SUPABASE_URL}/auth/v1/authorize` +
+    `?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`
+
+  const responseUrl = await chrome.identity.launchWebAuthFlow({
+    url: authUrl,
+    interactive: true,
+  })
+
+  // Supabase puts tokens in the URL fragment on the implicit flow.
+  const hash = new URL(responseUrl).hash.slice(1)
+  const params = new URLSearchParams(hash)
+  const access_token = params.get('access_token')
+  const refresh_token = params.get('refresh_token')
+  const expires_at = params.get('expires_at')
+
+  if (!access_token || !refresh_token) {
+    // Surface a Supabase-side error if one came back instead.
+    const err = params.get('error_description') || params.get('error') || 'no token returned'
+    throw new Error(decodeURIComponent(err))
+  }
+
+  const session = {
+    access_token,
+    refresh_token,
+    // expires_at is unix seconds; fall back to 1h if absent.
+    expires_at: expires_at ? Number(expires_at) : Math.floor(Date.now() / 1000) + 3600,
+  }
+  await setSession(session)
+  return session
+}
+
+// Exchange a refresh token for a fresh access token.
+async function refresh(session) {
+  const res = await fetch(
+    `${CONFIG.SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: CONFIG.SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ refresh_token: session.refresh_token }),
+    }
+  )
+  if (!res.ok) throw new Error('session expired — please sign in again')
+  const data = await res.json()
+  const next = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+  }
+  await setSession(next)
+  return next
+}
+
+// Return a valid access token, refreshing if it's expired or near-expiry.
+async function getValidAccessToken() {
+  let session = await getSession()
+  if (!session) throw new Error('not signed in')
+  const skewSeconds = 60
+  if (session.expires_at && session.expires_at - skewSeconds < Date.now() / 1000) {
+    session = await refresh(session)
+  }
+  return session.access_token
+}
+
+// Save a gem. `payload` = { url, title?, note?, image_url? }.
+// Retries once after a refresh if the token was rejected.
+export async function saveGem(payload) {
+  const attempt = async (token) => {
+    const res = await fetch(`${CONFIG.API_BASE}/api/extension/save`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    })
+    return res
+  }
+
+  let token = await getValidAccessToken()
+  let res = await attempt(token)
+
+  if (res.status === 401) {
+    // Token rejected — force a refresh and retry once.
+    const session = await getSession()
+    if (session) {
+      const next = await refresh(session)
+      res = await attempt(next.access_token)
+    }
+  }
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(data.error || `save failed (${res.status})`)
+  }
+  return data
+}

@@ -105,7 +105,7 @@ export default async function OgImage({ params }: { params: { username: string }
             gap: 20,
           }}
         >
-          <span>internetgems.com/{profile?.username || params.username}</span>
+          <span>internet-gems.com/{profile?.username || params.username}</span>
           {typeof linkCount === 'number' && (
             <>
               <span style={{ color: '#ddd' }}>·</span>

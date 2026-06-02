@@ -46,9 +46,9 @@ export default async function Home() {
       <section className="relative">
         <div className="mx-auto max-w-2xl px-6 pt-28 pb-24 text-center sm:px-8">
           <h1 className="font-serif text-[2rem] font-normal leading-[1.28] tracking-tight text-ink sm:text-[2.5rem]">
-            A home for the internet gems
+            Collect and share
             <br />
-            <span className="italic text-stone-600">you don&rsquo;t want to lose.</span>
+            <span className="italic text-stone-600">the internet&rsquo;s best finds.</span>
           </h1>
 
           <div className="mt-10">
@@ -111,7 +111,7 @@ export default async function Home() {
             <input type="hidden" name="mode" value="signup" />
             <div className="flex-1 flex items-stretch border border-stone-300 rounded-full bg-white/70 overflow-hidden focus-within:ring-1 focus-within:ring-stone-400">
               <span className="flex items-center pl-5 pr-1 text-sm text-stone-400 select-none">
-                internetgems.com/
+                internet-gems.com/
               </span>
               <input
                 type="text"
