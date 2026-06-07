@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
 import { GemDetail } from '@/components/GemDetail'
-import { Masonry } from '@/components/Masonry'
 import { SocialLinks } from '@/components/SocialLinks'
 import Link from 'next/link'
 
@@ -35,6 +34,12 @@ export default function ProfilePage() {
   // Which gem's detail modal is open (owner view). Looked up from `bookmarks`
   // so it always reflects the latest tags/note after edits.
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Lists. Each: { id, name, is_private, created_at, bookmark_ids: string[] }.
+  const [lists, setLists] = useState<any[]>([])
+  const [view, setView] = useState<'recent' | 'lists'>('recent')
+  const [activeListId, setActiveListId] = useState<string | null>(null)
+  const [newListName, setNewListName] = useState('')
+  const [creatingList, setCreatingList] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -58,6 +63,10 @@ export default function ProfilePage() {
         .order('created_at', { ascending: false })
       setBookmarks(bmarks || [])
       setFiltered(bmarks || [])
+
+      // Lists — best effort; RLS hides others' private lists. If the table
+      // doesn't exist yet (migration 008 not applied), just show none.
+      setLists(await fetchLists(prof.id))
 
       // Auto-open the save panel for the owner when the collection is empty
       // — this is the onboarding moment where setup matters most.
@@ -234,8 +243,119 @@ export default function ProfilePage() {
     setFiltered(update)
   }
 
+  // ── Lists ───────────────────────────────────────────────────────────
+  async function fetchLists(uid: string) {
+    try {
+      const { data, error } = await supabase
+        .from('lists')
+        .select('id, name, is_private, created_at, list_bookmarks(bookmark_id)')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false })
+      if (error) return []
+      return (data || []).map((l: any) => ({
+        ...l,
+        bookmark_ids: (l.list_bookmarks || []).map((x: any) => x.bookmark_id),
+      }))
+    } catch {
+      return []
+    }
+  }
+
+  const handleCreateList = async (name: string, bookmarkIds: string[] = []) => {
+    const clean = name.trim()
+    if (!clean || !profile) return null
+    const { data: list, error } = await supabase
+      .from('lists')
+      .insert({ user_id: profile.id, name: clean })
+      .select('id')
+      .single()
+    if (error || !list) return null
+    if (bookmarkIds.length) {
+      await supabase
+        .from('list_bookmarks')
+        .insert(bookmarkIds.map((bid) => ({ list_id: list.id, bookmark_id: bid })))
+    }
+    setLists(await fetchLists(profile.id))
+    return list.id as string
+  }
+
+  const handleToggleMembership = async (listId: string, bookmarkId: string, add: boolean) => {
+    if (add) {
+      await supabase.from('list_bookmarks').insert({ list_id: listId, bookmark_id: bookmarkId })
+    } else {
+      await supabase
+        .from('list_bookmarks')
+        .delete()
+        .eq('list_id', listId)
+        .eq('bookmark_id', bookmarkId)
+    }
+    setLists((prev) =>
+      prev.map((l) =>
+        l.id === listId
+          ? {
+              ...l,
+              bookmark_ids: add
+                ? [...l.bookmark_ids, bookmarkId]
+                : l.bookmark_ids.filter((x: string) => x !== bookmarkId),
+            }
+          : l
+      )
+    )
+  }
+
+  const handleDeleteList = async (listId: string) => {
+    await supabase.from('lists').delete().eq('id', listId)
+    setLists((prev) => prev.filter((l) => l.id !== listId))
+    if (activeListId === listId) setActiveListId(null)
+  }
+
   // Collect all tags (still needed for tag-editor suggestions on owner cards).
   const allTags = Array.from(new Set(bookmarks.flatMap((b) => b.tags || []))).sort()
+
+  // Tag-based list suggestion: the most-used tag (≥3 gems) that isn't already
+  // a list — the "N saves tagged X. Make them a list →" nudge.
+  const listSuggestion = (() => {
+    if (!isOwner) return null
+    const names = new Set(lists.map((l) => l.name.toLowerCase()))
+    const counts: Record<string, number> = {}
+    bookmarks.forEach((b) => (b.tags || []).forEach((t: string) => { counts[t] = (counts[t] || 0) + 1 }))
+    const top = Object.entries(counts)
+      .filter(([tag, c]) => c >= 3 && !names.has(tag.toLowerCase()))
+      .sort((a, b) => b[1] - a[1])[0]
+    return top ? { tag: top[0], count: top[1] } : null
+  })()
+
+  const activeList = activeListId ? lists.find((l) => l.id === activeListId) : null
+  const listGems = activeList
+    ? bookmarks.filter((b) => activeList.bookmark_ids.includes(b.id))
+    : []
+
+  const renderGemGrid = (items: any[]) => (
+    <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+      {items.map((b) => (
+        <BookmarkCard
+          key={b.id}
+          id={b.id}
+          title={b.title}
+          description={b.description}
+          url={b.url}
+          imageUrl={b.image_url}
+          screenshotUrl={b.screenshot_url}
+          faviconUrl={b.favicon_url}
+          rawMetadata={b.raw_metadata}
+          tags={b.tags || []}
+          allTags={allTags}
+          note={b.note}
+          isOwner={isOwner}
+          cardType={b.card_type}
+          onDelete={handleDelete}
+          onTagsUpdate={handleTagsUpdate}
+          onNoteUpdate={handleNoteUpdate}
+          onOpen={isOwner ? setSelectedId : undefined}
+        />
+      ))}
+    </div>
+  )
 
   if (loading) {
     return <main className="min-h-screen bg-paper"><div className="mx-auto max-w-6xl px-4 py-12"><p className="text-gray-400">loading...</p></div></main>
@@ -491,50 +611,180 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Search — owner only */}
-        {isOwner && (
-          <div className="mb-10">
-            <input
-              type="text"
-              placeholder="search your gems…"
-              onChange={(e) => handleSearch(e.target.value)}
-              className="w-full bg-transparent border-0 border-b border-stone-300 pb-3 font-serif text-2xl sm:text-3xl italic text-ink placeholder:text-stone-400 focus:outline-none focus:border-stone-500 transition-colors"
-            />
+        {/* Tabs: Recent / Lists */}
+        {(isOwner || lists.length > 0) && (
+          <div className="mb-8 flex items-center gap-7 border-b border-stone-300/60">
+            {(['recent', 'lists'] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => { setView(v); setActiveListId(null) }}
+                className={`-mb-px border-b-2 pb-3 font-serif text-xl italic transition-colors ${
+                  view === v ? 'border-ink text-ink' : 'border-transparent text-stone-400 hover:text-stone-600'
+                }`}
+              >
+                {v === 'recent' ? 'Recent' : 'Lists'}
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Bookmark grid — order-preserving masonry (newest first, left-to-right) */}
-        {filtered.length > 0 ? (
-          <Masonry>
-            {filtered.map((b) => (
-              <BookmarkCard
-                key={b.id}
-                id={b.id}
-                title={b.title}
-                description={b.description}
-                url={b.url}
-                imageUrl={b.image_url}
-                screenshotUrl={b.screenshot_url}
-                faviconUrl={b.favicon_url}
-                rawMetadata={b.raw_metadata}
-                tags={b.tags || []}
-                allTags={allTags}
-                note={b.note}
-                isOwner={isOwner}
-                cardType={b.card_type}
-                onDelete={handleDelete}
-                onTagsUpdate={handleTagsUpdate}
-                onNoteUpdate={handleNoteUpdate}
-                onOpen={isOwner ? setSelectedId : undefined}
-              />
-            ))}
-          </Masonry>
-        ) : (
-          <div className="text-center py-16">
-            <p className="text-gray-500 text-sm">
-              {bookmarks.length === 0 ? 'no gems yet 💎' : 'no matches'}
-            </p>
-          </div>
+        {/* ── Recent ── */}
+        {view === 'recent' && (
+          <>
+            {isOwner && (
+              <div className="mb-10">
+                <input
+                  type="text"
+                  placeholder="search your gems…"
+                  onChange={(e) => handleSearch(e.target.value)}
+                  className="w-full bg-transparent border-0 border-b border-stone-300 pb-3 font-serif text-2xl sm:text-3xl italic text-ink placeholder:text-stone-400 focus:outline-none focus:border-stone-500 transition-colors"
+                />
+              </div>
+            )}
+            {filtered.length > 0 ? (
+              renderGemGrid(filtered)
+            ) : (
+              <div className="text-center py-16">
+                <p className="text-gray-500 text-sm">
+                  {bookmarks.length === 0 ? 'no gems yet 💎' : 'no matches'}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── Lists overview ── */}
+        {view === 'lists' && !activeList && (
+          <>
+            {listSuggestion && (
+              <button
+                onClick={async () => {
+                  const ids = bookmarks
+                    .filter((b) => (b.tags || []).includes(listSuggestion.tag))
+                    .map((b) => b.id)
+                  const id = await handleCreateList(listSuggestion.tag, ids)
+                  if (id) setActiveListId(id)
+                }}
+                className="mb-8 flex w-full items-center gap-3 rounded-2xl border border-dashed border-stone-300 bg-white/50 px-5 py-4 text-left transition-colors hover:border-stone-400 hover:bg-white"
+              >
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-paper">+</span>
+                <span className="text-sm text-stone-700">
+                  <strong className="font-medium text-ink">{listSuggestion.count} saves</strong> are tagged{' '}
+                  <strong className="font-medium text-ink">{listSuggestion.tag}</strong>. Make them a list →
+                </span>
+              </button>
+            )}
+
+            {lists.length > 0 || isOwner ? (
+              <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
+                {lists.map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => setActiveListId(l.id)}
+                    className="flex h-48 flex-col items-center justify-center rounded-2xl bg-white px-4 text-center shadow-[0_1px_3px_rgba(40,30,25,0.10)] ring-1 ring-black/[0.04] transition-shadow hover:shadow-[0_6px_20px_rgba(40,30,25,0.14)]"
+                  >
+                    <h3 className="line-clamp-3 font-serif text-lg font-medium italic leading-snug tracking-tight text-ink">
+                      {l.name}
+                    </h3>
+                    <span className="mt-4 font-serif text-2xl text-stone-400">{l.bookmark_ids.length}</span>
+                    {l.is_private && (
+                      <span className="mt-2 text-[10px] uppercase tracking-wider text-stone-400">private</span>
+                    )}
+                  </button>
+                ))}
+
+                {isOwner && (creatingList ? (
+                  <div className="flex h-48 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-300 bg-white/40 px-4">
+                    <input
+                      autoFocus
+                      value={newListName}
+                      onChange={(e) => setNewListName(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          const id = await handleCreateList(newListName)
+                          setNewListName(''); setCreatingList(false)
+                          if (id) setActiveListId(id)
+                        } else if (e.key === 'Escape') {
+                          setCreatingList(false); setNewListName('')
+                        }
+                      }}
+                      placeholder="list name"
+                      className="w-full bg-transparent text-center font-serif text-lg italic text-ink placeholder:text-stone-400 focus:outline-none"
+                    />
+                    <div className="mt-3 flex gap-3 text-xs">
+                      <button
+                        onClick={async () => {
+                          const id = await handleCreateList(newListName)
+                          setNewListName(''); setCreatingList(false)
+                          if (id) setActiveListId(id)
+                        }}
+                        className="font-medium text-ink hover:underline"
+                      >
+                        create
+                      </button>
+                      <button
+                        onClick={() => { setCreatingList(false); setNewListName('') }}
+                        className="text-stone-400 hover:text-stone-600"
+                      >
+                        cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setCreatingList(true)}
+                    className="flex h-48 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-300 text-stone-400 transition-colors hover:border-stone-400 hover:text-stone-600"
+                  >
+                    <span className="text-2xl">+</span>
+                    <span className="mt-2 text-sm">new list</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <p className="text-gray-500 text-sm">no lists yet</p>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ── List detail ── */}
+        {view === 'lists' && activeList && (
+          <>
+            <div className="mb-8 flex items-center justify-between gap-4">
+              <div className="flex items-baseline gap-3 min-w-0">
+                <button
+                  onClick={() => setActiveListId(null)}
+                  className="shrink-0 text-sm text-stone-400 hover:text-ink"
+                >
+                  ← lists
+                </button>
+                <h2 className="truncate font-serif text-2xl font-normal italic tracking-tight text-ink">
+                  {activeList.name}
+                </h2>
+                <span className="shrink-0 text-xs uppercase tracking-wider text-stone-400">
+                  {listGems.length} {listGems.length === 1 ? 'gem' : 'gems'}
+                </span>
+              </div>
+              {isOwner && (
+                <button
+                  onClick={() => handleDeleteList(activeList.id)}
+                  className="shrink-0 text-sm text-stone-400 hover:text-red-600"
+                >
+                  delete list
+                </button>
+              )}
+            </div>
+            {listGems.length > 0 ? (
+              renderGemGrid(listGems)
+            ) : (
+              <div className="text-center py-16">
+                <p className="text-gray-500 text-sm">
+                  empty list{isOwner ? ' — open a gem and add it to this list' : ''}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -546,10 +796,13 @@ export default function ProfilePage() {
           <GemDetail
             gem={gem}
             allTags={allTags}
+            lists={lists}
             onClose={() => setSelectedId(null)}
             onTagsUpdate={handleTagsUpdate}
             onNoteUpdate={handleNoteUpdate}
             onDelete={handleDelete}
+            onToggleListMembership={handleToggleMembership}
+            onCreateList={handleCreateList}
           />
         )
       })()}

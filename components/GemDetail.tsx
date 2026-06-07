@@ -22,13 +22,22 @@ interface Gem {
   created_at: string | null
 }
 
+interface List {
+  id: string
+  name: string
+  bookmark_ids: string[]
+}
+
 interface GemDetailProps {
   gem: Gem
   allTags?: string[]
+  lists?: List[]
   onClose: () => void
   onTagsUpdate: (id: string, tags: string[]) => void
   onNoteUpdate: (id: string, note: string | null) => void
   onDelete: (id: string) => void
+  onToggleListMembership?: (listId: string, bookmarkId: string, add: boolean) => void
+  onCreateList?: (name: string, bookmarkIds?: string[]) => Promise<string | null>
 }
 
 function getDomain(url: string): string {
@@ -52,10 +61,13 @@ function timeAgo(iso: string | null): string {
 export function GemDetail({
   gem,
   allTags = [],
+  lists = [],
   onClose,
   onTagsUpdate,
   onNoteUpdate,
   onDelete,
+  onToggleListMembership,
+  onCreateList,
 }: GemDetailProps) {
   const [tags, setTags] = useState<string[]>(gem.tags || [])
   const [tagInput, setTagInput] = useState('')
@@ -63,6 +75,7 @@ export function GemDetail({
   const [noteDraft, setNoteDraft] = useState(gem.note || '')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [imgError, setImgError] = useState(false)
+  const [newListName, setNewListName] = useState('')
   const tagInputRef = useRef<HTMLInputElement>(null)
 
   const domain = getDomain(gem.url)
@@ -242,6 +255,50 @@ export function GemDetail({
               )}
             </div>
           </div>
+
+          {/* Lists */}
+          {onToggleListMembership && (
+            <div className="mt-6">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-stone-400">
+                lists
+              </p>
+              {lists.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {lists.map((l) => {
+                    const inList = l.bookmark_ids.includes(gem.id)
+                    return (
+                      <button
+                        key={l.id}
+                        onClick={() => onToggleListMembership(l.id, gem.id, !inList)}
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ${
+                          inList
+                            ? 'bg-ink text-paper'
+                            : 'border border-[#26221c]/15 bg-white text-ink hover:border-ink/40'
+                        }`}
+                      >
+                        {inList && <span aria-hidden>✓</span>}
+                        {l.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {onCreateList && (
+                <input
+                  value={newListName}
+                  onChange={(e) => setNewListName(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key === 'Enter' && newListName.trim()) {
+                      await onCreateList(newListName, [gem.id])
+                      setNewListName('')
+                    }
+                  }}
+                  placeholder="+ new list (press enter)"
+                  className="mt-2 w-full rounded-lg border border-[#26221c]/15 bg-white px-3 py-2 text-sm focus:border-ink/50 focus:outline-none"
+                />
+              )}
+            </div>
+          )}
 
           {/* Notes */}
           <div className="mt-6">
