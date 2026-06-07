@@ -1,20 +1,13 @@
-import { getSession, signIn, signOut, saveGem, getRedirectUri } from './auth.js'
+import { getSession, signIn, signOut, getRedirectUri } from './auth.js'
 
 const views = {
   loading: document.getElementById('view-loading'),
   signin: document.getElementById('view-signin'),
-  save: document.getElementById('view-save'),
+  ready: document.getElementById('view-ready'),
 }
 
 function show(name) {
   for (const [k, el] of Object.entries(views)) el.classList.toggle('hidden', k !== name)
-}
-
-let currentTab = null
-
-async function getActiveTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-  return tab
 }
 
 function setHint(el, msg, kind) {
@@ -23,16 +16,26 @@ function setHint(el, msg, kind) {
   if (kind) el.classList.add(kind)
 }
 
-// ── Sign-in view ────────────────────────────────────────────────────
+// Signed in → clear the popup so future icon clicks save directly (handled in
+// the background worker). Signed out → restore it so the click opens sign-in.
+async function setPopupFor(session) {
+  await chrome.action.setPopup({ popup: session ? '' : 'popup.html' })
+}
+
+// ── Sign in ─────────────────────────────────────────────────────────
 document.getElementById('btn-signin').addEventListener('click', async () => {
   const hint = document.getElementById('signin-hint')
   hint.classList.add('hidden')
   try {
     await signIn()
-    await render()
+    await setPopupFor(true)
+    // Give instant "logged in AND saving" feedback: kick off a save of the
+    // page the user was on, then close. The on-page toast confirms it.
+    setHint(hint, 'signed in ✓ — saving this page…', 'ok')
+    chrome.runtime.sendMessage({ type: 'ig-save-current-tab' }).catch(() => {})
+    setTimeout(() => window.close(), 900)
   } catch (err) {
     const msg = String(err.message || err)
-    // The classic first-run snag: redirect URL not in Supabase's allow-list.
     const extra = msg.toLowerCase().includes('redirect')
       ? ` Add this to Supabase → Auth → URL Configuration → Redirect URLs: ${getRedirectUri()}`
       : ''
@@ -40,66 +43,18 @@ document.getElementById('btn-signin').addEventListener('click', async () => {
   }
 })
 
-// ── Save view ───────────────────────────────────────────────────────
+// ── Sign out ────────────────────────────────────────────────────────
 document.getElementById('btn-signout').addEventListener('click', async () => {
   await signOut()
+  await setPopupFor(false)
   await render()
-})
-
-document.getElementById('btn-save').addEventListener('click', async () => {
-  const btn = document.getElementById('btn-save')
-  const status = document.getElementById('status')
-  const note = document.getElementById('note').value.trim()
-
-  btn.disabled = true
-  btn.textContent = 'saving…'
-  status.classList.add('hidden')
-
-  try {
-    const result = await saveGem({
-      url: currentTab.url,
-      title: currentTab.title,
-      note: note || undefined,
-    })
-    btn.textContent = 'saved ✓'
-    btn.classList.add('ok')
-    const tags = result?.bookmark?.tags
-    setHint(
-      status,
-      tags && tags.length ? `tagged: ${tags.join(', ')}` : 'added to your collection',
-      'ok'
-    )
-    setTimeout(() => window.close(), 1200)
-  } catch (err) {
-    const msg = String(err.message || err)
-    btn.disabled = false
-    btn.textContent = 'save 💎'
-    if (msg.includes('already saved')) {
-      setHint(status, 'you already saved this one', 'ok')
-    } else {
-      setHint(status, msg, 'err')
-    }
-  }
 })
 
 // ── Render based on auth state ──────────────────────────────────────
 async function render() {
   show('loading')
   const session = await getSession()
-  if (!session) {
-    show('signin')
-    return
-  }
-
-  currentTab = await getActiveTab()
-  document.getElementById('preview-title').textContent = currentTab?.title || '(untitled)'
-  document.getElementById('preview-url').textContent = currentTab?.url || ''
-  const btn = document.getElementById('btn-save')
-  btn.disabled = false
-  btn.classList.remove('ok')
-  btn.textContent = 'save 💎'
-  document.getElementById('status').classList.add('hidden')
-  show('save')
+  show(session ? 'ready' : 'signin')
 }
 
 render()

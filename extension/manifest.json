@@ -6,6 +6,7 @@
   "permissions": ["identity", "storage", "contextMenus", "activeTab", "scripting", "notifications"],
   "host_permissions": [
     "http://localhost:3000/*",
+    "https://www.internet-gems.com/*",
     "https://internet-gems.com/*",
     "https://*.vercel.app/*",
     "https://*.supabase.co/*"

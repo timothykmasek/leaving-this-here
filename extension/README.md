@@ -7,11 +7,35 @@ pipeline server-side (metadata → auto-tags → embedding).
 
 ## How it works
 
-- **Toolbar icon** → popup: shows the current page, optional note, one "save 💎" button.
-- **Right-click menu** → save the page, an image, or a highlighted quote without opening the popup.
-- **Auth**: Google sign-in via `chrome.identity.launchWebAuthFlow` against Supabase's OAuth endpoint (implicit flow). Tokens live in `chrome.storage.local` and auto-refresh.
+mymind-style, one-click:
+
+- **Toolbar icon (signed in)** → saves the current page *immediately*. No popup,
+  no preview, no "save" button. A small **on-page toast** slides in ("Saving…"
+  → "Saved to your gems") where you can **add/remove tags inline** right after.
+- **Toolbar icon (signed out)** → opens a tiny popup whose only job is Google
+  sign-in. The moment you sign in it saves the page you were on and closes.
+- **Right-click a page / image / selection** → save just that. Same on-page toast.
+- **Right-click the toolbar icon** → "Open my gems" / "Sign out".
+- **Auth**: Google sign-in via `chrome.identity.launchWebAuthFlow` against
+  Supabase's OAuth endpoint (implicit flow). Tokens live in
+  `chrome.storage.local` and auto-refresh, so you stay signed in.
+
+How the click knows whether to save or sign in: while signed in we clear the
+action popup (`chrome.action.setPopup({popup:''})`) so the click fires straight
+into the service worker; signed out, `popup.html` is restored.
+
+The toast (`content/toast.js`) is injected into the page in a shadow DOM, so the
+host page's CSS can't touch it. On pages where Chrome forbids injection
+(`chrome://`, the Web Store, some PDF viewers) it falls back to a native
+notification.
 
 No build step — it's plain JS/HTML loaded as an unpacked extension.
+
+### Endpoints it calls
+- `POST /api/extension/save` — enrich + insert (metadata → auto-tags → embed).
+- `POST /api/extension/tags` — replace a saved gem's tags (from the toast).
+
+Both are bearer-authenticated with the Supabase access token and RLS-scoped.
 
 ## One-time setup
 
@@ -39,14 +63,16 @@ https://<extension-id>.chromiumapp.org/
 
 ### 3. Point at the right API
 `config.js` → `API_BASE`:
-- Local testing: `http://localhost:3000` (default; run `npm run dev`).
-- Production: your Vercel domain. Also confirm `manifest.json`
-  `host_permissions` covers that domain.
+- Production (default): `https://www.internet-gems.com` (the canonical host —
+  the apex 308-redirects to it, and a redirect can drop the auth header).
+- Local testing: `http://localhost:3000` (run `npm run dev`).
+- Confirm `manifest.json` `host_permissions` covers whichever you use.
 
 ## Usage
-- Click the icon on any page → **save 💎** (add a note first if you like).
+- Click the 💎 icon on any page → it saves instantly; an on-page card confirms
+  it and lets you add tags.
 - Right-click a page / image / selection → **Save … to internet gems 💎**.
-- A badge (✓ / !) and a notification confirm the result.
+- Right-click the toolbar icon → **Open my gems** / **Sign out**.
 
 ## Notes
 - The Supabase anon key in `config.js` is a public client key (same as the web

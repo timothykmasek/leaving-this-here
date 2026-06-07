@@ -99,11 +99,11 @@ async function getValidAccessToken() {
   return session.access_token
 }
 
-// Save a gem. `payload` = { url, title?, note?, image_url? }.
-// Retries once after a refresh if the token was rejected.
-export async function saveGem(payload) {
-  const attempt = async (token) => {
-    const res = await fetch(`${CONFIG.API_BASE}/api/extension/save`, {
+// POST JSON to an extension API route with the bearer token, retrying once
+// after a forced refresh if the token comes back rejected (401).
+async function apiPost(path, payload) {
+  const attempt = (token) =>
+    fetch(`${CONFIG.API_BASE}${path}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -111,10 +111,8 @@ export async function saveGem(payload) {
       },
       body: JSON.stringify(payload),
     })
-    return res
-  }
 
-  let token = await getValidAccessToken()
+  const token = await getValidAccessToken()
   let res = await attempt(token)
 
   if (res.status === 401) {
@@ -127,8 +125,16 @@ export async function saveGem(payload) {
   }
 
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) {
-    throw new Error(data.error || `save failed (${res.status})`)
-  }
+  if (!res.ok) throw new Error(data.error || `request failed (${res.status})`)
   return data
+}
+
+// Save a gem. `payload` = { url, title?, note?, image_url? }.
+export async function saveGem(payload) {
+  return apiPost('/api/extension/save', payload)
+}
+
+// Update the tags on an already-saved gem. `tags` is the full replacement list.
+export async function updateTags(id, tags) {
+  return apiPost('/api/extension/tags', { id, tags })
 }

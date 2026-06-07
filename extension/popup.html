@@ -20,27 +20,19 @@
         <p id="signin-hint" class="hint hidden"></p>
       </section>
 
-      <!-- Signed in -->
-      <section id="view-save" class="view hidden">
+      <!-- Signed in (rarely seen — the icon click saves directly) -->
+      <section id="view-ready" class="view hidden">
         <div class="topbar">
           <span class="brand-sm">💎 internet gems</span>
           <button id="btn-signout" class="link">sign out</button>
         </div>
-
-        <div id="preview" class="preview">
-          <div id="preview-title" class="preview-title"></div>
-          <div id="preview-url" class="preview-url"></div>
-        </div>
-
-        <textarea
-          id="note"
-          class="note"
-          rows="2"
-          placeholder="add a note (optional)"
-        ></textarea>
-
-        <button id="btn-save" class="primary">save 💎</button>
-        <p id="status" class="hint hidden"></p>
+        <p class="muted">
+          you’re all set. click the 💎 icon on any page to save it instantly —
+          then add tags right on the page.
+        </p>
+        <p class="muted small">
+          tip: right-click a page, image, or highlighted quote to save just that.
+        </p>
       </section>
     </div>
     <script type="module" src="popup.js"></script>
