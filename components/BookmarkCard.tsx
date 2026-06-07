@@ -32,6 +32,9 @@ interface BookmarkCardProps {
   onDelete?: (id: string) => void
   onTagsUpdate?: (id: string, tags: string[]) => void
   onNoteUpdate?: (id: string, note: string | null) => void
+  // When set (owner view), clicking the card opens the gem detail modal
+  // instead of navigating to the original URL.
+  onOpen?: (id: string) => void
 }
 
 function getGradient(url: string): string {
@@ -421,7 +424,7 @@ function DefaultCard({ imageUrl, screenshotUrl, url, title, faviconUrl }: any) {
 
 export function BookmarkCard({
   id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  tags, allTags = [], note, isOwner, onDelete, onTagsUpdate, onNoteUpdate, cardType,
+  tags, allTags = [], note, isOwner, onDelete, onTagsUpdate, onNoteUpdate, onOpen, cardType,
 }: BookmarkCardProps) {
   const product = cardType === 'product' && rawMetadata ? pickProduct(rawMetadata) : null
   const book = cardType === 'book' && rawMetadata ? pickBook(rawMetadata) : null
@@ -588,6 +591,21 @@ export function BookmarkCard({
     <div className="relative group">
       {embed ? (
         <RichEmbedCard info={embed} title={title} url={url} />
+      ) : onOpen ? (
+        <div
+          role="button"
+          tabIndex={0}
+          className="cursor-pointer"
+          onClick={() => onOpen(id)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onOpen(id)
+            }
+          }}
+        >
+          {cardContent}
+        </div>
       ) : (
         <a href={url} target="_blank" rel="noopener noreferrer">
           {cardContent}

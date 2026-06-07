@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
+import { GemDetail } from '@/components/GemDetail'
 import { Masonry } from '@/components/Masonry'
 import { SocialLinks } from '@/components/SocialLinks'
 import Link from 'next/link'
@@ -31,6 +32,9 @@ export default function ProfilePage() {
   const [editLinks, setEditLinks] = useState<any>({})
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
+  // Which gem's detail modal is open (owner view). Looked up from `bookmarks`
+  // so it always reflects the latest tags/note after edits.
+  const [selectedId, setSelectedId] = useState<string | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -521,6 +525,7 @@ export default function ProfilePage() {
                 onDelete={handleDelete}
                 onTagsUpdate={handleTagsUpdate}
                 onNoteUpdate={handleNoteUpdate}
+                onOpen={isOwner ? setSelectedId : undefined}
               />
             ))}
           </Masonry>
@@ -532,6 +537,22 @@ export default function ProfilePage() {
           </div>
         )}
       </div>
+
+      {/* Gem detail modal — owner view, opened by clicking a card */}
+      {isOwner && selectedId && (() => {
+        const gem = bookmarks.find((b) => b.id === selectedId)
+        if (!gem) return null
+        return (
+          <GemDetail
+            gem={gem}
+            allTags={allTags}
+            onClose={() => setSelectedId(null)}
+            onTagsUpdate={handleTagsUpdate}
+            onNoteUpdate={handleNoteUpdate}
+            onDelete={handleDelete}
+          />
+        )
+      })()}
     </main>
   )
 }
