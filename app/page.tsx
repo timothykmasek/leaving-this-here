@@ -6,7 +6,19 @@ import { Carousel } from '@/components/Carousel'
 import { CarouselCard } from '@/components/CarouselCard'
 import { FEATURED_URLS } from '@/lib/featured'
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: { code?: string }
+}) {
+  // OAuth can land here with `?code=` instead of on /auth/callback when Supabase
+  // falls back to its Site URL (e.g. the apex 308-redirects to www/). Forward it
+  // to the callback so the code is exchanged and the user lands on their profile
+  // rather than getting stranded, logged-in, on the marketing home page.
+  if (searchParams?.code) {
+    redirect(`/auth/callback?code=${encodeURIComponent(searchParams.code)}`)
+  }
+
   const supabase = await createSupabaseServer()
   const { data: { user } } = await supabase.auth.getUser()
 

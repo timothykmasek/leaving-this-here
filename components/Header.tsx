@@ -47,9 +47,17 @@ export function Header() {
 
           <div className="flex items-center gap-6">
             {user && profile ? (
-              <button onClick={handleSignOut} className="text-sm text-gray-400 hover:text-gray-900">
-                sign out
-              </button>
+              <>
+                <Link
+                  href={`/${profile.username}`}
+                  className="text-sm font-medium text-ink hover:text-ink/70"
+                >
+                  my gems
+                </Link>
+                <button onClick={handleSignOut} className="text-sm text-gray-400 hover:text-gray-900">
+                  sign out
+                </button>
+              </>
             ) : (
               <Link
                 href="/login"
