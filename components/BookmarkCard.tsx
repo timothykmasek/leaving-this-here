@@ -56,7 +56,7 @@ function getCleanTitle(title: string | null, url: string): string {
 // Uniform fixed-height rounded card. Every gem renders in the same footprint so
 // the grid reads as an even, calm wall of cards. Image-led when we have a
 // usable image; text-led (domain · title · excerpt) when we don't.
-const CARD_HEIGHT = 'h-[300px]'
+const CARD_HEIGHT = 'h-[260px] sm:h-[300px]'
 
 function Favicon({ faviconUrl, domain }: { faviconUrl: string | null; domain: string }) {
   const [err, setErr] = useState(false)
@@ -184,12 +184,6 @@ export function BookmarkCard({
         >
           <span aria-hidden className="text-xs">↗</span>
         </a>
-      )}
-
-      {note && (
-        <p className="mt-2 px-1 text-sm italic leading-snug text-stone-600 whitespace-pre-wrap">
-          {note}
-        </p>
       )}
     </div>
   )

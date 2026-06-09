@@ -72,7 +72,6 @@ export function GemDetail({
   const [tags, setTags] = useState<string[]>(gem.tags || [])
   const [tagInput, setTagInput] = useState('')
   const [suggestIndex, setSuggestIndex] = useState(-1)
-  const [noteDraft, setNoteDraft] = useState(gem.note || '')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [imgError, setImgError] = useState(false)
   const [newListName, setNewListName] = useState('')
@@ -84,7 +83,6 @@ export function GemDetail({
   // Reset local state when switching to a different gem.
   useEffect(() => {
     setTags(gem.tags || [])
-    setNoteDraft(gem.note || '')
     setTagInput('')
     setConfirmingDelete(false)
     setImgError(false)
@@ -138,12 +136,6 @@ export function GemDetail({
       e.preventDefault()
       setSuggestIndex(Math.max(suggestIndex - 1, -1))
     }
-  }
-
-  const saveNote = () => {
-    const cleaned = noteDraft.trim()
-    const next = cleaned.length ? cleaned : null
-    if (next !== (gem.note || null)) onNoteUpdate(gem.id, next)
   }
 
   return (
@@ -299,22 +291,6 @@ export function GemDetail({
               )}
             </div>
           )}
-
-          {/* Notes */}
-          <div className="mt-6">
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-stone-400">
-              notes
-            </p>
-            <textarea
-              value={noteDraft}
-              onChange={(e) => setNoteDraft(e.target.value)}
-              onBlur={saveNote}
-              placeholder="why this one's a gem…"
-              rows={4}
-              maxLength={280}
-              className="w-full resize-none rounded-lg border border-[#26221c]/15 bg-white px-3 py-2 text-sm leading-relaxed focus:border-ink/50 focus:outline-none"
-            />
-          </div>
 
           {/* Actions */}
           <div className="mt-auto flex items-center justify-between pt-6">

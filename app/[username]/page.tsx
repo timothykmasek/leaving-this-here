@@ -6,13 +6,15 @@ import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
 import { GemDetail } from '@/components/GemDetail'
 import { SocialLinks } from '@/components/SocialLinks'
-import Link from 'next/link'
+import { SaveHelp } from '@/components/SaveHelp'
+import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 
 export default function ProfilePage() {
   const params = useParams()
   const router = useRouter()
   const username = params.username as string
   const supabase = createClient()
+  const extInstalled = useExtensionInstalled()
 
   const [profile, setProfile] = useState<any>(null)
   const [bookmarks, setBookmarks] = useState<any[]>([])
@@ -40,6 +42,15 @@ export default function ProfilePage() {
   const [activeListId, setActiveListId] = useState<string | null>(null)
   const [newListName, setNewListName] = useState('')
   const [creatingList, setCreatingList] = useState(false)
+  // Extension install nudge — dismissible, persisted so we only ask once.
+  const [extNudgeDismissed, setExtNudgeDismissed] = useState(true)
+  useEffect(() => {
+    setExtNudgeDismissed(localStorage.getItem('ig_ext_nudge_dismissed') === '1')
+  }, [])
+  const dismissExtNudge = () => {
+    localStorage.setItem('ig_ext_nudge_dismissed', '1')
+    setExtNudgeDismissed(true)
+  }
 
   useEffect(() => {
     const load = async () => {
@@ -331,7 +342,7 @@ export default function ProfilePage() {
     : []
 
   const renderGemGrid = (items: any[]) => (
-    <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
       {items.map((b) => (
         <BookmarkCard
           key={b.id}
@@ -367,9 +378,9 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-paper">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         {/* Hero — `group` enables the hover-reveal edit icon below */}
-        <div className="mb-10 border-b border-gray-100 pb-8 group">
+        <div className="mb-8 border-b border-gray-100 pb-6 group sm:mb-10 sm:pb-8">
           <div className="flex items-start justify-between gap-6 mb-4">
             <div className="flex-1 min-w-0">
               <h1 className="font-serif text-2xl sm:text-[28px] font-normal tracking-tight text-ink leading-tight mb-3">
@@ -533,6 +544,32 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Persistent extension nudge — only for owners on a browser without the
+            extension. Dismissible, and hidden while the save panel (which holds
+            the actual install steps) is open. */}
+        {isOwner && extInstalled === false && !extNudgeDismissed && !saveOpen && (
+          <div className="mb-8 flex items-center gap-3 rounded-xl border border-gray-200 bg-white/60 px-4 py-3">
+            <span aria-hidden className="text-lg">💎</span>
+            <p className="flex-1 text-sm text-gray-700">
+              Save twice as fast — add the Chrome extension to grab any page in
+              one click.
+            </p>
+            <button
+              onClick={() => setSaveOpen(true)}
+              className="shrink-0 rounded-full bg-gray-900 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
+            >
+              set it up
+            </button>
+            <button
+              onClick={dismissExtNudge}
+              aria-label="dismiss"
+              className="shrink-0 text-gray-300 hover:text-gray-600 transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Owner-only save panel — collapsible. Empty state gets larger
             messaging (onboarding); populated state is more compact. */}
         {isOwner && saveOpen && (
@@ -576,38 +613,24 @@ export default function ProfilePage() {
               </div>
             </form>
 
-            {/* Bookmarklet promo — gets visual weight only in the empty state,
-                where setup actually matters. Otherwise it's a quiet one-liner. */}
-            {bookmarks.length === 0 ? (
-              <div className="mt-5 pt-5 border-t border-gray-200">
-                <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">
-                  the one-click way
-                </p>
-                <p className="text-sm text-gray-700 mb-2">
-                  Install the save-link button in your browser.
-                </p>
-                <p className="text-xs text-gray-500 leading-relaxed mb-3">
-                  Then grab any internet gem with one click — no more pasting URLs.
-                </p>
-                <Link
-                  href="/bookmarklet"
-                  className="inline-block text-sm font-medium text-gray-900 underline underline-offset-4 decoration-gray-300 hover:decoration-gray-700"
-                >
-                  install the save button →
-                </Link>
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-gray-400">
-                or{' '}
-                <Link
-                  href="/bookmarklet"
-                  className="underline underline-offset-4 hover:text-gray-700"
-                >
-                  install the save button
-                </Link>{' '}
-                to grab gems with one click from any page.
-              </p>
-            )}
+            {/* Inline save help — extension-first, no separate page. */}
+            <SaveHelp extInstalled={extInstalled} />
+          </div>
+        )}
+
+        {/* Search — sits above the tabs so it scopes the whole collection. */}
+        {isOwner && (
+          <div className="mb-8">
+            <input
+              type="text"
+              placeholder="search your gems…"
+              onChange={(e) => {
+                handleSearch(e.target.value)
+                // Results render in the Recent grid, so a query snaps there.
+                if (e.target.value.trim()) { setView('recent'); setActiveListId(null) }
+              }}
+              className="w-full bg-transparent border-0 border-b border-stone-300 pb-3 font-serif text-xl sm:text-3xl italic text-ink placeholder:text-stone-400 focus:outline-none focus:border-stone-500 transition-colors"
+            />
           </div>
         )}
 
@@ -631,16 +654,6 @@ export default function ProfilePage() {
         {/* ── Recent ── */}
         {view === 'recent' && (
           <>
-            {isOwner && (
-              <div className="mb-10">
-                <input
-                  type="text"
-                  placeholder="search your gems…"
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full bg-transparent border-0 border-b border-stone-300 pb-3 font-serif text-2xl sm:text-3xl italic text-ink placeholder:text-stone-400 focus:outline-none focus:border-stone-500 transition-colors"
-                />
-              </div>
-            )}
             {filtered.length > 0 ? (
               renderGemGrid(filtered)
             ) : (

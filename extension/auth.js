@@ -64,8 +64,33 @@ export async function signIn() {
   return session
 }
 
+// Error thrown when the session can't be refreshed and the user must sign in
+// again. Callers (background worker) use this to restore the sign-in popup.
+export class AuthExpiredError extends Error {
+  constructor(message) {
+    super(message || 'session expired — please sign in again')
+    this.name = 'AuthExpiredError'
+    this.authExpired = true
+  }
+}
+
+// Coalesce concurrent refreshes. Supabase rotates refresh tokens and they're
+// single-use, so two parallel saves that both hit expiry would race to spend
+// the same token — the loser gets "Refresh Token Not Found" and the session
+// dies needlessly. Sharing one in-flight refresh makes the second caller await
+// the first's result instead of issuing a doomed second exchange.
+let inFlightRefresh = null
+
+function refresh(session) {
+  if (inFlightRefresh) return inFlightRefresh
+  inFlightRefresh = doRefresh(session).finally(() => {
+    inFlightRefresh = null
+  })
+  return inFlightRefresh
+}
+
 // Exchange a refresh token for a fresh access token.
-async function refresh(session) {
+async function doRefresh(session) {
   const res = await fetch(
     `${CONFIG.SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`,
     {
@@ -77,7 +102,16 @@ async function refresh(session) {
       body: JSON.stringify({ refresh_token: session.refresh_token }),
     }
   )
-  if (!res.ok) throw new Error('session expired — please sign in again')
+  if (!res.ok) {
+    // The refresh token is dead (expired, revoked, or already rotated). Clear
+    // the stored session so we don't get stuck retrying a token that can never
+    // succeed — and so the next icon click reverts to the sign-in popup.
+    const detail = await res.json().catch(() => ({}))
+    await signOut()
+    throw new AuthExpiredError(
+      detail.error_description || detail.msg || 'session expired — please sign in again'
+    )
+  }
   const data = await res.json()
   const next = {
     access_token: data.access_token,

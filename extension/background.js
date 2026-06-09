@@ -123,6 +123,10 @@ async function saveFlow(tab, payload) {
   } catch (err) {
     const msg = String(err.message || err)
     const dup = msg.includes('already saved')
+    // Session died mid-save: refresh() has already cleared the dead session, so
+    // restore the sign-in popup. The next icon click then opens sign-in instead
+    // of silently failing against a token that can never be refreshed.
+    if (err?.authExpired) await syncPopup()
     if (injected) {
       toast(tabId, dup ? 'duplicate' : 'error', { message: msg, title: payload.title })
     } else {
