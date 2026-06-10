@@ -8,6 +8,7 @@ import { GemDetail } from '@/components/GemDetail'
 import { SocialLinks } from '@/components/SocialLinks'
 import { SaveHelp } from '@/components/SaveHelp'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
+import { uniqueSlug } from '@/lib/slug'
 
 export default function ProfilePage() {
   const params = useParams()
@@ -42,6 +43,10 @@ export default function ProfilePage() {
   const [activeListId, setActiveListId] = useState<string | null>(null)
   const [newListName, setNewListName] = useState('')
   const [creatingList, setCreatingList] = useState(false)
+  // List-detail rename + share affordances.
+  const [renaming, setRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const [copiedLink, setCopiedLink] = useState(false)
   // Extension install nudge — dismissible, persisted so we only ask once.
   const [extNudgeDismissed, setExtNudgeDismissed] = useState(true)
   useEffect(() => {
@@ -51,6 +56,9 @@ export default function ProfilePage() {
     localStorage.setItem('ig_ext_nudge_dismissed', '1')
     setExtNudgeDismissed(true)
   }
+
+  // Leaving / switching a list closes any in-progress rename.
+  useEffect(() => { setRenaming(false); setCopiedLink(false) }, [activeListId])
 
   useEffect(() => {
     const load = async () => {
@@ -256,17 +264,29 @@ export default function ProfilePage() {
 
   // ── Lists ───────────────────────────────────────────────────────────
   async function fetchLists(uid: string) {
-    try {
-      const { data, error } = await supabase
-        .from('lists')
-        .select('id, name, is_private, created_at, list_bookmarks(bookmark_id)')
-        .eq('user_id', uid)
-        .order('created_at', { ascending: false })
-      if (error) return []
-      return (data || []).map((l: any) => ({
+    const shape = (data: any[] | null) =>
+      (data || []).map((l: any) => ({
         ...l,
         bookmark_ids: (l.list_bookmarks || []).map((x: any) => x.bookmark_id),
       }))
+    try {
+      const { data, error } = await supabase
+        .from('lists')
+        .select('id, name, slug, is_private, created_at, list_bookmarks(bookmark_id)')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: false })
+      if (!error) return shape(data)
+      // Migration 009 (slug column) not applied yet — retry without it so lists
+      // still render, just without their public-URL slug.
+      if (/slug/i.test(error.message || '')) {
+        const fallback = await supabase
+          .from('lists')
+          .select('id, name, is_private, created_at, list_bookmarks(bookmark_id)')
+          .eq('user_id', uid)
+          .order('created_at', { ascending: false })
+        if (!fallback.error) return shape(fallback.data)
+      }
+      return []
     } catch {
       return []
     }
@@ -275,11 +295,24 @@ export default function ProfilePage() {
   const handleCreateList = async (name: string, bookmarkIds: string[] = []) => {
     const clean = name.trim()
     if (!clean || !profile) return null
-    const { data: list, error } = await supabase
+    // Mint a stable slug from the name, unique among this owner's lists. Frozen
+    // after creation so the published /username/<slug> URL never breaks.
+    const slug = uniqueSlug(clean, lists.map((l) => l.slug).filter(Boolean))
+    let { data: list, error } = await supabase
       .from('lists')
-      .insert({ user_id: profile.id, name: clean })
+      .insert({ user_id: profile.id, name: clean, slug })
       .select('id')
       .single()
+    if (error && /slug/i.test(error.message || '')) {
+      // Migration 009 not applied yet — fall back to a slugless insert.
+      const retry = await supabase
+        .from('lists')
+        .insert({ user_id: profile.id, name: clean })
+        .select('id')
+        .single()
+      list = retry.data
+      error = retry.error
+    }
     if (error || !list) return null
     if (bookmarkIds.length) {
       await supabase
@@ -320,6 +353,14 @@ export default function ProfilePage() {
     if (activeListId === listId) setActiveListId(null)
   }
 
+  // Rename changes only the display name — the slug (and public URL) is frozen.
+  const handleRenameList = async (listId: string, name: string) => {
+    const clean = name.trim()
+    if (!clean) return
+    await supabase.from('lists').update({ name: clean }).eq('id', listId)
+    setLists((prev) => prev.map((l) => (l.id === listId ? { ...l, name: clean } : l)))
+  }
+
   // Collect all tags (still needed for tag-editor suggestions on owner cards).
   const allTags = Array.from(new Set(bookmarks.flatMap((b) => b.tags || []))).sort()
 
@@ -341,7 +382,22 @@ export default function ProfilePage() {
     ? bookmarks.filter((b) => activeList.bookmark_ids.includes(b.id))
     : []
 
-  const renderGemGrid = (items: any[]) => (
+  // bookmark id → the lists it belongs to (for the card chips).
+  const listsByBookmark = (() => {
+    const m = new Map<string, { id: string; name: string; slug: string | null }[]>()
+    for (const l of lists) {
+      for (const bid of l.bookmark_ids) {
+        const arr = m.get(bid) || []
+        arr.push({ id: l.id, name: l.name, slug: l.slug ?? null })
+        m.set(bid, arr)
+      }
+    }
+    return m
+  })()
+
+  // `excludeListId` drops the current list's own chip when rendering inside a
+  // list detail view (it'd be redundant there).
+  const renderGemGrid = (items: any[], excludeListId?: string) => (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
       {items.map((b) => (
         <BookmarkCard
@@ -359,6 +415,8 @@ export default function ProfilePage() {
           note={b.note}
           isOwner={isOwner}
           cardType={b.card_type}
+          inLists={(listsByBookmark.get(b.id) || []).filter((l) => l.id !== excludeListId)}
+          ownerUsername={profile.username}
           onDelete={handleDelete}
           onTagsUpdate={handleTagsUpdate}
           onNoteUpdate={handleNoteUpdate}
@@ -764,32 +822,89 @@ export default function ProfilePage() {
         {/* ── List detail ── */}
         {view === 'lists' && activeList && (
           <>
-            <div className="mb-8 flex items-center justify-between gap-4">
-              <div className="flex items-baseline gap-3 min-w-0">
-                <button
-                  onClick={() => setActiveListId(null)}
-                  className="shrink-0 text-sm text-stone-400 hover:text-ink"
-                >
-                  ← lists
-                </button>
-                <h2 className="truncate font-serif text-2xl font-normal italic tracking-tight text-ink">
-                  {activeList.name}
-                </h2>
-                <span className="shrink-0 text-xs uppercase tracking-wider text-stone-400">
-                  {listGems.length} {listGems.length === 1 ? 'gem' : 'gems'}
-                </span>
+            <div className="mb-8">
+              <button
+                onClick={() => setActiveListId(null)}
+                className="text-sm text-stone-400 hover:text-ink"
+              >
+                ← lists
+              </button>
+              <div className="mt-2 flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  {isOwner && renaming ? (
+                    <input
+                      autoFocus
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          await handleRenameList(activeList.id, renameValue)
+                          setRenaming(false)
+                        } else if (e.key === 'Escape') {
+                          setRenaming(false)
+                        }
+                      }}
+                      onBlur={() => setRenaming(false)}
+                      className="w-full bg-transparent border-b border-stone-300 pb-1 font-serif text-2xl italic text-ink focus:outline-none focus:border-stone-500"
+                    />
+                  ) : (
+                    <div className="flex items-baseline gap-2 min-w-0">
+                      <h2 className="truncate font-serif text-2xl font-normal italic tracking-tight text-ink">
+                        {activeList.name}
+                      </h2>
+                      {isOwner && (
+                        <button
+                          onClick={() => { setRenameValue(activeList.name); setRenaming(true) }}
+                          aria-label="rename list"
+                          title="rename"
+                          className="shrink-0 text-stone-300 hover:text-ink transition-colors"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <path d="M12 20h9" />
+                            <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs uppercase tracking-wider text-stone-400">
+                    <span>{listGems.length} {listGems.length === 1 ? 'gem' : 'gems'}</span>
+                    {activeList.slug && (
+                      <>
+                        <a
+                          href={`/${profile.username}/${activeList.slug}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="normal-case tracking-normal text-stone-400 hover:text-ink"
+                        >
+                          view public page ↗
+                        </a>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard?.writeText(`${window.location.origin}/${profile.username}/${activeList.slug}`)
+                            setCopiedLink(true)
+                            setTimeout(() => setCopiedLink(false), 1500)
+                          }}
+                          className="normal-case tracking-normal text-stone-400 hover:text-ink"
+                        >
+                          {copiedLink ? 'copied!' : 'copy link'}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {isOwner && (
+                  <button
+                    onClick={() => handleDeleteList(activeList.id)}
+                    className="shrink-0 text-sm text-stone-400 hover:text-red-600"
+                  >
+                    delete list
+                  </button>
+                )}
               </div>
-              {isOwner && (
-                <button
-                  onClick={() => handleDeleteList(activeList.id)}
-                  className="shrink-0 text-sm text-stone-400 hover:text-red-600"
-                >
-                  delete list
-                </button>
-              )}
             </div>
             {listGems.length > 0 ? (
-              renderGemGrid(listGems)
+              renderGemGrid(listGems, activeList.id)
             ) : (
               <div className="text-center py-16">
                 <p className="text-gray-500 text-sm">

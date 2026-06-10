@@ -99,6 +99,24 @@
         color: #1d1d1f; min-width: 90px; flex: 1; padding: 7px 4px;
       }
       .add::placeholder { color: #b9b6af; }
+      .lists { border-top: 1px solid #efece6; }
+      .lchip {
+        all: unset; cursor: pointer; box-sizing: border-box;
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 13px; line-height: 1; color: #1d1d1f;
+        background: #f4f2ec; border-radius: 999px; padding: 7px 12px;
+        transition: background .15s ease, color .15s ease;
+      }
+      .lchip:hover { background: #e9e6df; }
+      .lchip.on { background: #1d1d1f; color: #fff; }
+      .lchip.on::before { content: '✓'; font-size: 11px; }
+      .published {
+        margin-top: 10px; font-size: 12.5px; color: #6e6e73; line-height: 1.4;
+      }
+      .copylink {
+        all: unset; cursor: pointer; color: #f0653f; font-weight: 600;
+      }
+      .copylink:hover { text-decoration: underline; }
       .err .msg { color: #d23f3f; }
     </style>
     <div class="card" id="card">
@@ -108,6 +126,16 @@
         <span class="msg" id="msg">One moment, saving…</span>
       </div>
       <div class="title" id="title" style="display:none"></div>
+      <div class="lists" id="lists" style="display:none">
+        <div class="tagrow" id="listrow">
+          <span class="lbl" id="listlbl">Add to a list</span>
+          <span class="chev">▾</span>
+        </div>
+        <div class="tagbody" id="listbody">
+          <div class="chips" id="listchips"></div>
+          <div class="published" id="published" style="display:none"></div>
+        </div>
+      </div>
       <div class="tags" id="tags" style="display:none">
         <div class="tagrow" id="tagrow">
           <span class="lbl" id="taglbl">Add tags</span>
@@ -130,6 +158,9 @@
   let hovering = false
   let editing = false
   let saveTagsTimer = null
+  // Lists: the user's lists [{ id, name, slug }] and which ones this gem is in.
+  let lists = []
+  let memberOf = new Set()
 
   document.documentElement.appendChild(host)
   requestAnimationFrame(() => card.classList.add('in'))
@@ -144,6 +175,7 @@
   })
 
   el('tagrow').addEventListener('click', () => toggleTags())
+  el('listrow').addEventListener('click', () => toggleLists())
 
   function clearDismiss() {
     if (dismissTimer) clearTimeout(dismissTimer)
@@ -189,6 +221,123 @@
   function updateTagLabel() {
     const n = tags.length
     el('taglbl').textContent = n ? `${n} tag${n === 1 ? '' : 's'}` : 'Add tags'
+  }
+
+  // ── lists ──────────────────────────────────────────────────────────
+  function toggleLists(force) {
+    const open = force === undefined ? !el('listbody').classList.contains('open') : force
+    el('listbody').classList.toggle('open', open)
+    el('listrow').classList.toggle('open', open)
+    if (open) {
+      clearDismiss()
+      focusListInput()
+    } else {
+      armDismiss()
+    }
+  }
+
+  function updateListLabel() {
+    const n = memberOf.size
+    el('listlbl').textContent = n ? `In ${n} list${n === 1 ? '' : 's'}` : 'Add to a list'
+  }
+
+  function focusListInput() {
+    const input = root.querySelector('#listchips .add')
+    if (input && el('listbody').classList.contains('open')) input.focus()
+  }
+
+  function renderLists() {
+    updateListLabel()
+    const wrap = el('listchips')
+    wrap.innerHTML = ''
+    for (const l of lists) {
+      const chip = document.createElement('button')
+      chip.className = 'lchip' + (memberOf.has(l.id) ? ' on' : '')
+      chip.textContent = l.name
+      chip.addEventListener('click', (e) => {
+        e.stopPropagation()
+        toggleListMembership(l)
+      })
+      wrap.appendChild(chip)
+    }
+    const input = document.createElement('input')
+    input.className = 'add'
+    input.placeholder = lists.length ? 'or create a list…' : 'create a list…'
+    input.addEventListener('focus', () => { editing = true; clearDismiss() })
+    input.addEventListener('blur', () => { editing = false; armDismiss() })
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault()
+        createListFromInput(input)
+      }
+    })
+    wrap.appendChild(input)
+  }
+
+  // Optimistically toggle, then reconcile with the server (revert on failure).
+  function toggleListMembership(l) {
+    if (!bookmarkId) return
+    const add = !memberOf.has(l.id)
+    if (add) memberOf.add(l.id)
+    else memberOf.delete(l.id)
+    renderLists()
+    chrome.runtime.sendMessage(
+      { type: 'ig-set-list', listId: l.id, bookmarkId, add },
+      (resp) => {
+        if (!resp || resp.error) {
+          if (add) memberOf.delete(l.id)
+          else memberOf.add(l.id)
+          renderLists()
+        }
+      }
+    )
+  }
+
+  function createListFromInput(input) {
+    const name = input.value.trim()
+    if (!name || !bookmarkId) return
+    input.value = ''
+    chrome.runtime.sendMessage(
+      { type: 'ig-create-list', name, bookmarkId },
+      (resp) => {
+        if (resp && resp.ok && resp.list) {
+          lists.unshift(resp.list)
+          memberOf.add(resp.list.id)
+          renderLists()
+          showPublished(resp.url, resp.list)
+          focusListInput()
+        }
+      }
+    )
+  }
+
+  // Confirm a newly created list is live, with a one-click copy of its URL.
+  function showPublished(url, list) {
+    if (!url) return
+    const p = el('published')
+    p.style.display = ''
+    p.innerHTML = ''
+    const span = document.createElement('span')
+    span.textContent = `“${list.name}” is live · `
+    const copy = document.createElement('button')
+    copy.className = 'copylink'
+    copy.textContent = 'copy link'
+    copy.addEventListener('click', (e) => {
+      e.stopPropagation()
+      try { navigator.clipboard.writeText(url) } catch {}
+      copy.textContent = 'copied!'
+      setTimeout(() => { copy.textContent = 'copy link' }, 1500)
+    })
+    p.append(span, copy)
+  }
+
+  function loadLists() {
+    chrome.runtime.sendMessage({ type: 'ig-get-lists' }, (resp) => {
+      if (resp && resp.ok && Array.isArray(resp.lists)) {
+        lists = resp.lists
+        renderLists()
+      }
+    })
   }
 
   function renderChips() {
@@ -283,11 +432,17 @@
       el('title').style.display = ''
     }
     if (bookmarkId) {
+      // Lists are the primary save-time action: show the picker and open it.
+      el('lists').style.display = ''
+      el('published').style.display = 'none'
+      memberOf = new Set()
+      renderLists()
+      loadLists()
+      toggleLists(true)
+      // Tags are de-emphasized — available but collapsed by default.
       el('tags').style.display = ''
       renderChips()
-      // Open the tag drawer when Claude already applied tags, so they're
-      // visible; leave it collapsed (mymind-style) when there are none.
-      toggleTags(tags.length > 0)
+      toggleTags(false)
     }
     armDismiss()
   }
@@ -298,9 +453,14 @@
     bookmarkId = null
     tags = []
     editing = false
+    lists = []
+    memberOf = new Set()
     el('title').style.display = 'none'
     el('tags').style.display = 'none'
     toggleTags(false)
+    el('lists').style.display = 'none'
+    el('published').style.display = 'none'
+    toggleLists(false)
     card.classList.remove('err')
     setSpinner(true)
     setMsg('One moment, saving…')

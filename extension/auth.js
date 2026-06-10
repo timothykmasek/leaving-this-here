@@ -163,6 +163,30 @@ async function apiPost(path, payload) {
   return data
 }
 
+// GET an extension API route with the bearer token, refreshing + retrying once
+// on a 401. Mirrors apiPost for read-only calls.
+async function apiGet(path) {
+  const attempt = (token) =>
+    fetch(`${CONFIG.API_BASE}${path}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+  const token = await getValidAccessToken()
+  let res = await attempt(token)
+
+  if (res.status === 401) {
+    const session = await getSession()
+    if (session) {
+      const next = await refresh(session)
+      res = await attempt(next.access_token)
+    }
+  }
+
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `request failed (${res.status})`)
+  return data
+}
+
 // Save a gem. `payload` = { url, title?, note?, image_url? }.
 export async function saveGem(payload) {
   return apiPost('/api/extension/save', payload)
@@ -171,4 +195,25 @@ export async function saveGem(payload) {
 // Update the tags on an already-saved gem. `tags` is the full replacement list.
 export async function updateTags(id, tags) {
   return apiPost('/api/extension/tags', { id, tags })
+}
+
+// ── Lists ───────────────────────────────────────────────────────────
+// The signed-in user's lists: [{ id, name, slug }].
+export async function getLists() {
+  return apiGet('/api/extension/lists')
+}
+
+// Create a new (published) list and optionally add a gem to it. Returns
+// { list: { id, name, slug }, url } — `url` is the live public page.
+export async function createList(name, bookmarkId) {
+  return apiPost('/api/extension/lists', { op: 'create', name, bookmark_id: bookmarkId })
+}
+
+// Add or remove a gem from an existing list.
+export async function setListMembership(listId, bookmarkId, add) {
+  return apiPost('/api/extension/lists', {
+    op: add ? 'add' : 'remove',
+    list_id: listId,
+    bookmark_id: bookmarkId,
+  })
 }

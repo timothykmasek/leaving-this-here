@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { pickProduct, pickBook } from '@/lib/metadata'
 import { GemGlyph } from '@/components/GemGlyph'
 
@@ -33,6 +34,10 @@ interface BookmarkCardProps {
   // When set (owner view), clicking the card opens the gem detail modal
   // instead of navigating to the original URL.
   onOpen?: (id: string) => void
+  // Lists this gem belongs to. Rendered as a clickable chip (first list + "+N")
+  // linking to the published list page at /<ownerUsername>/<slug>.
+  inLists?: { id: string; name: string; slug: string | null }[]
+  ownerUsername?: string
 }
 
 function getDomain(url: string): string {
@@ -79,7 +84,7 @@ function Favicon({ faviconUrl, domain }: { faviconUrl: string | null; domain: st
 
 export function BookmarkCard({
   id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  note, isOwner, onOpen, cardType,
+  note, isOwner, onOpen, cardType, inLists, ownerUsername,
 }: BookmarkCardProps) {
   const product = cardType === 'product' && rawMetadata ? pickProduct(rawMetadata) : null
   const book = cardType === 'book' && rawMetadata ? pickBook(rawMetadata) : null
@@ -89,6 +94,32 @@ export function BookmarkCard({
   const cleanTitle = getCleanTitle(title, url)
   const image = imageUrl || screenshotUrl || product?.image || book?.image || null
   const hasImage = !!image && !imgError
+
+  // List membership chip — first list links to its public page; extra lists
+  // collapse into a non-clickable "+N". stopPropagation keeps a chip click from
+  // opening the card (owner detail modal) or the original URL.
+  const lists = inLists || []
+  const first = lists[0]
+  const chips = first ? (
+    <div className="mt-2 flex items-center gap-1">
+      {first.slug && ownerUsername ? (
+        <Link
+          href={`/${ownerUsername}/${first.slug}`}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex max-w-full items-center truncate rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600 transition-colors hover:bg-stone-200 hover:text-ink"
+        >
+          {first.name}
+        </Link>
+      ) : (
+        <span className="inline-flex max-w-full items-center truncate rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600">
+          {first.name}
+        </span>
+      )}
+      {lists.length > 1 && (
+        <span className="shrink-0 text-[10px] font-medium text-stone-400">+{lists.length - 1}</span>
+      )}
+    </div>
+  ) : null
 
   const footer = (
     <div className="shrink-0 px-4 pb-3.5 pt-3">
@@ -101,6 +132,7 @@ export function BookmarkCard({
           {domain}
         </span>
       </div>
+      {chips}
     </div>
   )
 
@@ -137,10 +169,13 @@ export function BookmarkCard({
           {description}
         </p>
       ) : (
-        <div className="mt-auto flex justify-end">
-          <GemGlyph className="h-7 w-7 text-ink/10" />
-        </div>
+        !chips && (
+          <div className="mt-auto flex justify-end">
+            <GemGlyph className="h-7 w-7 text-ink/10" />
+          </div>
+        )
       )}
+      {chips && <div className="mt-auto">{chips}</div>}
     </div>
   )
 

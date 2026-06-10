@@ -9,7 +9,15 @@
 // signed out we restore popup.html so the click opens the Google sign-in. The
 // popup's only job is auth; everything else happens on the page.
 
-import { saveGem, updateTags, getSession, signOut } from './auth.js'
+import {
+  saveGem,
+  updateTags,
+  getSession,
+  signOut,
+  getLists,
+  createList,
+  setListMembership,
+} from './auth.js'
 import { CONFIG } from './config.js'
 
 // Right-click menus on a page/image/selection, plus two items on the
@@ -148,6 +156,24 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === 'ig-update-tags') {
     updateTags(msg.id, msg.tags)
       .then((r) => sendResponse({ ok: true, tags: r.tags }))
+      .catch((e) => sendResponse({ error: String(e.message || e) }))
+    return true
+  }
+  if (msg?.type === 'ig-get-lists') {
+    getLists()
+      .then((r) => sendResponse({ ok: true, lists: r.lists || [] }))
+      .catch((e) => sendResponse({ error: String(e.message || e) }))
+    return true
+  }
+  if (msg?.type === 'ig-create-list') {
+    createList(msg.name, msg.bookmarkId)
+      .then((r) => sendResponse({ ok: true, list: r.list, url: r.url }))
+      .catch((e) => sendResponse({ error: String(e.message || e) }))
+    return true
+  }
+  if (msg?.type === 'ig-set-list') {
+    setListMembership(msg.listId, msg.bookmarkId, msg.add)
+      .then(() => sendResponse({ ok: true }))
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }
