@@ -39,7 +39,10 @@ export default function ProfilePage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // Lists. Each: { id, name, is_private, created_at, bookmark_ids: string[] }.
   const [lists, setLists] = useState<any[]>([])
-  const [view, setView] = useState<'recent' | 'lists'>('recent')
+  // Non-empty while the owner is searching — collapses the lists/recent layout
+  // down to a flat results grid.
+  const [query, setQuery] = useState('')
+  const [showAllLists, setShowAllLists] = useState(false)
   const [activeListId, setActiveListId] = useState<string | null>(null)
   const [newListName, setNewListName] = useState('')
   const [creatingList, setCreatingList] = useState(false)
@@ -372,6 +375,16 @@ export default function ProfilePage() {
     return m
   })()
 
+  // Up to 3 preview thumbnails for a list card, from its members' images.
+  const bookmarkById = new Map(bookmarks.map((b) => [b.id, b]))
+  const listThumbs = (l: any): string[] =>
+    (l.bookmark_ids as string[])
+      .map((id) => bookmarkById.get(id))
+      .filter(Boolean)
+      .map((b: any) => b.image_url || b.screenshot_url)
+      .filter(Boolean)
+      .slice(0, 3)
+
   // `excludeListId` drops the current list's own chip when rendering inside a
   // list detail view (it'd be redundant there).
   const renderGemGrid = (items: any[], excludeListId?: string) => (
@@ -650,139 +663,181 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Search — sits above the tabs so it scopes the whole collection. */}
+        {/* Search — scopes the whole collection; a query collapses the page to
+            a flat results grid. */}
         {isOwner && (
           <div className="mb-8">
             <input
               type="text"
+              value={query}
               placeholder="search your gems…"
               onChange={(e) => {
-                handleSearch(e.target.value)
-                // Results render in the Recent grid, so a query snaps there.
-                if (e.target.value.trim()) { setView('recent'); setActiveListId(null) }
+                const v = e.target.value
+                setQuery(v)
+                handleSearch(v)
+                if (v.trim()) setActiveListId(null)
               }}
               className="w-full bg-transparent border-0 border-b border-stone-300 pb-3 font-serif text-xl sm:text-3xl italic text-ink placeholder:text-stone-400 focus:outline-none focus:border-stone-500 transition-colors"
             />
           </div>
         )}
 
-        {/* Tabs: Recent / Lists */}
-        {(isOwner || lists.length > 0) && (
-          <div className="mb-8 flex items-center gap-7 border-b border-stone-300/60">
-            {(['recent', 'lists'] as const).map((v) => (
-              <button
-                key={v}
-                onClick={() => { setView(v); setActiveListId(null) }}
-                className={`-mb-px border-b-2 pb-3 font-serif text-xl italic transition-colors ${
-                  view === v ? 'border-ink text-ink' : 'border-transparent text-stone-400 hover:text-stone-600'
-                }`}
-              >
-                {v === 'recent' ? 'Recent' : 'Lists'}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* ── Recent ── */}
-        {view === 'recent' && (
+        {/* ── Search results (flat grid) ── */}
+        {!activeList && query.trim() && (
           <>
             {filtered.length > 0 ? (
               renderGemGrid(filtered)
             ) : (
               <div className="text-center py-16">
-                <p className="text-gray-500 text-sm">
-                  {bookmarks.length === 0 ? 'no gems yet 💎' : 'no matches'}
-                </p>
+                <p className="text-gray-500 text-sm">no matches</p>
               </div>
             )}
           </>
         )}
 
-        {/* ── Lists overview ── */}
-        {view === 'lists' && !activeList && (
+        {/* ── Home: Lists strip + Recent Saves ── */}
+        {!activeList && !query.trim() && (
           <>
-            {lists.length > 0 || isOwner ? (
-              <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
-                {lists.map((l) => (
-                  <button
-                    key={l.id}
-                    onClick={() => setActiveListId(l.id)}
-                    className="flex h-48 flex-col items-center justify-center rounded-2xl bg-white px-4 text-center shadow-[0_1px_3px_rgba(40,30,25,0.10)] ring-1 ring-black/[0.04] transition-shadow hover:shadow-[0_6px_20px_rgba(40,30,25,0.14)]"
-                  >
-                    <h3 className="line-clamp-3 font-serif text-lg font-medium italic leading-snug tracking-tight text-ink">
-                      {l.name}
-                    </h3>
-                    <span className="mt-4 font-serif text-2xl text-stone-400">{l.bookmark_ids.length}</span>
-                    {l.is_private && (
-                      <span className="mt-2 text-[10px] uppercase tracking-wider text-stone-400">private</span>
-                    )}
-                  </button>
-                ))}
+            {(lists.length > 0 || isOwner) && (
+              <section className="mb-12">
+                <div className="mb-4 flex items-baseline justify-between">
+                  <h2 className="font-serif text-xl italic text-ink">Lists</h2>
+                  {isOwner && lists.length > 0 && !creatingList && (
+                    <button
+                      onClick={() => setCreatingList(true)}
+                      className="text-sm text-stone-400 hover:text-ink"
+                    >
+                      + new list
+                    </button>
+                  )}
+                </div>
 
-                {isOwner && (creatingList ? (
-                  <div className="flex h-48 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-300 bg-white/40 px-4">
-                    <input
-                      autoFocus
-                      value={newListName}
-                      onChange={(e) => setNewListName(e.target.value)}
-                      onKeyDown={async (e) => {
-                        if (e.key === 'Enter') {
-                          const id = await handleCreateList(newListName)
-                          setNewListName(''); setCreatingList(false)
-                          if (id) setActiveListId(id)
-                        } else if (e.key === 'Escape') {
-                          setCreatingList(false); setNewListName('')
-                        }
-                      }}
-                      placeholder="list name"
-                      className="w-full bg-transparent text-center font-serif text-lg italic text-ink placeholder:text-stone-400 focus:outline-none"
-                    />
-                    <div className="mt-3 flex gap-3 text-xs">
-                      <button
-                        onClick={async () => {
-                          const id = await handleCreateList(newListName)
-                          setNewListName(''); setCreatingList(false)
-                          if (id) setActiveListId(id)
+                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {/* inline create form */}
+                  {isOwner && creatingList && (
+                    <div className="flex h-44 flex-col justify-center rounded-2xl border-2 border-dashed border-stone-300 bg-white/40 p-4">
+                      <input
+                        autoFocus
+                        value={newListName}
+                        onChange={(e) => setNewListName(e.target.value)}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            const id = await handleCreateList(newListName)
+                            setNewListName(''); setCreatingList(false)
+                            if (id) setActiveListId(id)
+                          } else if (e.key === 'Escape') {
+                            setCreatingList(false); setNewListName('')
+                          }
                         }}
-                        className="font-medium text-ink hover:underline"
-                      >
-                        create
-                      </button>
-                      <button
-                        onClick={() => { setCreatingList(false); setNewListName('') }}
-                        className="text-stone-400 hover:text-stone-600"
-                      >
-                        cancel
-                      </button>
+                        placeholder="list name"
+                        className="w-full bg-transparent font-serif text-lg italic text-ink placeholder:text-stone-400 focus:outline-none"
+                      />
+                      <div className="mt-3 flex gap-3 text-xs">
+                        <button
+                          onClick={async () => {
+                            const id = await handleCreateList(newListName)
+                            setNewListName(''); setCreatingList(false)
+                            if (id) setActiveListId(id)
+                          }}
+                          className="font-medium text-ink hover:underline"
+                        >
+                          create
+                        </button>
+                        <button
+                          onClick={() => { setCreatingList(false); setNewListName('') }}
+                          className="text-stone-400 hover:text-stone-600"
+                        >
+                          cancel
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ) : (
+                  )}
+
+                  {/* zero-state: create your first list */}
+                  {isOwner && lists.length === 0 && !creatingList && (
+                    <button
+                      onClick={() => setCreatingList(true)}
+                      className="flex h-44 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-stone-300 text-stone-400 transition-colors hover:border-stone-400 hover:text-stone-600"
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-current text-lg">+</span>
+                      <span className="text-sm">Create your first list</span>
+                    </button>
+                  )}
+
+                  {/* list cards */}
+                  {(showAllLists ? lists : lists.slice(0, 3)).map((l) => {
+                    const thumbs = listThumbs(l)
+                    return (
+                      <button
+                        key={l.id}
+                        onClick={() => setActiveListId(l.id)}
+                        className="group flex flex-col rounded-2xl bg-white p-4 text-left shadow-[0_1px_3px_rgba(40,30,25,0.10)] ring-1 ring-black/[0.04] transition-shadow hover:shadow-[0_6px_20px_rgba(40,30,25,0.14)]"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-stone-400">List</span>
+                          {l.is_private && (
+                            <span className="text-[10px] uppercase tracking-wider text-stone-400">private</span>
+                          )}
+                        </div>
+                        <h3 className="mt-1 line-clamp-1 font-serif text-lg font-medium italic tracking-tight text-ink">
+                          {l.name}
+                        </h3>
+                        <div className="mt-3 flex gap-1.5">
+                          {[0, 1, 2].map((i) => (
+                            <div key={i} className="h-14 flex-1 overflow-hidden rounded-md bg-stone-100">
+                              {thumbs[i] && (
+                                <img
+                                  src={thumbs[i]}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                  onError={(e) => { e.currentTarget.style.display = 'none' }}
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                        <span className="mt-3 text-xs text-stone-400">
+                          {l.bookmark_ids.length} {l.bookmark_ids.length === 1 ? 'link' : 'links'}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {lists.length > 3 && (
                   <button
-                    onClick={() => setCreatingList(true)}
-                    className="flex h-48 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-stone-300 text-stone-400 transition-colors hover:border-stone-400 hover:text-stone-600"
+                    onClick={() => setShowAllLists((v) => !v)}
+                    className="mt-4 inline-flex items-center gap-1 rounded-full border border-stone-300 px-3.5 py-1.5 text-sm text-stone-600 transition-colors hover:border-stone-400 hover:text-ink"
                   >
-                    <span className="text-2xl">+</span>
-                    <span className="mt-2 text-sm">new list</span>
+                    {showAllLists ? 'show fewer' : `+ ${lists.length - 3} more lists`}
+                    <span aria-hidden>{showAllLists ? '▴' : '▾'}</span>
                   </button>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-16">
-                <p className="text-gray-500 text-sm">no lists yet</p>
-              </div>
+                )}
+              </section>
             )}
+
+            <section>
+              <h2 className="mb-4 font-serif text-xl italic text-ink">Recent Saves</h2>
+              {bookmarks.length > 0 ? (
+                renderGemGrid(filtered)
+              ) : (
+                <div className="text-center py-16">
+                  <p className="text-gray-500 text-sm">no gems yet 💎</p>
+                </div>
+              )}
+            </section>
           </>
         )}
 
         {/* ── List detail ── */}
-        {view === 'lists' && activeList && (
+        {activeList && (
           <>
             <div className="mb-8">
               <button
                 onClick={() => setActiveListId(null)}
                 className="text-sm text-stone-400 hover:text-ink"
               >
-                ← lists
+                ← back
               </button>
               <div className="mt-2 flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
