@@ -1,7 +1,8 @@
 // On-page "gem" toast — injected into the active tab by the background worker.
 // Visual treatment mirrors mymind's save card: a clean white rounded card with
 // a coral top accent, a circular line-art icon, friendly rounded-sans text, and
-// a collapsible "Add tags" row. Once saved you can add/remove tags inline.
+// a collapsible "Add to a list" row. Once saved you can add the gem to a list,
+// or create + publish a brand-new list inline.
 //
 // Injected via chrome.scripting.executeScript({ files: [...] }) so it runs as a
 // content script in the isolated world: it can use chrome.runtime messaging but
@@ -10,11 +11,13 @@
 //
 // Protocol — background → toast (chrome.tabs.sendMessage):
 //   { type: 'ig-toast', state: 'saving' }
-//   { type: 'ig-toast', state: 'saved',     data: { id, title, tags } }
+//   { type: 'ig-toast', state: 'saved',     data: { id, title } }
 //   { type: 'ig-toast', state: 'duplicate', data: { title } }
 //   { type: 'ig-toast', state: 'error',     data: { message } }
 // Protocol — toast → background (chrome.runtime.sendMessage):
-//   { type: 'ig-update-tags', id, tags }   → { ok, tags } | { error }
+//   { type: 'ig-get-lists' }                       → { ok, lists } | { error }
+//   { type: 'ig-create-list', name, bookmarkId }   → { ok, list, url } | { error }
+//   { type: 'ig-set-list', listId, bookmarkId, add } → { ok } | { error }
 
 ;(() => {
   // Guard against double-injection: reuse the existing controller if the user
@@ -136,15 +139,6 @@
           <div class="published" id="published" style="display:none"></div>
         </div>
       </div>
-      <div class="tags" id="tags" style="display:none">
-        <div class="tagrow" id="tagrow">
-          <span class="lbl" id="taglbl">Add tags</span>
-          <span class="chev">▾</span>
-        </div>
-        <div class="tagbody" id="tagbody">
-          <div class="chips" id="chips"></div>
-        </div>
-      </div>
     </div>
   `
 
@@ -153,11 +147,9 @@
 
   // ── state ──────────────────────────────────────────────────────────
   let bookmarkId = null
-  let tags = []
   let dismissTimer = null
   let hovering = false
   let editing = false
-  let saveTagsTimer = null
   // Lists: the user's lists [{ id, name, slug }] and which ones this gem is in.
   let lists = []
   let memberOf = new Set()
@@ -174,7 +166,6 @@
     armDismiss()
   })
 
-  el('tagrow').addEventListener('click', () => toggleTags())
   el('listrow').addEventListener('click', () => toggleLists())
 
   function clearDismiss() {
@@ -204,23 +195,6 @@
   }
   function setSpinner(on) {
     setIcon(on ? '<span class="spin"></span>' : '💎')
-  }
-
-  function toggleTags(force) {
-    const open = force === undefined ? !el('tagbody').classList.contains('open') : force
-    el('tagbody').classList.toggle('open', open)
-    el('tagrow').classList.toggle('open', open)
-    if (open) {
-      clearDismiss()
-      focusInput()
-    } else {
-      armDismiss()
-    }
-  }
-
-  function updateTagLabel() {
-    const n = tags.length
-    el('taglbl').textContent = n ? `${n} tag${n === 1 ? '' : 's'}` : 'Add tags'
   }
 
   // ── lists ──────────────────────────────────────────────────────────
@@ -340,109 +314,22 @@
     })
   }
 
-  function renderChips() {
-    updateTagLabel()
-    const chips = el('chips')
-    chips.innerHTML = ''
-    for (const tag of tags) {
-      const chip = document.createElement('span')
-      chip.className = 'chip'
-      const text = document.createElement('span')
-      text.textContent = tag
-      const x = document.createElement('button')
-      x.textContent = '×'
-      x.title = 'remove'
-      x.addEventListener('click', (e) => {
-        e.stopPropagation()
-        tags = tags.filter((t) => t !== tag)
-        renderChips()
-        focusInput()
-        queueSave()
-      })
-      chip.append(text, x)
-      chips.appendChild(chip)
-    }
-    const input = document.createElement('input')
-    input.className = 'add'
-    input.placeholder = tags.length ? 'add a tag…' : 'add tags…'
-    input.addEventListener('focus', () => {
-      editing = true
-      clearDismiss()
-    })
-    input.addEventListener('blur', () => {
-      editing = false
-      armDismiss()
-    })
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ',') {
-        e.preventDefault()
-        commit(input)
-      } else if (e.key === 'Backspace' && !input.value && tags.length) {
-        tags = tags.slice(0, -1)
-        renderChips()
-        focusInput()
-        queueSave()
-      }
-    })
-    chips.appendChild(input)
-  }
-
-  function focusInput() {
-    const input = root.querySelector('.add')
-    if (input && el('tagbody').classList.contains('open')) input.focus()
-  }
-
-  function commit(input) {
-    const raw = input.value.trim().replace(/,$/, '').trim()
-    if (raw && !tags.some((t) => t.toLowerCase() === raw.toLowerCase())) {
-      tags.push(raw.slice(0, 40))
-    }
-    input.value = ''
-    renderChips()
-    focusInput()
-    queueSave()
-  }
-
-  // Debounce tag persistence so rapid edits collapse into one request.
-  function queueSave() {
-    if (!bookmarkId) return
-    if (saveTagsTimer) clearTimeout(saveTagsTimer)
-    saveTagsTimer = setTimeout(persistTags, 600)
-  }
-  function persistTags() {
-    if (!bookmarkId) return
-    chrome.runtime.sendMessage(
-      { type: 'ig-update-tags', id: bookmarkId, tags: tags.slice() },
-      (resp) => {
-        if (resp && resp.ok && Array.isArray(resp.tags) && !editing) {
-          tags = resp.tags
-          renderChips()
-        }
-      }
-    )
-  }
-
   function showSaved(data) {
     setSpinner(false)
     setMsg('Saved to your gems')
     bookmarkId = data && data.id
-    tags = (data && Array.isArray(data.tags) ? data.tags : []).slice()
     if (data && data.title) {
       el('title').textContent = data.title
       el('title').style.display = ''
     }
     if (bookmarkId) {
-      // Lists are the primary save-time action: show the picker and open it.
+      // Add the gem to a list (or create + publish a new one) right here.
       el('lists').style.display = ''
       el('published').style.display = 'none'
       memberOf = new Set()
       renderLists()
       loadLists()
       toggleLists(true)
-      // Tags are de-emphasized — available but collapsed by default.
-      el('tags').style.display = ''
-      renderChips()
-      toggleTags(false)
     }
     armDismiss()
   }
@@ -451,13 +338,10 @@
   function reset() {
     clearDismiss()
     bookmarkId = null
-    tags = []
     editing = false
     lists = []
     memberOf = new Set()
     el('title').style.display = 'none'
-    el('tags').style.display = 'none'
-    toggleTags(false)
     el('lists').style.display = 'none'
     el('published').style.display = 'none'
     toggleLists(false)

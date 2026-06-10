@@ -1,13 +1,12 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { GemGlyph } from '@/components/GemGlyph'
 
 // Mymind-style detail view for a single gem. Two panes: a large preview on the
-// left, and metadata on the right — tags (view + edit), notes, and a delete
-// action. Rendered as an overlay; closes on backdrop click or Escape. Editing
-// flows through the same handlers the profile page uses, so changes persist and
-// the grid stays in sync.
+// left, and metadata on the right — lists and a delete action. Rendered as an
+// overlay; closes on backdrop click or Escape. Editing flows through the same
+// handlers the profile page uses, so changes persist and the grid stays in sync.
 
 interface Gem {
   id: string
@@ -17,7 +16,6 @@ interface Gem {
   image_url: string | null
   screenshot_url: string | null
   favicon_url: string | null
-  tags: string[] | null
   note: string | null
   created_at: string | null
 }
@@ -30,10 +28,8 @@ interface List {
 
 interface GemDetailProps {
   gem: Gem
-  allTags?: string[]
   lists?: List[]
   onClose: () => void
-  onTagsUpdate: (id: string, tags: string[]) => void
   onNoteUpdate: (id: string, note: string | null) => void
   onDelete: (id: string) => void
   onToggleListMembership?: (listId: string, bookmarkId: string, add: boolean) => void
@@ -60,30 +56,22 @@ function timeAgo(iso: string | null): string {
 
 export function GemDetail({
   gem,
-  allTags = [],
   lists = [],
   onClose,
-  onTagsUpdate,
   onNoteUpdate,
   onDelete,
   onToggleListMembership,
   onCreateList,
 }: GemDetailProps) {
-  const [tags, setTags] = useState<string[]>(gem.tags || [])
-  const [tagInput, setTagInput] = useState('')
-  const [suggestIndex, setSuggestIndex] = useState(-1)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [imgError, setImgError] = useState(false)
   const [newListName, setNewListName] = useState('')
-  const tagInputRef = useRef<HTMLInputElement>(null)
 
   const domain = getDomain(gem.url)
   const preview = (!imgError && (gem.screenshot_url || gem.image_url)) || null
 
   // Reset local state when switching to a different gem.
   useEffect(() => {
-    setTags(gem.tags || [])
-    setTagInput('')
     setConfirmingDelete(false)
     setImgError(false)
   }, [gem.id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -101,42 +89,6 @@ export function GemDetail({
       document.body.style.overflow = prevOverflow
     }
   }, [onClose])
-
-  const suggestions = tagInput
-    ? allTags.filter(
-        (t) => t.toLowerCase().includes(tagInput.toLowerCase()) && !tags.includes(t)
-      )
-    : []
-
-  const commitTags = (next: string[]) => {
-    setTags(next)
-    onTagsUpdate(gem.id, next)
-  }
-
-  const addTag = (raw: string) => {
-    const clean = raw.toLowerCase().trim()
-    if (clean && !tags.includes(clean)) commitTags([...tags, clean])
-    setTagInput('')
-    setSuggestIndex(-1)
-  }
-
-  const removeTag = (tag: string) => commitTags(tags.filter((t) => t !== tag))
-
-  const handleTagKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      if (suggestIndex >= 0 && suggestions[suggestIndex]) addTag(suggestions[suggestIndex])
-      else if (tagInput.trim()) addTag(tagInput)
-    } else if (e.key === 'Backspace' && !tagInput && tags.length) {
-      removeTag(tags[tags.length - 1])
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSuggestIndex(Math.min(suggestIndex + 1, suggestions.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSuggestIndex(Math.max(suggestIndex - 1, -1))
-    }
-  }
 
   return (
     <div
@@ -194,59 +146,6 @@ export function GemDetail({
             {gem.created_at && ' · '}
             {domain}
           </p>
-
-          {/* Tags */}
-          <div className="mt-6">
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-stone-400">
-              tags
-            </p>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center gap-1 rounded-full bg-white border border-[#26221c]/15 px-2.5 py-1 text-xs text-ink"
-                >
-                  {tag}
-                  <button
-                    onClick={() => removeTag(tag)}
-                    aria-label={`remove ${tag}`}
-                    className="text-stone-400 hover:text-red-600"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="relative mt-2">
-              <input
-                ref={tagInputRef}
-                type="text"
-                value={tagInput}
-                onChange={(e) => {
-                  setTagInput(e.target.value)
-                  setSuggestIndex(-1)
-                }}
-                onKeyDown={handleTagKeyDown}
-                placeholder={tags.length ? 'add a tag…' : 'add tags…'}
-                className="w-full rounded-lg border border-[#26221c]/15 bg-white px-3 py-2 text-sm focus:border-ink/50 focus:outline-none"
-              />
-              {suggestions.length > 0 && (
-                <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-32 overflow-y-auto rounded-lg border border-[#26221c]/15 bg-white shadow-lg">
-                  {suggestions.map((s, i) => (
-                    <button
-                      key={s}
-                      onClick={() => addTag(s)}
-                      className={`block w-full px-3 py-1.5 text-left text-xs transition-colors ${
-                        i === suggestIndex ? 'bg-stone-100 text-ink' : 'text-stone-600 hover:bg-stone-50'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
 
           {/* Lists */}
           {onToggleListMembership && (

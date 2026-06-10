@@ -14,8 +14,6 @@ interface BookmarkCardProps {
   screenshotUrl: string | null
   faviconUrl: string | null
   rawMetadata?: any
-  tags: string[]
-  allTags?: string[]
   note?: string | null
   isOwner: boolean
   cardType?:
@@ -29,7 +27,6 @@ interface BookmarkCardProps {
     | 'lth'
     | null
   onDelete?: (id: string) => void
-  onTagsUpdate?: (id: string, tags: string[]) => void
   onNoteUpdate?: (id: string, note: string | null) => void
   // When set (owner view), clicking the card opens the gem detail modal
   // instead of navigating to the original URL.

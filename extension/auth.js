@@ -192,11 +192,6 @@ export async function saveGem(payload) {
   return apiPost('/api/extension/save', payload)
 }
 
-// Update the tags on an already-saved gem. `tags` is the full replacement list.
-export async function updateTags(id, tags) {
-  return apiPost('/api/extension/tags', { id, tags })
-}
-
 // ── Lists ───────────────────────────────────────────────────────────
 // The signed-in user's lists: [{ id, name, slug }].
 export async function getLists() {

@@ -47,7 +47,9 @@ export async function embed(
 }
 
 // Build the string we embed for a bookmark. Kept in one place so backfill
-// and save-path produce identical text.
+// and save-path produce identical text. Tags were removed as a signal — search
+// now rides on title + description + domain alone. `tags` stays in the param
+// type (ignored) so existing callers keep compiling.
 export function bookmarkToEmbedText(b: {
   title?: string | null
   description?: string | null
@@ -60,7 +62,6 @@ export function bookmarkToEmbedText(b: {
     b.title || '',
     b.description || '',
     host,
-    ...(b.tags || []),
   ]
     .filter(Boolean)
     .join(' — ')

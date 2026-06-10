@@ -125,7 +125,7 @@ export default function ProfilePage() {
   const haystackFor = (b: any) => {
     let host = ''
     try { host = new URL(b.url).hostname.replace(/^www\./, '') } catch {}
-    return [b.title, b.description, b.url, host, ...(b.tags || [])]
+    return [b.title, b.description, b.url, host]
       .filter(Boolean)
       .join(' ')
       .toLowerCase()
@@ -245,13 +245,6 @@ export default function ProfilePage() {
     setFiltered((prev) => prev.filter((b) => b.id !== id))
   }
 
-  const handleTagsUpdate = async (id: string, newTags: string[]) => {
-    await supabase.from('bookmarks').update({ tags: newTags }).eq('id', id)
-    const update = (list: any[]) => list.map((b) => b.id === id ? { ...b, tags: newTags } : b)
-    setBookmarks(update)
-    setFiltered(update)
-  }
-
   const handleNoteUpdate = async (id: string, newNote: string | null) => {
     const { error } = await supabase.from('bookmarks').update({ note: newNote }).eq('id', id)
     if (error && /note/i.test(error.message || '')) {
@@ -361,22 +354,6 @@ export default function ProfilePage() {
     setLists((prev) => prev.map((l) => (l.id === listId ? { ...l, name: clean } : l)))
   }
 
-  // Collect all tags (still needed for tag-editor suggestions on owner cards).
-  const allTags = Array.from(new Set(bookmarks.flatMap((b) => b.tags || []))).sort()
-
-  // Tag-based list suggestion: the most-used tag (≥3 gems) that isn't already
-  // a list — the "N saves tagged X. Make them a list →" nudge.
-  const listSuggestion = (() => {
-    if (!isOwner) return null
-    const names = new Set(lists.map((l) => l.name.toLowerCase()))
-    const counts: Record<string, number> = {}
-    bookmarks.forEach((b) => (b.tags || []).forEach((t: string) => { counts[t] = (counts[t] || 0) + 1 }))
-    const top = Object.entries(counts)
-      .filter(([tag, c]) => c >= 3 && !names.has(tag.toLowerCase()))
-      .sort((a, b) => b[1] - a[1])[0]
-    return top ? { tag: top[0], count: top[1] } : null
-  })()
-
   const activeList = activeListId ? lists.find((l) => l.id === activeListId) : null
   const listGems = activeList
     ? bookmarks.filter((b) => activeList.bookmark_ids.includes(b.id))
@@ -410,15 +387,12 @@ export default function ProfilePage() {
           screenshotUrl={b.screenshot_url}
           faviconUrl={b.favicon_url}
           rawMetadata={b.raw_metadata}
-          tags={b.tags || []}
-          allTags={allTags}
           note={b.note}
           isOwner={isOwner}
           cardType={b.card_type}
           inLists={(listsByBookmark.get(b.id) || []).filter((l) => l.id !== excludeListId)}
           ownerUsername={profile.username}
           onDelete={handleDelete}
-          onTagsUpdate={handleTagsUpdate}
           onNoteUpdate={handleNoteUpdate}
           onOpen={isOwner ? setSelectedId : undefined}
         />
@@ -727,25 +701,6 @@ export default function ProfilePage() {
         {/* ── Lists overview ── */}
         {view === 'lists' && !activeList && (
           <>
-            {listSuggestion && (
-              <button
-                onClick={async () => {
-                  const ids = bookmarks
-                    .filter((b) => (b.tags || []).includes(listSuggestion.tag))
-                    .map((b) => b.id)
-                  const id = await handleCreateList(listSuggestion.tag, ids)
-                  if (id) setActiveListId(id)
-                }}
-                className="mb-8 flex w-full items-center gap-3 rounded-2xl border border-dashed border-stone-300 bg-white/50 px-5 py-4 text-left transition-colors hover:border-stone-400 hover:bg-white"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink text-paper">+</span>
-                <span className="text-sm text-stone-700">
-                  <strong className="font-medium text-ink">{listSuggestion.count} saves</strong> are tagged{' '}
-                  <strong className="font-medium text-ink">{listSuggestion.tag}</strong>. Make them a list →
-                </span>
-              </button>
-            )}
-
             {lists.length > 0 || isOwner ? (
               <div className="grid grid-cols-2 gap-6 sm:grid-cols-3 lg:grid-cols-4">
                 {lists.map((l) => (
@@ -923,10 +878,8 @@ export default function ProfilePage() {
         return (
           <GemDetail
             gem={gem}
-            allTags={allTags}
             lists={lists}
             onClose={() => setSelectedId(null)}
-            onTagsUpdate={handleTagsUpdate}
             onNoteUpdate={handleNoteUpdate}
             onDelete={handleDelete}
             onToggleListMembership={handleToggleMembership}

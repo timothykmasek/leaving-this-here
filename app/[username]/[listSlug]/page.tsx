@@ -112,7 +112,6 @@ export default function ListPage() {
                 screenshotUrl={b.screenshot_url}
                 faviconUrl={b.favicon_url}
                 rawMetadata={b.raw_metadata}
-                tags={b.tags || []}
                 note={b.note}
                 isOwner={false}
                 cardType={b.card_type}

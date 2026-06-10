@@ -94,24 +94,8 @@ export async function POST(request: NextRequest) {
   const image_url = imageOverride || meta.image
   const favicon_url = meta.favicon
 
-  // 5. Auto-tag (best effort — never block the save on it)
-  let tags: string[] = []
-  try {
-    const origin = new URL(request.url).origin
-    const tagRes = await fetch(`${origin}/api/generate-tags`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, title, description }),
-    })
-    if (tagRes.ok) {
-      const tagData = await tagRes.json()
-      if (Array.isArray(tagData.tags)) tags = tagData.tags
-    }
-  } catch {
-    // tagging is optional
-  }
-
-  // 6. Insert
+  // 5. Insert (tags removed — gems are organized into lists and found via
+  //    semantic search, no auto-tagging step)
   const { data: inserted, error: insertErr } = await supabase
     .from('bookmarks')
     .insert({
@@ -121,11 +105,10 @@ export async function POST(request: NextRequest) {
       description,
       image_url,
       favicon_url,
-      tags,
       note,
       raw_metadata: meta.raw,
     })
-    .select('id, title, image_url, favicon_url, tags')
+    .select('id, title, image_url, favicon_url')
     .single()
 
   if (insertErr) {
@@ -138,7 +121,7 @@ export async function POST(request: NextRequest) {
 
   // 7. Embed in the background (best effort — non-fatal)
   try {
-    const text = bookmarkToEmbedText({ title, description, url, tags })
+    const text = bookmarkToEmbedText({ title, description, url })
     if (text.trim()) {
       const [vector] = await embed([text], 'document')
       // pgvector expects the string-literal format `[0.1, 0.2, ...]`.

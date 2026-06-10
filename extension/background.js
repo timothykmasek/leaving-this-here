@@ -11,7 +11,6 @@
 
 import {
   saveGem,
-  updateTags,
   getSession,
   signOut,
   getLists,
@@ -124,7 +123,7 @@ async function saveFlow(tab, payload) {
     const result = await saveGem(payload)
     const bm = result?.bookmark || {}
     if (injected) {
-      toast(tabId, 'saved', { id: bm.id, title: bm.title, tags: bm.tags || [] })
+      toast(tabId, 'saved', { id: bm.id, title: bm.title })
     } else {
       notify('Saved 💎', bm.title || 'Added to your collection.')
     }
@@ -152,12 +151,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       sendResponse({ ok: true })
     })()
     return true // keep the channel open for the async response
-  }
-  if (msg?.type === 'ig-update-tags') {
-    updateTags(msg.id, msg.tags)
-      .then((r) => sendResponse({ ok: true, tags: r.tags }))
-      .catch((e) => sendResponse({ error: String(e.message || e) }))
-    return true
   }
   if (msg?.type === 'ig-get-lists') {
     getLists()
