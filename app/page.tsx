@@ -37,7 +37,7 @@ export default async function Home({
   }
 
   // Public landing examples: curated picks (FEATURED_URLS) in their given
-  // order, else fall back to recent image-bearing gems.
+  // order, else fall back to recent image-bearing finds.
   let recent: any[] = []
   if (FEATURED_URLS.length > 0) {
     const { data } = await supabase.from('bookmarks').select('*').in('url', FEATURED_URLS)
@@ -77,7 +77,7 @@ export default async function Home({
       {/* Recent community bookmarks */}
       <section id="showcase" className="mx-auto max-w-6xl px-4 pb-24 sm:px-6 lg:px-8">
         <div className="text-center mb-8">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif">recent gems from the community</p>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif">recent finds from the community</p>
         </div>
 
         {recent && recent.length > 0 && (
@@ -97,7 +97,7 @@ export default async function Home({
               <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif mb-2">1 · save</p>
               <h3 className="font-serif text-xl text-ink mb-2">one click, from any page</h3>
               <p className="text-sm text-stone-500 leading-relaxed">
-                articles, videos, podcasts, tweets — any internet gem lands in the same place.
+                articles, videos, podcasts, tweets — anything you find lands in the same place.
               </p>
             </div>
             <div>
@@ -117,13 +117,13 @@ export default async function Home({
           <div className="mb-5 flex justify-center text-ink/45"><GemGlyph className="h-7 w-7" /></div>
           <h2 className="font-serif text-3xl font-normal text-ink mb-4">start your collection</h2>
           <p className="text-sm text-stone-500 mb-8">
-            pick a handle, start saving, watch your gems pile up.
+            pick a handle, start saving, watch your finds pile up.
           </p>
           <form action="/login" method="get" className="flex items-stretch gap-2 max-w-md mx-auto">
             <input type="hidden" name="mode" value="signup" />
             <div className="flex-1 flex items-stretch border border-stone-300 rounded-full bg-white/70 overflow-hidden focus-within:ring-1 focus-within:ring-stone-400">
               <span className="flex items-center pl-5 pr-1 text-sm text-stone-400 select-none">
-                internet-gems.com/
+                according-to.com/
               </span>
               <input
                 type="text"

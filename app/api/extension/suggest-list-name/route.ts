@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     .join('\n')
 
   const prompt =
-    `On "internet gems", a list is a collection a person curates around WHY ` +
+    `On "according to", a list is a collection a person curates around WHY ` +
     `they saved things — a purpose, theme, mood, or project (e.g. "Design ` +
     `Inspo", "Weekend Reads", "Gift Ideas", "Recipes to Try") — NOT what the ` +
     `page is about. Avoid generic topic tags like "technology", "ai", or ` +

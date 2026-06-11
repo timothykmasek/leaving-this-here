@@ -1,25 +1,21 @@
-// A small, original line-drawn gem (brilliant, side view) — thin engraved
-// strokes in currentColor. Used in the wordmark and as a quiet hero motif.
+// Brand mark for "according to" — an opening quotation mark (citation motif),
+// filled in currentColor. Named GemGlyph for historical reasons (it predates the
+// rename and is imported in a few places); the drawing is now a quote mark, not
+// a gem. Used in the wordmark and as a quiet hero motif.
 export function GemGlyph({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 28 28"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.1"
-      strokeLinejoin="round"
-      strokeLinecap="round"
+      fill="currentColor"
       className={className}
       aria-hidden
     >
-      {/* outline: table → crown → girdle → pavilion point */}
-      <path d="M9 5 H19 L24 11 L14 24 L4 11 Z" />
-      {/* girdle */}
-      <path d="M4 11 H24" />
-      {/* crown facets */}
-      <path d="M9 5 L11 11 M19 5 L17 11" />
-      {/* pavilion facets */}
-      <path d="M11 11 L14 24 M17 11 L14 24 M14 11 V24" />
+      {/* left mark — ball with a tail sweeping up (opening quote) */}
+      <circle cx="9" cy="15" r="3" />
+      <path d="M6.2 13.8 Q 7 8 11 7.5 Q 9.2 10.6 9.2 14 Z" />
+      {/* right mark */}
+      <circle cx="18" cy="15" r="3" />
+      <path d="M15.2 13.8 Q 16 8 20 7.5 Q 18.2 10.6 18.2 14 Z" />
     </svg>
   )
 }

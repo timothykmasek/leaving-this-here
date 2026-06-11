@@ -13,7 +13,7 @@ const display = Newsreader({
 })
 
 export const metadata: Metadata = {
-  title: 'internet gems',
+  title: 'according to',
   description: 'Save the links worth keeping.',
 }
 

@@ -163,13 +163,13 @@ function SetupInner() {
           <div>
             <h1 className="text-3xl font-light text-gray-900 mb-2">Claim your collection.</h1>
             <p className="text-sm text-gray-500 mb-8">
-              A public URL for the internet gems you don&rsquo;t want to lose.
+              A public URL for the finds you don&rsquo;t want to lose.
             </p>
             <form onSubmit={claimHandle} className="space-y-5">
               <div>
                 <div className="flex items-stretch border border-gray-200 rounded-full bg-white overflow-hidden focus-within:ring-1 focus-within:ring-gray-400">
                   <span className="flex items-center pl-5 pr-1 text-sm text-gray-400 select-none">
-                    internet-gems.com/
+                    according-to.com/
                   </span>
                   <input
                     type="text"
@@ -254,7 +254,7 @@ function SetupInner() {
 
         {step === 'first-save' && (
           <div>
-            <h1 className="text-3xl font-light text-gray-900 mb-2">Your first gem.</h1>
+            <h1 className="text-3xl font-light text-gray-900 mb-2">Your first find.</h1>
             <p className="text-sm text-gray-500 mb-8">
               Paste a URL you&apos;ve been meaning to read. It&apos;ll appear on your public
               collection page.
@@ -278,7 +278,7 @@ function SetupInner() {
                 disabled={firstSaveBusy || !firstSaveUrl.trim()}
                 className="w-full px-5 py-3 bg-gray-900 text-white rounded-full text-sm font-semibold hover:bg-gray-800 disabled:opacity-60"
               >
-                {firstSaveBusy ? 'saving...' : 'add this gem →'}
+                {firstSaveBusy ? 'saving...' : 'add this find →'}
               </button>
               <button
                 type="button"
@@ -293,9 +293,9 @@ function SetupInner() {
 
         {step === 'done' && (
           <div className="text-center pt-4">
-            <h1 className="text-3xl font-light text-gray-900 mb-3">You&apos;re live. 💎</h1>
+            <h1 className="text-3xl font-light text-gray-900 mb-3">You&apos;re live.</h1>
             <p className="text-sm text-gray-500 mb-8 leading-relaxed">
-              <span className="font-mono text-gray-700">internet-gems.com/{username}</span>
+              <span className="font-mono text-gray-700">according-to.com/{username}</span>
               <br />
               is now your collection. Taking you there...
             </p>

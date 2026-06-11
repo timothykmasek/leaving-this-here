@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
   const image_url = imageOverride || meta.image
   const favicon_url = meta.favicon
 
-  // 5. Insert (tags removed — gems are organized into lists and found via
+  // 5. Insert (tags removed — finds are organized into lists and found via
   //    semantic search, no auto-tagging step)
   const { data: inserted, error: insertErr } = await supabase
     .from('bookmarks')

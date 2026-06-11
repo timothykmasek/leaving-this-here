@@ -1,4 +1,4 @@
-// On-page "gem" toast — injected into the active tab by the background worker.
+// On-page "find" toast — injected into the active tab by the background worker.
 // Visual treatment mirrors mymind's save card: a clean white rounded card with
 // a coral top accent, a circular line-art icon, friendly rounded-sans text, and
 // a collapsible "Add to a list" row. Once saved you can add the gem to a list,
@@ -28,6 +28,13 @@
   }
 
   const DISMISS_MS = 4000
+
+  // Brand mark — opening quotation mark ("according to"), matches the web
+  // wordmark glyph. Used as the saved-state icon.
+  const MARK =
+    '<svg viewBox="0 0 28 28" width="20" height="20" fill="currentColor" aria-hidden="true">' +
+    '<circle cx="9" cy="15" r="3"/><path d="M6.2 13.8 Q 7 8 11 7.5 Q 9.2 10.6 9.2 14 Z"/>' +
+    '<circle cx="18" cy="15" r="3"/><path d="M15.2 13.8 Q 16 8 20 7.5 Q 18.2 10.6 18.2 14 Z"/></svg>'
 
   const host = document.createElement('div')
   host.id = 'internet-gems-toast-host'
@@ -119,7 +126,7 @@
     <div class="card" id="card">
       <div class="accent"></div>
       <div class="head" id="head">
-        <span class="icon" id="icon">💎</span>
+        <span class="icon" id="icon"><svg viewBox="0 0 28 28" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="9" cy="15" r="3"/><path d="M6.2 13.8 Q 7 8 11 7.5 Q 9.2 10.6 9.2 14 Z"/><circle cx="18" cy="15" r="3"/><path d="M15.2 13.8 Q 16 8 20 7.5 Q 18.2 10.6 18.2 14 Z"/></svg></span>
         <span class="msg" id="msg">One moment, saving…</span>
       </div>
       <div class="title" id="title" style="display:none"></div>
@@ -195,7 +202,7 @@
     el('icon').innerHTML = html
   }
   function setSpinner(on) {
-    setIcon(on ? '<span class="spin"></span>' : '💎')
+    setIcon(on ? '<span class="spin"></span>' : MARK)
   }
 
   // ── lists ──────────────────────────────────────────────────────────
@@ -339,7 +346,7 @@
 
   function showSaved(data) {
     setSpinner(false)
-    setMsg('Saved to your gems')
+    setMsg('Saved to your finds')
     bookmarkId = data && data.id
     if (data && data.title) {
       el('title').textContent = data.title
@@ -387,7 +394,7 @@
         showSaved(data)
       } else if (state === 'duplicate') {
         setSpinner(false)
-        setMsg('Already in your gems')
+        setMsg('Already in your finds')
         if (data && data.title) {
           el('title').textContent = data.title
           el('title').style.display = ''

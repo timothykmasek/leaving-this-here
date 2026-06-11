@@ -1,6 +1,6 @@
-# internet gems — Chrome extension
+# according to — Chrome extension
 
-One-click saving of any page, image, or quote into your internet gems
+One-click saving of any page, image, or quote into your according to
 collection. Authenticates with Google (via Supabase) and posts to the web
 app's `/api/extension/save` endpoint, which runs the full enrichment
 pipeline server-side (metadata → auto-tags → embedding).
@@ -11,11 +11,11 @@ mymind-style, one-click:
 
 - **Toolbar icon (signed in)** → saves the current page *immediately*. No popup,
   no preview, no "save" button. A small **on-page toast** slides in ("Saving…"
-  → "Saved to your gems") where you can **add/remove tags inline** right after.
+  → "Saved to your finds") where you can **add it to a list** right after.
 - **Toolbar icon (signed out)** → opens a tiny popup whose only job is Google
   sign-in. The moment you sign in it saves the page you were on and closes.
 - **Right-click a page / image / selection** → save just that. Same on-page toast.
-- **Right-click the toolbar icon** → "Open my gems" / "Sign out".
+- **Right-click the toolbar icon** → "Open my finds" / "Sign out".
 - **Auth**: Google sign-in via `chrome.identity.launchWebAuthFlow` against
   Supabase's OAuth endpoint (implicit flow). Tokens live in
   `chrome.storage.local` and auto-refresh, so you stay signed in.
@@ -63,16 +63,16 @@ https://<extension-id>.chromiumapp.org/
 
 ### 3. Point at the right API
 `config.js` → `API_BASE`:
-- Production (default): `https://www.internet-gems.com` (the canonical host —
+- Production (default): `https://www.according-to.com` (the canonical host —
   the apex 308-redirects to it, and a redirect can drop the auth header).
 - Local testing: `http://localhost:3000` (run `npm run dev`).
 - Confirm `manifest.json` `host_permissions` covers whichever you use.
 
 ## Usage
-- Click the 💎 icon on any page → it saves instantly; an on-page card confirms
-  it and lets you add tags.
-- Right-click a page / image / selection → **Save … to internet gems 💎**.
-- Right-click the toolbar icon → **Open my gems** / **Sign out**.
+- Click the according to icon on any page → it saves instantly; an on-page card
+  confirms it and lets you add it to a list.
+- Right-click a page / image / selection → **Save … to according to**.
+- Right-click the toolbar icon → **Open my finds** / **Sign out**.
 
 ## Notes
 - The Supabase anon key in `config.js` is a public client key (same as the web

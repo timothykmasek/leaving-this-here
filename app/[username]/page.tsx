@@ -7,6 +7,7 @@ import { BookmarkCard } from '@/components/BookmarkCard'
 import { GemDetail } from '@/components/GemDetail'
 import { SocialLinks } from '@/components/SocialLinks'
 import { SaveHelp } from '@/components/SaveHelp'
+import { GemGlyph } from '@/components/GemGlyph'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { uniqueSlug } from '@/lib/slug'
 
@@ -441,7 +442,7 @@ export default function ProfilePage() {
                   onClick={() => setSaveOpen((v) => !v)}
                   className="relative inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-gray-200 rounded-full text-gray-700 hover:text-gray-900 hover:border-gray-400 transition-colors"
                 >
-                  <span aria-hidden>+</span> save a gem
+                  <span aria-hidden>+</span> save a find
                   {/* Quiet pulse for early-stage users who haven't installed the
                       bookmarklet yet — fades out once they have ≥ 5 gems. */}
                   {bookmarks.length > 0 && bookmarks.length < 5 && !saveOpen && (
@@ -577,7 +578,7 @@ export default function ProfilePage() {
           <div className="flex gap-5 text-xs uppercase tracking-wider text-gray-400">
             <span>
               <span className="text-gray-900 font-medium">{bookmarks.length}</span>{' '}
-              <span>{bookmarks.length === 1 ? 'gem' : 'gems'}</span>
+              <span>{bookmarks.length === 1 ? 'find' : 'finds'}</span>
             </span>
             {(() => {
               const latest = bookmarks[0]?.created_at
@@ -594,7 +595,7 @@ export default function ProfilePage() {
             the actual install steps) is open. */}
         {isOwner && extInstalled === false && !extNudgeDismissed && !saveOpen && (
           <div className="mb-8 flex items-center gap-3 rounded-xl border border-gray-200 bg-white/60 px-4 py-3">
-            <span aria-hidden className="text-lg">💎</span>
+            <GemGlyph className="h-5 w-5 shrink-0 text-ink/40" />
             <p className="flex-1 text-sm text-gray-700">
               Save twice as fast — add the Chrome extension to grab any page in
               one click.
@@ -629,7 +630,7 @@ export default function ProfilePage() {
 
             {bookmarks.length === 0 ? (
               <div className="mb-4">
-                <h2 className="text-xl font-light text-gray-900 mb-1">save your first gem 💎</h2>
+                <h2 className="text-xl font-light text-gray-900 mb-1">save your first find</h2>
                 <p className="text-sm text-gray-500">
                   paste any link to get started — articles, videos, products, anything.
                 </p>
@@ -670,7 +671,7 @@ export default function ProfilePage() {
             <input
               type="text"
               value={query}
-              placeholder="search your gems…"
+              placeholder="search your finds…"
               onChange={(e) => {
                 const v = e.target.value
                 setQuery(v)
@@ -822,7 +823,7 @@ export default function ProfilePage() {
                 renderGemGrid(filtered)
               ) : (
                 <div className="text-center py-16">
-                  <p className="text-gray-500 text-sm">no gems yet 💎</p>
+                  <p className="text-gray-500 text-sm">no finds yet</p>
                 </div>
               )}
             </section>
@@ -878,7 +879,7 @@ export default function ProfilePage() {
                     </div>
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs uppercase tracking-wider text-stone-400">
-                    <span>{listGems.length} {listGems.length === 1 ? 'gem' : 'gems'}</span>
+                    <span>{listGems.length} {listGems.length === 1 ? 'find' : 'finds'}</span>
                     {activeList.slug && (
                       <>
                         <a
@@ -918,7 +919,7 @@ export default function ProfilePage() {
             ) : (
               <div className="text-center py-16">
                 <p className="text-gray-500 text-sm">
-                  empty list{isOwner ? ' — open a gem and add it to this list' : ''}
+                  empty list{isOwner ? ' — open a find and add it to this list' : ''}
                 </p>
               </div>
             )}

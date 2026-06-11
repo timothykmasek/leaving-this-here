@@ -93,7 +93,7 @@ export default function ListPage() {
           <div className="mt-3 flex gap-5 text-xs uppercase tracking-wider text-gray-400">
             <span>
               <span className="text-gray-900 font-medium">{gems.length}</span>{' '}
-              <span>{gems.length === 1 ? 'gem' : 'gems'}</span>
+              <span>{gems.length === 1 ? 'find' : 'finds'}</span>
             </span>
             {list.is_private && <span className="text-stone-400">private</span>}
           </div>

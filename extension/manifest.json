@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "internet gems — save anything",
+  "name": "according to — save anything",
   "version": "0.1.0",
-  "description": "Save any page, image, or quote to your internet gems collection in one click.",
+  "description": "Save any page, image, or quote to according to in one click.",
   "permissions": ["identity", "storage", "contextMenus", "activeTab", "scripting", "notifications"],
   "host_permissions": [
     "http://localhost:3000/*",
-    "https://www.internet-gems.com/*",
-    "https://internet-gems.com/*",
+    "https://www.according-to.com/*",
+    "https://according-to.com/*",
     "https://*.vercel.app/*",
     "https://*.supabase.co/*"
   ],
@@ -19,15 +19,15 @@
     {
       "matches": [
         "http://localhost:3000/*",
-        "https://www.internet-gems.com/*",
-        "https://internet-gems.com/*"
+        "https://www.according-to.com/*",
+        "https://according-to.com/*"
       ],
       "js": ["content/detect.js"],
       "run_at": "document_start"
     }
   ],
   "action": {
-    "default_title": "Save to internet gems",
+    "default_title": "Save to according to",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",

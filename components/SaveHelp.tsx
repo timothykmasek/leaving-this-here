@@ -38,8 +38,8 @@ export function SaveHelp({ extInstalled }: { extInstalled: boolean | undefined }
           <span className="text-emerald-600" aria-hidden>
             ✓
           </span>
-          Chrome extension installed — click the{' '}
-          <span aria-hidden>💎</span> icon on any page to save it instantly.
+          Chrome extension installed — click the according to icon on any page
+          to save it instantly.
         </p>
       ) : (
         <div>
@@ -47,7 +47,7 @@ export function SaveHelp({ extInstalled }: { extInstalled: boolean | undefined }
             save with one click
           </p>
           <p className="text-sm text-gray-700 mb-3">
-            Add the internet gems extension to Chrome to grab any page, image,
+            Add the according to extension to Chrome to grab any page, image,
             or quote with one click — no pasting URLs.
           </p>
 
@@ -75,9 +75,8 @@ export function SaveHelp({ extInstalled }: { extInstalled: boolean | undefined }
                 select the <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">extension</code> folder
               </li>
               <li>
-                <strong className="text-gray-900">3.</strong> pin the{' '}
-                <span aria-hidden>💎</span> icon — now one click saves the page
-                you're on
+                <strong className="text-gray-900">3.</strong> pin the according
+                to icon — now one click saves the page you're on
               </li>
             </ol>
           )}
@@ -101,7 +100,7 @@ export function SaveHelp({ extInstalled }: { extInstalled: boolean | undefined }
             onClick={(e) => e.preventDefault()}
             className="inline-block cursor-grab rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-medium text-white active:cursor-grabbing"
           >
-            save 💎
+            save
           </a>
           <button
             onClick={copy}

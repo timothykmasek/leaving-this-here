@@ -42,7 +42,7 @@ export function Header() {
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-serif text-lg tracking-tight text-ink">
             <GemGlyph className="h-[18px] w-[18px] text-ink/65" />
-            <span>internet gems</span>
+            <span>according to</span>
           </Link>
 
           <div className="flex items-center gap-6">

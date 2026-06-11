@@ -13,7 +13,7 @@ import {
 //
 // Processes `screenshot` and `lth` cards — the ones that rely on a screenshot
 // for their visual. `lth` rows that capture successfully are promoted to
-// `screenshot` so they render the image instead of the 💎 fallback.
+// `screenshot` so they render the image instead of the wordmark-glyph fallback.
 //
 // Requires SUPABASE_SERVICE_ROLE_KEY and SCREENSHOTONE_ACCESS_KEY in env.
 

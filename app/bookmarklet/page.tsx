@@ -28,10 +28,10 @@ export default function BookmarkletPage() {
       <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="mb-8">
           <h1 className="text-3xl font-light text-gray-900 mb-2">
-            save gems from anywhere 💎
+            save finds from anywhere
           </h1>
           <p className="text-gray-600 text-sm">
-            drag the button below to your bookmarks bar to save gems while
+            drag the button below to your bookmarks bar to save finds while
             browsing
           </p>
         </div>
@@ -47,10 +47,10 @@ export default function BookmarkletPage() {
               className="inline-block px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors cursor-grab active:cursor-grabbing"
               onClick={(e) => e.preventDefault()}
             >
-              save 💎
+              save
             </a>
             <p className="text-xs text-gray-500 mt-4">
-              then name it &ldquo;save 💎&rdquo;
+              then name it &ldquo;save&rdquo;
             </p>
           </div>
 

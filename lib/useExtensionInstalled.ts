@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-// Detects whether the internet gems Chrome extension is installed. The
+// Detects whether the according to Chrome extension is installed. The
 // extension's content script (extension/content/detect.js) runs at
 // document_start on our own origins and sets `data-ig-extension="1"` on <html>.
 //

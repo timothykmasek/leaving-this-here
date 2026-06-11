@@ -4,8 +4,8 @@
 // screenshot_url and re-request a fresh capture on every page view. On a full
 // grid (~768 screenshot cards) that fired hundreds of simultaneous requests at
 // a shared demo key, which rate-limited and returned JSON errors — the browser
-// blocked them (net::ERR_BLOCKED_BY_ORB) and the cards collapsed to the 💎
-// fallback.
+// blocked them (net::ERR_BLOCKED_BY_ORB) and the cards collapsed to the
+// wordmark-glyph fallback.
 //
 // The fix (mymind's model): capture each screenshot ONCE, store the bytes in
 // Supabase Storage, and serve the permanent CDN URL. No per-view API calls, no

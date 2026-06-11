@@ -47,23 +47,23 @@ function buildMenus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU.PAGE,
-      title: 'Save this page to internet gems 💎',
+      title: 'Save this page to according to',
       contexts: ['page', 'link'],
     })
     chrome.contextMenus.create({
       id: MENU.IMAGE,
-      title: 'Save this image to internet gems 💎',
+      title: 'Save this image to according to',
       contexts: ['image'],
     })
     chrome.contextMenus.create({
       id: MENU.SELECTION,
-      title: 'Save this quote to internet gems 💎',
+      title: 'Save this quote to according to',
       contexts: ['selection'],
     })
     // Items on the toolbar-icon right-click menu.
     chrome.contextMenus.create({
       id: MENU.OPEN,
-      title: 'Open my gems',
+      title: 'Open my finds',
       contexts: ['action'],
     })
     chrome.contextMenus.create({
@@ -95,7 +95,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === MENU.SIGNOUT) {
     await signOut()
     await syncPopup()
-    notify('Signed out', 'Click the 💎 icon to sign back in.')
+    notify('Signed out', 'Click the according to icon to sign back in.')
     return
   }
 
@@ -126,7 +126,7 @@ async function saveFlow(tab, payload) {
     if (injected) {
       toast(tabId, 'saved', { id: bm.id, title: bm.title })
     } else {
-      notify('Saved 💎', bm.title || 'Added to your collection.')
+      notify('Saved', bm.title || 'Added to your collection.')
     }
   } catch (err) {
     const msg = String(err.message || err)
@@ -201,7 +201,7 @@ async function promptSignIn() {
   try {
     await chrome.action.openPopup() // best effort — needs a recent gesture
   } catch {
-    notify('Sign in to save', 'Click the 💎 icon to sign in with Google.')
+    notify('Sign in to save', 'Click the according to icon to sign in with Google.')
   }
 }
 
