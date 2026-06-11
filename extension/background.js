@@ -16,6 +16,7 @@ import {
   getLists,
   createList,
   setListMembership,
+  suggestListName,
 } from './auth.js'
 import { CONFIG } from './config.js'
 
@@ -167,6 +168,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === 'ig-set-list') {
     setListMembership(msg.listId, msg.bookmarkId, msg.add)
       .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ error: String(e.message || e) }))
+    return true
+  }
+  if (msg?.type === 'ig-suggest-name') {
+    suggestListName(msg.bookmarkId)
+      .then((r) => sendResponse({ ok: true, name: (r && r.name) || null }))
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }

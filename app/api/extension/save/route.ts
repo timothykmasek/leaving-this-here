@@ -119,20 +119,26 @@ export async function POST(request: NextRequest) {
     return json({ error: insertErr.message }, 400)
   }
 
-  // 7. Embed in the background (best effort — non-fatal)
-  try {
-    const text = bookmarkToEmbedText({ title, description, url })
-    if (text.trim()) {
-      const [vector] = await embed([text], 'document')
-      // pgvector expects the string-literal format `[0.1, 0.2, ...]`.
-      const vectorLiteral = `[${vector.join(',')}]`
-      await supabase
-        .from('bookmarks')
-        .update({ embedding: vectorLiteral as any })
-        .eq('id', inserted.id)
-    }
-  } catch {
-    // embedding can be backfilled later; don't fail the save
+  // 7. Embed out-of-band so the response returns the instant the row exists —
+  //    the extension toast was waiting on this whole chain, and the embed adds
+  //    a full Voyage round-trip the user doesn't need to see. Best-effort and
+  //    non-fatal: if this serverless instance is frozen after responding, the
+  //    embedding is simply absent until /api/backfill-embeddings fills it in.
+  const embedText = bookmarkToEmbedText({ title, description, url })
+  if (embedText.trim()) {
+    void (async () => {
+      try {
+        const [vector] = await embed([embedText], 'document')
+        // pgvector expects the string-literal format `[0.1, 0.2, ...]`.
+        const vectorLiteral = `[${vector.join(',')}]`
+        await supabase
+          .from('bookmarks')
+          .update({ embedding: vectorLiteral as any })
+          .eq('id', inserted.id)
+      } catch {
+        // embedding can be backfilled later; don't fail the save
+      }
+    })()
   }
 
   return json({ ok: true, bookmark: inserted })

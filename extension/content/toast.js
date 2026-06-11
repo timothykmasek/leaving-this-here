@@ -27,7 +27,7 @@
     return
   }
 
-  const DISMISS_MS = 6000
+  const DISMISS_MS = 4000
 
   const host = document.createElement('div')
   host.id = 'internet-gems-toast-host'
@@ -113,13 +113,7 @@
       .lchip:hover { background: #e9e6df; }
       .lchip.on { background: #1d1d1f; color: #fff; }
       .lchip.on::before { content: '✓'; font-size: 11px; }
-      .published {
-        margin-top: 10px; font-size: 12.5px; color: #6e6e73; line-height: 1.4;
-      }
-      .copylink {
-        all: unset; cursor: pointer; color: #f0653f; font-weight: 600;
-      }
-      .copylink:hover { text-decoration: underline; }
+      .add.suggest::placeholder { color: #f0653f; opacity: .85; }
       .err .msg { color: #d23f3f; }
     </style>
     <div class="card" id="card">
@@ -136,7 +130,6 @@
         </div>
         <div class="tagbody" id="listbody">
           <div class="chips" id="listchips"></div>
-          <div class="published" id="published" style="display:none"></div>
         </div>
       </div>
     </div>
@@ -153,6 +146,10 @@
   // Lists: the user's lists [{ id, name, slug }] and which ones this gem is in.
   let lists = []
   let memberOf = new Set()
+  // A "why you saved it" name suggestion for a new list (arrives async, never
+  // blocks the card). `userTyped` suppresses it once the user starts typing.
+  let suggestedName = null
+  let userTyped = false
 
   document.documentElement.appendChild(host)
   requestAnimationFrame(() => card.classList.add('in'))
@@ -175,7 +172,11 @@
   function armDismiss(ms = DISMISS_MS) {
     clearDismiss()
     dismissTimer = setTimeout(() => {
-      if (hovering || editing) return armDismiss(1500)
+      // Stay open while the pointer is over the card, or while the user is
+      // mid-thought in the create field. The list input is auto-focused on
+      // save, so focus alone shouldn't pin the card open forever — only keep
+      // it up if they've actually started typing a name.
+      if (hovering || (editing && userTyped)) return armDismiss(1500)
       dismiss()
     }, ms)
   }
@@ -235,13 +236,27 @@
       wrap.appendChild(chip)
     }
     const input = document.createElement('input')
-    input.className = 'add'
-    input.placeholder = lists.length ? 'or create a list…' : 'create a list…'
+    input.className = 'add' + (suggestedName ? ' suggest' : '')
+    input.placeholder = suggestedName
+      ? `${suggestedName} — press ↵`
+      : lists.length ? 'or create a list…' : 'create a list…'
     input.addEventListener('focus', () => { editing = true; clearDismiss() })
     input.addEventListener('blur', () => { editing = false; armDismiss() })
+    input.addEventListener('input', () => { userTyped = !!input.value })
     input.addEventListener('keydown', (e) => {
+      // Tab accepts the suggestion into the field so it can be tweaked.
+      if (e.key === 'Tab' && suggestedName && !input.value.trim()) {
+        e.preventDefault()
+        input.value = suggestedName
+        input.classList.remove('suggest')
+        userTyped = true
+        return
+      }
       if (e.key === 'Enter') {
         e.preventDefault()
+        const typed = input.value.trim()
+        // Enter on an empty field accepts the ghost-text suggestion.
+        if (!typed && suggestedName) return createListByName(suggestedName)
         createListFromInput(input)
       }
     })
@@ -269,40 +284,48 @@
 
   function createListFromInput(input) {
     const name = input.value.trim()
-    if (!name || !bookmarkId) return
+    if (!name) return
     input.value = ''
+    createListByName(name)
+  }
+
+  // Create + publish a list and add this gem to it. Used by both the typed
+  // input and one-tap acceptance of the suggested name.
+  function createListByName(name) {
+    if (!name || !bookmarkId) return
     chrome.runtime.sendMessage(
       { type: 'ig-create-list', name, bookmarkId },
       (resp) => {
         if (resp && resp.ok && resp.list) {
           lists.unshift(resp.list)
           memberOf.add(resp.list.id)
+          suggestedName = null // consumed
           renderLists()
-          showPublished(resp.url, resp.list)
           focusListInput()
         }
       }
     )
   }
 
-  // Confirm a newly created list is live, with a one-click copy of its URL.
-  function showPublished(url, list) {
-    if (!url) return
-    const p = el('published')
-    p.style.display = ''
-    p.innerHTML = ''
-    const span = document.createElement('span')
-    span.textContent = `“${list.name}” is live · `
-    const copy = document.createElement('button')
-    copy.className = 'copylink'
-    copy.textContent = 'copy link'
-    copy.addEventListener('click', (e) => {
-      e.stopPropagation()
-      try { navigator.clipboard.writeText(url) } catch {}
-      copy.textContent = 'copied!'
-      setTimeout(() => { copy.textContent = 'copy link' }, 1500)
+  // Ask the backend for a "why you saved it" list-name suggestion. Fire-and-
+  // forget: if it never returns, the card is unaffected. Only surfaces if the
+  // user hasn't typed or already filed the gem into a list.
+  function loadSuggestion() {
+    if (!bookmarkId) return
+    chrome.runtime.sendMessage({ type: 'ig-suggest-name', bookmarkId }, (resp) => {
+      if (!resp || !resp.ok || !resp.name) return
+      if (userTyped || memberOf.size) return
+      suggestedName = resp.name
+      // Update the live input in place if it's empty (keeps focus); otherwise
+      // re-render to attach the ghost text.
+      const input = root.querySelector('#listchips .add')
+      if (input && !input.value) {
+        input.placeholder = `${suggestedName} — press ↵`
+        input.classList.add('suggest')
+      } else {
+        renderLists()
+      }
     })
-    p.append(span, copy)
   }
 
   function loadLists() {
@@ -325,10 +348,9 @@
     if (bookmarkId) {
       // Add the gem to a list (or create + publish a new one) right here.
       el('lists').style.display = ''
-      el('published').style.display = 'none'
       memberOf = new Set()
-      renderLists()
-      loadLists()
+      renderLists() // lists were prefetched at save time — show whatever's loaded
+      loadSuggestion()
       toggleLists(true)
     }
     armDismiss()
@@ -341,13 +363,18 @@
     editing = false
     lists = []
     memberOf = new Set()
+    suggestedName = null
+    userTyped = false
     el('title').style.display = 'none'
     el('lists').style.display = 'none'
-    el('published').style.display = 'none'
     toggleLists(false)
     card.classList.remove('err')
     setSpinner(true)
     setMsg('One moment, saving…')
+    // Prefetch the user's lists now, in parallel with the save round-trip, so
+    // the chips are ready the instant the gem lands instead of after a second
+    // sequential request.
+    loadLists()
     card.classList.add('in')
   }
 
@@ -377,6 +404,9 @@
   }
 
   setSpinner(true)
+  // First injection in a tab doesn't go through reset(); kick off the list
+  // prefetch here so it overlaps the in-flight save round-trip.
+  loadLists()
 
   chrome.runtime.onMessage.addListener((m) => {
     if (m && m.type === 'ig-toast' && window.__igToast) {

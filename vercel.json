@@ -1,1 +1,8 @@
-{}
+{
+  "crons": [
+    {
+      "path": "/api/cron/backfill-embeddings",
+      "schedule": "0 * * * *"
+    }
+  ]
+}

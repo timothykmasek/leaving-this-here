@@ -212,3 +212,9 @@ export async function setListMembership(listId, bookmarkId, add) {
     bookmark_id: bookmarkId,
   })
 }
+
+// Ask the backend for a "why you saved it" list-name suggestion for a gem.
+// Returns { name } (or { name: null } if nothing sensible could be generated).
+export async function suggestListName(bookmarkId) {
+  return apiPost('/api/extension/suggest-list-name', { bookmark_id: bookmarkId })
+}
