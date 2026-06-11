@@ -42,7 +42,10 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${origin}/${profile.username}`)
         }
       }
-      return NextResponse.redirect(`${origin}/setup`)
+      // No profile yet → the onboarding finish step. /start picks the stashed
+      // answers out of localStorage and publishes the page; if that state is
+      // gone (different browser), it falls back to the classic /setup wizard.
+      return NextResponse.redirect(`${origin}/start?finish=1`)
     }
   }
 

@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { GemGlyph } from '@/components/GemGlyph'
 import { Carousel } from '@/components/Carousel'
 import { CarouselCard } from '@/components/CarouselCard'
+import { ClaimField } from '@/components/ClaimField'
 import { FEATURED_URLS } from '@/lib/featured'
 
 export default async function Home({
@@ -32,7 +33,9 @@ export default async function Home({
     if (profile) {
       redirect(`/${profile.username}`)
     } else {
-      redirect('/setup')
+      // Signed in but no page yet → the onboarding finish step (it falls back
+      // to /setup itself if there's no stashed flow state in this browser).
+      redirect('/start?finish=1')
     }
   }
 
@@ -57,19 +60,21 @@ export default async function Home({
       {/* Hero */}
       <section className="relative">
         <div className="mx-auto max-w-2xl px-6 pt-28 pb-24 text-center sm:px-8">
+          <p className="mb-5 text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif">
+            claim your page · it&rsquo;s free
+          </p>
           <h1 className="font-serif text-[2rem] font-normal leading-[1.28] tracking-tight text-ink sm:text-[2.5rem]">
-            Collect and share
+            The good internet,
             <br />
-            <span className="italic text-stone-600">the internet&rsquo;s best finds.</span>
+            <span className="italic text-stone-600">according to you.</span>
           </h1>
+          <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-stone-500">
+            One page for the links you&rsquo;d actually vouch for — sorted,
+            shareable, and unmistakably yours. Start by claiming your name.
+          </p>
 
-          <div className="mt-10">
-            <Link
-              href="/login?mode=signup"
-              className="inline-block rounded-full bg-ink px-6 py-2.5 text-sm font-medium tracking-wide text-paper transition-colors hover:bg-ink/85"
-            >
-              start collecting
-            </Link>
+          <div className="mt-10 text-center">
+            <ClaimField />
           </div>
         </div>
       </section>
@@ -117,29 +122,9 @@ export default async function Home({
           <div className="mb-5 flex justify-center text-ink/45"><GemGlyph className="h-7 w-7" /></div>
           <h2 className="font-serif text-3xl font-normal text-ink mb-4">start your collection</h2>
           <p className="text-sm text-stone-500 mb-8">
-            pick a handle, start saving, watch your finds pile up.
+            pick a handle, answer three questions, land on a page that&rsquo;s already yours.
           </p>
-          <form action="/login" method="get" className="flex items-stretch gap-2 max-w-md mx-auto">
-            <input type="hidden" name="mode" value="signup" />
-            <div className="flex-1 flex items-stretch border border-stone-300 rounded-full bg-white/70 overflow-hidden focus-within:ring-1 focus-within:ring-stone-400">
-              <span className="flex items-center pl-5 pr-1 text-sm text-stone-400 select-none">
-                according-to.com/
-              </span>
-              <input
-                type="text"
-                name="handle"
-                placeholder="yourname"
-                autoComplete="off"
-                className="flex-1 py-3 pr-4 text-sm bg-transparent focus:outline-none"
-              />
-            </div>
-            <button
-              type="submit"
-              className="px-6 py-3 bg-ink text-white rounded-full text-sm font-semibold hover:bg-ink/85 transition-colors whitespace-nowrap"
-            >
-              claim it
-            </button>
-          </form>
+          <ClaimField />
         </div>
       </section>
     </main>

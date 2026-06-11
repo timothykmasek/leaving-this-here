@@ -8,6 +8,7 @@ import { GemDetail } from '@/components/GemDetail'
 import { SocialLinks } from '@/components/SocialLinks'
 import { SaveHelp } from '@/components/SaveHelp'
 import { GemGlyph } from '@/components/GemGlyph'
+import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { uniqueSlug } from '@/lib/slug'
 
@@ -425,6 +426,7 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-paper">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+        {isOwner && <WelcomeBanner />}
         {/* Hero — `group` enables the hover-reveal edit icon below */}
         <div className="mb-8 border-b border-gray-100 pb-6 group sm:mb-10 sm:pb-8">
           <div className="flex items-start justify-between gap-6 mb-4">
