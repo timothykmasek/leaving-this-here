@@ -1,4 +1,5 @@
 import { GemGlyph } from '@/components/GemGlyph'
+import { pickCardImage } from '@/lib/cardImage'
 
 // Fixed-size card for the homepage carousel — uniform 4:3 image (object-cover)
 // + a fixed-height title/domain footer, so every card is identical regardless
@@ -15,9 +16,7 @@ function domainOf(url: string): string {
 export function CarouselCard({ b }: { b: any }) {
   const domain = domainOf(b.url)
   const title = b.title?.trim() || domain
-  const ss: string | null = b.screenshot_url
-  const img =
-    ss && ss.includes('card-images') ? ss : b.image_url || (ss && ss.includes('screenshotone') ? ss : null)
+  const img = pickCardImage(b.url, b.image_url, b.screenshot_url)
 
   return (
     <a

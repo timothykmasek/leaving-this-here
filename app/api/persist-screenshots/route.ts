@@ -5,15 +5,19 @@ import {
   ensureBucket,
   isPersistedScreenshot,
 } from '@/lib/screenshot'
+import { prefersOgImage } from '@/lib/cardImage'
 
 // Capture screenshots ONCE and persist them to Supabase Storage, then point
 // screenshot_url at the permanent CDN copy. Replaces the old model where cards
 // re-requested a live screenshotone capture on every page view (which
 // rate-limited at grid scale).
 //
-// Processes `screenshot` and `lth` cards — the ones that rely on a screenshot
-// for their visual. `lth` rows that capture successfully are promoted to
-// `screenshot` so they render the image instead of the wordmark-glyph fallback.
+// Cards are screenshot-first (lib/cardImage.ts), so every bookmark wants a
+// persisted capture — EXCEPT content platforms (YouTube, Spotify, …) that
+// already have an og:image, where the og:image IS the content and wins; those
+// are marked with the '' sentinel so they leave the drain queue. `lth` rows
+// that capture successfully are promoted to `screenshot` so they render the
+// image instead of the wordmark-glyph fallback.
 //
 // Requires SUPABASE_SERVICE_ROLE_KEY and SCREENSHOTONE_ACCESS_KEY in env.
 
@@ -55,7 +59,7 @@ export async function POST(request: NextRequest) {
   // Single-bookmark mode (used by the live save path).
   let query = supabaseAdmin
     .from('bookmarks')
-    .select('id, url, card_type, screenshot_url')
+    .select('id, url, card_type, screenshot_url, image_url')
 
   if (id) {
     query = query.eq('id', id)
@@ -65,7 +69,6 @@ export async function POST(request: NextRequest) {
     // drop out of this set, so the runner can keep offset at 0 and the unfinished
     // set shrinks each pass — rate-limited rows are naturally retried next batch.
     query = query
-      .in('card_type', ['screenshot', 'lth'])
       .or('screenshot_url.is.null,screenshot_url.ilike.*screenshotone*')
       .order('created_at', { ascending: false })
       .limit(limit)
@@ -99,6 +102,18 @@ export async function POST(request: NextRequest) {
 
   const processRow = async (row: any) => {
     if (isPersistedScreenshot(row.screenshot_url)) {
+      skipped++
+      return
+    }
+
+    // Content platforms with an og:image don't want a screenshot — the
+    // og:image IS the content (cards prefer it; see lib/cardImage.ts). Mark
+    // with the sentinel so the row permanently leaves the drain queue.
+    if (prefersOgImage(row.url) && row.image_url) {
+      await supabaseAdmin
+        .from('bookmarks')
+        .update({ screenshot_url: '' })
+        .eq('id', row.id)
       skipped++
       return
     }

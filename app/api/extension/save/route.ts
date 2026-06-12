@@ -141,5 +141,15 @@ export async function POST(request: NextRequest) {
     })()
   }
 
+  // Kick off the one-time screenshot capture (cards are screenshot-first).
+  // Fire-and-forget like the embed above — persist-screenshots itself skips
+  // content platforms that already have an og:image.
+  const origin = new URL(request.url).origin
+  void fetch(`${origin}/api/persist-screenshots`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id: inserted.id }),
+  }).catch(() => {})
+
   return json({ ok: true, bookmark: inserted })
 }

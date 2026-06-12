@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { pickProduct, pickBook } from '@/lib/metadata'
+import { pickCardImage } from '@/lib/cardImage'
 import { GemGlyph } from '@/components/GemGlyph'
 
 interface BookmarkCardProps {
@@ -89,7 +90,7 @@ export function BookmarkCard({
 
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
-  const image = imageUrl || screenshotUrl || product?.image || book?.image || null
+  const image = pickCardImage(url, imageUrl, screenshotUrl) || product?.image || book?.image || null
   const hasImage = !!image && !imgError
 
   // List membership chip — first list links to its public page; extra lists
