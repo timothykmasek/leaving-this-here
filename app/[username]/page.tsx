@@ -435,6 +435,12 @@ export default function ProfilePage() {
                 {profile.display_name || profile.username}
               </h1>
 
+              {profile.bio && (
+                <p className="mb-3 max-w-xl text-sm leading-relaxed text-stone-500">
+                  {profile.bio}
+                </p>
+              )}
+
               <SocialLinks links={profile.links} />
             </div>
 
