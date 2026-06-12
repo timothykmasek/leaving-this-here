@@ -696,24 +696,30 @@ function ExtensionPitch({ onDone }: { onDone: () => void }) {
   return (
     <div>
       <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-stone-400 font-serif">
-        your page is live · one more thing
+        your page is live · last step
       </p>
       <h2 className="font-serif text-2xl text-ink mb-2">
-        Save from <em className="italic text-stone-600">anywhere</em> you find something good.
+        Add the <em className="italic text-stone-600">one-click saver</em> to Chrome.
       </h2>
       <p className="text-sm text-stone-500 mb-8">
-        Add the extension and a save is one click from any tab — filed straight
-        onto your page.
+        Your page grows every time you save — the extension makes that one click
+        from any tab.
       </p>
 
-      <div className="rounded-2xl border border-stone-300 bg-white/70 p-5 mb-8">
-        <p className="text-xs uppercase tracking-wider text-stone-400 mb-2">how it works</p>
-        <p className="text-sm text-stone-600 leading-relaxed">
-          Click the according to icon on any page → it saves instantly, and a small
-          card lets you file it into a list right there. Right-click to save just an
-          image or a quote.
-        </p>
-      </div>
+      <ol className="rounded-2xl border border-stone-300 bg-white/70 p-5 mb-8 space-y-3">
+        {[
+          ['1', 'add it to Chrome', 'one click, free, takes a few seconds.'],
+          ['2', 'pin it to your toolbar', 'click the puzzle icon in Chrome, then the pin next to according to.'],
+          ['3', 'save anything', 'click the quote mark on any page — it lands on your page, filed into a list right there.'],
+        ].map(([n, title, detail]) => (
+          <li key={n} className="flex gap-3 text-left">
+            <span className="shrink-0 font-serif text-stone-400 text-sm leading-relaxed">{n}.</span>
+            <p className="text-sm text-stone-600 leading-relaxed">
+              <span className="text-ink font-medium">{title}</span> — {detail}
+            </p>
+          </li>
+        ))}
+      </ol>
 
       <div className="flex flex-col items-start gap-3">
         {WEB_STORE_URL ? (
@@ -724,7 +730,7 @@ function ExtensionPitch({ onDone }: { onDone: () => void }) {
             onClick={() => setTimeout(onDone, 400)}
             className="rounded-full bg-ink px-6 py-3 text-sm font-medium text-paper hover:bg-ink/85 transition-colors"
           >
-            add to browser — it&rsquo;s free
+            add to Chrome — it&rsquo;s free
           </a>
         ) : (
           <button
@@ -734,9 +740,15 @@ function ExtensionPitch({ onDone }: { onDone: () => void }) {
             take me to my page →
           </button>
         )}
-        <button onClick={onDone} className="text-sm text-stone-400 hover:text-stone-600">
-          {WEB_STORE_URL ? 'skip — take me to my page' : 'you can add the extension later from your page'}
-        </button>
+        <p className="text-sm text-stone-400">
+          {WEB_STORE_URL ? (
+            <button onClick={onDone} className="hover:text-stone-600">
+              skip — take me to my page
+            </button>
+          ) : (
+            <>the extension hits the Chrome Web Store soon — you&rsquo;ll find it waiting on your page.</>
+          )}
+        </p>
       </div>
     </div>
   )
