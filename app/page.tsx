@@ -60,17 +60,13 @@ export default async function Home({
       {/* Hero */}
       <section className="relative">
         <div className="mx-auto max-w-2xl px-6 pt-28 pb-24 text-center sm:px-8">
-          <p className="mb-5 text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif">
-            claim your page · it&rsquo;s free
-          </p>
           <h1 className="font-serif text-[2rem] font-normal leading-[1.28] tracking-tight text-ink sm:text-[2.5rem]">
-            The good internet,
+            A Beautiful Home
             <br />
-            <span className="italic text-stone-600">according to you.</span>
+            <span className="italic text-stone-600">for Your Links</span>
           </h1>
           <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-stone-500">
-            One page for the links you&rsquo;d actually vouch for — sorted,
-            shareable, and unmistakably yours. Start by claiming your name.
+            Collect, organize, and share the links worth keeping.
           </p>
 
           <div className="mt-10 text-center">
@@ -97,19 +93,26 @@ export default async function Home({
       {/* How it works */}
       <section className="border-t border-stone-300/50 bg-stone-200/25">
         <div className="mx-auto max-w-4xl px-4 py-20 sm:px-6 lg:px-8">
-          <div className="grid sm:grid-cols-2 gap-12">
+          <div className="grid sm:grid-cols-3 gap-12">
             <div>
               <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif mb-2">1 · save</p>
               <h3 className="font-serif text-xl text-ink mb-2">one click, from any page</h3>
               <p className="text-sm text-stone-500 leading-relaxed">
-                articles, videos, podcasts, tweets — anything you find lands in the same place.
+                the chrome extension catches articles, videos, podcasts, tweets — anything you find lands in the same place.
               </p>
             </div>
             <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif mb-2">2 · share</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif mb-2">2 · find</p>
+              <h3 className="font-serif text-xl text-ink mb-2">search the way you remember</h3>
+              <p className="text-sm text-stone-500 leading-relaxed">
+                AI search means &ldquo;that essay about slow productivity&rdquo; just works — no digging for exact titles.
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif mb-2">3 · share</p>
               <h3 className="font-serif text-xl text-ink mb-2">your collection writes itself</h3>
               <p className="text-sm text-stone-500 leading-relaxed">
-                every save shows up on your public page, beautifully rendered — no extra work.
+                every save shows up on your public page, beautifully rendered — and you can publish lists of your best finds for anyone to browse.
               </p>
             </div>
           </div>
