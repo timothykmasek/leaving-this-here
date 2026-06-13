@@ -734,7 +734,7 @@ export default function ProfilePage() {
             {(lists.length > 0 || isOwner) && (
               <section className="mb-12">
                 <div className="mb-4 flex items-baseline justify-between">
-                  <h2 className="font-serif text-xl italic text-ink">Lists</h2>
+                  <h2 className="font-serif text-xl font-medium text-ink">Lists</h2>
                   {isOwner && lists.length > 0 && !creatingList && (
                     <button
                       onClick={() => setCreatingList(true)}
@@ -804,7 +804,7 @@ export default function ProfilePage() {
                       <button
                         key={l.id}
                         onClick={() => setActiveListId(l.id)}
-                        className="group flex flex-col rounded-2xl bg-white p-4 text-left shadow-[0_1px_3px_rgba(40,30,25,0.10)] ring-1 ring-black/[0.04] transition-shadow hover:shadow-[0_6px_20px_rgba(40,30,25,0.14)]"
+                        className="group flex flex-col rounded-2xl bg-stone-100 p-4 text-left shadow-[0_1px_3px_rgba(40,30,25,0.10)] ring-1 ring-black/[0.04] transition-shadow hover:shadow-[0_6px_20px_rgba(40,30,25,0.14)]"
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-stone-400">List</span>
