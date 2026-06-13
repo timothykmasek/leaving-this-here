@@ -51,6 +51,8 @@ export default function ProfilePage() {
   // List-detail rename + share affordances.
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
+  const [editingDesc, setEditingDesc] = useState(false)
+  const [descValue, setDescValue] = useState('')
   // Extension install nudge — dismissible, persisted so we only ask once.
   const [extNudgeDismissed, setExtNudgeDismissed] = useState(true)
   useEffect(() => {
@@ -295,16 +297,31 @@ export default function ProfilePage() {
     // Mint a stable slug from the name, unique among this owner's lists. Frozen
     // after creation so the published /username/<slug> URL never breaks.
     const slug = uniqueSlug(clean, lists.map((l) => l.slug).filter(Boolean))
+
+    // Generate description from bio + list name (fire-and-forget; populate inline after insert)
+    let description: string | null = null
+    try {
+      const genRes = await fetch('/api/generate-list-description', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bio: profile.bio || '', listName: clean }),
+      })
+      const genData = await genRes.json()
+      description = genData.description
+    } catch {
+      // Generation failed; just proceed without description
+    }
+
     let { data: list, error } = await supabase
       .from('lists')
-      .insert({ user_id: profile.id, name: clean, slug })
+      .insert({ user_id: profile.id, name: clean, slug, description })
       .select('id')
       .single()
     if (error && /slug/i.test(error.message || '')) {
       // Migration 009 not applied yet — fall back to a slugless insert.
       const retry = await supabase
         .from('lists')
-        .insert({ user_id: profile.id, name: clean })
+        .insert({ user_id: profile.id, name: clean, description })
         .select('id')
         .single()
       list = retry.data
@@ -356,6 +373,14 @@ export default function ProfilePage() {
     if (!clean) return
     await supabase.from('lists').update({ name: clean }).eq('id', listId)
     setLists((prev) => prev.map((l) => (l.id === listId ? { ...l, name: clean } : l)))
+  }
+
+  const handleUpdateDescription = async (listId: string, description: string) => {
+    const clean = description.trim()
+    await supabase.from('lists').update({ description: clean || null }).eq('id', listId)
+    setLists((prev) =>
+      prev.map((l) => (l.id === listId ? { ...l, description: clean || null } : l))
+    )
   }
 
   const activeList = activeListId ? lists.find((l) => l.id === activeListId) : null
@@ -898,6 +923,48 @@ export default function ProfilePage() {
                       </a>
                     )}
                   </div>
+                  {isOwner && (
+                    editingDesc ? (
+                      <textarea
+                        autoFocus
+                        value={descValue}
+                        onChange={(e) => setDescValue(e.target.value)}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter' && e.ctrlKey) {
+                            await handleUpdateDescription(activeList.id, descValue)
+                            setEditingDesc(false)
+                          } else if (e.key === 'Escape') {
+                            setEditingDesc(false)
+                          }
+                        }}
+                        onBlur={async () => {
+                          await handleUpdateDescription(activeList.id, descValue)
+                          setEditingDesc(false)
+                        }}
+                        className="mt-2 w-full bg-transparent border-b border-stone-300 pb-1 text-sm text-stone-600 focus:outline-none focus:border-stone-500 resize-none"
+                        rows={2}
+                        placeholder="add a description…"
+                      />
+                    ) : (
+                      <div className="mt-3">
+                        {activeList.description ? (
+                          <p
+                            onClick={() => { setDescValue(activeList.description || ''); setEditingDesc(true) }}
+                            className="text-sm text-stone-600 cursor-pointer hover:text-ink transition-colors"
+                          >
+                            {activeList.description}
+                          </p>
+                        ) : (
+                          <button
+                            onClick={() => { setDescValue(''); setEditingDesc(true) }}
+                            className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
+                          >
+                            + add description
+                          </button>
+                        )}
+                      </div>
+                    )
+                  )}
                 </div>
                 {isOwner && (
                   <button

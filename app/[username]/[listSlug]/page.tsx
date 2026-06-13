@@ -33,7 +33,7 @@ export default function ListPage() {
 
       const { data: l, error } = await supabase
         .from('lists')
-        .select('id, name, slug, is_private, list_bookmarks(bookmark_id)')
+        .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
         .eq('user_id', prof.id)
         .eq('slug', listSlug)
         .single()
@@ -90,6 +90,11 @@ export default function ListPage() {
           <h1 className="mt-2 font-serif text-2xl sm:text-[28px] font-normal italic tracking-tight text-ink leading-tight">
             {list.name}
           </h1>
+          {list.description && (
+            <p className="mt-3 text-sm text-stone-600">
+              {list.description}
+            </p>
+          )}
           <div className="mt-3 flex gap-5 text-xs uppercase tracking-wider text-gray-400">
             <span>
               <span className="text-gray-900 font-medium">{gems.length}</span>{' '}
