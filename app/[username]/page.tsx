@@ -734,7 +734,7 @@ export default function ProfilePage() {
             {(lists.length > 0 || isOwner) && (
               <section className="mb-12">
                 <div className="mb-4 flex items-baseline justify-between">
-                  <h2 className="font-serif text-xl font-medium text-ink">Collect, organize, and share the links worth keeping.</h2>
+                  <h2 className="font-serif text-xl font-medium text-ink">Lists</h2>
                   {isOwner && lists.length > 0 && !creatingList && (
                     <button
                       onClick={() => setCreatingList(true)}

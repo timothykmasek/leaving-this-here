@@ -66,7 +66,7 @@ export default async function Home({
             <span className="italic text-stone-600">for Your Links</span>
           </h1>
           <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-stone-500">
-            Create your public page in three questions. Then save links from anywhere — they show up on your page instantly.
+            Collect, organize, and share the links worth keeping.
           </p>
 
           <div className="mt-10 text-center">
