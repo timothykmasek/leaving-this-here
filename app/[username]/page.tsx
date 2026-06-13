@@ -51,7 +51,6 @@ export default function ProfilePage() {
   // List-detail rename + share affordances.
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
-  const [copiedLink, setCopiedLink] = useState(false)
   // Extension install nudge — dismissible, persisted so we only ask once.
   const [extNudgeDismissed, setExtNudgeDismissed] = useState(true)
   useEffect(() => {
@@ -63,7 +62,7 @@ export default function ProfilePage() {
   }
 
   // Leaving / switching a list closes any in-progress rename.
-  useEffect(() => { setRenaming(false); setCopiedLink(false) }, [activeListId])
+  useEffect(() => { setRenaming(false) }, [activeListId])
 
   useEffect(() => {
     const load = async () => {
@@ -889,26 +888,14 @@ export default function ProfilePage() {
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs uppercase tracking-wider text-stone-400">
                     <span>{listGems.length} {listGems.length === 1 ? 'find' : 'finds'}</span>
                     {activeList.slug && (
-                      <>
-                        <a
-                          href={`/${profile.username}/${activeList.slug}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="normal-case tracking-normal text-stone-400 hover:text-ink"
-                        >
-                          view public page ↗
-                        </a>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard?.writeText(`${window.location.origin}/${profile.username}/${activeList.slug}`)
-                            setCopiedLink(true)
-                            setTimeout(() => setCopiedLink(false), 1500)
-                          }}
-                          className="normal-case tracking-normal text-stone-400 hover:text-ink"
-                        >
-                          {copiedLink ? 'copied!' : 'copy link'}
-                        </button>
-                      </>
+                      <a
+                        href={`/${profile.username}/${activeList.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="normal-case tracking-normal text-stone-400 hover:text-ink"
+                      >
+                        view public page ↗
+                      </a>
                     )}
                   </div>
                 </div>

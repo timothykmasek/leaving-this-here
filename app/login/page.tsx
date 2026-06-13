@@ -86,19 +86,19 @@ function LoginPageInner() {
   // Show confirmation screen after sign up
   if (signedUp) {
     return (
-      <main className="min-h-screen bg-white flex items-center justify-center px-4">
-        <div className="w-full max-w-md text-center">
-          <h1 className="text-2xl font-light text-gray-900 mb-4">check your email</h1>
-          <p className="text-sm text-gray-500 mb-2">
-            we sent a confirmation link to <strong className="text-gray-900">{email}</strong>
+      <main className="min-h-screen bg-paper flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <h1 className="font-serif text-2xl text-ink mb-3">check your email</h1>
+          <p className="text-sm text-stone-600 mb-4">
+            we sent a confirmation link to <strong className="text-ink">{email}</strong>
           </p>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-stone-500">
             click the link in your inbox to finish setting up your account
           </p>
-          <div className="mt-8 pt-8 border-t border-gray-100">
+          <div className="mt-8 pt-8 border-t border-stone-300/50">
             <button
               onClick={() => { setSignedUp(false); setIsSignUp(false) }}
-              className="text-sm text-gray-400 hover:text-gray-900"
+              className="text-sm text-stone-400 hover:text-ink"
             >
               ← back to sign in
             </button>
@@ -109,63 +109,59 @@ function LoginPageInner() {
   }
 
   return (
-    <main className="min-h-screen bg-white flex items-center justify-center px-4">
+    <main className="min-h-screen bg-paper flex items-center justify-center px-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-light text-gray-900">
+          <h1 className="font-serif text-2xl text-ink">
             {isSignUp ? 'create an account' : 'welcome back'}
           </h1>
         </div>
 
         <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">email</label>
+            <label className="mb-1.5 block text-xs uppercase tracking-wider text-stone-400">email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 text-sm"
+              className="w-full rounded-xl border border-stone-300 bg-white/80 px-4 py-2.5 text-sm focus:outline-none focus:border-ink/60"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">password</label>
+            <label className="mb-1.5 block text-xs uppercase tracking-wider text-stone-400">password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400 text-sm"
+              className="w-full rounded-xl border border-stone-300 bg-white/80 px-4 py-2.5 text-sm focus:outline-none focus:border-ink/60"
               required
               minLength={6}
             />
           </div>
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-700">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-4 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
+            className="w-full rounded-full bg-ink px-6 py-3 text-sm font-medium text-paper hover:bg-ink/85 disabled:opacity-60 transition-colors"
           >
-            {loading ? 'loading...' : isSignUp ? 'sign up' : 'sign in'}
+            {loading ? 'loading…' : isSignUp ? 'sign up' : 'sign in'}
           </button>
         </form>
 
         <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-100"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-white text-gray-400">or</span>
-          </div>
+          <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-300/70" /></div>
+          <div className="relative flex justify-center"><span className="bg-paper px-3 text-xs text-stone-400">or</span></div>
         </div>
 
         <button
           onClick={handleGoogleAuth}
           disabled={loading}
-          className="w-full px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-700 hover:border-gray-400 transition-colors disabled:opacity-50 text-sm"
+          className="w-full rounded-full border border-stone-300 bg-white/60 px-6 py-3 text-sm font-medium text-ink hover:border-stone-500 transition-colors"
         >
           continue with google
         </button>
@@ -174,22 +170,22 @@ function LoginPageInner() {
           {isSignUp ? (
             <>
               already have an account?{' '}
-              <button onClick={() => { setIsSignUp(false); setError(null) }} className="text-gray-900 font-medium hover:underline">
+              <button onClick={() => { setIsSignUp(false); setError(null) }} className="text-ink font-medium hover:underline underline-offset-2">
                 sign in
               </button>
             </>
           ) : (
             <>
               don&apos;t have an account?{' '}
-              <button onClick={() => { setIsSignUp(true); setError(null) }} className="text-gray-900 font-medium hover:underline">
+              <button onClick={() => { setIsSignUp(true); setError(null) }} className="text-ink font-medium hover:underline underline-offset-2">
                 sign up
               </button>
             </>
           )}
         </div>
 
-        <div className="mt-8 pt-8 border-t border-gray-100 text-center">
-          <Link href="/" className="text-sm text-gray-400 hover:text-gray-900">← back home</Link>
+        <div className="mt-8 pt-8 border-t border-stone-300/50 text-center">
+          <Link href="/" className="text-sm text-stone-400 hover:text-ink">← back home</Link>
         </div>
       </div>
     </main>

@@ -227,7 +227,10 @@ function StartInner() {
 type Msg = { who: 'ai' | 'me'; text: string; big?: boolean }
 
 function Questions({ onDone }: { onDone: (a: Answers) => void }) {
-  const [thread, setThread] = useState<Msg[]>([{ who: 'ai', text: QUESTIONS[0].ask, big: true }])
+  const [thread, setThread] = useState<Msg[]>([
+    { who: 'ai', text: 'tell us what you\'re about — three quick questions.' },
+    { who: 'ai', text: QUESTIONS[0].ask, big: true }
+  ])
   const [qi, setQi] = useState(0)
   const [phase, setPhase] = useState<'ask' | 'follow'>('ask')
   const [typing, setTyping] = useState(false)
@@ -556,15 +559,27 @@ function AccountGate({
   return (
     <div>
       <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-stone-400 font-serif">
-        last step before you&rsquo;re live
+        one quick step
       </p>
       <h2 className="font-serif text-2xl text-ink mb-2">
-        Create your account to <em className="italic text-stone-600">save your page.</em>
+        Create your account to <em className="italic text-stone-600">publish and save.</em>
       </h2>
       <p className="text-sm text-stone-500 mb-8">
         Your bio, first list and finds are ready. Make an account to keep them and
         publish <span className="font-mono text-stone-600">according-to.com/{handle}</span>.
       </p>
+
+      <button
+        onClick={google}
+        className="w-full rounded-full border border-stone-300 bg-white/60 px-6 py-3 text-sm font-medium text-ink hover:border-stone-500 transition-colors mb-4"
+      >
+        continue with google
+      </button>
+
+      <div className="relative mb-4">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-300/70" /></div>
+        <div className="relative flex justify-center"><span className="bg-paper px-3 text-xs text-stone-400">or email</span></div>
+      </div>
 
       <form onSubmit={emailSignup} className="space-y-4 mb-6">
         <div>
@@ -600,18 +615,6 @@ function AccountGate({
         </button>
       </form>
 
-      <div className="relative mb-6">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-300/70" /></div>
-        <div className="relative flex justify-center"><span className="bg-paper px-3 text-xs text-stone-400">or</span></div>
-      </div>
-
-      <button
-        onClick={google}
-        className="w-full rounded-full border border-stone-300 bg-white/60 px-6 py-3 text-sm font-medium text-ink hover:border-stone-500 transition-colors"
-      >
-        continue with google
-      </button>
-
       <p className="mt-6 text-center text-sm text-stone-400">
         already have an account?{' '}
         <Link href="/login" className="text-ink underline underline-offset-4">sign in</Link>
@@ -622,12 +625,18 @@ function AccountGate({
 
 function CheckEmail() {
   return (
-    <div className="pt-10 text-center">
-      <h2 className="font-serif text-2xl text-ink mb-3">check your email</h2>
-      <p className="text-sm text-stone-500 max-w-sm mx-auto">
-        Click the confirmation link in your inbox and we&rsquo;ll publish your page
-        the moment you&rsquo;re back. Everything you just made is saved in this
-        browser, waiting.
+    <div className="pt-10">
+      <div className="mb-8 p-5 rounded-2xl border border-stone-300 bg-white/70">
+        <h2 className="font-serif text-2xl text-ink mb-3">your page is ready</h2>
+        <p className="text-sm text-stone-600 mb-4">
+          Confirm your email to publish it. Click the link in your inbox — takes about a minute.
+        </p>
+        <p className="text-sm text-stone-500">
+          Once confirmed, you can start saving links from anywhere using the extension. Every save lands on your page in the list you pick.
+        </p>
+      </div>
+      <p className="text-center text-xs text-stone-400">
+        Everything you just made is saved in this browser, waiting.
       </p>
     </div>
   )
@@ -696,14 +705,13 @@ function ExtensionPitch({ onDone }: { onDone: () => void }) {
   return (
     <div>
       <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-stone-400 font-serif">
-        your page is live · last step
+        your page is live
       </p>
       <h2 className="font-serif text-2xl text-ink mb-2">
-        Add the <em className="italic text-stone-600">one-click saver</em> to Chrome.
+        Add the <em className="italic text-stone-600">extension</em> to Chrome.
       </h2>
       <p className="text-sm text-stone-500 mb-8">
-        Your page grows every time you save — the extension makes that one click
-        from any tab.
+        The extension is how you use this. Click it on any page, file a link to a list, and it shows up on your page instantly.
       </p>
 
       <ol className="rounded-2xl border border-stone-300 bg-white/70 p-5 mb-8 space-y-3">

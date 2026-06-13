@@ -120,7 +120,7 @@ export function ClaimField({ autoFocus = false }: { autoFocus?: boolean }) {
         </div>
       ) : (
         <p className="mt-3 text-xs text-stone-400">
-          type a name, hit <b className="text-stone-500">enter</b> — your page is ready in about a minute.
+          type a name, hit <b className="text-stone-500">enter</b> — three questions, then your page is built. save links from anywhere and they show up there instantly.
         </p>
       )}
     </div>

@@ -66,7 +66,7 @@ export default async function Home({
             <span className="italic text-stone-600">for Your Links</span>
           </h1>
           <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-stone-500">
-            Collect, organize, and share the links worth keeping.
+            Create your public page in three questions. Then save links from anywhere — they show up on your page instantly.
           </p>
 
           <div className="mt-10 text-center">
@@ -123,9 +123,9 @@ export default async function Home({
       <section className="border-t border-stone-300/50 bg-stone-200/25">
         <div className="mx-auto max-w-2xl px-4 py-24 sm:px-6 lg:px-8 text-center">
           <div className="mb-5 flex justify-center text-ink/45"><GemGlyph className="h-7 w-7" /></div>
-          <h2 className="font-serif text-3xl font-normal text-ink mb-4">start your collection</h2>
+          <h2 className="font-serif text-3xl font-normal text-ink mb-4">your public page</h2>
           <p className="text-sm text-stone-500 mb-8">
-            pick a handle, answer three questions, land on a page that&rsquo;s already yours.
+            tell us what you&rsquo;re about — three questions. then every link you save appears there.
           </p>
           <ClaimField />
         </div>

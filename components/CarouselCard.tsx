@@ -23,7 +23,7 @@ export function CarouselCard({ b }: { b: any }) {
       href={b.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="block rounded-none border border-[#26221c]/30 bg-white shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-colors hover:border-[#26221c]/60"
+      className="block rounded-none border border-[#26221c]/30 bg-stone-50 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-colors hover:border-[#26221c]/60"
     >
       <div className="aspect-[4/3] overflow-hidden bg-[#ece6d8]">
         {img ? (

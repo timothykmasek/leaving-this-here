@@ -178,7 +178,7 @@ export function BookmarkCard({
   )
 
   const frame =
-    'block overflow-hidden rounded-2xl bg-white shadow-[0_1px_3px_rgba(40,30,25,0.10)] ring-1 ring-black/[0.04] transition-shadow hover:shadow-[0_6px_20px_rgba(40,30,25,0.14)]'
+    'block overflow-hidden rounded-2xl bg-stone-50 shadow-[0_1px_3px_rgba(40,30,25,0.10)] ring-1 ring-black/[0.04] transition-shadow hover:shadow-[0_6px_20px_rgba(40,30,25,0.14)]'
 
   return (
     <div className="group relative">
