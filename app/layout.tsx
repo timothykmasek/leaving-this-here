@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Newsreader } from 'next/font/google'
 import { Header } from '@/components/Header'
 import './globals.css'
@@ -11,6 +11,11 @@ const display = Newsreader({
   display: 'swap',
   variable: '--font-display',
 })
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+}
 
 export const metadata: Metadata = {
   title: 'according to',

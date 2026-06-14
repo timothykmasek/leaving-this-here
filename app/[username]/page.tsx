@@ -414,7 +414,7 @@ export default function ProfilePage() {
   // `excludeListId` drops the current list's own chip when rendering inside a
   // list detail view (it'd be redundant there).
   const renderGemGrid = (items: any[], excludeListId?: string) => (
-    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
+    <div className="grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
       {items.map((b) => (
         <BookmarkCard
           key={b.id}
@@ -451,16 +451,35 @@ export default function ProfilePage() {
     <main className="min-h-screen bg-paper">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
         {isOwner && <WelcomeBanner />}
+
+        {/* Mobile search bar at top — prominent on small screens */}
+        {isOwner && (
+          <div className="mb-6 md:hidden">
+            <input
+              type="text"
+              value={query}
+              placeholder="search your finds…"
+              onChange={(e) => {
+                const v = e.target.value
+                setQuery(v)
+                handleSearch(v)
+                if (v.trim()) setActiveListId(null)
+              }}
+              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm italic text-ink placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
+            />
+          </div>
+        )}
+
         {/* Hero — `group` enables the hover-reveal edit icon below */}
-        <div className="mb-8 border-b border-gray-100 pb-6 group sm:mb-10 sm:pb-8">
-          <div className="flex items-start justify-between gap-6 mb-4">
+        <div className="mb-6 sm:mb-8 border-b border-gray-100 pb-4 sm:pb-6 group sm:mb-10 sm:pb-8">
+          <div className="flex items-start justify-between gap-3 sm:gap-6 mb-4">
             <div className="flex-1 min-w-0">
-              <h1 className="font-serif text-2xl sm:text-[28px] font-normal tracking-tight text-ink leading-tight mb-3">
+              <h1 className="font-serif text-xl sm:text-[28px] font-normal tracking-tight text-ink leading-tight mb-2 sm:mb-3">
                 {profile.display_name || profile.username}
               </h1>
 
               {profile.bio && (
-                <p className="mb-3 max-w-xl text-sm leading-relaxed text-stone-500">
+                <p className="mb-2 sm:mb-3 max-w-xl text-xs sm:text-sm leading-relaxed text-stone-500">
                   {profile.bio}
                 </p>
               )}
@@ -469,14 +488,27 @@ export default function ProfilePage() {
             </div>
 
             {isOwner && !editingProfile && (
-              <div className="shrink-0 flex items-center gap-1">
+              <div className="shrink-0 flex flex-col items-center gap-2 sm:flex-row sm:gap-1">
+                {/* Mobile: big + button */}
                 <button
                   onClick={() => setSaveOpen((v) => !v)}
-                  className="relative inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-gray-200 rounded-full text-gray-700 hover:text-gray-900 hover:border-gray-400 transition-colors"
+                  className="relative inline-flex md:hidden w-12 h-12 items-center justify-center text-lg font-bold bg-orange-500 text-white rounded-full hover:bg-orange-600 transition-colors shadow-lg"
+                  title="save a find"
+                >
+                  <span aria-hidden>+</span>
+                  {bookmarks.length > 0 && bookmarks.length < 5 && !saveOpen && (
+                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60" />
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" />
+                    </span>
+                  )}
+                </button>
+                {/* Desktop: text pill button */}
+                <button
+                  onClick={() => setSaveOpen((v) => !v)}
+                  className="relative hidden md:inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-gray-200 rounded-full text-gray-700 hover:text-gray-900 hover:border-gray-400 transition-colors"
                 >
                   <span aria-hidden>+</span> save a find
-                  {/* Quiet pulse for early-stage users who haven't installed the
-                      bookmarklet yet — fades out once they have ≥ 5 gems. */}
                   {bookmarks.length > 0 && bookmarks.length < 5 && !saveOpen && (
                     <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60" />
@@ -696,10 +728,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Search — scopes the whole collection; a query collapses the page to
-            a flat results grid. */}
+        {/* Search — desktop version (hidden on mobile, shown above) */}
         {isOwner && (
-          <div className="mb-8">
+          <div className="hidden md:block mb-8">
             <input
               type="text"
               value={query}
