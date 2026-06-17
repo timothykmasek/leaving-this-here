@@ -1,31 +1,28 @@
-import { getSession } from './auth.js'
-import { CONFIG } from './config.js'
+import { getSession, getFinds, AuthExpiredError } from './auth.js'
 
 const app = document.getElementById('app')
 
+function renderSignIn() {
+  app.innerHTML = `
+    <div class="empty">
+      <div class="empty-title">sign in to see your finds</div>
+      <p>Click the according to icon to sign in.</p>
+    </div>
+  `
+}
+
 async function loadFinds() {
+  // No stored session at all → straight to the sign-in nudge.
+  const session = await getSession()
+  if (!session) {
+    renderSignIn()
+    return
+  }
+
   try {
-    const session = await getSession()
-
-    if (!session) {
-      app.innerHTML = `
-        <div class="empty">
-          <div class="empty-title">sign in to see your finds</div>
-          <p>Click the according to icon to sign in.</p>
-        </div>
-      `
-      return
-    }
-
-    const res = await fetch(`${CONFIG.API_BASE}/api/extension/finds?limit=40`, {
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-
-    if (!res.ok) {
-      throw new Error(`API error: ${res.status}`)
-    }
-
-    const data = await res.json()
+    // getFinds refreshes a near-expired token and retries once on 401, so a
+    // stale access token no longer surfaces as a scary error on every tab.
+    const data = await getFinds(40)
     const finds = data.finds || []
 
     if (finds.length === 0) {
@@ -87,10 +84,17 @@ async function loadFinds() {
     app.innerHTML = ''
     app.appendChild(grid)
   } catch (err) {
+    // A dead/expired session (refresh token gone) isn't an error worth
+    // alarming the user with — just invite them to sign in again.
+    if (err instanceof AuthExpiredError || /not signed in/i.test(String(err?.message))) {
+      renderSignIn()
+      return
+    }
+    // Genuine failure (offline, server down). Keep it quiet and recoverable.
     app.innerHTML = `
-      <div class="error">
-        <p>couldn't load your finds</p>
-        <p style="font-size: 12px; margin-top: 8px;">${String(err)}</p>
+      <div class="empty">
+        <div class="empty-title">couldn't load your finds</div>
+        <p>Check your connection and reload the tab.</p>
       </div>
     `
   }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "according to — save anything",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Save any page, image, or quote to according to in one click.",
   "permissions": ["identity", "storage", "contextMenus", "activeTab", "scripting", "notifications"],
   "host_permissions": [

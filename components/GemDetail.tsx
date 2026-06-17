@@ -195,7 +195,7 @@ export function GemDetail({
           <div className="mt-auto flex items-center justify-between pt-6">
             {confirmingDelete ? (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-stone-500">delete this gem?</span>
+                <span className="text-stone-500">delete this find?</span>
                 <button
                   onClick={() => {
                     onDelete(gem.id)

@@ -213,6 +213,13 @@ export async function setListMembership(listId, bookmarkId, add) {
   })
 }
 
+// The signed-in user's most recent finds, for the new-tab page. Goes through
+// apiGet so it inherits the token refresh + 401-retry the raw newtab fetch
+// lacked — an expired access token was throwing "API error: 401" on every tab.
+export async function getFinds(limit = 40) {
+  return apiGet(`/api/extension/finds?limit=${limit}`)
+}
+
 // Ask the backend for a "why you saved it" list-name suggestion for a gem.
 // Returns { name } (or { name: null } if nothing sensible could be generated).
 export async function suggestListName(bookmarkId) {
