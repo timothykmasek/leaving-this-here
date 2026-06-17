@@ -27,7 +27,7 @@
     return
   }
 
-  const DISMISS_MS = 4000
+  const DISMISS_MS = 2500
 
   // Brand mark — opening quotation mark ("according to"), matches the web
   // wordmark glyph. Used as the saved-state icon.
