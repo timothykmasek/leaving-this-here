@@ -214,7 +214,7 @@ export async function POST(request: NextRequest) {
   // recent save and naturally tops the profile.
   const saves: { url: string; toList: boolean }[] = []
   const topicUrl = extractUrl(answers.topic_why)
-  const recUrl = extractUrl(answers.rec_why)
+  // recUrl already extracted above for link context
   if (topicUrl) saves.push({ url: topicUrl, toList: true })
   if (recUrl && recUrl !== topicUrl) saves.push({ url: recUrl, toList: false })
 
