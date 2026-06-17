@@ -228,7 +228,6 @@ type Msg = { who: 'ai' | 'me'; text: string; big?: boolean }
 
 function Questions({ onDone }: { onDone: (a: Answers) => void }) {
   const [thread, setThread] = useState<Msg[]>([
-    { who: 'ai', text: 'tell us what you\'re about — three quick questions.' },
     { who: 'ai', text: QUESTIONS[0].ask, big: true }
   ])
   const [qi, setQi] = useState(0)
@@ -248,6 +247,11 @@ function Questions({ onDone }: { onDone: (a: Answers) => void }) {
   useEffect(() => {
     taRef.current?.focus()
   }, [qi, phase, typing])
+
+  // Detect if answer contains a URL
+  const hasUrl = (text: string): boolean => {
+    return /https?:\/\/|[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:\/[^\s]*)?/i.test(text)
+  }
 
   // Ask Haiku for warmth; fall back to scripts if it's slow (>2.2s) or down.
   const react = async (
@@ -286,6 +290,26 @@ function Questions({ onDone }: { onDone: (a: Answers) => void }) {
 
     if (phase === 'ask' && q.followUp) {
       answers.current[q.key] = text
+      // If answer contains a URL, skip the follow-up (they already gave us the link)
+      if (hasUrl(text)) {
+        (answers.current as any)[`${q.key}_why`] = text
+        const { ack } = await react(q.ask, text, null)
+        setTyping(false)
+        const next = qi + 1
+        if (next < QUESTIONS.length) {
+          setThread((t) => [
+            ...t,
+            { who: 'ai', text: ack },
+            { who: 'ai', text: QUESTIONS[next].ask, big: true },
+          ])
+          setQi(next)
+          setPhase('ask')
+        } else {
+          setThread((t) => [...t, { who: 'ai', text: ack }])
+          setTimeout(() => onDone(answers.current), 700)
+        }
+        return
+      }
       const { ack, followUp } = await react(q.ask, text, q.followUp.ask)
       setTyping(false)
       setThread((t) => [
@@ -320,22 +344,6 @@ function Questions({ onDone }: { onDone: (a: Answers) => void }) {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between">
-        <span className="text-xs text-stone-400 tabular-nums">
-          <b className="text-ink">{qi + 1}</b> of {QUESTIONS.length}
-        </span>
-        <div className="flex gap-1.5">
-          {QUESTIONS.map((_, i) => (
-            <span
-              key={i}
-              className={`h-1.5 rounded-full transition-all ${
-                i < qi ? 'w-5 bg-stone-400' : i === qi ? 'w-7 bg-ink' : 'w-3 bg-stone-300'
-              }`}
-            />
-          ))}
-        </div>
-      </div>
-
       <div className="space-y-5 mb-8">
         {thread.map((m, i) =>
           m.who === 'me' ? (
@@ -346,11 +354,6 @@ function Questions({ onDone }: { onDone: (a: Answers) => void }) {
             </div>
           ) : m.big ? (
             <div key={i}>
-              {phase === 'ask' && i === thread.length - 1 && (
-                <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-stone-400 font-serif">
-                  {q.tag}
-                </p>
-              )}
               <h2 className="font-serif text-2xl leading-snug text-ink whitespace-pre-line sm:text-[1.65rem]">
                 {m.text}
               </h2>
@@ -403,9 +406,6 @@ function Questions({ onDone }: { onDone: (a: Answers) => void }) {
               →
             </button>
           </div>
-          <p className="mt-2 text-xs text-stone-400">
-            <b className="text-stone-500">enter</b> to send · <b className="text-stone-500">shift+enter</b> for a new line
-          </p>
         </div>
       )}
     </div>
@@ -625,18 +625,13 @@ function AccountGate({
 
 function CheckEmail() {
   return (
-    <div className="pt-10">
-      <div className="mb-8 p-5 rounded-2xl border border-stone-300 bg-white/70">
-        <h2 className="font-serif text-2xl text-ink mb-3">your page is ready</h2>
-        <p className="text-sm text-stone-600 mb-4">
-          Confirm your email to publish it. Click the link in your inbox — takes about a minute.
-        </p>
-        <p className="text-sm text-stone-500">
-          Once confirmed, you can start saving links from anywhere using the extension. Every save lands on your page in the list you pick.
-        </p>
-      </div>
-      <p className="text-center text-xs text-stone-400">
-        Everything you just made is saved in this browser, waiting.
+    <div>
+      <h2 className="font-serif text-2xl text-ink mb-4">check your email</h2>
+      <p className="text-sm text-stone-600 mb-8">
+        Click the confirmation link. Takes about a minute.
+      </p>
+      <p className="text-xs text-stone-400">
+        It goes to your inbox — check spam if you don't see it. Once you confirm, your page publishes and you can start saving with the extension.
       </p>
     </div>
   )
@@ -698,36 +693,41 @@ function Publishing({
 
 /* ── extension pitch ──────────────────────────────────────────────────── */
 
-// TODO: set to the Chrome Web Store URL once the listing is approved.
-const WEB_STORE_URL = ''
+// Chrome Web Store URL for the published extension (v0.1 onward)
+const WEB_STORE_URL = 'https://chrome.google.com/webstore/detail/according-to-save-anything/jmncmjodlkhpbakjdbokpkpfpolokijf'
 
 function ExtensionPitch({ onDone }: { onDone: () => void }) {
   return (
     <div>
-      <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-stone-400 font-serif">
-        your page is live
-      </p>
-      <h2 className="font-serif text-2xl text-ink mb-2">
-        Add the <em className="italic text-stone-600">extension</em> to Chrome.
+      <h2 className="font-serif text-2xl text-ink mb-6">
+        One more step: add the <em className="italic text-stone-600">extension</em>.
       </h2>
       <p className="text-sm text-stone-500 mb-8">
-        The extension is how you use this. Click it on any page, file a link to a list, and it shows up on your page instantly.
+        The extension is how you save. Click it on any page, pick a list, and the link lands on your page instantly.
       </p>
 
-      <ol className="rounded-2xl border border-stone-300 bg-white/70 p-5 mb-8 space-y-3">
-        {[
-          ['1', 'add it to Chrome', 'one click, free, takes a few seconds.'],
-          ['2', 'pin it to your toolbar', 'click the puzzle icon in Chrome, then the pin next to according to.'],
-          ['3', 'save anything', 'click the quote mark on any page — it lands on your page, filed into a list right there.'],
-        ].map(([n, title, detail]) => (
-          <li key={n} className="flex gap-3 text-left">
-            <span className="shrink-0 font-serif text-stone-400 text-sm leading-relaxed">{n}.</span>
-            <p className="text-sm text-stone-600 leading-relaxed">
-              <span className="text-ink font-medium">{title}</span> — {detail}
-            </p>
-          </li>
-        ))}
-      </ol>
+      <div className="rounded-2xl border border-stone-300 bg-stone-50 p-6 mb-8">
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-stone-400 font-serif mb-3">how to install</p>
+            <ol className="space-y-3">
+              {[
+                ['open the Chrome Web Store', 'search for "according to — save anything"'],
+                ['click Add to Chrome', 'it\'s free, no login needed yet'],
+                ['pin it to your toolbar', 'click the puzzle icon in Chrome, then the pin next to according to'],
+              ].map(([step, detail], i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="shrink-0 font-serif text-stone-400 text-sm leading-tight">{i + 1}.</span>
+                  <div className="text-sm leading-snug">
+                    <p className="text-ink font-medium">{step}</p>
+                    <p className="text-stone-500">{detail}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </div>
+      </div>
 
       <div className="flex flex-col items-start gap-3">
         {WEB_STORE_URL ? (
@@ -738,25 +738,15 @@ function ExtensionPitch({ onDone }: { onDone: () => void }) {
             onClick={() => setTimeout(onDone, 400)}
             className="rounded-full bg-ink px-6 py-3 text-sm font-medium text-paper hover:bg-ink/85 transition-colors"
           >
-            add to Chrome — it&rsquo;s free
+            open Chrome Web Store
           </a>
-        ) : (
-          <button
-            onClick={onDone}
-            className="rounded-full bg-ink px-6 py-3 text-sm font-medium text-paper hover:bg-ink/85 transition-colors"
-          >
-            take me to my page →
-          </button>
-        )}
-        <p className="text-sm text-stone-400">
-          {WEB_STORE_URL ? (
-            <button onClick={onDone} className="hover:text-stone-600">
-              skip — take me to my page
-            </button>
-          ) : (
-            <>the extension hits the Chrome Web Store soon — you&rsquo;ll find it waiting on your page.</>
-          )}
-        </p>
+        ) : null}
+        <button
+          onClick={onDone}
+          className="text-sm text-stone-500 hover:text-stone-700 underline"
+        >
+          {WEB_STORE_URL ? 'skip for now' : 'continue to my page'}
+        </button>
       </div>
     </div>
   )

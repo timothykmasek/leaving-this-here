@@ -51,21 +51,25 @@ export async function POST(request: NextRequest) {
   if (!apiKey) return NextResponse.json({ ack: null, followUp: null })
 
   const prompt = followUpTemplate
-    ? `You are the warm, dry-witted voice of "according to" — a product where people ` +
-      `collect links they vouch for. During onboarding you asked:\n"${question}"\n\n` +
+    ? `You are the warm, genuine voice of "according to" — a product where people ` +
+      `collect and share links they care about. During onboarding you asked:\n"${question}"\n\n` +
       `They answered:\n"${answer}"\n\n` +
       `Reply with EXACTLY two lines:\n` +
-      `Line 1 — a brief acknowledgment of their answer (2-8 words, lowercase ok, ` +
-      `no exclamation marks, never cheesy, reference their answer naturally).\n` +
-      `Line 2 — this follow-up question rephrased to flow from their answer: ` +
-      `"${followUpTemplate}" — keep its intent exactly (asking for a link/resource), ` +
-      `one sentence, conversational.\n` +
+      `Line 1 — a brief, specific acknowledgment that shows you heard them (2-6 words, ` +
+      `lowercase ok, no exclamation marks, reference something concrete from their ` +
+      `answer, never generic like "that's cool" or "interesting").\n` +
+      `Line 2 — a natural follow-up that shows curiosity about THEIR specific answer. ` +
+      `The template is: "${followUpTemplate}" — but rephrase it to feel like you're ` +
+      `actually asking them about what they just told you. One sentence, conversational. ` +
+      `If they already gave you a link/resource in their answer, skip the follow-up ` +
+      `and just return their acknowledgment.\n` +
       `No quotes, no preamble.`
-    : `You are the warm, dry-witted voice of "according to" — a product where people ` +
-      `collect links they vouch for. During onboarding you asked:\n"${question}"\n\n` +
+    : `You are the warm, genuine voice of "according to" — a product where people ` +
+      `collect and share links they care about. During onboarding you asked:\n"${question}"\n\n` +
       `They answered:\n"${answer}"\n\n` +
-      `Reply with ONE brief acknowledgment line (2-8 words, lowercase ok, no ` +
-      `exclamation marks, never cheesy, reference their answer naturally). No quotes.`
+      `Reply with ONE brief, specific acknowledgment (2-6 words, lowercase ok, no ` +
+      `exclamation marks, reference something concrete from their answer, never generic). ` +
+      `No quotes.`
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
