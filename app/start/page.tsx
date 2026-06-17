@@ -71,7 +71,13 @@ function interpolate(template: string, answer: string) {
   return template.replace('{a}', tok)
 }
 
-function loadState(): { handle?: string; answers?: Answers; socials?: Socials } {
+function loadState(): {
+  handle?: string
+  answers?: Answers
+  socials?: Socials
+  step?: Step
+  qstate?: { thread?: Msg[]; qi?: number; phase?: 'ask' | 'follow'; answers?: Answers }
+} {
   try {
     return JSON.parse(localStorage.getItem(STORE_KEY) || '{}')
   } catch {
@@ -105,11 +111,20 @@ function StartInner() {
 
   // ── Entry routing ────────────────────────────────────────────────────
   useEffect(() => {
-    const stored = loadState()
+    let stored = loadState()
+    const fromUrl = (searchParams?.get('handle') || '').toLowerCase().replace(/[^a-z0-9-]/g, '')
+
+    // A fresh claim of a DIFFERENT handle wipes any abandoned prior session,
+    // so old answers/step never leak into a new person's onboarding.
+    if (fromUrl && stored.handle && fromUrl !== stored.handle) {
+      try { localStorage.removeItem(STORE_KEY) } catch {}
+      stored = {}
+    }
+
     answersRef.current = stored.answers || {}
     socialsRef.current = stored.socials || {}
-    const fromUrl = (searchParams?.get('handle') || '').toLowerCase().replace(/[^a-z0-9-]/g, '')
     const h = fromUrl || stored.handle || null
+    const savedStep = stored.step as Step | undefined
 
     const boot = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -132,11 +147,20 @@ function StartInner() {
       if (!h) { router.replace('/'); return }
       saveState({ handle: h })
       setHandle(h)
-      setStep('questions')
+      // Resume the pre-auth step the user left off on, so a reload mid-flow
+      // doesn't drop them back to question one. ('publishing'/'ext' are
+      // post-auth and only reached via the finish=1 branch above.)
+      const resumable: Step[] = ['questions', 'socials', 'gen', 'account', 'check-email']
+      setStep(savedStep && resumable.includes(savedStep) ? savedStep : 'questions')
     }
     boot()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Persist the current pre-auth step so a reload resumes in place.
+  useEffect(() => {
+    if (step && step !== 'publishing' && step !== 'ext') saveState({ step })
+  }, [step])
 
   // ── The publish step (post-auth) ─────────────────────────────────────
   const [publishError, setPublishError] = useState<string | null>(null)
@@ -227,16 +251,29 @@ function StartInner() {
 type Msg = { who: 'ai' | 'me'; text: string; big?: boolean }
 
 function Questions({ onDone }: { onDone: (a: Answers) => void }) {
-  const [thread, setThread] = useState<Msg[]>([
-    { who: 'ai', text: QUESTIONS[0].ask, big: true }
-  ])
-  const [qi, setQi] = useState(0)
-  const [phase, setPhase] = useState<'ask' | 'follow'>('ask')
+  // Resume an in-progress thread if the user reloaded mid-onboarding.
+  const saved = loadState().qstate as
+    | { thread?: Msg[]; qi?: number; phase?: 'ask' | 'follow'; answers?: Answers }
+    | undefined
+  const [thread, setThread] = useState<Msg[]>(
+    saved?.thread && saved.thread.length
+      ? saved.thread
+      : [{ who: 'ai', text: QUESTIONS[0].ask, big: true }]
+  )
+  const [qi, setQi] = useState(saved?.qi ?? 0)
+  const [phase, setPhase] = useState<'ask' | 'follow'>(saved?.phase ?? 'ask')
   const [typing, setTyping] = useState(false)
+  const [finished, setFinished] = useState(false)
   const [draft, setDraft] = useState('')
-  const answers = useRef<Answers>({})
+  const answers = useRef<Answers>(saved?.answers ?? {})
   const taRef = useRef<HTMLTextAreaElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
+
+  // Persist the thread on every settled turn so a reload picks up where it
+  // left off. (typing is transient and intentionally not persisted.)
+  useEffect(() => {
+    saveState({ qstate: { thread, qi, phase, answers: answers.current } })
+  }, [thread, qi, phase])
 
   const q = QUESTIONS[qi]
   const live = phase === 'follow' && q.followUp ? q.followUp : q
@@ -306,6 +343,7 @@ function Questions({ onDone }: { onDone: (a: Answers) => void }) {
           setPhase('ask')
         } else {
           setThread((t) => [...t, { who: 'ai', text: ack }])
+          setFinished(true)
           setTimeout(() => onDone(answers.current), 700)
         }
         return
@@ -338,6 +376,7 @@ function Questions({ onDone }: { onDone: (a: Answers) => void }) {
       setPhase('ask')
     } else {
       setThread((t) => [...t, { who: 'ai', text: ack }])
+      setFinished(true)
       setTimeout(() => onDone(answers.current), 700)
     }
   }
@@ -376,7 +415,7 @@ function Questions({ onDone }: { onDone: (a: Answers) => void }) {
         <div ref={endRef} />
       </div>
 
-      {!typing && (
+      {!typing && !finished && (
         <div>
           <div className="flex items-end gap-2 rounded-2xl border border-stone-300 bg-white/80 p-2 focus-within:border-ink/60 transition-colors">
             <textarea
