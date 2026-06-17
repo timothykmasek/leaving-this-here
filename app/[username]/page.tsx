@@ -478,11 +478,29 @@ export default function ProfilePage() {
                 {profile.display_name || profile.username}
               </h1>
 
-              {profile.bio && (
-                <p className="mb-2 sm:mb-3 max-w-xl text-xs sm:text-sm leading-relaxed text-stone-500">
-                  {profile.bio}
-                </p>
-              )}
+              {profile.bio && (() => {
+                const bioText = profile.bio
+                const accordingMatch = bioText.match(/According to [^,]+, life is better with .+$/)
+                const mainBio = accordingMatch
+                  ? bioText.substring(0, bioText.indexOf('According to')).trim()
+                  : bioText
+                const accordingLine = accordingMatch ? accordingMatch[0] : null
+
+                return (
+                  <>
+                    {mainBio && (
+                      <p className="mb-3 sm:mb-4 max-w-xl text-xs sm:text-sm leading-relaxed text-stone-500">
+                        {mainBio}
+                      </p>
+                    )}
+                    {accordingLine && (
+                      <p className="mb-2 sm:mb-3 max-w-xl text-sm sm:text-base leading-relaxed text-stone-700 italic font-serif">
+                        "{accordingLine.replace(/^According to /, '').replace(/\.$/, '')}"
+                      </p>
+                    )}
+                  </>
+                )
+              })()}
 
               <SocialLinks links={profile.links} />
             </div>

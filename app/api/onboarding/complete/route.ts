@@ -110,6 +110,30 @@ export async function POST(request: NextRequest) {
     rec_why: typeof a.rec_why === 'string' ? a.rec_why.trim().slice(0, 500) : '',
     finale: typeof a.finale === 'string' ? a.finale.trim().slice(0, 140) : '',
   }
+
+  // Fetch link content for better bio generation
+  async function fetchLinkContent(url: string): Promise<string | null> {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) return null
+      const text = await res.text()
+      const titleMatch = text.match(/<title[^>]*>([^<]+)<\/title>/i)
+      const descMatch = text.match(/<meta\s+name="description"\s+content="([^"]+)"/i)
+      const title = titleMatch?.[1]?.slice(0, 100) || null
+      const desc = descMatch?.[1]?.slice(0, 200) || null
+      return [title, desc].filter(Boolean).join('. ')
+    } catch {
+      return null
+    }
+  }
+
+  // Fetch content from the recommendation link first (more important)
+  let linkContext = ''
+  const recUrl = extractUrl(answers.rec_why)
+  if (recUrl) {
+    const content = await fetchLinkContent(recUrl)
+    if (content) linkContext = `About the resource: "${content}"\n`
+  }
   const s = body.socials || {}
   const links: Record<string, string> = {}
   for (const k of ['twitter', 'instagram', 'linkedin', 'website']) {
@@ -119,17 +143,18 @@ export async function POST(request: NextRequest) {
   const name = titlecase(handle)
 
   // ── Bio: Haiku first, deterministic template as the net ─────────────
-  const finale = answers.finale.replace(/^["“]+|["”]+$/g, '').replace(/\.+$/, '')
+  const finale = answers.finale.replace(/^[“”]+|[“”]+$/g, '').replace(/\.+$/, '')
   let bio: string | null = null
   if (answers.topic) {
     bio = await haiku(
       `Write a 1-2 sentence bio (max 40 words) for a person's public page on ` +
-        `"according to", where people share links they vouch for. Warm, specific, ` +
-        `a little dry — never cheesy, no exclamation marks, no hashtags, third ` +
-        `person but WITHOUT using their name or any pronouns (start with a verb ` +
-        `or noun phrase, e.g. "Knows…", "Collector of…").\n\n` +
+        `”according to”, where people share links they vouch for. Warm, specific, ` +
+        `grounded in what they actually know and recommend — never generic or cheesy. ` +
+        `No exclamation marks, no hashtags. Third person but WITHOUT using their name ` +
+        `or any pronouns (start with a verb or noun phrase, e.g. “Knows…”, “Collector of…”).\n\n` +
         `They know a lot about: ${answers.topic}\n` +
         (answers.rec ? `They recently recommended: ${answers.rec}\n` : '') +
+        (linkContext ? linkContext : '') +
         `\nReply with only the bio text.`,
       120
     )
