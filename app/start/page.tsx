@@ -694,7 +694,7 @@ function Publishing({
 /* ── extension pitch ──────────────────────────────────────────────────── */
 
 // Chrome Web Store URL for the published extension (v0.1 onward)
-const WEB_STORE_URL = 'https://chrome.google.com/webstore/detail/according-to-save-anything/jmncmjodlkhpbakjdbokpkpfpolokijf'
+const WEB_STORE_URL = 'https://chrome.google.com/webstore/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc'
 
 function ExtensionPitch({ onDone }: { onDone: () => void }) {
   return (
