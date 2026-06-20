@@ -21,11 +21,6 @@ function cleanTitle(title: string | null, url: string): string {
   return t
 }
 
-// Decorative rivet dot, scattered through the hero for texture.
-function HeroDot({ className }: { className: string }) {
-  return <span aria-hidden className={`absolute h-[8px] w-[8px] rounded-full bg-black/[0.12] ${className}`} />
-}
-
 export default async function Home({
   searchParams,
 }: {
@@ -80,12 +75,7 @@ export default async function Home({
       <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[44px]" />
 
       {/* Hero */}
-      <section className="relative px-6 pb-20 pt-10 text-center">
-        <HeroDot className="left-[12%] top-[60%]" />
-        <HeroDot className="left-[26%] top-[72%]" />
-        <HeroDot className="left-[38%] top-[64%]" />
-        <HeroDot className="right-[20%] top-[10%]" />
-
+      <section className="px-6 pb-20 pt-10 text-center">
         {/* Two understated bold Cardo lines (matches the Figma treatment). */}
         <h1 className="font-serif text-[26px] font-bold leading-[1.2] text-ink">
           A home for your links
