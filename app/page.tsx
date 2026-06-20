@@ -139,7 +139,7 @@ export default async function Home({
             <a href="/login?mode=signup" className="label text-black/45 transition-colors hover:text-ink">Sign up</a>
             <a href="/login" className="label text-black/45 transition-colors hover:text-ink">Sign in</a>
             <a href="/privacy" className="label text-black/45 transition-colors hover:text-ink">Privacy</a>
-            <a href="#" className="label text-black/45 transition-colors hover:text-ink">Extension</a>
+            <a href="https://chromewebstore.google.com/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc" target="_blank" rel="noopener noreferrer" className="label text-black/45 transition-colors hover:text-ink">Extension</a>
           </nav>
         </div>
       </footer>
