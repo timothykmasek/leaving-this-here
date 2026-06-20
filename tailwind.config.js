@@ -7,13 +7,20 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        serif: ['var(--font-display)', 'Georgia', 'Cambria', 'serif'],
+        // MOCA Black — wordmark / hero display (license-pending; see app/fonts.ts)
+        display: ['var(--font-display)', 'Georgia', 'serif'],
+        // Cardo — item titles + reading serif (default body)
+        serif: ['var(--font-serif)', 'Georgia', 'Cambria', 'serif'],
+        // Routed Gothic Wide — UI labels (use the `.label` utility for the full spec)
+        label: ['var(--font-label)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
       },
       colors: {
-        // Vintage-print surface
-        paper: '#f2ece0',   // warm ivory canvas
-        ink: '#211d18',     // warm near-black text
-        // Jewel-tone palette (gem taxonomy — used heavily in Phase 2)
+        // ── Editorial rebrand palette (Figma ProjectX 695:856) ──
+        // Neutral by design — color comes from the photography, not the chrome.
+        paper: '#ffffff',   // page canvas (token name kept; was warm ivory)
+        ink: '#2b2b2b',     // primary text; /50 = secondary, /80 = strong-secondary
+        card: '#f1f1f1',    // card surface (20px radius)
+        // ── Legacy vintage-gem jewel tones (still referenced by some components) ──
         garnet: '#8c2b3a',
         ruby: '#a31f34',
         topaz: '#2f6f8f',

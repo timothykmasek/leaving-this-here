@@ -1,11 +1,25 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { GemGlyph } from '@/components/GemGlyph'
-import { Carousel } from '@/components/Carousel'
-import { CarouselCard } from '@/components/CarouselCard'
-import { ClaimField } from '@/components/ClaimField'
+import { LinkCard } from '@/components/LinkCard'
+import { BulletinHeader } from '@/components/BulletinHeader'
+import { pickCardImage } from '@/lib/cardImage'
 import { FEATURED_URLS } from '@/lib/featured'
+
+const SHOWCASE_COUNT = 16
+
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
+
+function cleanTitle(title: string | null, url: string): string {
+  const t = (title || '').trim()
+  if (!t || t.startsWith('http')) return domainOf(url)
+  return t
+}
 
 export default async function Home({
   searchParams,
@@ -39,97 +53,96 @@ export default async function Home({
     }
   }
 
-  // Public landing examples: curated picks (FEATURED_URLS) in their given
-  // order, else fall back to recent image-bearing finds.
-  let recent: any[] = []
+  // Showcase examples: curated picks (FEATURED_URLS) in their given order, else
+  // fall back to recent image-bearing finds.
+  let finds: any[] = []
   if (FEATURED_URLS.length > 0) {
     const { data } = await supabase.from('bookmarks').select('*').in('url', FEATURED_URLS)
-    recent = FEATURED_URLS.map((u) => (data || []).find((b) => b.url === u)).filter(Boolean)
+    finds = FEATURED_URLS.map((u) => (data || []).find((b) => b.url === u)).filter(Boolean)
   } else {
     const { data } = await supabase
       .from('bookmarks')
       .select('*')
       .or('image_url.not.is.null,screenshot_url.not.is.null')
       .order('created_at', { ascending: false })
-      .limit(12)
-    recent = data || []
+      .limit(SHOWCASE_COUNT)
+    finds = data || []
+  }
+  finds = finds.slice(0, SHOWCASE_COUNT)
+
+  // Map each showcase find → the (public) list it belongs to, if any. That list
+  // name becomes the card's tag; finds not in a public list show no tag.
+  const listByBookmark = new Map<string, string>()
+  const ids = finds.map((b) => b.id)
+  if (ids.length) {
+    const { data: memberships } = await supabase
+      .from('list_bookmarks')
+      .select('bookmark_id, lists(name, is_private)')
+      .in('bookmark_id', ids)
+    for (const m of (memberships as any[]) || []) {
+      const list = Array.isArray(m.lists) ? m.lists[0] : m.lists
+      if (list && !list.is_private && !listByBookmark.has(m.bookmark_id)) {
+        listByBookmark.set(m.bookmark_id, list.name)
+      }
+    }
   }
 
   return (
-    <main className="min-h-screen bg-paper">
+    <div className="min-h-screen bg-paper">
+      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[44px]" />
+
       {/* Hero */}
-      <section className="relative">
-        <div className="mx-auto max-w-2xl px-6 pt-28 pb-24 text-center sm:px-8">
-          <h1 className="font-serif text-[2rem] font-normal leading-[1.28] tracking-tight text-ink sm:text-[2.5rem]">
-            A Beautiful Home
-            <br />
-            <span className="italic text-stone-600">for Your Links</span>
-          </h1>
-          <p className="mx-auto mt-5 max-w-md text-sm leading-relaxed text-stone-500">
-            Collect, organize, and share the links worth keeping.
-          </p>
+      <section className="px-6 pb-20 pt-10 text-center">
+        {/* Two understated bold Cardo lines (matches the Figma treatment). */}
+        <h1 className="font-serif text-[26px] font-bold leading-[1.2] text-ink">
+          A home for your links
+        </h1>
+        <p className="mx-auto mt-3 max-w-[34rem] font-serif text-[20px] font-bold leading-snug text-ink">
+          Collect, organize, and share the links worth keeping.
+        </p>
 
-          <div className="mt-10 text-center">
-            <ClaimField />
+        {/* Single primary action. */}
+        <div className="mt-9 flex justify-center">
+          <a
+            href="/login?mode=signup"
+            className="label rounded-full bg-ink px-7 py-3 text-paper transition-colors hover:bg-black"
+          >
+            Sign up — it’s free
+          </a>
+        </div>
+      </section>
+
+      {/* Showcase — Bulletin card grid of community finds */}
+      <section className="px-10 pb-28">
+        <div className="mx-auto grid w-[1184px] max-w-full grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-8 gap-y-12">
+          {finds.map((b) => (
+            <LinkCard
+              key={b.id}
+              url={b.url}
+              title={cleanTitle(b.title, b.url)}
+              image={pickCardImage(b.url, b.image_url, b.screenshot_url)}
+              listName={listByBookmark.get(b.id) ?? null}
+            />
+          ))}
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t border-black/[0.06] px-10 py-12">
+        <div className="mx-auto flex w-[1184px] max-w-full flex-col items-center gap-6 sm:flex-row sm:justify-between">
+          <div className="flex items-center gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/bulletin-logo.png" alt="Bulletin" className="h-[20px] w-auto opacity-80" />
+            <span className="label text-black/35">© 2026</span>
           </div>
+          <nav className="flex items-center gap-8">
+            <a href="/login?mode=signup" className="label text-black/45 transition-colors hover:text-ink">Sign up</a>
+            <a href="/login" className="label text-black/45 transition-colors hover:text-ink">Sign in</a>
+            <a href="/privacy" className="label text-black/45 transition-colors hover:text-ink">Privacy</a>
+            <a href="https://chromewebstore.google.com/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc" target="_blank" rel="noopener noreferrer" className="label text-black/45 transition-colors hover:text-ink">Extension</a>
+          </nav>
         </div>
-      </section>
-
-      {/* Recent community bookmarks */}
-      <section id="showcase" className="mx-auto max-w-6xl px-4 pb-24 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif">recent finds from the community</p>
-        </div>
-
-        {recent && recent.length > 0 && (
-          <Carousel>
-            {recent.map((b) => (
-              <CarouselCard key={b.id} b={b} />
-            ))}
-          </Carousel>
-        )}
-      </section>
-
-      {/* How it works */}
-      <section className="border-t border-stone-300/50 bg-stone-200/25">
-        <div className="mx-auto max-w-4xl px-4 py-20 sm:px-6 lg:px-8">
-          <div className="grid sm:grid-cols-3 gap-12">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif mb-2">1 · save</p>
-              <h3 className="font-serif text-xl text-ink mb-2">one click, from any page</h3>
-              <p className="text-sm text-stone-500 leading-relaxed">
-                the chrome extension catches articles, videos, podcasts, tweets — anything you find lands in the same place.
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif mb-2">2 · find</p>
-              <h3 className="font-serif text-xl text-ink mb-2">search the way you remember</h3>
-              <p className="text-sm text-stone-500 leading-relaxed">
-                AI search means &ldquo;that essay about slow productivity&rdquo; just works — no digging for exact titles.
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-stone-500 font-serif mb-2">3 · share</p>
-              <h3 className="font-serif text-xl text-ink mb-2">your collection writes itself</h3>
-              <p className="text-sm text-stone-500 leading-relaxed">
-                every save shows up on your public page, beautifully rendered — and you can publish lists of your best finds for anyone to browse.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Bottom CTA with handle input */}
-      <section className="border-t border-stone-300/50 bg-stone-200/25">
-        <div className="mx-auto max-w-2xl px-4 py-24 sm:px-6 lg:px-8 text-center">
-          <div className="mb-5 flex justify-center text-ink/45"><GemGlyph className="h-7 w-7" /></div>
-          <h2 className="font-serif text-3xl font-normal text-ink mb-4">your public page</h2>
-          <p className="text-sm text-stone-500 mb-8">
-            tell us what you&rsquo;re about — three questions. then every link you save appears there.
-          </p>
-          <ClaimField />
-        </div>
-      </section>
-    </main>
+      </footer>
+    </div>
   )
 }

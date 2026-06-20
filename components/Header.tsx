@@ -27,6 +27,10 @@ export function Header() {
     })
   }, [pathname])
 
+  // The rebranded homepage (and preview routes) ship their own Bulletin header —
+  // hide the global one there. Placed after all hooks (Rules of Hooks).
+  if (pathname === '/' || pathname?.startsWith('/preview')) return null
+
   const handleSignOut = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
