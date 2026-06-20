@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
+import { BulletinHeader, BracketLabel } from '@/components/BulletinHeader'
 import { GemDetail } from '@/components/GemDetail'
-import { SocialLinks } from '@/components/SocialLinks'
 import { SaveHelp } from '@/components/SaveHelp'
 import { GemGlyph } from '@/components/GemGlyph'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
@@ -449,7 +449,11 @@ export default function ProfilePage() {
 
   return (
     <main className="min-h-screen bg-paper">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+      <BulletinHeader
+        action={isOwner ? { label: 'My page', href: `/${profile.username}` } : { label: 'Sign in', href: '/login' }}
+        logoClassName="h-[34px]"
+      />
+      <div className="mx-auto max-w-6xl px-4 pb-8 pt-2 sm:px-6 sm:pb-12 lg:px-8">
         {isOwner && <WelcomeBanner />}
 
         {/* Mobile search bar at top — prominent on small screens */}
@@ -474,35 +478,36 @@ export default function ProfilePage() {
         <div className="mb-6 sm:mb-8 border-b border-gray-100 pb-4 sm:pb-6 group sm:mb-10 sm:pb-8">
           <div className="flex items-start justify-between gap-3 sm:gap-6 mb-4">
             <div className="flex-1 min-w-0">
-              <h1 className="font-serif text-xl sm:text-[28px] font-normal tracking-tight text-ink leading-tight mb-2 sm:mb-3">
-                {profile.display_name || profile.username}
-              </h1>
-
-              {profile.bio && (() => {
-                const bioText = profile.bio
-                const accordingMatch = bioText.match(/According to [^,]+, life is better with .+$/)
-                const mainBio = accordingMatch
-                  ? bioText.substring(0, bioText.indexOf('According to')).trim()
-                  : bioText
-                const accordingLine = accordingMatch ? accordingMatch[0] : null
-
-                return (
-                  <>
-                    {mainBio && (
-                      <p className="mb-3 sm:mb-4 max-w-xl text-xs sm:text-sm leading-relaxed text-stone-500">
-                        {mainBio}
-                      </p>
-                    )}
-                    {accordingLine && (
-                      <p className="mb-2 sm:mb-3 max-w-xl text-sm sm:text-base leading-relaxed text-stone-700 italic font-serif">
-                        "{accordingLine.replace(/^According to /, '').replace(/\.$/, '')}"
-                      </p>
-                    )}
-                  </>
-                )
-              })()}
-
-              <SocialLinks links={profile.links} />
+              {/* Bulletin bracket strip — name / bio / links. */}
+              <div className="flex flex-col items-start gap-[9px] text-black/50">
+                <BracketLabel>{profile.display_name || profile.username}</BracketLabel>
+                {profile.bio && <BracketLabel>{profile.bio}</BracketLabel>}
+                {(() => {
+                  const links = (profile.links || {}) as Record<string, string>
+                  const entries = ([
+                    ['twitter', 'x', links.twitter],
+                    ['linkedin', 'linkedin', links.linkedin],
+                    ['website', 'website', links.website],
+                  ] as [string, string, string | undefined][]).filter((e) => e[2])
+                  if (!entries.length) return null
+                  return (
+                    <span className="label inline-flex items-center gap-[6px] text-black/50">
+                      <span aria-hidden className="opacity-40">[</span>
+                      <span className="inline-flex items-center gap-[6px]">
+                        {entries.map((e, i) => (
+                          <span key={e[0]}>
+                            <a href={e[2]} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-ink">
+                              {e[1]}
+                            </a>
+                            {i < entries.length - 1 ? ' · ' : ''}
+                          </span>
+                        ))}
+                      </span>
+                      <span aria-hidden className="opacity-40">]</span>
+                    </span>
+                  )
+                })()}
+              </div>
             </div>
 
             {isOwner && !editingProfile && (
@@ -783,7 +788,7 @@ export default function ProfilePage() {
             {(lists.length > 0 || isOwner) && (
               <section className="mb-12">
                 <div className="mb-4 flex items-baseline justify-between">
-                  <h2 className="font-serif text-xl font-medium text-ink">Lists</h2>
+                  <h2 className="text-black/50"><span className="label">Lists</span></h2>
                   {isOwner && lists.length > 0 && !creatingList && (
                     <button
                       onClick={() => setCreatingList(true)}
@@ -899,7 +904,7 @@ export default function ProfilePage() {
             )}
 
             <section>
-              <h2 className="mb-4 font-serif text-xl italic text-ink">Recent Saves</h2>
+              <h2 className="mb-5 text-black/50"><span className="label">Recent Saves</span></h2>
               {bookmarks.length > 0 ? (
                 renderGemGrid(filtered)
               ) : (

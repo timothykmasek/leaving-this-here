@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
+import { BulletinHeader } from '@/components/BulletinHeader'
 
 // Public, shareable page for a single list at /username/<slug>. Read-only —
 // owners manage membership and rename from their profile. RLS hides private
@@ -79,7 +80,8 @@ export default function ListPage() {
 
   return (
     <main className="min-h-screen bg-paper">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
+      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[34px]" />
+      <div className="mx-auto max-w-6xl px-4 pb-8 pt-2 sm:px-6 sm:pb-12 lg:px-8">
         <div className="mb-8 border-b border-gray-100 pb-6 sm:mb-10 sm:pb-8">
           <Link
             href={`/${username}`}
@@ -105,7 +107,7 @@ export default function ListPage() {
         </div>
 
         {gems.length > 0 ? (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-8 gap-y-12 sm:justify-start">
             {gems.map((b) => (
               <BookmarkCard
                 key={b.id}
