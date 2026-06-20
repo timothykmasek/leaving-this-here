@@ -414,7 +414,7 @@ export default function ProfilePage() {
   // `excludeListId` drops the current list's own chip when rendering inside a
   // list detail view (it'd be redundant there).
   const renderGemGrid = (items: any[], excludeListId?: string) => (
-    <div className="grid grid-cols-2 gap-3 sm:gap-5 sm:grid-cols-2 sm:gap-8 lg:grid-cols-3">
+    <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-8 gap-y-12 sm:justify-start">
       {items.map((b) => (
         <BookmarkCard
           key={b.id}
