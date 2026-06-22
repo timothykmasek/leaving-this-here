@@ -2,18 +2,16 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { pickProduct, pickBook } from '@/lib/metadata'
 import { pickCardImage } from '@/lib/cardImage'
-import { GemGlyph } from '@/components/GemGlyph'
 
 interface BookmarkCardProps {
   id: string
   title: string | null
-  description: string | null
+  description?: string | null
   url: string
   imageUrl: string | null
   screenshotUrl: string | null
-  faviconUrl: string | null
+  faviconUrl?: string | null
   rawMetadata?: any
   note?: string | null
   isOwner: boolean
@@ -32,8 +30,8 @@ interface BookmarkCardProps {
   // When set (owner view), clicking the card opens the gem detail modal
   // instead of navigating to the original URL.
   onOpen?: (id: string) => void
-  // Lists this gem belongs to. Rendered as a clickable chip (first list + "+N")
-  // linking to the published list page at /<ownerUsername>/<slug>.
+  // Lists this gem belongs to. The first list becomes the card's tag, linking
+  // to its published page at /<ownerUsername>/<slug>.
   inLists?: { id: string; name: string; slug: string | null }[]
   ownerUsername?: string
 }
@@ -56,164 +54,113 @@ function getCleanTitle(title: string | null, url: string): string {
   return cleaned
 }
 
-// Uniform fixed-height rounded card. Every gem renders in the same footprint so
-// the grid reads as an even, calm wall of cards. Image-led when we have a
-// usable image; text-led (domain · title · excerpt) when we don't.
-const CARD_HEIGHT = 'h-[260px] sm:h-[300px]'
-
-function Favicon({ faviconUrl, domain }: { faviconUrl: string | null; domain: string }) {
-  const [err, setErr] = useState(false)
-  if (faviconUrl && !err) {
-    return (
-      <img
-        src={faviconUrl}
-        alt=""
-        className="h-3.5 w-3.5 rounded-sm"
-        onError={() => setErr(true)}
-      />
-    )
-  }
-  return (
-    <span className="flex h-3.5 w-3.5 items-center justify-center rounded-sm bg-stone-200 text-[8px] font-medium text-stone-500">
-      {domain.charAt(0).toUpperCase()}
-    </span>
-  )
+// Corner rivet (the bulletin-board "pin" dots) — 8px, inset 20px.
+function Rivet({ className }: { className: string }) {
+  return <span aria-hidden className={`absolute h-[8px] w-[8px] rounded-full bg-black/20 ${className}`} />
 }
 
+// Bulletin "Link card" — uniform 272×270 plate: #f1f1f1 panel w/ corner rivets,
+// inset rounded thumbnail, Cardo-bold title, bracketed list tag. Spec: Figma
+// node 695:840.
+//
+// Uses a stretched-link pattern: the whole card is one click target (modal for
+// owners, original URL for visitors), with the list tag layered above it as an
+// independent link — so no <a>-in-<a> nesting.
 export function BookmarkCard({
-  id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  note, isOwner, onOpen, cardType, inLists, ownerUsername,
+  id, title, url, imageUrl, screenshotUrl, isOwner, onOpen, inLists, ownerUsername,
 }: BookmarkCardProps) {
-  const product = cardType === 'product' && rawMetadata ? pickProduct(rawMetadata) : null
-  const book = cardType === 'book' && rawMetadata ? pickBook(rawMetadata) : null
   const [imgError, setImgError] = useState(false)
 
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
-  const image = pickCardImage(url, imageUrl, screenshotUrl) || product?.image || book?.image || null
+  const image = pickCardImage(url, imageUrl, screenshotUrl)
   const hasImage = !!image && !imgError
+  const first = (inLists || [])[0]
 
-  // List membership chip — first list links to its public page; extra lists
-  // collapse into a non-clickable "+N". stopPropagation keeps a chip click from
-  // opening the card (owner detail modal) or the original URL.
-  const lists = inLists || []
-  const first = lists[0]
-  const chips = first ? (
-    <div className="mt-2 flex items-center gap-1">
-      {first.slug && ownerUsername ? (
-        <Link
-          href={`/${ownerUsername}/${first.slug}`}
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex max-w-full items-center truncate rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600 transition-colors hover:bg-stone-200 hover:text-ink"
-        >
-          {first.name}
-        </Link>
-      ) : (
-        <span className="inline-flex max-w-full items-center truncate rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600">
-          {first.name}
-        </span>
-      )}
-      {lists.length > 1 && (
-        <span className="shrink-0 text-[10px] font-medium text-stone-400">+{lists.length - 1}</span>
-      )}
-    </div>
-  ) : null
-
-  const footer = (
-    <div className="shrink-0 px-4 pb-3.5 pt-3">
-      <h3 className="line-clamp-2 font-serif text-[15px] font-medium leading-snug tracking-tight text-ink">
-        {cleanTitle}
-      </h3>
-      <div className="mt-1.5 flex items-center gap-1.5">
-        <Favicon faviconUrl={faviconUrl} domain={domain} />
-        <span className="truncate text-[10px] uppercase tracking-[0.12em] text-stone-500">
-          {domain}
-        </span>
-      </div>
-      {chips}
-    </div>
+  const tagInner = first && (
+    <>
+      <span aria-hidden className="text-black/40">[</span>
+      {first.name}
+      <span aria-hidden className="text-black/40">]</span>
+    </>
   )
 
-  const cardContent = hasImage ? (
-    // Image is inset with a white margin (a "mat"), so a subtle white line
-    // frames the preview inside the card.
-    <div className={`flex ${CARD_HEIGHT} flex-col`}>
-      <div className="min-h-0 flex-1 p-1.5 pb-0">
-        <div className="h-full overflow-hidden rounded-lg bg-stone-100">
+  return (
+    <div className="group relative h-[270px] w-[272px] overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]">
+      {/* corner rivets */}
+      <Rivet className="left-[20px] top-[20px]" />
+      <Rivet className="right-[20px] top-[20px]" />
+      <Rivet className="bottom-[20px] left-[20px]" />
+      <Rivet className="bottom-[20px] right-[20px]" />
+
+      {/* thumbnail — 184×118 @ (44,59); domain fallback when no image */}
+      <div className="absolute left-[44px] top-[59px] h-[118px] w-[184px] overflow-hidden rounded-[10px] bg-black/[0.06]">
+        {hasImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={image!}
-            alt={cleanTitle}
+            alt=""
             className="h-full w-full object-cover"
             onError={() => setImgError(true)}
           />
-        </div>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center px-3">
+            <span className="label text-center text-black/30">{domain}</span>
+          </div>
+        )}
       </div>
-      {footer}
-    </div>
-  ) : (
-    // Text-led: domain → title → excerpt. Fills the same footprint.
-    <div className={`flex ${CARD_HEIGHT} flex-col p-4`}>
-      <div className="flex items-center gap-1.5">
-        <Favicon faviconUrl={faviconUrl} domain={domain} />
-        <span className="truncate text-[10px] uppercase tracking-[0.12em] text-stone-500">
-          {domain}
-        </span>
-      </div>
-      <h3 className="mt-2.5 line-clamp-3 font-serif text-[19px] font-medium leading-[1.25] tracking-tight text-ink">
+
+      {/* title — Cardo bold 12px, left-aligned, 2 lines */}
+      <h3 className="absolute left-[44px] top-[186px] line-clamp-2 w-[184px] font-serif text-[12px] font-bold leading-[13px] text-ink">
         {cleanTitle}
       </h3>
-      {description ? (
-        <p className="mt-2 line-clamp-4 text-[13px] leading-relaxed text-stone-500">
-          {description}
-        </p>
-      ) : (
-        !chips && (
-          <div className="mt-auto flex justify-end">
-            <GemGlyph className="h-7 w-7 text-ink/10" />
-          </div>
-        )
-      )}
-      {chips && <div className="mt-auto">{chips}</div>}
-    </div>
-  )
 
-  const frame =
-    'block overflow-hidden rounded-2xl bg-stone-50 shadow-[0_1px_3px_rgba(40,30,25,0.10)] ring-1 ring-black/[0.04] transition-shadow hover:shadow-[0_6px_20px_rgba(40,30,25,0.14)]'
-
-  return (
-    <div className="group relative">
+      {/* stretched click target — opens the modal (owner) or the original (visitor) */}
       {onOpen ? (
-        <div
-          role="button"
-          tabIndex={0}
-          className={`${frame} cursor-pointer`}
+        <button
+          type="button"
+          aria-label={cleanTitle}
           onClick={() => onOpen(id)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              onOpen(id)
-            }
-          }}
-        >
-          {cardContent}
-        </div>
+          className="absolute inset-0 z-[1] cursor-pointer"
+        />
       ) : (
-        <a href={url} target="_blank" rel="noopener noreferrer" className={frame}>
-          {cardContent}
-        </a>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={cleanTitle}
+          className="absolute inset-0 z-[1]"
+        />
       )}
 
-      {/* Hover affordance to open the original — owners click the card itself to
-          open the detail view, so this gives them a direct way out to the site. */}
+      {/* list tag — bracketed pill, centered, bottom; layered above the click target */}
+      {first && (
+        <div className="absolute bottom-[16px] left-1/2 z-[2] -translate-x-1/2">
+          {first.slug && ownerUsername ? (
+            <Link
+              href={`/${ownerUsername}/${first.slug}`}
+              className="label inline-flex items-center gap-[7px] whitespace-nowrap rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink transition-colors hover:bg-black/[0.10]"
+            >
+              {tagInner}
+            </Link>
+          ) : (
+            <span className="label inline-flex items-center gap-[7px] whitespace-nowrap rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink">
+              {tagInner}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Hover affordance to open the original — owners click the card to open the
+          detail view, so this gives them a direct way out to the site. */}
       {isOwner && (
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
           aria-label="open original"
           title="open original"
-          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 opacity-0 shadow-sm backdrop-blur-sm transition-opacity hover:text-ink group-hover:opacity-100"
+          className="absolute right-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 opacity-0 shadow-sm backdrop-blur-sm transition-opacity hover:text-ink group-hover:opacity-100"
         >
           <span aria-hidden className="text-xs">↗</span>
         </a>

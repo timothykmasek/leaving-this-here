@@ -27,9 +27,13 @@ export function Header() {
     })
   }, [pathname])
 
-  // The rebranded homepage (and preview routes) ship their own Bulletin header —
-  // hide the global one there. Placed after all hooks (Rules of Hooks).
-  if (pathname === '/' || pathname?.startsWith('/preview')) return null
+  // The rebranded homepage, profile/list pages, and preview routes ship their
+  // own Bulletin header — hide the global one there. Profile/list pages are any
+  // first path segment that isn't a reserved app route. (After hooks: Rules of Hooks.)
+  const RESERVED = ['login', 'start', 'setup', 'auth', 'privacy', 'bookmarklet', 'save', 'preview', 'api']
+  const seg = pathname?.split('/')[1] || ''
+  const isProfileOrList = seg !== '' && !RESERVED.includes(seg)
+  if (pathname === '/' || pathname?.startsWith('/preview') || isProfileOrList) return null
 
   const handleSignOut = async () => {
     const supabase = createClient()
