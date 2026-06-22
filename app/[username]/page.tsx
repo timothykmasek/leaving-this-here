@@ -422,7 +422,7 @@ export default function ProfilePage() {
   // `excludeListId` drops the current list's own chip when rendering inside a
   // list detail view (it'd be redundant there).
   const renderGemGrid = (items: any[], excludeListId?: string) => (
-    <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-8 gap-y-12 sm:justify-start">
+    <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-6 gap-y-12 sm:justify-start">
       {items.map((b) => (
         <BookmarkCard
           key={b.id}
@@ -461,7 +461,7 @@ export default function ProfilePage() {
         action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
         logoClassName="h-[34px]"
       />
-      <div className="mx-auto max-w-[1264px] px-4 pb-8 pt-2 sm:px-6 sm:pb-12 lg:px-8">
+      <div className="mx-auto max-w-[1264px] px-4 pb-8 pt-2 sm:px-6 sm:pb-12">
         {isOwner && <WelcomeBanner />}
 
         {/* Hero — bracket strip + view tabs. `group` enables hover-reveal edit. */}
@@ -771,7 +771,7 @@ export default function ProfilePage() {
               )}
 
               {lists.length > 0 ? (
-                <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-8 gap-y-12 sm:justify-start">
+                <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-6 gap-y-12 sm:justify-start">
                   {lists.map((l) => (
                     <CollectionCard
                       key={l.id}
