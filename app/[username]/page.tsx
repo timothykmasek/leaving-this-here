@@ -738,57 +738,74 @@ export default function ProfilePage() {
               </div>
             )
           ) : (
-            <>
-              {/* owner: create a new list */}
-              {isOwner && (
-                <div className="mb-10 flex justify-center">
-                  {creatingList ? (
-                    <input
-                      autoFocus
-                      value={newListName}
-                      onChange={(e) => setNewListName(e.target.value)}
-                      onKeyDown={async (e) => {
-                        if (e.key === 'Enter') {
-                          const id = await handleCreateList(newListName)
-                          setNewListName(''); setCreatingList(false)
-                          if (id) setActiveListId(id)
-                        } else if (e.key === 'Escape') {
-                          setCreatingList(false); setNewListName('')
-                        }
-                      }}
-                      placeholder="New list name"
-                      className="label w-[300px] max-w-full rounded-full border border-black/15 bg-transparent px-6 py-3 text-center text-ink placeholder:text-black/40 focus:border-black/40 focus:outline-none"
-                    />
+            (isOwner || lists.length > 0) ? (
+              <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-6 gap-y-12 sm:justify-start">
+                {/* owner: a card-shaped "New list" affordance (also the empty state) */}
+                {isOwner && (
+                  creatingList ? (
+                    <div className="flex h-[270px] w-[272px] flex-col items-center justify-center gap-4 rounded-[20px] border-2 border-dashed border-black/15 px-6">
+                      <input
+                        autoFocus
+                        value={newListName}
+                        onChange={(e) => setNewListName(e.target.value)}
+                        onKeyDown={async (e) => {
+                          if (e.key === 'Enter') {
+                            const id = await handleCreateList(newListName)
+                            setNewListName(''); setCreatingList(false)
+                            if (id) setActiveListId(id)
+                          } else if (e.key === 'Escape') {
+                            setCreatingList(false); setNewListName('')
+                          }
+                        }}
+                        placeholder="List name"
+                        className="label w-full rounded-full border border-black/15 bg-transparent px-4 py-2.5 text-center text-ink placeholder:text-black/40 focus:border-black/40 focus:outline-none"
+                      />
+                      <div className="flex gap-4">
+                        <button
+                          onClick={async () => {
+                            const id = await handleCreateList(newListName)
+                            setNewListName(''); setCreatingList(false)
+                            if (id) setActiveListId(id)
+                          }}
+                          className="label text-ink hover:underline"
+                        >
+                          Create
+                        </button>
+                        <button
+                          onClick={() => { setCreatingList(false); setNewListName('') }}
+                          className="label text-black/40 transition-colors hover:text-black/60"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <button
                       onClick={() => setCreatingList(true)}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-black/15 px-5 py-2.5 text-black/50 transition-colors hover:border-black/30 hover:text-ink"
+                      className="flex h-[270px] w-[272px] flex-col items-center justify-center gap-3 rounded-[20px] border-2 border-dashed border-black/15 text-black/40 transition-colors hover:border-black/30 hover:text-ink"
                     >
-                      <span aria-hidden>+</span> <span className="label">New list</span>
+                      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current text-xl">+</span>
+                      <span className="label">New list</span>
                     </button>
-                  )}
-                </div>
-              )}
+                  )
+                )}
 
-              {lists.length > 0 ? (
-                <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-6 gap-y-12 sm:justify-start">
-                  {lists.map((l) => (
-                    <CollectionCard
-                      key={l.id}
-                      name={l.name}
-                      count={l.bookmark_ids.length}
-                      thumbs={listThumbs(l)}
-                      isPrivate={l.is_private}
-                      onClick={() => setActiveListId(l.id)}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="py-16 text-center">
-                  <p className="label text-black/40">{isOwner ? 'No lists yet — make one above' : 'No lists yet'}</p>
-                </div>
-              )}
-            </>
+                {lists.map((l) => (
+                  <CollectionCard
+                    key={l.id}
+                    name={l.name}
+                    count={l.bookmark_ids.length}
+                    thumbs={listThumbs(l)}
+                    isPrivate={l.is_private}
+                    onClick={() => setActiveListId(l.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="py-16 text-center">
+                <p className="label text-black/40">No lists yet</p>
+              </div>
+            )
           )
         )}
 
