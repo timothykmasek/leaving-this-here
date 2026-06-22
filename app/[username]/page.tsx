@@ -5,9 +5,9 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
 import { BulletinHeader, BracketLabel } from '@/components/BulletinHeader'
+import { CollectionCard } from '@/components/CollectionCard'
 import { GemDetail } from '@/components/GemDetail'
 import { SaveHelp } from '@/components/SaveHelp'
-import { GemGlyph } from '@/components/GemGlyph'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { uniqueSlug } from '@/lib/slug'
@@ -46,6 +46,8 @@ export default function ProfilePage() {
   const [query, setQuery] = useState('')
   const [showAllLists, setShowAllLists] = useState(false)
   const [activeListId, setActiveListId] = useState<string | null>(null)
+  // Profile view tab — Recent finds vs the Lists collection grid.
+  const [activeTab, setActiveTab] = useState<'recent' | 'lists'>('recent')
   const [newListName, setNewListName] = useState('')
   const [creatingList, setCreatingList] = useState(false)
   // List-detail rename + share affordances.
@@ -245,6 +247,12 @@ export default function ProfilePage() {
     }
   }
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+    router.refresh()
+  }
+
   const handleDelete = async (id: string) => {
     await supabase.from('bookmarks').delete().eq('id', id)
     setBookmarks((prev) => prev.filter((b) => b.id !== id))
@@ -409,7 +417,7 @@ export default function ProfilePage() {
       .filter(Boolean)
       .map((b: any) => b.image_url || b.screenshot_url)
       .filter(Boolean)
-      .slice(0, 3)
+      .slice(0, 4)
 
   // `excludeListId` drops the current list's own chip when rendering inside a
   // list detail view (it'd be redundant there).
@@ -450,110 +458,86 @@ export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-paper">
       <BulletinHeader
-        action={isOwner ? { label: 'My page', href: `/${profile.username}` } : { label: 'Sign in', href: '/login' }}
+        action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
         logoClassName="h-[34px]"
       />
-      <div className="mx-auto max-w-6xl px-4 pb-8 pt-2 sm:px-6 sm:pb-12 lg:px-8">
+      <div className="mx-auto max-w-[1264px] px-4 pb-8 pt-2 sm:px-6 sm:pb-12 lg:px-8">
         {isOwner && <WelcomeBanner />}
 
-        {/* Mobile search bar at top — prominent on small screens */}
-        {isOwner && (
-          <div className="mb-6 md:hidden">
-            <input
-              type="text"
-              value={query}
-              placeholder="search your finds…"
-              onChange={(e) => {
-                const v = e.target.value
-                setQuery(v)
-                handleSearch(v)
-                if (v.trim()) setActiveListId(null)
-              }}
-              className="w-full px-4 py-3 bg-white border border-gray-200 rounded-lg text-sm italic text-ink placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-400"
-            />
-          </div>
-        )}
-
-        {/* Hero — `group` enables the hover-reveal edit icon below */}
-        <div className="mb-6 sm:mb-8 border-b border-gray-100 pb-4 sm:pb-6 group sm:mb-10 sm:pb-8">
-          <div className="flex items-start justify-between gap-3 sm:gap-6 mb-4">
-            <div className="flex-1 min-w-0">
-              {/* Bulletin bracket strip — name / bio / links. */}
-              <div className="flex flex-col items-start gap-[9px] text-black/50">
-                <BracketLabel>{profile.display_name || profile.username}</BracketLabel>
-                {profile.bio && <BracketLabel>{profile.bio}</BracketLabel>}
-                {(() => {
-                  const links = (profile.links || {}) as Record<string, string>
-                  const entries = ([
-                    ['twitter', 'x', links.twitter],
-                    ['linkedin', 'linkedin', links.linkedin],
-                    ['website', 'website', links.website],
-                  ] as [string, string, string | undefined][]).filter((e) => e[2])
-                  if (!entries.length) return null
-                  return (
-                    <span className="label inline-flex items-center gap-[6px] text-black/50">
-                      <span aria-hidden className="opacity-40">[</span>
-                      <span className="inline-flex items-center gap-[6px]">
-                        {entries.map((e, i) => (
-                          <span key={e[0]}>
-                            <a href={e[2]} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-ink">
-                              {e[1]}
-                            </a>
-                            {i < entries.length - 1 ? ' · ' : ''}
-                          </span>
-                        ))}
-                      </span>
-                      <span aria-hidden className="opacity-40">]</span>
+        {/* Hero — bracket strip + view tabs. `group` enables hover-reveal edit. */}
+        <div className="group mb-9">
+          <div className="flex items-end justify-between gap-6">
+            {/* bracket strip — name / bio / links */}
+            <div className="flex min-w-0 flex-col items-start gap-[9px] text-black/50">
+              <BracketLabel>{profile.display_name || profile.username}</BracketLabel>
+              {profile.bio && <BracketLabel>{profile.bio}</BracketLabel>}
+              {(() => {
+                const links = (profile.links || {}) as Record<string, string>
+                const entries = ([
+                  ['twitter', 'x', links.twitter],
+                  ['linkedin', 'linkedin', links.linkedin],
+                  ['website', 'website', links.website],
+                ] as [string, string, string | undefined][]).filter((e) => e[2])
+                if (!entries.length) return null
+                return (
+                  <span className="label inline-flex items-center gap-[6px] text-black/50">
+                    <span aria-hidden className="opacity-40">[</span>
+                    <span className="inline-flex items-center gap-[6px]">
+                      {entries.map((e, i) => (
+                        <span key={e[0]}>
+                          <a href={e[2]} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-ink">
+                            {e[1]}
+                          </a>
+                          {i < entries.length - 1 ? ' · ' : ''}
+                        </span>
+                      ))}
                     </span>
-                  )
-                })()}
-              </div>
+                    <span aria-hidden className="opacity-40">]</span>
+                  </span>
+                )
+              })()}
             </div>
 
-            {isOwner && !editingProfile && (
-              <div className="shrink-0 flex flex-col items-center gap-2 sm:flex-row sm:gap-1">
-                {/* Mobile: big + button */}
-                <button
-                  onClick={() => setSaveOpen((v) => !v)}
-                  className="relative inline-flex md:hidden w-12 h-12 items-center justify-center text-lg font-bold bg-orange-500 text-white rounded-full hover:bg-orange-600 transition-colors shadow-lg"
-                  title="save a find"
-                >
-                  <span aria-hidden>+</span>
-                  {bookmarks.length > 0 && bookmarks.length < 5 && !saveOpen && (
-                    <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60" />
-                      <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500" />
-                    </span>
-                  )}
-                </button>
-                {/* Desktop: text pill button */}
-                <button
-                  onClick={() => setSaveOpen((v) => !v)}
-                  className="relative hidden md:inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium border border-gray-200 rounded-full text-gray-700 hover:text-gray-900 hover:border-gray-400 transition-colors"
-                >
-                  <span aria-hidden>+</span> save a find
-                  {bookmarks.length > 0 && bookmarks.length < 5 && !saveOpen && (
-                    <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-60" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
-                    </span>
-                  )}
-                </button>
-                {/* Edit-profile pencil — hover-revealed on desktop, persistently
-                    faint on mobile (touch has no hover state). */}
-                <button
-                  onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
-                  aria-label="edit profile"
-                  title="edit profile"
-                  className="w-9 h-9 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-all opacity-40 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
-                  </svg>
-                </button>
-              </div>
-            )}
+            {/* right: owner actions + view tabs */}
+            <div className="flex shrink-0 flex-col items-end gap-3">
+              {isOwner && !editingProfile && (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setSaveOpen((v) => !v)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-3.5 py-1.5 text-black/50 transition-colors hover:border-black/25 hover:text-ink"
+                  >
+                    <span aria-hidden>+</span> <span className="label">Save a find</span>
+                  </button>
+                  <button
+                    onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
+                    aria-label="edit profile"
+                    title="edit profile"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-black/30 transition-all hover:bg-black/5 hover:text-ink md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M12 20h9" />
+                      <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+              {!activeList && !query.trim() && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setActiveTab('recent')}
+                    className={activeTab === 'recent' ? 'text-ink' : 'text-black/35 transition-colors hover:text-black/60'}
+                  >
+                    <BracketLabel>Recent bullets</BracketLabel>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('lists')}
+                    className={activeTab === 'lists' ? 'text-ink' : 'text-black/35 transition-colors hover:text-black/60'}
+                  >
+                    <BracketLabel>Lists</BracketLabel>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Edit profile form */}
@@ -662,46 +646,7 @@ export default function ProfilePage() {
           )}
 
           {/* Quiet meta row */}
-          <div className="flex gap-5 text-xs uppercase tracking-wider text-gray-400">
-            <span>
-              <span className="text-gray-900 font-medium">{bookmarks.length}</span>{' '}
-              <span>{bookmarks.length === 1 ? 'find' : 'finds'}</span>
-            </span>
-            {(() => {
-              const latest = bookmarks[0]?.created_at
-              if (!latest) return null
-              const days = Math.floor((Date.now() - new Date(latest).getTime()) / 86400000)
-              const label = days === 0 ? 'updated today' : days === 1 ? 'updated yesterday' : days < 30 ? `updated ${days}d ago` : days < 365 ? `updated ${Math.floor(days / 30)}mo ago` : `updated ${Math.floor(days / 365)}y ago`
-              return <span>{label}</span>
-            })()}
-          </div>
         </div>
-
-        {/* Persistent extension nudge — only for owners on a browser without the
-            extension. Dismissible, and hidden while the save panel (which holds
-            the actual install steps) is open. */}
-        {isOwner && extInstalled === false && !extNudgeDismissed && !saveOpen && (
-          <div className="mb-8 flex items-center gap-3 rounded-xl border border-gray-200 bg-white/60 px-4 py-3">
-            <GemGlyph className="h-5 w-5 shrink-0 text-ink/40" />
-            <p className="flex-1 text-sm text-gray-700">
-              Save twice as fast — add the Chrome extension to grab any page in
-              one click.
-            </p>
-            <button
-              onClick={() => setSaveOpen(true)}
-              className="shrink-0 rounded-full bg-gray-900 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
-            >
-              set it up
-            </button>
-            <button
-              onClick={dismissExtNudge}
-              aria-label="dismiss"
-              className="shrink-0 text-gray-300 hover:text-gray-600 transition-colors"
-            >
-              ✕
-            </button>
-          </div>
-        )}
 
         {/* Owner-only save panel — collapsible. Empty state gets larger
             messaging (onboarding); populated state is more compact. */}
@@ -751,20 +696,20 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Search — desktop version (hidden on mobile, shown above) */}
-        {isOwner && (
-          <div className="hidden md:block mb-8">
+        {/* Search — owner only: a centered SEARCH YOUR LINKS pill */}
+        {isOwner && !activeList && (
+          <div className="mb-10 flex justify-center">
             <input
               type="text"
               value={query}
-              placeholder="search your finds…"
+              placeholder="Search your links"
               onChange={(e) => {
                 const v = e.target.value
                 setQuery(v)
                 handleSearch(v)
                 if (v.trim()) setActiveListId(null)
               }}
-              className="w-full bg-transparent border-0 border-b border-stone-300 pb-3 font-serif text-xl sm:text-3xl italic text-ink placeholder:text-stone-400 focus:outline-none focus:border-stone-500 transition-colors"
+              className="label w-[300px] max-w-full rounded-full border border-black/15 bg-transparent px-6 py-3 text-center text-ink placeholder:text-black/40 focus:border-black/40 focus:outline-none"
             />
           </div>
         )}
@@ -782,138 +727,69 @@ export default function ProfilePage() {
           </>
         )}
 
-        {/* ── Home: Lists strip + Recent Saves ── */}
+        {/* ── Home: RECENT BULLETS grid or LISTS collection grid (tab-gated) ── */}
         {!activeList && !query.trim() && (
-          <>
-            {(lists.length > 0 || isOwner) && (
-              <section className="mb-12">
-                <div className="mb-4 flex items-baseline justify-between">
-                  <h2 className="text-black/50"><span className="label">Lists</span></h2>
-                  {isOwner && lists.length > 0 && !creatingList && (
+          activeTab === 'recent' ? (
+            bookmarks.length > 0 ? (
+              renderGemGrid(filtered)
+            ) : (
+              <div className="py-16 text-center">
+                <p className="label text-black/40">No finds yet</p>
+              </div>
+            )
+          ) : (
+            <>
+              {/* owner: create a new list */}
+              {isOwner && (
+                <div className="mb-10 flex justify-center">
+                  {creatingList ? (
+                    <input
+                      autoFocus
+                      value={newListName}
+                      onChange={(e) => setNewListName(e.target.value)}
+                      onKeyDown={async (e) => {
+                        if (e.key === 'Enter') {
+                          const id = await handleCreateList(newListName)
+                          setNewListName(''); setCreatingList(false)
+                          if (id) setActiveListId(id)
+                        } else if (e.key === 'Escape') {
+                          setCreatingList(false); setNewListName('')
+                        }
+                      }}
+                      placeholder="New list name"
+                      className="label w-[300px] max-w-full rounded-full border border-black/15 bg-transparent px-6 py-3 text-center text-ink placeholder:text-black/40 focus:border-black/40 focus:outline-none"
+                    />
+                  ) : (
                     <button
                       onClick={() => setCreatingList(true)}
-                      className="text-sm text-stone-400 hover:text-ink"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-black/15 px-5 py-2.5 text-black/50 transition-colors hover:border-black/30 hover:text-ink"
                     >
-                      + new list
+                      <span aria-hidden>+</span> <span className="label">New list</span>
                     </button>
                   )}
-                </div>
-
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {/* inline create form */}
-                  {isOwner && creatingList && (
-                    <div className="flex h-44 flex-col justify-center rounded-2xl border-2 border-dashed border-stone-300 bg-white/40 p-4">
-                      <input
-                        autoFocus
-                        value={newListName}
-                        onChange={(e) => setNewListName(e.target.value)}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter') {
-                            const id = await handleCreateList(newListName)
-                            setNewListName(''); setCreatingList(false)
-                            if (id) setActiveListId(id)
-                          } else if (e.key === 'Escape') {
-                            setCreatingList(false); setNewListName('')
-                          }
-                        }}
-                        placeholder="list name"
-                        className="w-full bg-transparent font-serif text-lg italic text-ink placeholder:text-stone-400 focus:outline-none"
-                      />
-                      <div className="mt-3 flex gap-3 text-xs">
-                        <button
-                          onClick={async () => {
-                            const id = await handleCreateList(newListName)
-                            setNewListName(''); setCreatingList(false)
-                            if (id) setActiveListId(id)
-                          }}
-                          className="font-medium text-ink hover:underline"
-                        >
-                          create
-                        </button>
-                        <button
-                          onClick={() => { setCreatingList(false); setNewListName('') }}
-                          className="text-stone-400 hover:text-stone-600"
-                        >
-                          cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* zero-state: create your first list */}
-                  {isOwner && lists.length === 0 && !creatingList && (
-                    <button
-                      onClick={() => setCreatingList(true)}
-                      className="flex h-44 flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-stone-300 text-stone-400 transition-colors hover:border-stone-400 hover:text-stone-600"
-                    >
-                      <span className="flex h-9 w-9 items-center justify-center rounded-full border border-current text-lg">+</span>
-                      <span className="text-sm">Create your first list</span>
-                    </button>
-                  )}
-
-                  {/* list cards */}
-                  {(showAllLists ? lists : lists.slice(0, 3)).map((l) => {
-                    const thumbs = listThumbs(l)
-                    return (
-                      <button
-                        key={l.id}
-                        onClick={() => setActiveListId(l.id)}
-                        className="group flex flex-col rounded-2xl bg-stone-100 p-4 text-left shadow-[0_1px_3px_rgba(40,30,25,0.10)] ring-1 ring-black/[0.04] transition-shadow hover:shadow-[0_6px_20px_rgba(40,30,25,0.14)]"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-medium uppercase tracking-[0.14em] text-stone-400">List</span>
-                          {l.is_private && (
-                            <span className="text-[10px] uppercase tracking-wider text-stone-400">private</span>
-                          )}
-                        </div>
-                        <h3 className="mt-1 line-clamp-1 font-serif text-lg font-medium italic tracking-tight text-ink">
-                          {l.name}
-                        </h3>
-                        <div className="mt-3 flex gap-1.5">
-                          {[0, 1, 2].map((i) => (
-                            <div key={i} className="h-14 flex-1 overflow-hidden rounded-md bg-stone-100">
-                              {thumbs[i] && (
-                                <img
-                                  src={thumbs[i]}
-                                  alt=""
-                                  className="h-full w-full object-cover"
-                                  onError={(e) => { e.currentTarget.style.display = 'none' }}
-                                />
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                        <span className="mt-3 text-xs text-stone-400">
-                          {l.bookmark_ids.length} {l.bookmark_ids.length === 1 ? 'link' : 'links'}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {lists.length > 3 && (
-                  <button
-                    onClick={() => setShowAllLists((v) => !v)}
-                    className="mt-4 inline-flex items-center gap-1 rounded-full border border-stone-300 px-3.5 py-1.5 text-sm text-stone-600 transition-colors hover:border-stone-400 hover:text-ink"
-                  >
-                    {showAllLists ? 'show fewer' : `+ ${lists.length - 3} more lists`}
-                    <span aria-hidden>{showAllLists ? '▴' : '▾'}</span>
-                  </button>
-                )}
-              </section>
-            )}
-
-            <section>
-              <h2 className="mb-5 text-black/50"><span className="label">Recent Saves</span></h2>
-              {bookmarks.length > 0 ? (
-                renderGemGrid(filtered)
-              ) : (
-                <div className="text-center py-16">
-                  <p className="text-gray-500 text-sm">no finds yet</p>
                 </div>
               )}
-            </section>
-          </>
+
+              {lists.length > 0 ? (
+                <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-8 gap-y-12 sm:justify-start">
+                  {lists.map((l) => (
+                    <CollectionCard
+                      key={l.id}
+                      name={l.name}
+                      count={l.bookmark_ids.length}
+                      thumbs={listThumbs(l)}
+                      isPrivate={l.is_private}
+                      onClick={() => setActiveListId(l.id)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="py-16 text-center">
+                  <p className="label text-black/40">{isOwner ? 'No lists yet — make one above' : 'No lists yet'}</p>
+                </div>
+              )}
+            </>
+          )
         )}
 
         {/* ── List detail ── */}

@@ -62,6 +62,10 @@ function Rivet({ className }: { className: string }) {
 // Bulletin "Link card" — uniform 272×270 plate: #f1f1f1 panel w/ corner rivets,
 // inset rounded thumbnail, Cardo-bold title, bracketed list tag. Spec: Figma
 // node 695:840.
+//
+// Uses a stretched-link pattern: the whole card is one click target (modal for
+// owners, original URL for visitors), with the list tag layered above it as an
+// independent link — so no <a>-in-<a> nesting.
 export function BookmarkCard({
   id, title, url, imageUrl, screenshotUrl, isOwner, onOpen, inLists, ownerUsername,
 }: BookmarkCardProps) {
@@ -73,11 +77,16 @@ export function BookmarkCard({
   const hasImage = !!image && !imgError
   const first = (inLists || [])[0]
 
-  const frame =
-    'relative block h-[270px] w-[272px] overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]'
-
-  const inner = (
+  const tagInner = first && (
     <>
+      <span aria-hidden className="text-black/40">[</span>
+      {first.name}
+      <span aria-hidden className="text-black/40">]</span>
+    </>
+  )
+
+  return (
+    <div className="group relative h-[270px] w-[272px] overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]">
       {/* corner rivets */}
       <Rivet className="left-[20px] top-[20px]" />
       <Rivet className="right-[20px] top-[20px]" />
@@ -106,65 +115,52 @@ export function BookmarkCard({
         {cleanTitle}
       </h3>
 
-      {/* list tag — bracketed pill, centered, bottom */}
+      {/* stretched click target — opens the modal (owner) or the original (visitor) */}
+      {onOpen ? (
+        <button
+          type="button"
+          aria-label={cleanTitle}
+          onClick={() => onOpen(id)}
+          className="absolute inset-0 z-[1] cursor-pointer"
+        />
+      ) : (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={cleanTitle}
+          className="absolute inset-0 z-[1]"
+        />
+      )}
+
+      {/* list tag — bracketed pill, centered, bottom; layered above the click target */}
       {first && (
-        <div className="absolute bottom-[16px] left-1/2 -translate-x-1/2">
+        <div className="absolute bottom-[16px] left-1/2 z-[2] -translate-x-1/2">
           {first.slug && ownerUsername ? (
             <Link
               href={`/${ownerUsername}/${first.slug}`}
-              onClick={(e) => e.stopPropagation()}
               className="label inline-flex items-center gap-[7px] whitespace-nowrap rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink transition-colors hover:bg-black/[0.10]"
             >
-              <span aria-hidden className="text-black/40">[</span>
-              {first.name}
-              <span aria-hidden className="text-black/40">]</span>
+              {tagInner}
             </Link>
           ) : (
             <span className="label inline-flex items-center gap-[7px] whitespace-nowrap rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink">
-              <span aria-hidden className="text-black/40">[</span>
-              {first.name}
-              <span aria-hidden className="text-black/40">]</span>
+              {tagInner}
             </span>
           )}
         </div>
       )}
-    </>
-  )
 
-  return (
-    <div className="group relative">
-      {onOpen ? (
-        <div
-          role="button"
-          tabIndex={0}
-          className={`${frame} cursor-pointer`}
-          onClick={() => onOpen(id)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              onOpen(id)
-            }
-          }}
-        >
-          {inner}
-        </div>
-      ) : (
-        <a href={url} target="_blank" rel="noopener noreferrer" className={frame}>
-          {inner}
-        </a>
-      )}
-
-      {/* Hover affordance to open the original — owners click the card itself to
-          open the detail view, so this gives them a direct way out to the site. */}
+      {/* Hover affordance to open the original — owners click the card to open the
+          detail view, so this gives them a direct way out to the site. */}
       {isOwner && (
         <a
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
           aria-label="open original"
           title="open original"
-          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 opacity-0 shadow-sm backdrop-blur-sm transition-opacity hover:text-ink group-hover:opacity-100"
+          className="absolute right-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 opacity-0 shadow-sm backdrop-blur-sm transition-opacity hover:text-ink group-hover:opacity-100"
         >
           <span aria-hidden className="text-xs">↗</span>
         </a>
