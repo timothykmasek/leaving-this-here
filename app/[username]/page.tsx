@@ -471,7 +471,9 @@ export default function ProfilePage() {
         action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
         logoClassName="h-[34px]"
       />
-      <div className="mx-auto max-w-[1264px] px-4 pb-28 pt-16 sm:px-6">
+      {/* width = exactly a 4-col grid (4×272 + 3×24 gap = 1160) + px-6, so the
+          strip's right edge (tabs) lines up with the rightmost card column. */}
+      <div className="mx-auto max-w-[1208px] px-4 pb-28 pt-16 sm:px-6">
         {isOwner && <WelcomeBanner />}
 
         {/* Hero — bracket strip + view tabs. `group` enables hover-reveal edit. */}
@@ -508,47 +510,42 @@ export default function ProfilePage() {
               })()}
             </div>
 
-            {/* right: owner actions + view tabs */}
-            <div className="flex shrink-0 flex-col items-end gap-3">
-              {isOwner && !editingProfile && (
-                <div className="flex items-center gap-1">
+            {/* right: + Save a find + view tabs — all in the bracket-label style */}
+            {!activeList && !query.trim() && (
+              <div className="flex shrink-0 items-center gap-3">
+                {isOwner && !editingProfile && (
                   <button
                     onClick={() => setSaveOpen((v) => !v)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-black/10 px-3.5 py-1.5 text-black/50 transition-colors hover:border-black/25 hover:text-ink"
+                    className="text-black/40 transition-colors hover:text-ink"
                   >
-                    <span aria-hidden>+</span> <span className="label">Save a find</span>
+                    <BracketLabel>+ Save a find</BracketLabel>
                   </button>
-                  <button
-                    onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
-                    aria-label="edit profile"
-                    title="edit profile"
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-black/30 transition-all hover:bg-black/5 hover:text-ink md:opacity-0 md:group-hover:opacity-100 focus:opacity-100"
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                      <path d="M12 20h9" />
-                      <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-              {!activeList && !query.trim() && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setActiveTab('recent')}
-                    className={activeTab === 'recent' ? 'text-ink' : 'text-black/35 transition-colors hover:text-black/60'}
-                  >
-                    <BracketLabel>Recent bullets</BracketLabel>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('lists')}
-                    className={activeTab === 'lists' ? 'text-ink' : 'text-black/35 transition-colors hover:text-black/60'}
-                  >
-                    <BracketLabel>Lists</BracketLabel>
-                  </button>
-                </div>
-              )}
-            </div>
+                )}
+                <button
+                  onClick={() => setActiveTab('recent')}
+                  className={activeTab === 'recent' ? 'text-ink' : 'text-black/35 transition-colors hover:text-black/60'}
+                >
+                  <BracketLabel>Recent bullets</BracketLabel>
+                </button>
+                <button
+                  onClick={() => setActiveTab('lists')}
+                  className={activeTab === 'lists' ? 'text-ink' : 'text-black/35 transition-colors hover:text-black/60'}
+                >
+                  <BracketLabel>Lists</BracketLabel>
+                </button>
+              </div>
+            )}
           </div>
+
+          {/* Edit profile — below the strip (owner) */}
+          {isOwner && !editingProfile && (
+            <button
+              onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
+              className="mt-4 text-black/35 transition-colors hover:text-ink"
+            >
+              <BracketLabel>Edit profile</BracketLabel>
+            </button>
+          )}
 
           {/* Edit profile form */}
           {editingProfile && (
