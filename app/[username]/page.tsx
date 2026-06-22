@@ -455,13 +455,23 @@ export default function ProfilePage() {
     return <main className="min-h-screen bg-paper"><div className="mx-auto max-w-6xl px-4 py-12 text-center"><p className="text-gray-500">user not found</p></div></main>
   }
 
+  // 4 corner rivets — matches the bulletin card chrome.
+  const rivets = (
+    <>
+      <span aria-hidden className="absolute left-[20px] top-[20px] h-[8px] w-[8px] rounded-full bg-black/20" />
+      <span aria-hidden className="absolute right-[20px] top-[20px] h-[8px] w-[8px] rounded-full bg-black/20" />
+      <span aria-hidden className="absolute bottom-[20px] left-[20px] h-[8px] w-[8px] rounded-full bg-black/20" />
+      <span aria-hidden className="absolute bottom-[20px] right-[20px] h-[8px] w-[8px] rounded-full bg-black/20" />
+    </>
+  )
+
   return (
     <main className="min-h-screen bg-paper">
       <BulletinHeader
         action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
         logoClassName="h-[34px]"
       />
-      <div className="mx-auto max-w-[1264px] px-4 pb-8 pt-2 sm:px-6 sm:pb-12">
+      <div className="mx-auto max-w-[1264px] px-4 pb-28 pt-16 sm:px-6">
         {isOwner && <WelcomeBanner />}
 
         {/* Hero — bracket strip + view tabs. `group` enables hover-reveal edit. */}
@@ -696,9 +706,9 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* Search — owner only: a centered SEARCH YOUR LINKS pill */}
-        {isOwner && !activeList && (
-          <div className="mb-10 flex justify-center">
+        {/* Search — owner only: a SEARCH YOUR LINKS pill floating at the bottom */}
+        {isOwner && !activeList && !selectedId && (
+          <div className="fixed bottom-8 left-1/2 z-40 -translate-x-1/2">
             <input
               type="text"
               value={query}
@@ -709,7 +719,7 @@ export default function ProfilePage() {
                 handleSearch(v)
                 if (v.trim()) setActiveListId(null)
               }}
-              className="label w-[300px] max-w-full rounded-full border border-black/15 bg-transparent px-6 py-3 text-center text-ink placeholder:text-black/40 focus:border-black/40 focus:outline-none"
+              className="label w-[320px] max-w-[88vw] rounded-full border border-black/20 bg-paper/95 px-7 py-3.5 text-center text-ink shadow-[0_6px_24px_rgba(0,0,0,0.12)] backdrop-blur placeholder:text-black/40 focus:border-black/40 focus:outline-none"
             />
           </div>
         )}
@@ -743,7 +753,8 @@ export default function ProfilePage() {
                 {/* owner: a card-shaped "New list" affordance (also the empty state) */}
                 {isOwner && (
                   creatingList ? (
-                    <div className="flex h-[270px] w-[272px] flex-col items-center justify-center gap-4 rounded-[20px] border-2 border-dashed border-black/15 px-6">
+                    <div className="relative flex h-[270px] w-[272px] flex-col items-center justify-center gap-4 overflow-hidden rounded-[20px] bg-card px-6 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03]">
+                      {rivets}
                       <input
                         autoFocus
                         value={newListName}
@@ -782,8 +793,9 @@ export default function ProfilePage() {
                   ) : (
                     <button
                       onClick={() => setCreatingList(true)}
-                      className="flex h-[270px] w-[272px] flex-col items-center justify-center gap-3 rounded-[20px] border-2 border-dashed border-black/15 text-black/40 transition-colors hover:border-black/30 hover:text-ink"
+                      className="relative flex h-[270px] w-[272px] flex-col items-center justify-center gap-3 overflow-hidden rounded-[20px] bg-card text-black/40 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:text-ink hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]"
                     >
+                      {rivets}
                       <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current text-xl">+</span>
                       <span className="label">New list</span>
                     </button>
