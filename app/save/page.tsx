@@ -103,19 +103,19 @@ function SavePageInner() {
   }, [router, supabase, searchParams])
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-paper flex items-center justify-center p-4">
       <div className="w-full max-w-sm text-center">
         {status === 'saving' && (
           <div>
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mb-4"></div>
-            <p className="text-gray-600">saving...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-ink mb-4"></div>
+            <p className="text-black/55">saving...</p>
           </div>
         )}
         {status === 'saved' && (
           <div>
             <p className="text-2xl mb-2">✓</p>
-            <p className="text-gray-600">saved to your finds</p>
-            <p className="text-xs text-gray-400 mt-2">closing...</p>
+            <p className="text-black/55">saved to your finds</p>
+            <p className="text-xs text-black/40 mt-2">closing...</p>
           </div>
         )}
         {status === 'error' && (
@@ -124,7 +124,7 @@ function SavePageInner() {
             <p className="text-red-600 text-sm">{error}</p>
             <button
               onClick={() => window.close()}
-              className="text-xs text-gray-500 hover:text-gray-700 mt-4 underline"
+              className="text-xs text-black/45 hover:text-black/70 mt-4 underline"
             >
               close window
             </button>
@@ -138,8 +138,8 @@ function SavePageInner() {
 export default function SavePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <p className="text-gray-500">loading...</p>
+      <div className="min-h-screen bg-paper flex items-center justify-center">
+        <p className="text-black/45">loading...</p>
       </div>
     }>
       <SavePageInner />

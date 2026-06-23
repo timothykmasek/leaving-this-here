@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { BulletinHeader } from '@/components/BulletinHeader'
 
 export default function BookmarkletPage() {
   const supabase = createClient()
@@ -24,13 +25,14 @@ export default function BookmarkletPage() {
   }
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-paper">
+      <BulletinHeader action={null} logoClassName="h-[26px] sm:h-[34px]" />
+      <div className="mx-auto max-w-2xl px-4 pb-16 pt-4 sm:px-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-light text-gray-900 mb-2">
+          <h1 className="font-serif text-3xl font-bold text-ink mb-2">
             save finds from anywhere
           </h1>
-          <p className="text-gray-600 text-sm">
+          <p className="text-black/55 text-sm">
             drag the button below to your bookmarks bar to save finds while
             browsing
           </p>
@@ -38,66 +40,66 @@ export default function BookmarkletPage() {
 
         <div className="space-y-8">
           {/* Bookmarklet button */}
-          <div className="border border-gray-200 rounded-lg p-8">
-            <p className="text-sm text-gray-600 mb-4">
+          <div className="border border-black/15 rounded-lg p-8">
+            <p className="text-sm text-black/55 mb-4">
               1. right-click the button below and select "bookmark this link"
             </p>
             <a
               href={bookmarkletCode}
-              className="inline-block px-6 py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition-colors cursor-grab active:cursor-grabbing"
+              className="inline-block px-6 py-3 bg-ink text-white rounded-lg font-medium hover:bg-black transition-colors cursor-grab active:cursor-grabbing"
               onClick={(e) => e.preventDefault()}
             >
               save
             </a>
-            <p className="text-xs text-gray-500 mt-4">
+            <p className="text-xs text-black/45 mt-4">
               then name it &ldquo;save&rdquo;
             </p>
           </div>
 
           {/* How it works */}
-          <div className="border border-gray-200 rounded-lg p-8">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">
+          <div className="border border-black/15 rounded-lg p-8">
+            <h2 className="text-lg font-medium text-ink mb-4">
               how it works
             </h2>
-            <ol className="space-y-3 text-sm text-gray-600">
+            <ol className="space-y-3 text-sm text-black/55">
               <li>
-                <strong className="text-gray-900">1.</strong> click the button
+                <strong className="text-ink">1.</strong> click the button
                 while browsing any page
               </li>
               <li>
-                <strong className="text-gray-900">2.</strong> review and
+                <strong className="text-ink">2.</strong> review and
                 confirm the bookmark
               </li>
               <li>
-                <strong className="text-gray-900">3.</strong> it appears in
+                <strong className="text-ink">3.</strong> it appears in
                 your collection automatically
               </li>
             </ol>
           </div>
 
           {/* Manual code */}
-          <div className="border border-gray-200 rounded-lg p-8">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">
+          <div className="border border-black/15 rounded-lg p-8">
+            <h2 className="text-lg font-medium text-ink mb-4">
               or add manually
             </h2>
-            <p className="text-sm text-gray-600 mb-4">
+            <p className="text-sm text-black/55 mb-4">
               if the bookmarklet approach doesn't work, copy this code:
             </p>
-            <div className="bg-gray-50 p-4 rounded border border-gray-200 mb-4 font-mono text-xs overflow-x-auto">
+            <div className="bg-black/[0.03] p-4 rounded border border-black/15 mb-4 font-mono text-xs overflow-x-auto">
               {bookmarkletCode}
             </div>
             <button
               onClick={handleCopy}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-900 hover:border-gray-400 transition-colors"
+              className="px-4 py-2 border border-black/20 rounded-lg text-sm font-medium text-ink hover:border-black/40 transition-colors"
             >
               {copied ? '✓ copied' : 'copy code'}
             </button>
           </div>
 
-          <div className="text-center pt-8 border-t border-gray-200">
+          <div className="text-center pt-8 border-t border-black/15">
             <Link
               href="/"
-              className="text-sm text-gray-600 hover:text-gray-900"
+              className="text-sm text-black/55 hover:text-ink"
             >
               ← back home
             </Link>
