@@ -96,20 +96,20 @@ export function GemDetail({
       onClick={onClose}
     >
       <div
-        className="relative flex w-full max-w-5xl max-h-[88vh] flex-col overflow-hidden rounded-xl border border-[#26221c]/40 bg-paper shadow-2xl md:flex-row"
+        className="relative flex w-full max-w-5xl max-h-[88vh] flex-col overflow-hidden rounded-xl border border-black/10 bg-paper shadow-2xl md:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close */}
         <button
           onClick={onClose}
           aria-label="close"
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-paper/80 text-stone-500 hover:text-ink hover:bg-paper transition-colors"
+          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-paper/80 text-black/45 hover:text-ink hover:bg-paper transition-colors"
         >
           ✕
         </button>
 
         {/* Left — preview */}
-        <div className="relative flex w-full items-center justify-center bg-[#ece6d8] md:w-[58%]">
+        <div className="relative flex w-full items-center justify-center bg-card md:w-[58%]">
           {preview ? (
             <img
               src={preview}
@@ -141,7 +141,7 @@ export function GemDetail({
           <h2 className="font-serif text-xl font-normal leading-snug tracking-tight text-ink">
             {gem.title || domain}
           </h2>
-          <p className="mt-1.5 text-xs uppercase tracking-[0.13em] text-stone-500">
+          <p className="mt-1.5 text-xs uppercase tracking-[0.13em] text-black/45">
             {timeAgo(gem.created_at)}
             {gem.created_at && ' · '}
             {domain}
@@ -150,7 +150,7 @@ export function GemDetail({
           {/* Lists */}
           {onToggleListMembership && (
             <div className="mt-6">
-              <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-stone-400">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-black/40">
                 lists
               </p>
               {lists.length > 0 && (
@@ -164,7 +164,7 @@ export function GemDetail({
                         className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ${
                           inList
                             ? 'bg-ink text-paper'
-                            : 'border border-[#26221c]/15 bg-white text-ink hover:border-ink/40'
+                            : 'border border-black/10 bg-white text-ink hover:border-ink/40'
                         }`}
                       >
                         {inList && <span aria-hidden>✓</span>}
@@ -185,7 +185,7 @@ export function GemDetail({
                     }
                   }}
                   placeholder="+ new list (press enter)"
-                  className="mt-2 w-full rounded-lg border border-[#26221c]/15 bg-white px-3 py-2 text-sm focus:border-ink/50 focus:outline-none"
+                  className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus:border-ink/50 focus:outline-none"
                 />
               )}
             </div>
@@ -195,7 +195,7 @@ export function GemDetail({
           <div className="mt-auto flex items-center justify-between pt-6">
             {confirmingDelete ? (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-stone-500">delete this find?</span>
+                <span className="text-black/45">delete this find?</span>
                 <button
                   onClick={() => {
                     onDelete(gem.id)
@@ -207,7 +207,7 @@ export function GemDetail({
                 </button>
                 <button
                   onClick={() => setConfirmingDelete(false)}
-                  className="text-xs text-stone-500 hover:text-ink"
+                  className="text-xs text-black/45 hover:text-ink"
                 >
                   cancel
                 </button>
@@ -215,7 +215,7 @@ export function GemDetail({
             ) : (
               <button
                 onClick={() => setConfirmingDelete(true)}
-                className="inline-flex items-center gap-1.5 text-sm text-stone-500 hover:text-red-600 transition-colors"
+                className="inline-flex items-center gap-1.5 text-sm text-black/45 hover:text-red-600 transition-colors"
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                   <path d="M3 6h18" />

@@ -33,7 +33,9 @@ export function Header() {
   const RESERVED = ['login', 'start', 'setup', 'auth', 'privacy', 'bookmarklet', 'save', 'preview', 'api']
   const seg = pathname?.split('/')[1] || ''
   const isProfileOrList = seg !== '' && !RESERVED.includes(seg)
-  if (pathname === '/' || pathname?.startsWith('/preview') || isProfileOrList) return null
+  // Pages that ship their own Bulletin header.
+  const SELF_HEADER = ['login', 'start', 'setup', 'privacy']
+  if (pathname === '/' || pathname?.startsWith('/preview') || isProfileOrList || SELF_HEADER.includes(seg)) return null
 
   const handleSignOut = async () => {
     const supabase = createClient()
