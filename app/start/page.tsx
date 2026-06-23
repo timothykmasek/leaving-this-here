@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { BulletinHeader } from '@/components/BulletinHeader'
 
 // Magic-first onboarding. The page is BUILT before the account exists:
 //
@@ -198,7 +199,8 @@ function StartInner() {
 
   return (
     <main className="min-h-screen bg-paper">
-      <div className="mx-auto max-w-xl px-6 py-14 sm:px-8">
+      <BulletinHeader action={null} logoClassName="h-[26px] sm:h-[34px]" />
+      <div className="mx-auto max-w-xl px-6 pb-16 pt-4 sm:px-8">
         {step === 'questions' && (
           <Questions
             onDone={(answers) => {
@@ -398,17 +400,17 @@ function Questions({ onDone }: { onDone: (a: Answers) => void }) {
               </h2>
             </div>
           ) : (
-            <p key={i} className="text-sm text-stone-400">
+            <p key={i} className="text-sm text-black/40">
               {m.text}
             </p>
           )
         )}
         {typing && (
-          <p className="text-sm text-stone-400">
+          <p className="text-sm text-black/40">
             <span className="inline-flex gap-1">
-              <i className="h-1.5 w-1.5 rounded-full bg-stone-400 animate-bounce [animation-delay:0ms]" />
-              <i className="h-1.5 w-1.5 rounded-full bg-stone-400 animate-bounce [animation-delay:120ms]" />
-              <i className="h-1.5 w-1.5 rounded-full bg-stone-400 animate-bounce [animation-delay:240ms]" />
+              <i className="h-1.5 w-1.5 rounded-full bg-black/30 animate-bounce [animation-delay:0ms]" />
+              <i className="h-1.5 w-1.5 rounded-full bg-black/30 animate-bounce [animation-delay:120ms]" />
+              <i className="h-1.5 w-1.5 rounded-full bg-black/30 animate-bounce [animation-delay:240ms]" />
             </span>
           </p>
         )}
@@ -417,7 +419,7 @@ function Questions({ onDone }: { onDone: (a: Answers) => void }) {
 
       {!typing && !finished && (
         <div>
-          <div className="flex items-end gap-2 rounded-2xl border border-stone-300 bg-white/80 p-2 focus-within:border-ink/60 transition-colors">
+          <div className="flex items-end gap-2 rounded-2xl border border-black/15 bg-white/80 p-2 focus-within:border-ink/60 transition-colors">
             <textarea
               ref={taRef}
               rows={1}
@@ -465,13 +467,13 @@ function SocialsStep({ onDone }: { onDone: (s: Socials) => void }) {
   const filled = Object.values(vals).some((v) => v && v.trim())
   return (
     <div>
-      <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-stone-400 font-serif">
+      <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-black/40 font-serif">
         one quick thing · find you elsewhere
       </p>
       <h2 className="font-serif text-2xl text-ink mb-2">
-        Where else do people <em className="italic text-stone-600">find you?</em>
+        Where else do people <em className="italic text-black/55">find you?</em>
       </h2>
-      <p className="text-sm text-stone-500 mb-8">
+      <p className="text-sm text-black/45 mb-8">
         These show up on your page so visitors can follow the thread. Add what you
         want — skip the rest.
       </p>
@@ -483,10 +485,10 @@ function SocialsStep({ onDone }: { onDone: (s: Socials) => void }) {
             <label
               key={f.key}
               className={`flex items-center rounded-full border bg-white/80 px-5 py-3 transition-colors ${
-                v.trim() ? 'border-emerald-700/50' : 'border-stone-300 focus-within:border-ink/60'
+                v.trim() ? 'border-emerald-700/50' : 'border-black/15 focus-within:border-ink/60'
               }`}
             >
-              {f.base && <span className="font-mono text-sm text-stone-400 select-none">{f.base}</span>}
+              {f.base && <span className="font-mono text-sm text-black/40 select-none">{f.base}</span>}
               <input
                 value={v}
                 placeholder={f.ph}
@@ -529,14 +531,14 @@ function Generating({ onDone }: { onDone: () => void }) {
   return (
     <div className="pt-10 text-center">
       <h2 className="font-serif text-2xl text-ink mb-8">
-        Building your <em className="italic text-stone-600">page…</em>
+        Building your <em className="italic text-black/55">page…</em>
       </h2>
       <div className="mx-auto max-w-xs space-y-3 text-left">
         {GEN_STEPS.map((s, i) => (
           <div
             key={s}
             className={`flex items-center gap-3 text-sm transition-opacity ${
-              i < step ? 'text-stone-500' : i === step ? 'text-ink' : 'text-stone-300'
+              i < step ? 'text-black/45' : i === step ? 'text-ink' : 'text-black/25'
             }`}
           >
             <span className="w-4 text-emerald-700">{i < step ? '✓' : ''}</span>
@@ -597,43 +599,43 @@ function AccountGate({
 
   return (
     <div>
-      <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-stone-400 font-serif">
+      <p className="mb-2 text-[11px] uppercase tracking-[0.2em] text-black/40 font-serif">
         one quick step
       </p>
       <h2 className="font-serif text-2xl text-ink mb-2">
-        Create your account to <em className="italic text-stone-600">publish and save.</em>
+        Create your account to <em className="italic text-black/55">publish and save.</em>
       </h2>
-      <p className="text-sm text-stone-500 mb-8">
+      <p className="text-sm text-black/45 mb-8">
         Your bio, first list and finds are ready. Make an account to keep them and
-        publish <span className="font-mono text-stone-600">according-to.com/{handle}</span>.
+        publish <span className="font-mono text-black/55">according-to.com/{handle}</span>.
       </p>
 
       <button
         onClick={google}
-        className="w-full rounded-full border border-stone-300 bg-white/60 px-6 py-3 text-sm font-medium text-ink hover:border-stone-500 transition-colors mb-4"
+        className="w-full rounded-full border border-black/15 bg-white/60 px-6 py-3 text-sm font-medium text-ink hover:border-black/40 transition-colors mb-4"
       >
         continue with google
       </button>
 
       <div className="relative mb-4">
-        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-stone-300/70" /></div>
-        <div className="relative flex justify-center"><span className="bg-paper px-3 text-xs text-stone-400">or email</span></div>
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-black/10" /></div>
+        <div className="relative flex justify-center"><span className="bg-paper px-3 text-xs text-black/40">or email</span></div>
       </div>
 
       <form onSubmit={emailSignup} className="space-y-4 mb-6">
         <div>
-          <label className="mb-1.5 block text-xs uppercase tracking-wider text-stone-400">email</label>
+          <label className="mb-1.5 block text-xs uppercase tracking-wider text-black/40">email</label>
           <input
             type="email"
             value={email}
             required
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
-            className="w-full rounded-xl border border-stone-300 bg-white/80 px-4 py-2.5 text-sm focus:outline-none focus:border-ink/60"
+            className="w-full rounded-xl border border-black/15 bg-white/80 px-4 py-2.5 text-sm focus:outline-none focus:border-ink/60"
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs uppercase tracking-wider text-stone-400">password</label>
+          <label className="mb-1.5 block text-xs uppercase tracking-wider text-black/40">password</label>
           <input
             type="password"
             value={pw}
@@ -641,7 +643,7 @@ function AccountGate({
             minLength={6}
             onChange={(e) => setPw(e.target.value)}
             placeholder="••••••••"
-            className="w-full rounded-xl border border-stone-300 bg-white/80 px-4 py-2.5 text-sm focus:outline-none focus:border-ink/60"
+            className="w-full rounded-xl border border-black/15 bg-white/80 px-4 py-2.5 text-sm focus:outline-none focus:border-ink/60"
           />
         </div>
         {error && <p className="text-sm text-red-700">{error}</p>}
@@ -654,7 +656,7 @@ function AccountGate({
         </button>
       </form>
 
-      <p className="mt-6 text-center text-sm text-stone-400">
+      <p className="mt-6 text-center text-sm text-black/40">
         already have an account?{' '}
         <Link href="/login" className="text-ink underline underline-offset-4">sign in</Link>
       </p>
@@ -666,10 +668,10 @@ function CheckEmail() {
   return (
     <div>
       <h2 className="font-serif text-2xl text-ink mb-4">check your email</h2>
-      <p className="text-sm text-stone-600 mb-8">
+      <p className="text-sm text-black/55 mb-8">
         Click the confirmation link. Takes about a minute.
       </p>
-      <p className="text-xs text-stone-400">
+      <p className="text-xs text-black/40">
         It goes to your inbox — check spam if you don't see it. Once you confirm, your page publishes and you can start saving with the extension.
       </p>
     </div>
@@ -691,13 +693,13 @@ function Publishing({
     return (
       <div className="pt-10 text-center">
         <h2 className="font-serif text-2xl text-ink mb-3">that handle just got taken</h2>
-        <p className="text-sm text-stone-500 mb-6">someone beat you to it — pick a fallback:</p>
+        <p className="text-sm text-black/45 mb-6">someone beat you to it — pick a fallback:</p>
         <div className="flex flex-wrap justify-center gap-2">
           {takenAlts.map((alt) => (
             <button
               key={alt}
               onClick={() => onRetry(alt)}
-              className="rounded-full border border-stone-300 bg-white/70 px-4 py-2 font-mono text-xs text-stone-600 hover:border-stone-500"
+              className="rounded-full border border-black/15 bg-white/70 px-4 py-2 font-mono text-xs text-black/55 hover:border-black/40"
             >
               according-to.com/{alt}
             </button>
@@ -723,9 +725,9 @@ function Publishing({
   return (
     <div className="pt-10 text-center">
       <h2 className="font-serif text-2xl text-ink mb-3">
-        Publishing your <em className="italic text-stone-600">page…</em>
+        Publishing your <em className="italic text-black/55">page…</em>
       </h2>
-      <p className="text-sm text-stone-400 animate-pulse">writing the bio, saving your finds</p>
+      <p className="text-sm text-black/40 animate-pulse">writing the bio, saving your finds</p>
     </div>
   )
 }
@@ -739,16 +741,16 @@ function ExtensionPitch({ onDone }: { onDone: () => void }) {
   return (
     <div>
       <h2 className="font-serif text-2xl text-ink mb-6">
-        One more step: add the <em className="italic text-stone-600">extension</em>.
+        One more step: add the <em className="italic text-black/55">extension</em>.
       </h2>
-      <p className="text-sm text-stone-500 mb-8">
+      <p className="text-sm text-black/45 mb-8">
         The extension is how you save. Click it on any page, pick a list, and the link lands on your page instantly.
       </p>
 
-      <div className="rounded-2xl border border-stone-300 bg-stone-50 p-6 mb-8">
+      <div className="rounded-2xl border border-black/15 bg-black/[0.03] p-6 mb-8">
         <div className="space-y-4">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-stone-400 font-serif mb-3">how to install</p>
+            <p className="text-xs uppercase tracking-[0.2em] text-black/40 font-serif mb-3">how to install</p>
             <ol className="space-y-3">
               {[
                 ['open the Chrome Web Store', 'search for "according to — save anything"'],
@@ -756,10 +758,10 @@ function ExtensionPitch({ onDone }: { onDone: () => void }) {
                 ['pin it to your toolbar', 'click the puzzle icon in Chrome, then the pin next to according to'],
               ].map(([step, detail], i) => (
                 <li key={i} className="flex gap-3">
-                  <span className="shrink-0 font-serif text-stone-400 text-sm leading-tight">{i + 1}.</span>
+                  <span className="shrink-0 font-serif text-black/40 text-sm leading-tight">{i + 1}.</span>
                   <div className="text-sm leading-snug">
                     <p className="text-ink font-medium">{step}</p>
-                    <p className="text-stone-500">{detail}</p>
+                    <p className="text-black/45">{detail}</p>
                   </div>
                 </li>
               ))}
@@ -782,7 +784,7 @@ function ExtensionPitch({ onDone }: { onDone: () => void }) {
         ) : null}
         <button
           onClick={onDone}
-          className="text-sm text-stone-500 hover:text-stone-700 underline"
+          className="text-sm text-black/45 hover:text-black/70 underline"
         >
           {WEB_STORE_URL ? 'skip for now' : 'continue to my page'}
         </button>
