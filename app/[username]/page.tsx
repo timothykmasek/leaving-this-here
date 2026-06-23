@@ -425,7 +425,7 @@ export default function ProfilePage() {
   // `excludeListId` drops the current list's own chip when rendering inside a
   // list detail view (it'd be redundant there).
   const renderGemGrid = (items: any[], excludeListId?: string) => (
-    <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-6 gap-y-12 sm:justify-start">
+    <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
       {items.map((b) => (
         <BookmarkCard
           key={b.id}
@@ -461,10 +461,10 @@ export default function ProfilePage() {
   // 4 corner rivets — matches the bulletin card chrome.
   const rivets = (
     <>
-      <span aria-hidden className="absolute left-[20px] top-[20px] h-[8px] w-[8px] rounded-full bg-black/20" />
-      <span aria-hidden className="absolute right-[20px] top-[20px] h-[8px] w-[8px] rounded-full bg-black/20" />
-      <span aria-hidden className="absolute bottom-[20px] left-[20px] h-[8px] w-[8px] rounded-full bg-black/20" />
-      <span aria-hidden className="absolute bottom-[20px] right-[20px] h-[8px] w-[8px] rounded-full bg-black/20" />
+      <span aria-hidden className="absolute left-[7.4%] top-[7.4%] h-[7px] w-[7px] rounded-full bg-black/20" />
+      <span aria-hidden className="absolute right-[7.4%] top-[7.4%] h-[7px] w-[7px] rounded-full bg-black/20" />
+      <span aria-hidden className="absolute bottom-[7.4%] left-[7.4%] h-[7px] w-[7px] rounded-full bg-black/20" />
+      <span aria-hidden className="absolute bottom-[7.4%] right-[7.4%] h-[7px] w-[7px] rounded-full bg-black/20" />
     </>
   )
 
@@ -472,18 +472,18 @@ export default function ProfilePage() {
     <main className="min-h-screen bg-paper">
       <BulletinHeader
         action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
-        logoClassName="h-[34px]"
+        logoClassName="h-[26px] sm:h-[34px]"
       />
       {/* width = exactly a 4-col grid (4×272 + 3×24 gap = 1160) + px-6, so the
           strip's right edge (tabs) lines up with the rightmost card column. */}
-      <div className="mx-auto max-w-[1208px] px-4 pb-28 pt-16 sm:px-6">
+      <div className="mx-auto max-w-[1208px] px-4 pb-28 pt-8 sm:px-6 sm:pt-16">
         {isOwner && <WelcomeBanner />}
 
         {/* Hero — bracket strip + view tabs. `group` enables hover-reveal edit. */}
         <div className="group mb-9">
-          <div className="flex items-end justify-between gap-6">
+          <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
             {/* bracket strip — name / bio / links */}
-            <div className="flex min-w-0 flex-col items-start gap-[9px] text-black/50">
+            <div className="flex min-w-0 max-w-full flex-col items-start gap-[9px] text-black/50">
               <BracketLabel>{profile.display_name || profile.username}</BracketLabel>
               {profile.bio && <BracketLabel>{profile.bio}</BracketLabel>}
               {(() => {
@@ -515,7 +515,7 @@ export default function ProfilePage() {
 
             {/* right: + Save a find + view tabs — all in the bracket-label style */}
             {!activeList && !query.trim() && (
-              <div className="flex shrink-0 items-center gap-3">
+              <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2">
                 {isOwner && !editingProfile && (
                   <button
                     onClick={() => setSaveOpen((v) => !v)}
@@ -752,11 +752,11 @@ export default function ProfilePage() {
             )
           ) : (
             (isOwner || lists.length > 0) ? (
-              <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-6 gap-y-12 sm:justify-start">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
                 {/* owner: a card-shaped "New list" affordance (also the empty state) */}
                 {isOwner && (
                   creatingList ? (
-                    <div className="relative flex h-[270px] w-[272px] flex-col items-center justify-center gap-4 overflow-hidden rounded-[20px] bg-card px-6 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03]">
+                    <div className="relative flex aspect-[272/270] w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-[20px] bg-card px-6 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03]">
                       {rivets}
                       <input
                         autoFocus
@@ -796,7 +796,7 @@ export default function ProfilePage() {
                   ) : (
                     <button
                       onClick={() => setCreatingList(true)}
-                      className="relative flex h-[270px] w-[272px] flex-col items-center justify-center gap-3 overflow-hidden rounded-[20px] bg-card text-black/40 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:text-ink hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]"
+                      className="relative flex aspect-[272/270] w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-[20px] bg-card text-black/40 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:text-ink hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]"
                     >
                       {rivets}
                       <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current text-xl">+</span>

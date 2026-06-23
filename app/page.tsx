@@ -89,7 +89,7 @@ export default async function Home({
 
   return (
     <div className="min-h-screen bg-paper">
-      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[44px]" />
+      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[34px] sm:h-[44px]" />
 
       {/* Hero */}
       <section className="px-6 pb-20 pt-10 text-center">
@@ -113,8 +113,8 @@ export default async function Home({
       </section>
 
       {/* Showcase — Bulletin card grid of community finds */}
-      <section className="px-10 pb-28">
-        <div className="mx-auto grid w-[1184px] max-w-full grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-8 gap-y-12">
+      <section className="px-4 pb-28 sm:px-6 lg:px-10">
+        <div className="mx-auto grid w-[1184px] max-w-full grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
           {finds.map((b) => (
             <LinkCard
               key={b.id}

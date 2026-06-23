@@ -54,9 +54,9 @@ function getCleanTitle(title: string | null, url: string): string {
   return cleaned
 }
 
-// Corner rivet (the bulletin-board "pin" dots) — 8px, inset 20px.
+// Corner rivet (the bulletin-board "pin" dots) — ~8px, inset ~7.4%.
 function Rivet({ className }: { className: string }) {
-  return <span aria-hidden className={`absolute h-[8px] w-[8px] rounded-full bg-black/20 ${className}`} />
+  return <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-black/20 ${className}`} />
 }
 
 // Bulletin "Link card" — uniform 272×270 plate: #f1f1f1 panel w/ corner rivets,
@@ -86,15 +86,15 @@ export function BookmarkCard({
   )
 
   return (
-    <div className="group relative h-[270px] w-[272px] overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]">
+    <div className="group relative aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]">
       {/* corner rivets */}
-      <Rivet className="left-[20px] top-[20px]" />
-      <Rivet className="right-[20px] top-[20px]" />
-      <Rivet className="bottom-[20px] left-[20px]" />
-      <Rivet className="bottom-[20px] right-[20px]" />
+      <Rivet className="left-[7.4%] top-[7.4%]" />
+      <Rivet className="right-[7.4%] top-[7.4%]" />
+      <Rivet className="bottom-[7.4%] left-[7.4%]" />
+      <Rivet className="bottom-[7.4%] right-[7.4%]" />
 
-      {/* thumbnail — 184×118 @ (44,59); domain fallback when no image */}
-      <div className="absolute left-[44px] top-[59px] h-[118px] w-[184px] overflow-hidden rounded-[10px] bg-black/[0.06]">
+      {/* thumbnail — 67.6% wide, 184:118, at (16.2%, 21.9%); domain fallback */}
+      <div className="absolute left-[16.2%] top-[21.9%] aspect-[184/118] w-[67.6%] overflow-hidden rounded-[10px] bg-black/[0.06]">
         {hasImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -111,7 +111,7 @@ export function BookmarkCard({
       </div>
 
       {/* title — Cardo bold 12px, left-aligned, 2 lines */}
-      <h3 className="absolute left-[44px] top-[186px] line-clamp-2 w-[184px] font-serif text-[12px] font-bold leading-[13px] text-ink">
+      <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-serif text-[12px] font-bold leading-[13px] text-ink">
         {cleanTitle}
       </h3>
 
@@ -135,7 +135,7 @@ export function BookmarkCard({
 
       {/* list tag — bracketed pill, centered, bottom; layered above the click target */}
       {first && (
-        <div className="absolute bottom-[16px] left-1/2 z-[2] -translate-x-1/2">
+        <div className="absolute bottom-[5.5%] left-1/2 z-[2] max-w-[88%] -translate-x-1/2">
           {first.slug && ownerUsername ? (
             <Link
               href={`/${ownerUsername}/${first.slug}`}
