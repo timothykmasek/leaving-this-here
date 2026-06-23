@@ -461,10 +461,10 @@ export default function ProfilePage() {
   // 4 corner rivets — matches the bulletin card chrome.
   const rivets = (
     <>
-      <span aria-hidden className="absolute left-[7.4%] top-[7.4%] h-[7px] w-[7px] rounded-full bg-black/20" />
-      <span aria-hidden className="absolute right-[7.4%] top-[7.4%] h-[7px] w-[7px] rounded-full bg-black/20" />
-      <span aria-hidden className="absolute bottom-[7.4%] left-[7.4%] h-[7px] w-[7px] rounded-full bg-black/20" />
-      <span aria-hidden className="absolute bottom-[7.4%] right-[7.4%] h-[7px] w-[7px] rounded-full bg-black/20" />
+      <span aria-hidden className="absolute left-[7.4%] top-[7.4%] h-[7px] w-[7px] rounded-full bg-[#d9d9d9]" />
+      <span aria-hidden className="absolute right-[7.4%] top-[7.4%] h-[7px] w-[7px] rounded-full bg-[#d9d9d9]" />
+      <span aria-hidden className="absolute bottom-[7.4%] left-[7.4%] h-[7px] w-[7px] rounded-full bg-[#d9d9d9]" />
+      <span aria-hidden className="absolute bottom-[7.4%] right-[7.4%] h-[7px] w-[7px] rounded-full bg-[#d9d9d9]" />
     </>
   )
 

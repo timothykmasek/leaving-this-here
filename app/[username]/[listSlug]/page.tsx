@@ -81,7 +81,7 @@ export default function ListPage() {
   return (
     <main className="min-h-screen bg-paper">
       <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[26px] sm:h-[34px]" />
-      <div className="mx-auto max-w-6xl px-4 pb-8 pt-2 sm:px-6 sm:pb-12 lg:px-8">
+      <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
         <div className="mb-8 border-b border-gray-100 pb-6 sm:mb-10 sm:pb-8">
           <Link
             href={`/${username}`}

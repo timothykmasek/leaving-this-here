@@ -13,7 +13,7 @@ interface LinkCardProps {
 // One corner rivet (the bulletin-board "pin" dots) — ~8px, inset ~7.4%.
 function Rivet({ className }: { className: string }) {
   return (
-    <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-black/20 ${className}`} />
+    <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-[#d9d9d9] ${className}`} />
   )
 }
 
