@@ -46,21 +46,25 @@ export function BulletinHeader({
     </span>
   )
   return (
-    <header className="relative flex items-center justify-center px-4 py-6 sm:px-10 sm:py-7">
-      {/* centered wordmark (logo image) */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/bulletin-logo.png" alt="Bulletin" className={`${logoClassName} w-auto`} />
+    <header className="py-6 sm:py-7">
+      {/* Inner box matches the content width (max-w-[1208px] px-6) so the action
+          mark lines up with the right card column, and the logo centers over it. */}
+      <div className="relative mx-auto flex max-w-[1208px] items-center justify-center px-4 sm:px-6">
+        {/* centered wordmark (logo image) */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/bulletin-logo.png" alt="Bulletin" className={`${logoClassName} w-auto`} />
 
-      {/* dot-cornered registration mark, top-right — button (sign-out) or link */}
-      {action.onClick ? (
-        <button onClick={action.onClick} className="group absolute right-3 top-1/2 -translate-y-1/2 sm:right-10">
-          {actionInner}
-        </button>
-      ) : (
-        <a href={action.href} className="group absolute right-3 top-1/2 -translate-y-1/2 sm:right-10">
-          {actionInner}
-        </a>
-      )}
+        {/* dot-cornered registration mark — aligned to the content's right edge */}
+        {action.onClick ? (
+          <button onClick={action.onClick} className="group absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
+            {actionInner}
+          </button>
+        ) : (
+          <a href={action.href} className="group absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
+            {actionInner}
+          </a>
+        )}
+      </div>
     </header>
   )
 }

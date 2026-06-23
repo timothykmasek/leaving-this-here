@@ -4,7 +4,7 @@
 // frame's "SAMPLE COLLECTION · 60 ITEMS" card.
 
 function Rivet({ className }: { className: string }) {
-  return <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-black/20 ${className}`} />
+  return <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-[#d9d9d9] ${className}`} />
 }
 
 export function CollectionCard({

@@ -56,7 +56,7 @@ function getCleanTitle(title: string | null, url: string): string {
 
 // Corner rivet (the bulletin-board "pin" dots) — ~8px, inset ~7.4%.
 function Rivet({ className }: { className: string }) {
-  return <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-black/20 ${className}`} />
+  return <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-[#d9d9d9] ${className}`} />
 }
 
 // Bulletin "Link card" — uniform 272×270 plate: #f1f1f1 panel w/ corner rivets,
