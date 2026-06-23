@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
@@ -48,6 +48,9 @@ export default function ProfilePage() {
   const [activeListId, setActiveListId] = useState<string | null>(null)
   // Profile view tab — Recent finds vs the Lists collection grid.
   const [activeTab, setActiveTab] = useState<'recent' | 'lists'>('recent')
+  // Debounce timer for the search — one request per pause, not per keystroke
+  // (the embedding API is rate-limited, so per-keystroke calls 429 instantly).
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [newListName, setNewListName] = useState('')
   const [creatingList, setCreatingList] = useState(false)
   // List-detail rename + share affordances.
@@ -713,8 +716,11 @@ export default function ProfilePage() {
               onChange={(e) => {
                 const v = e.target.value
                 setQuery(v)
-                handleSearch(v)
                 if (v.trim()) setActiveListId(null)
+                // Debounce the network search so we fire once the user pauses,
+                // not on every keystroke (avoids the embedding API's rate limit).
+                if (searchTimer.current) clearTimeout(searchTimer.current)
+                searchTimer.current = setTimeout(() => handleSearch(v), 350)
               }}
               className="label w-[320px] max-w-[88vw] rounded-full border border-black/20 bg-paper/95 px-7 py-3.5 text-center text-ink shadow-[0_6px_24px_rgba(0,0,0,0.12)] backdrop-blur placeholder:text-black/40 focus:border-black/40 focus:outline-none"
             />
