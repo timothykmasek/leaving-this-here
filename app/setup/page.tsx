@@ -4,6 +4,7 @@ import { Suspense, useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
+import { BulletinHeader } from '@/components/BulletinHeader'
 
 // 4-step onboarding wizard. The first three load the user into the product;
 // the fourth is just a congratulatory pause before redirecting to their folio.
@@ -152,8 +153,9 @@ function SetupInner() {
   }
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="mx-auto max-w-md px-6 py-16">
+    <main className="min-h-screen bg-paper">
+      <BulletinHeader action={null} logoClassName="h-[26px] sm:h-[34px]" />
+      <div className="mx-auto max-w-md px-6 pb-20 pt-6">
         {/* Step indicator */}
         <div className="mb-10">
           <StepDots current={step} />
@@ -161,14 +163,14 @@ function SetupInner() {
 
         {step === 'handle' && (
           <div>
-            <h1 className="text-3xl font-light text-gray-900 mb-2">Claim your collection.</h1>
-            <p className="text-sm text-gray-500 mb-8">
+            <h1 className="font-serif text-3xl font-bold text-ink mb-2">Claim your collection.</h1>
+            <p className="text-sm text-black/45 mb-8">
               A public URL for the finds you don&rsquo;t want to lose.
             </p>
             <form onSubmit={claimHandle} className="space-y-5">
               <div>
-                <div className="flex items-stretch border border-gray-200 rounded-full bg-white overflow-hidden focus-within:ring-1 focus-within:ring-gray-400">
-                  <span className="flex items-center pl-5 pr-1 text-sm text-gray-400 select-none">
+                <div className="flex items-stretch border border-black/15 rounded-full bg-white overflow-hidden focus-within:ring-1 focus-within:ring-black/30">
+                  <span className="flex items-center pl-5 pr-1 text-sm text-black/40 select-none">
                     according-to.com/
                   </span>
                   <input
@@ -181,19 +183,19 @@ function SetupInner() {
                     className="flex-1 py-3 pr-4 text-sm bg-transparent focus:outline-none"
                   />
                 </div>
-                <p className="text-xs text-gray-400 mt-1.5 px-1">lowercase, numbers, hyphens</p>
+                <p className="text-xs text-black/40 mt-1.5 px-1">lowercase, numbers, hyphens</p>
               </div>
 
               <div>
-                <label className="block text-xs uppercase tracking-wider text-gray-400 mb-1.5">
-                  display name <span className="normal-case text-gray-300">(optional)</span>
+                <label className="block text-xs uppercase tracking-wider text-black/40 mb-1.5">
+                  display name <span className="normal-case text-black/25">(optional)</span>
                 </label>
                 <input
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="your real name, or whatever you want"
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  className="w-full px-4 py-2.5 border border-black/15 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-black/30"
                 />
               </div>
 
@@ -202,7 +204,7 @@ function SetupInner() {
               <button
                 type="submit"
                 disabled={handleLoading || !username.trim()}
-                className="w-full px-5 py-3 bg-gray-900 text-white rounded-full text-sm font-semibold hover:bg-gray-800 disabled:opacity-60"
+                className="w-full px-5 py-3 bg-ink text-white rounded-full text-sm font-semibold hover:bg-black disabled:opacity-60"
               >
                 {handleLoading ? 'claiming...' : 'claim your collection →'}
               </button>
@@ -212,40 +214,40 @@ function SetupInner() {
 
         {step === 'tool' && (
           <div>
-            <h1 className="text-3xl font-light text-gray-900 mb-2">Install the save tool.</h1>
-            <p className="text-sm text-gray-500 mb-8">
+            <h1 className="font-serif text-3xl font-bold text-ink mb-2">Install the save tool.</h1>
+            <p className="text-sm text-black/45 mb-8">
               This is how you save links while browsing — one click from any page.
             </p>
             <div className="space-y-6">
-              <div className="rounded-xl border border-gray-200 p-5">
-                <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">on desktop</p>
-                <p className="text-sm text-gray-700 leading-relaxed mb-4">
+              <div className="rounded-xl border border-black/15 p-5">
+                <p className="text-xs uppercase tracking-wider text-black/40 mb-2">on desktop</p>
+                <p className="text-sm text-black/70 leading-relaxed mb-4">
                   Open the bookmarklet page, drag the button to your bookmarks bar. Takes 5 seconds.
                 </p>
                 <Link
                   href="/bookmarklet"
                   target="_blank"
-                  className="inline-block text-sm font-medium text-gray-900 underline underline-offset-4"
+                  className="inline-block text-sm font-medium text-ink underline underline-offset-4"
                 >
                   Open the bookmarklet page →
                 </Link>
               </div>
-              <div className="rounded-xl border border-gray-200 p-5">
-                <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">on mobile</p>
-                <p className="text-sm text-gray-700 leading-relaxed">
+              <div className="rounded-xl border border-black/15 p-5">
+                <p className="text-xs uppercase tracking-wider text-black/40 mb-2">on mobile</p>
+                <p className="text-sm text-black/70 leading-relaxed">
                   Use your browser&apos;s share sheet to save a link directly to your folio (rolling out — desktop first).
                 </p>
               </div>
             </div>
             <button
               onClick={() => setStep('first-save')}
-              className="mt-8 w-full px-5 py-3 bg-gray-900 text-white rounded-full text-sm font-semibold hover:bg-gray-800"
+              className="mt-8 w-full px-5 py-3 bg-ink text-white rounded-full text-sm font-semibold hover:bg-black"
             >
               installed — continue →
             </button>
             <button
               onClick={() => setStep('first-save')}
-              className="mt-3 w-full text-sm text-gray-400 hover:text-gray-700"
+              className="mt-3 w-full text-sm text-black/40 hover:text-black/70"
             >
               I&apos;ll do it later
             </button>
@@ -254,8 +256,8 @@ function SetupInner() {
 
         {step === 'first-save' && (
           <div>
-            <h1 className="text-3xl font-light text-gray-900 mb-2">Your first find.</h1>
-            <p className="text-sm text-gray-500 mb-8">
+            <h1 className="font-serif text-3xl font-bold text-ink mb-2">Your first find.</h1>
+            <p className="text-sm text-black/45 mb-8">
               Paste a URL you&apos;ve been meaning to read. It&apos;ll appear on your public
               collection page.
             </p>
@@ -267,23 +269,23 @@ function SetupInner() {
                 placeholder="https://..."
                 autoFocus
                 disabled={firstSaveBusy}
-                className="w-full px-5 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-gray-400 disabled:opacity-60"
+                className="w-full px-5 py-3 border border-black/15 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-black/30 disabled:opacity-60"
               />
-              <p className="text-xs text-gray-400 px-1">
+              <p className="text-xs text-black/40 px-1">
                 Everything you save is public.
               </p>
               {firstSaveError && <p className="text-sm text-red-600">{firstSaveError}</p>}
               <button
                 type="submit"
                 disabled={firstSaveBusy || !firstSaveUrl.trim()}
-                className="w-full px-5 py-3 bg-gray-900 text-white rounded-full text-sm font-semibold hover:bg-gray-800 disabled:opacity-60"
+                className="w-full px-5 py-3 bg-ink text-white rounded-full text-sm font-semibold hover:bg-black disabled:opacity-60"
               >
                 {firstSaveBusy ? 'saving...' : 'add this find →'}
               </button>
               <button
                 type="button"
                 onClick={skipFirstSave}
-                className="w-full text-sm text-gray-400 hover:text-gray-700"
+                className="w-full text-sm text-black/40 hover:text-black/70"
               >
                 skip for now
               </button>
@@ -293,9 +295,9 @@ function SetupInner() {
 
         {step === 'done' && (
           <div className="text-center pt-4">
-            <h1 className="text-3xl font-light text-gray-900 mb-3">You&apos;re live.</h1>
-            <p className="text-sm text-gray-500 mb-8 leading-relaxed">
-              <span className="font-mono text-gray-700">according-to.com/{username}</span>
+            <h1 className="font-serif text-3xl font-bold text-ink mb-3">You&apos;re live.</h1>
+            <p className="text-sm text-black/45 mb-8 leading-relaxed">
+              <span className="font-mono text-black/70">according-to.com/{username}</span>
               <br />
               is now your collection. Taking you there...
             </p>
@@ -315,7 +317,7 @@ function StepDots({ current }: { current: Step }) {
         <span
           key={s}
           className={`h-1.5 rounded-full transition-all ${
-            i <= currentIdx ? 'bg-gray-900 w-6' : 'bg-gray-200 w-3'
+            i <= currentIdx ? 'bg-ink w-6' : 'bg-gray-200 w-3'
           }`}
         />
       ))}
