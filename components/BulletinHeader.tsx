@@ -11,10 +11,12 @@ export function BracketLabel({
   children: React.ReactNode
   className?: string
 }) {
+  // Inline (not flex) so long labels — e.g. a bio on mobile — wrap as text
+  // with the brackets hugging the start/end, instead of overflowing.
   return (
-    <span className={`label inline-flex items-center gap-[6px] ${className}`}>
-      <span aria-hidden className="opacity-40">[</span>
-      <span className="whitespace-nowrap">{children}</span>
+    <span className={`label ${className}`}>
+      <span aria-hidden className="opacity-40">[</span>{' '}
+      {children}{' '}
       <span aria-hidden className="opacity-40">]</span>
     </span>
   )
@@ -44,18 +46,18 @@ export function BulletinHeader({
     </span>
   )
   return (
-    <header className="relative flex items-center justify-center px-10 py-7">
+    <header className="relative flex items-center justify-center px-4 py-6 sm:px-10 sm:py-7">
       {/* centered wordmark (logo image) */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src="/bulletin-logo.png" alt="Bulletin" className={`${logoClassName} w-auto`} />
 
       {/* dot-cornered registration mark, top-right — button (sign-out) or link */}
       {action.onClick ? (
-        <button onClick={action.onClick} className="group absolute right-10 top-1/2 -translate-y-1/2">
+        <button onClick={action.onClick} className="group absolute right-3 top-1/2 -translate-y-1/2 sm:right-10">
           {actionInner}
         </button>
       ) : (
-        <a href={action.href} className="group absolute right-10 top-1/2 -translate-y-1/2">
+        <a href={action.href} className="group absolute right-3 top-1/2 -translate-y-1/2 sm:right-10">
           {actionInner}
         </a>
       )}

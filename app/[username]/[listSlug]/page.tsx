@@ -80,7 +80,7 @@ export default function ListPage() {
 
   return (
     <main className="min-h-screen bg-paper">
-      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[34px]" />
+      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[26px] sm:h-[34px]" />
       <div className="mx-auto max-w-6xl px-4 pb-8 pt-2 sm:px-6 sm:pb-12 lg:px-8">
         <div className="mb-8 border-b border-gray-100 pb-6 sm:mb-10 sm:pb-8">
           <Link
@@ -107,7 +107,7 @@ export default function ListPage() {
         </div>
 
         {gems.length > 0 ? (
-          <div className="grid grid-cols-[repeat(auto-fill,272px)] justify-center gap-x-8 gap-y-12 sm:justify-start">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
             {gems.map((b) => (
               <BookmarkCard
                 key={b.id}
