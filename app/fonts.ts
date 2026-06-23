@@ -3,9 +3,8 @@ import localFont from 'next/font/local'
 // ── Brand type system (rebrand) ────────────────────────────────────────────
 // Spec pulled from Figma "ProjectX" (node 695:856). Three families, three jobs.
 
-// MOCA Black — high-contrast display serif. Wordmark + hero headlines only.
-// ⚠️ TRIAL LICENSE: this is an EDITO evaluation copy (`Moca-Black-Trial`).
-// Purchase the EDITO web license before any production deploy. See app/fonts/.
+// MOCA Black — high-contrast display serif (EDITO). Wordmark + hero headlines.
+// Licensed: EDITO web font (EULA-EDITO-2026, on file). Self-hosted woff2.
 export const display = localFont({
   src: [{ path: './fonts/Moca-Black.woff2', weight: '900', style: 'normal' }],
   display: 'swap',
