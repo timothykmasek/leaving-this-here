@@ -1,5 +1,5 @@
 // One-off import: pull bookmarks from a MyMind cards.csv export into
-// internet gems. Uses the service role key so we can write directly to
+// Bulletin. Uses the service role key so we can write directly to
 // any user's collection.
 //
 // Usage:

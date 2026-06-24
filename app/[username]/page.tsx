@@ -61,10 +61,10 @@ export default function ProfilePage() {
   // Extension install nudge — dismissible, persisted so we only ask once.
   const [extNudgeDismissed, setExtNudgeDismissed] = useState(true)
   useEffect(() => {
-    setExtNudgeDismissed(localStorage.getItem('ig_ext_nudge_dismissed') === '1')
+    setExtNudgeDismissed(localStorage.getItem('bulletin_ext_nudge_dismissed') === '1')
   }, [])
   const dismissExtNudge = () => {
-    localStorage.setItem('ig_ext_nudge_dismissed', '1')
+    localStorage.setItem('bulletin_ext_nudge_dismissed', '1')
     setExtNudgeDismissed(true)
   }
 
