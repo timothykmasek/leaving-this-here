@@ -7,7 +7,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 // a generic site logo.
 
 export const runtime = 'edge'
-export const alt = 'according to — collection'
+export const alt = 'Bulletin — collection'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
@@ -20,7 +20,7 @@ export default async function OgImage({ params }: { params: { username: string }
     .single()
 
   const name = profile?.display_name || profile?.username || params.username
-  const tagline = profile?.bio || 'a collection on according to'
+  const tagline = profile?.bio || 'a collection on Bulletin'
 
   // Link count — quiet meta line. Best effort; skipped if query fails.
   let linkCount: number | null = null
@@ -56,7 +56,7 @@ export default async function OgImage({ params }: { params: { username: string }
             marginBottom: 20,
           }}
         >
-          &ldquo; according to
+          Bulletin
         </div>
 
         <div
@@ -109,7 +109,7 @@ export default async function OgImage({ params }: { params: { username: string }
           {typeof linkCount === 'number' && (
             <>
               <span style={{ color: '#ddd' }}>·</span>
-              <span>{linkCount} {linkCount === 1 ? 'find' : 'finds'}</span>
+              <span>{linkCount} {linkCount === 1 ? 'bullet' : 'bullets'}</span>
             </>
           )}
         </div>

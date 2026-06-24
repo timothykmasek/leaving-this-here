@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
 import { BulletinHeader, BracketLabel } from '@/components/BulletinHeader'
 import { CollectionCard } from '@/components/CollectionCard'
-import { GemDetail } from '@/components/GemDetail'
+import { BulletDetail } from '@/components/BulletDetail'
 import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
@@ -28,15 +28,15 @@ export default function ProfilePage() {
   const [newUrl, setNewUrl] = useState('')
   const [savingUrl, setSavingUrl] = useState(false)
   // Save panel — collapsed by default, auto-opens on empty collections as
-  // the onboarding affordance. After the user has any gems, they re-open
-  // it manually via the "+ save a gem" pill in the hero.
+  // the onboarding affordance. After the user has any bullets, they re-open
+  // it manually via the "+ save a bullet" pill in the hero.
   const [saveOpen, setSaveOpen] = useState(false)
   const [editingProfile, setEditingProfile] = useState(false)
   const [editBio, setEditBio] = useState('')
   const [editLinks, setEditLinks] = useState<any>({})
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
-  // Which gem's detail modal is open (owner view). Looked up from `bookmarks`
+  // Which bullet's detail modal is open (owner view). Looked up from `bookmarks`
   // so it always reflects the latest tags/note after edits.
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // Lists. Each: { id, name, is_private, created_at, bookmark_ids: string[] }.
@@ -46,7 +46,7 @@ export default function ProfilePage() {
   const [query, setQuery] = useState('')
   const [showAllLists, setShowAllLists] = useState(false)
   const [activeListId, setActiveListId] = useState<string | null>(null)
-  // Profile view tab — Recent finds vs the Lists collection grid.
+  // Profile view tab — Recent bullets vs the Lists collection grid.
   const [activeTab, setActiveTab] = useState<'recent' | 'lists'>('recent')
   // Debounce timer for the search — one request per pause, not per keystroke
   // (the embedding API is rate-limited, so per-keystroke calls 429 instantly).
@@ -395,7 +395,7 @@ export default function ProfilePage() {
   }
 
   const activeList = activeListId ? lists.find((l) => l.id === activeListId) : null
-  const listGems = activeList
+  const listBullets = activeList
     ? bookmarks.filter((b) => activeList.bookmark_ids.includes(b.id))
     : []
 
@@ -424,7 +424,7 @@ export default function ProfilePage() {
 
   // `excludeListId` drops the current list's own chip when rendering inside a
   // list detail view (it'd be redundant there).
-  const renderGemGrid = (items: any[], excludeListId?: string) => (
+  const renderBulletGrid = (items: any[], excludeListId?: string) => (
     <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
       {items.map((b) => (
         <BookmarkCard
@@ -513,7 +513,7 @@ export default function ProfilePage() {
               })()}
             </div>
 
-            {/* right: + Save a find + view tabs — all in the bracket-label style */}
+            {/* right: + Save a bullet + view tabs — all in the bracket-label style */}
             {!activeList && !query.trim() && (
               <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2">
                 {isOwner && !editingProfile && (
@@ -521,7 +521,7 @@ export default function ProfilePage() {
                     onClick={() => setSaveOpen((v) => !v)}
                     className="text-black/40 transition-colors hover:text-ink"
                   >
-                    <BracketLabel>+ Save a find</BracketLabel>
+                    <BracketLabel>+ Save a bullet</BracketLabel>
                   </button>
                 )}
                 <button
@@ -672,7 +672,7 @@ export default function ProfilePage() {
 
             {bookmarks.length === 0 ? (
               <div className="mb-4">
-                <h2 className="text-xl font-light text-gray-900 mb-1">save your first find</h2>
+                <h2 className="text-xl font-light text-gray-900 mb-1">save your first bullet</h2>
                 <p className="text-sm text-gray-500">
                   paste any link to get started — articles, videos, products, anything.
                 </p>
@@ -731,7 +731,7 @@ export default function ProfilePage() {
         {!activeList && query.trim() && (
           <>
             {filtered.length > 0 ? (
-              renderGemGrid(filtered)
+              renderBulletGrid(filtered)
             ) : (
               <div className="text-center py-16">
                 <p className="text-gray-500 text-sm">no matches</p>
@@ -744,10 +744,10 @@ export default function ProfilePage() {
         {!activeList && !query.trim() && (
           activeTab === 'recent' ? (
             bookmarks.length > 0 ? (
-              renderGemGrid(filtered)
+              renderBulletGrid(filtered)
             ) : (
               <div className="py-16 text-center">
-                <p className="label text-black/40">No finds yet</p>
+                <p className="label text-black/40">No bullets yet</p>
               </div>
             )
           ) : (
@@ -873,7 +873,7 @@ export default function ProfilePage() {
                     </div>
                   )}
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs uppercase tracking-wider text-stone-400">
-                    <span>{listGems.length} {listGems.length === 1 ? 'find' : 'finds'}</span>
+                    <span>{listBullets.length} {listBullets.length === 1 ? 'bullet' : 'bullets'}</span>
                     {activeList.slug && (
                       <a
                         href={`/${profile.username}/${activeList.slug}`}
@@ -938,12 +938,12 @@ export default function ProfilePage() {
                 )}
               </div>
             </div>
-            {listGems.length > 0 ? (
-              renderGemGrid(listGems, activeList.id)
+            {listBullets.length > 0 ? (
+              renderBulletGrid(listBullets, activeList.id)
             ) : (
               <div className="text-center py-16">
                 <p className="text-gray-500 text-sm">
-                  empty list{isOwner ? ' — open a find and add it to this list' : ''}
+                  empty list{isOwner ? ' — open a bullet and add it to this list' : ''}
                 </p>
               </div>
             )}
@@ -951,13 +951,13 @@ export default function ProfilePage() {
         )}
       </div>
 
-      {/* Gem detail modal — owner view, opened by clicking a card */}
+      {/* Bullet detail modal — owner view, opened by clicking a card */}
       {isOwner && selectedId && (() => {
-        const gem = bookmarks.find((b) => b.id === selectedId)
-        if (!gem) return null
+        const bullet = bookmarks.find((b) => b.id === selectedId)
+        if (!bullet) return null
         return (
-          <GemDetail
-            gem={gem}
+          <BulletDetail
+            bullet={bullet}
             lists={lists}
             onClose={() => setSelectedId(null)}
             onNoteUpdate={handleNoteUpdate}

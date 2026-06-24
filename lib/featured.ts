@@ -1,5 +1,5 @@
-// Curated homepage example gems, by URL, in display order.
-// Empty → the homepage carousel falls back to recent image-bearing gems.
+// Curated homepage example bullets, by URL, in display order.
+// Empty → the homepage carousel falls back to recent image-bearing bullets.
 // (brasshands.com requested but not in the collection — omitted.)
 export const FEATURED_URLS: string[] = [
   'https://crosby.ai/',

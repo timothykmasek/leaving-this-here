@@ -25,7 +25,7 @@ const RESERVED = new Set([
   'bookmarklet', 'privacy', 'terms', 'about', 'help', 'admin', 'settings',
   'profile', 'search', 'lists', 'list', 'extension', 'www', 'mail', 'blog',
   'static', 'assets', 'public', 'home', 'index', 'new', 'edit', 'me',
-  'according', 'accordingto', 'official',
+  'according', 'accordingto', 'official', 'bulletin', 'bulletins',
 ])
 
 function titlecase(s: string): string {
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
   if (answers.topic) {
     bio = await haiku(
       `Write a 1-2 sentence bio (max 40 words) for a person's public page on ` +
-        `”according to”, where people share links they vouch for. Warm, specific, ` +
+        `Bulletin, where people share links they vouch for. Warm, specific, ` +
         `grounded in what they actually know and recommend — never generic or cheesy. ` +
         `No exclamation marks, no hashtags. Third person but WITHOUT using their name ` +
         `or any pronouns (start with a verb or noun phrase, e.g. “Knows…”, “Collector of…”).\n\n` +
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
       : `Quietly collecting the corners of the internet worth keeping. Saving the good stuff before it disappears, and happy to share.`
   }
   if (finale) {
-    bio = `${bio} According to ${name}, life is better with ${finale}.`
+    bio = `${bio} Life is better with ${finale}.`
   }
 
   // ── Profile (the authoritative handle claim — unique index decides) ──
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
   let listId: string | null = null
   if (answers.topic) {
     const suggested = await haiku(
-      `On "according to", a list is a collection a person curates around WHY ` +
+      `On Bulletin, a list is a collection a person curates around WHY ` +
         `they saved things — a purpose, theme, or project (e.g. "Design Inspo", ` +
         `"Weekend Reads", "Gift Ideas") — NOT a bare topic noun.\n\n` +
         `This person knows a lot about: ${answers.topic}\n\n` +

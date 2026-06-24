@@ -57,7 +57,7 @@ const QUESTIONS = [
   },
   {
     tag: 'your line',
-    ask: 'Last thing. Fill in the blank:\naccording to you, life is better with ___.',
+    ask: 'Last thing. Fill in the blank:\nlife is better with ___.',
     placeholder: '…with ______',
     key: 'finale' as const,
     followUp: null,
@@ -515,7 +515,7 @@ function SocialsStep({ onDone }: { onDone: (s: Socials) => void }) {
 
 /* ── generating beat ──────────────────────────────────────────────────── */
 
-const GEN_STEPS = ['reading your answers', 'writing your bio', 'naming your first list', 'lining up your finds']
+const GEN_STEPS = ['reading your answers', 'writing your bio', 'naming your first list', 'lining up your bullets']
 
 function Generating({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0)
@@ -606,7 +606,7 @@ function AccountGate({
         Create your account to <em className="italic text-black/55">publish and save.</em>
       </h2>
       <p className="text-sm text-black/45 mb-8">
-        Your bio, first list and finds are ready. Make an account to keep them and
+        Your bio, first list and bullets are ready. Make an account to keep them and
         publish <span className="font-mono text-black/55">according-to.com/{handle}</span>.
       </p>
 
@@ -727,7 +727,7 @@ function Publishing({
       <h2 className="font-serif text-2xl text-ink mb-3">
         Publishing your <em className="italic text-black/55">page…</em>
       </h2>
-      <p className="text-sm text-black/40 animate-pulse">writing the bio, saving your finds</p>
+      <p className="text-sm text-black/40 animate-pulse">writing the bio, saving your bullets</p>
     </div>
   )
 }

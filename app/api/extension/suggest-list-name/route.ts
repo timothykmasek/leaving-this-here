@@ -4,7 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 // POST /api/extension/suggest-list-name
 //
 // Suggests a short, "why you saved it" name for a NEW list to drop a freshly
-// saved gem into. Lists are about purpose/theme (a reason to collect), not the
+// saved bullet into. Lists are about purpose/theme (a reason to collect), not the
 // page's topic — so we steer Claude away from tag-like nouns ("technology",
 // "ai") and toward curatorial names ("Design Inspo", "Weekend Reads").
 //
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       : null
   if (!bookmarkId) return json({ error: 'bookmark_id is required' }, 400)
 
-  // RLS scopes this to the caller's own gems.
+  // RLS scopes this to the caller's own bullets.
   const { data: bm, error: bmErr } = await supabase
     .from('bookmarks')
     .select('title, description, url')
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     .join('\n')
 
   const prompt =
-    `On "according to", a list is a collection a person curates around WHY ` +
+    `On Bulletin, a list is a collection a person curates around WHY ` +
     `they saved things — a purpose, theme, mood, or project (e.g. "Design ` +
     `Inspo", "Weekend Reads", "Gift Ideas", "Recipes to Try") — NOT what the ` +
     `page is about. Avoid generic topic tags like "technology", "ai", or ` +

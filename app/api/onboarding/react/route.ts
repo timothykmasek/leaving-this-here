@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
   if (!apiKey) return NextResponse.json({ ack: null, followUp: null })
 
   const prompt = followUpTemplate
-    ? `You are the warm, genuine voice of "according to" — a product where people ` +
+    ? `You are the warm, genuine voice of Bulletin — a product where people ` +
       `collect and share links they care about. During onboarding you asked:\n"${question}"\n\n` +
       `They answered:\n"${answer}"\n\n` +
       `Reply with EXACTLY two lines:\n` +
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
       `If they already gave you a link/resource in their answer, skip the follow-up ` +
       `and just return their acknowledgment.\n` +
       `No quotes, no preamble.`
-    : `You are the warm, genuine voice of "according to" — a product where people ` +
+    : `You are the warm, genuine voice of Bulletin — a product where people ` +
       `collect and share links they care about. During onboarding you asked:\n"${question}"\n\n` +
       `They answered:\n"${answer}"\n\n` +
       `Reply with ONE brief, specific acknowledgment (2-6 words, lowercase ok, no ` +

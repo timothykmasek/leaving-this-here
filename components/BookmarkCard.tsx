@@ -27,10 +27,10 @@ interface BookmarkCardProps {
     | null
   onDelete?: (id: string) => void
   onNoteUpdate?: (id: string, note: string | null) => void
-  // When set (owner view), clicking the card opens the gem detail modal
+  // When set (owner view), clicking the card opens the bullet detail modal
   // instead of navigating to the original URL.
   onOpen?: (id: string) => void
-  // Lists this gem belongs to. The first list becomes the card's tag, linking
+  // Lists this bullet belongs to. The first list becomes the card's tag, linking
   // to its published page at /<ownerUsername>/<slug>.
   inLists?: { id: string; name: string; slug: string | null }[]
   ownerUsername?: string

@@ -9,7 +9,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  title: 'according to',
+  title: 'Bulletin',
   description: 'Save the links worth keeping.',
 }
 
