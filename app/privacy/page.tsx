@@ -18,7 +18,7 @@ export default function PrivacyPage() {
           Privacy
         </h1>
         <p className="mb-10 text-sm text-black/40">
-          last updated june 11, 2026 · applies to according-to.com and the
+          last updated june 24, 2026 · applies to yourbulletin.com and the
           Bulletin Chrome extension
         </p>
 
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
             <h2 className="font-serif text-lg text-ink mb-2">what&rsquo;s public</h2>
             <p>
               Bulletin is public by design: everything you save appears on
-              your public page (according-to.com/yourhandle), unless it&rsquo;s in
+              your public page (yourbulletin.com/yourhandle), unless it&rsquo;s in
               a private list. Your email address is never public.
             </p>
           </section>
@@ -106,10 +106,10 @@ export default function PrivacyPage() {
             <p>
               Questions about any of this:{' '}
               <a
-                href="mailto:tim@according-to.com"
+                href="mailto:tim@yourbulletin.com"
                 className="underline underline-offset-4 text-ink"
               >
-                tim@according-to.com
+                tim@yourbulletin.com
               </a>
             </p>
           </section>

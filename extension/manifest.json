@@ -6,6 +6,8 @@
   "permissions": ["identity", "storage", "contextMenus", "activeTab", "scripting", "notifications"],
   "host_permissions": [
     "http://localhost:3000/*",
+    "https://www.yourbulletin.com/*",
+    "https://yourbulletin.com/*",
     "https://www.according-to.com/*",
     "https://according-to.com/*",
     "https://*.vercel.app/*",
@@ -19,6 +21,8 @@
     {
       "matches": [
         "http://localhost:3000/*",
+        "https://www.yourbulletin.com/*",
+        "https://yourbulletin.com/*",
         "https://www.according-to.com/*",
         "https://according-to.com/*"
       ],

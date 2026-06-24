@@ -171,7 +171,7 @@ function SetupInner() {
               <div>
                 <div className="flex items-stretch border border-black/15 rounded-full bg-white overflow-hidden focus-within:ring-1 focus-within:ring-black/30">
                   <span className="flex items-center pl-5 pr-1 text-sm text-black/40 select-none">
-                    according-to.com/
+                    yourbulletin.com/
                   </span>
                   <input
                     type="text"
@@ -297,7 +297,7 @@ function SetupInner() {
           <div className="text-center pt-4">
             <h1 className="font-serif text-3xl font-bold text-ink mb-3">You&apos;re live.</h1>
             <p className="text-sm text-black/45 mb-8 leading-relaxed">
-              <span className="font-mono text-black/70">according-to.com/{username}</span>
+              <span className="font-mono text-black/70">yourbulletin.com/{username}</span>
               <br />
               is now your collection. Taking you there...
             </p>

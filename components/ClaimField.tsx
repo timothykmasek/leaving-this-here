@@ -63,7 +63,7 @@ export function ClaimField({ autoFocus = false }: { autoFocus?: boolean }) {
         className={`flex items-stretch border ${border} rounded-full bg-white/80 overflow-hidden transition-colors`}
       >
         <span className="flex items-center pl-5 pr-1 font-mono text-sm text-stone-400 select-none">
-          according-to.com/
+          yourbulletin.com/
         </span>
         <input
           type="text"
@@ -114,7 +114,7 @@ export function ClaimField({ autoFocus = false }: { autoFocus?: boolean }) {
               onClick={() => setValue(alt)}
               className="px-3 py-1.5 rounded-full border border-stone-300 bg-white/60 font-mono text-xs text-stone-600 hover:border-stone-500 transition-colors"
             >
-              according-to.com/{alt}
+              yourbulletin.com/{alt}
             </button>
           ))}
         </div>

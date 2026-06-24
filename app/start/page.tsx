@@ -607,7 +607,7 @@ function AccountGate({
       </h2>
       <p className="text-sm text-black/45 mb-8">
         Your bio, first list and bullets are ready. Make an account to keep them and
-        publish <span className="font-mono text-black/55">according-to.com/{handle}</span>.
+        publish <span className="font-mono text-black/55">yourbulletin.com/{handle}</span>.
       </p>
 
       <button
@@ -701,7 +701,7 @@ function Publishing({
               onClick={() => onRetry(alt)}
               className="rounded-full border border-black/15 bg-white/70 px-4 py-2 font-mono text-xs text-black/55 hover:border-black/40"
             >
-              according-to.com/{alt}
+              yourbulletin.com/{alt}
             </button>
           ))}
         </div>
