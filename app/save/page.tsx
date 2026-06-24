@@ -114,7 +114,7 @@ function SavePageInner() {
         {status === 'saved' && (
           <div>
             <p className="text-2xl mb-2">✓</p>
-            <p className="text-black/55">saved to your finds</p>
+            <p className="text-black/55">saved to your bullets</p>
             <p className="text-xs text-black/40 mt-2">closing...</p>
           </div>
         )}

@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { GemGlyph } from '@/components/GemGlyph'
 
 export function Header() {
   const pathname = usePathname()
@@ -50,9 +49,9 @@ export function Header() {
     <header className="border-b border-stone-300/60 bg-paper/80 backdrop-blur-sm">
       <nav className="mx-auto max-w-6xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-serif text-lg tracking-tight text-ink">
-            <GemGlyph className="h-[18px] w-[18px] text-ink/65" />
-            <span>according to</span>
+          <Link href="/" className="flex items-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/bulletin-logo.png" alt="Bulletin" className="h-[22px] w-auto" />
           </Link>
 
           <div className="flex items-center gap-6">

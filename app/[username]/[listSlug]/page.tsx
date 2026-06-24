@@ -20,7 +20,7 @@ export default function ListPage() {
   const [state, setState] = useState<'loading' | 'notfound' | 'ready'>('loading')
   const [profile, setProfile] = useState<any>(null)
   const [list, setList] = useState<any>(null)
-  const [gems, setGems] = useState<any[]>([])
+  const [bullets, setBullets] = useState<any[]>([])
 
   useEffect(() => {
     const load = async () => {
@@ -48,7 +48,7 @@ export default function ListPage() {
           .select('*')
           .in('id', ids)
           .order('created_at', { ascending: false })
-        setGems(bmarks || [])
+        setBullets(bmarks || [])
       }
       setState('ready')
     }
@@ -99,16 +99,16 @@ export default function ListPage() {
           )}
           <div className="mt-3 flex gap-5 text-xs uppercase tracking-wider text-gray-400">
             <span>
-              <span className="text-gray-900 font-medium">{gems.length}</span>{' '}
-              <span>{gems.length === 1 ? 'find' : 'finds'}</span>
+              <span className="text-gray-900 font-medium">{bullets.length}</span>{' '}
+              <span>{bullets.length === 1 ? 'bullet' : 'bullets'}</span>
             </span>
             {list.is_private && <span className="text-stone-400">private</span>}
           </div>
         </div>
 
-        {gems.length > 0 ? (
+        {bullets.length > 0 ? (
           <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
-            {gems.map((b) => (
+            {bullets.map((b) => (
               <BookmarkCard
                 key={b.id}
                 id={b.id}

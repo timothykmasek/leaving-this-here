@@ -30,10 +30,10 @@ export default function BookmarkletPage() {
       <div className="mx-auto max-w-2xl px-4 pb-16 pt-4 sm:px-6">
         <div className="mb-8">
           <h1 className="font-serif text-3xl font-bold text-ink mb-2">
-            save finds from anywhere
+            save bullets from anywhere
           </h1>
           <p className="text-black/55 text-sm">
-            drag the button below to your bookmarks bar to save finds while
+            drag the button below to your bookmarks bar to save bullets while
             browsing
           </p>
         </div>

@@ -165,7 +165,7 @@ function SetupInner() {
           <div>
             <h1 className="font-serif text-3xl font-bold text-ink mb-2">Claim your collection.</h1>
             <p className="text-sm text-black/45 mb-8">
-              A public URL for the finds you don&rsquo;t want to lose.
+              A public URL for the bullets you don&rsquo;t want to lose.
             </p>
             <form onSubmit={claimHandle} className="space-y-5">
               <div>
@@ -256,7 +256,7 @@ function SetupInner() {
 
         {step === 'first-save' && (
           <div>
-            <h1 className="font-serif text-3xl font-bold text-ink mb-2">Your first find.</h1>
+            <h1 className="font-serif text-3xl font-bold text-ink mb-2">Your first bullet.</h1>
             <p className="text-sm text-black/45 mb-8">
               Paste a URL you&apos;ve been meaning to read. It&apos;ll appear on your public
               collection page.
@@ -280,7 +280,7 @@ function SetupInner() {
                 disabled={firstSaveBusy || !firstSaveUrl.trim()}
                 className="w-full px-5 py-3 bg-ink text-white rounded-full text-sm font-semibold hover:bg-black disabled:opacity-60"
               >
-                {firstSaveBusy ? 'saving...' : 'add this find →'}
+                {firstSaveBusy ? 'saving...' : 'add this bullet →'}
               </button>
               <button
                 type="button"

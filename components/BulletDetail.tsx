@@ -3,12 +3,12 @@
 import { useState, useEffect } from 'react'
 import { GemGlyph } from '@/components/GemGlyph'
 
-// Mymind-style detail view for a single gem. Two panes: a large preview on the
+// Mymind-style detail view for a single bullet. Two panes: a large preview on the
 // left, and metadata on the right — lists and a delete action. Rendered as an
 // overlay; closes on backdrop click or Escape. Editing flows through the same
 // handlers the profile page uses, so changes persist and the grid stays in sync.
 
-interface Gem {
+interface Bullet {
   id: string
   title: string | null
   description: string | null
@@ -26,8 +26,8 @@ interface List {
   bookmark_ids: string[]
 }
 
-interface GemDetailProps {
-  gem: Gem
+interface BulletDetailProps {
+  bullet: Bullet
   lists?: List[]
   onClose: () => void
   onNoteUpdate: (id: string, note: string | null) => void
@@ -54,27 +54,27 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(days / 365)} years ago`
 }
 
-export function GemDetail({
-  gem,
+export function BulletDetail({
+  bullet,
   lists = [],
   onClose,
   onNoteUpdate,
   onDelete,
   onToggleListMembership,
   onCreateList,
-}: GemDetailProps) {
+}: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [imgError, setImgError] = useState(false)
   const [newListName, setNewListName] = useState('')
 
-  const domain = getDomain(gem.url)
-  const preview = (!imgError && (gem.screenshot_url || gem.image_url)) || null
+  const domain = getDomain(bullet.url)
+  const preview = (!imgError && (bullet.screenshot_url || bullet.image_url)) || null
 
-  // Reset local state when switching to a different gem.
+  // Reset local state when switching to a different bullet.
   useEffect(() => {
     setConfirmingDelete(false)
     setImgError(false)
-  }, [gem.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [bullet.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Escape closes; lock body scroll while open.
   useEffect(() => {
@@ -113,7 +113,7 @@ export function GemDetail({
           {preview ? (
             <img
               src={preview}
-              alt={gem.title || domain}
+              alt={bullet.title || domain}
               className="h-56 w-full object-cover md:h-full md:max-h-[88vh]"
               onError={() => setImgError(true)}
             />
@@ -123,13 +123,13 @@ export function GemDetail({
             </div>
           )}
           <a
-            href={gem.url}
+            href={bullet.url}
             target="_blank"
             rel="noopener noreferrer"
             className="absolute bottom-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-paper hover:bg-ink/85 transition-colors"
           >
-            {gem.favicon_url && (
-              <img src={gem.favicon_url} alt="" className="h-3.5 w-3.5 rounded-sm" />
+            {bullet.favicon_url && (
+              <img src={bullet.favicon_url} alt="" className="h-3.5 w-3.5 rounded-sm" />
             )}
             visit {domain}
             <span aria-hidden>↗</span>
@@ -139,11 +139,11 @@ export function GemDetail({
         {/* Right — meta */}
         <div className="flex w-full flex-col overflow-y-auto p-6 md:w-[42%]">
           <h2 className="font-serif text-xl font-normal leading-snug tracking-tight text-ink">
-            {gem.title || domain}
+            {bullet.title || domain}
           </h2>
           <p className="mt-1.5 text-xs uppercase tracking-[0.13em] text-black/45">
-            {timeAgo(gem.created_at)}
-            {gem.created_at && ' · '}
+            {timeAgo(bullet.created_at)}
+            {bullet.created_at && ' · '}
             {domain}
           </p>
 
@@ -156,11 +156,11 @@ export function GemDetail({
               {lists.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {lists.map((l) => {
-                    const inList = l.bookmark_ids.includes(gem.id)
+                    const inList = l.bookmark_ids.includes(bullet.id)
                     return (
                       <button
                         key={l.id}
-                        onClick={() => onToggleListMembership(l.id, gem.id, !inList)}
+                        onClick={() => onToggleListMembership(l.id, bullet.id, !inList)}
                         className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ${
                           inList
                             ? 'bg-ink text-paper'
@@ -180,7 +180,7 @@ export function GemDetail({
                   onChange={(e) => setNewListName(e.target.value)}
                   onKeyDown={async (e) => {
                     if (e.key === 'Enter' && newListName.trim()) {
-                      await onCreateList(newListName, [gem.id])
+                      await onCreateList(newListName, [bullet.id])
                       setNewListName('')
                     }
                   }}
@@ -195,10 +195,10 @@ export function GemDetail({
           <div className="mt-auto flex items-center justify-between pt-6">
             {confirmingDelete ? (
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-black/45">delete this find?</span>
+                <span className="text-black/45">delete this bullet?</span>
                 <button
                   onClick={() => {
-                    onDelete(gem.id)
+                    onDelete(bullet.id)
                     onClose()
                   }}
                   className="rounded-full bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"

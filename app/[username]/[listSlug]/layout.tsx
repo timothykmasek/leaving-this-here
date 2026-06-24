@@ -30,10 +30,10 @@ export async function generateMetadata({
 
   const owner = profile?.display_name || profile?.username || params.username
   const name = listName || params.listSlug
-  const description = `${name} — a list by ${owner} on according to.`
+  const description = `${name} — a list by ${owner} on Bulletin.`
 
   return {
-    title: `${name} · ${owner} · according to`,
+    title: `${name} · ${owner} · Bulletin`,
     description,
     openGraph: {
       title: name,

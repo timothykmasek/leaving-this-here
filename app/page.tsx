@@ -54,11 +54,11 @@ export default async function Home({
   }
 
   // Showcase examples: curated picks (FEATURED_URLS) in their given order, else
-  // fall back to recent image-bearing finds.
-  let finds: any[] = []
+  // fall back to recent image-bearing bullets.
+  let bullets: any[] = []
   if (FEATURED_URLS.length > 0) {
     const { data } = await supabase.from('bookmarks').select('*').in('url', FEATURED_URLS)
-    finds = FEATURED_URLS.map((u) => (data || []).find((b) => b.url === u)).filter(Boolean)
+    bullets = FEATURED_URLS.map((u) => (data || []).find((b) => b.url === u)).filter(Boolean)
   } else {
     const { data } = await supabase
       .from('bookmarks')
@@ -66,14 +66,14 @@ export default async function Home({
       .or('image_url.not.is.null,screenshot_url.not.is.null')
       .order('created_at', { ascending: false })
       .limit(SHOWCASE_COUNT)
-    finds = data || []
+    bullets = data || []
   }
-  finds = finds.slice(0, SHOWCASE_COUNT)
+  bullets = bullets.slice(0, SHOWCASE_COUNT)
 
-  // Map each showcase find → the (public) list it belongs to, if any. That list
-  // name becomes the card's tag; finds not in a public list show no tag.
+  // Map each showcase bullet → the (public) list it belongs to, if any. That list
+  // name becomes the card's tag; bullets not in a public list show no tag.
   const listByBookmark = new Map<string, string>()
-  const ids = finds.map((b) => b.id)
+  const ids = bullets.map((b) => b.id)
   if (ids.length) {
     const { data: memberships } = await supabase
       .from('list_bookmarks')
@@ -112,10 +112,10 @@ export default async function Home({
         </div>
       </section>
 
-      {/* Showcase — Bulletin card grid of community finds */}
+      {/* Showcase — Bulletin card grid of community bullets */}
       <section className="px-4 pb-28 sm:px-6 lg:px-10">
         <div className="mx-auto grid w-[1184px] max-w-full grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
-          {finds.map((b) => (
+          {bullets.map((b) => (
             <LinkCard
               key={b.id}
               url={b.url}

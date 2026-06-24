@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { BulletinHeader } from '@/components/BulletinHeader'
 
 export const metadata: Metadata = {
-  title: 'privacy · according to',
-  description: 'What according to collects, why, and what happens to it.',
+  title: 'privacy · Bulletin',
+  description: 'What Bulletin collects, why, and what happens to it.',
 }
 
 // Plain-language privacy policy. Required by the Chrome Web Store listing and
@@ -19,14 +19,14 @@ export default function PrivacyPage() {
         </h1>
         <p className="mb-10 text-sm text-black/40">
           last updated june 11, 2026 · applies to according-to.com and the
-          according to Chrome extension
+          Bulletin Chrome extension
         </p>
 
         <div className="space-y-8 text-[15px] leading-relaxed text-black/70">
           <section>
             <h2 className="font-serif text-lg text-ink mb-2">the short version</h2>
             <p>
-              according to is a place to save and publicly share links. We
+              Bulletin is a place to save and publicly share links. We
               collect what&rsquo;s needed to run that — your account, the things
               you save — and nothing else. We don&rsquo;t sell your data, we
               don&rsquo;t run ads, and we don&rsquo;t track you around the web.
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="font-serif text-lg text-ink mb-2">what&rsquo;s public</h2>
             <p>
-              according to is public by design: everything you save appears on
+              Bulletin is public by design: everything you save appears on
               your public page (according-to.com/yourhandle), unless it&rsquo;s in
               a private list. Your email address is never public.
             </p>

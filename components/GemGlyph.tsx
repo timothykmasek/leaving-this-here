@@ -1,7 +1,7 @@
-// Brand mark for "according to" — an opening quotation mark (citation motif),
-// filled in currentColor. Named GemGlyph for historical reasons (it predates the
-// rename and is imported in a few places); the drawing is now a quote mark, not
-// a gem. Used in the wordmark and as a quiet hero motif.
+// Decorative opening-quotation glyph (citation motif), filled in currentColor.
+// Named GemGlyph for historical reasons (it predates several renames and is
+// imported in a few places); the drawing is a quote mark, not a gem. Used as a
+// quiet placeholder/hero motif on cards without an image.
 export function GemGlyph({ className }: { className?: string }) {
   return (
     <svg

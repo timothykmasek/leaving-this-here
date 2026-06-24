@@ -7,9 +7,9 @@ import { uniqueSlug } from '@/lib/slug'
 //   GET  /api/extension/lists           → { lists: [{ id, name, slug }] }
 //   POST /api/extension/lists           → op-dispatched:
 //     { op: 'create', name, bookmark_id? } → mints a frozen slug, publishes the
-//          list, optionally adds the gem. Returns { list, url }.
-//     { op: 'add',    list_id, bookmark_id } → add gem to a list.
-//     { op: 'remove', list_id, bookmark_id } → remove gem from a list.
+//          list, optionally adds the bullet. Returns { list, url }.
+//     { op: 'add',    list_id, bookmark_id } → add bullet to a list.
+//     { op: 'remove', list_id, bookmark_id } → remove bullet from a list.
 //
 // Auth + CORS mirror /api/extension/save: bearer token (not cookies), so the
 // permissive CORS is safe for the chrome-extension:// origin.
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     return json({ ok: true, list: listRow, url })
   }
 
-  // ── add / remove a gem from an existing list ───────────────────────
+  // ── add / remove a bullet from an existing list ───────────────────────
   if (op === 'add' || op === 'remove') {
     const listId = typeof body.list_id === 'string' ? body.list_id : null
     if (!listId || !bookmarkId) {
