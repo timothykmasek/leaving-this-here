@@ -63,7 +63,7 @@ https://<extension-id>.chromiumapp.org/
 
 ### 3. Point at the right API
 `config.js` → `API_BASE`:
-- Production (default): `https://www.according-to.com` (the canonical host —
+- Production (default): `https://www.yourbulletin.com` (the canonical host —
   the apex 308-redirects to it, and a redirect can drop the auth header).
 - Local testing: `http://localhost:3000` (run `npm run dev`).
 - Confirm `manifest.json` `host_permissions` covers whichever you use.
