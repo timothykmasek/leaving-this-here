@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
-  <rect width="192" height="192" fill="#f4f1ed"/>
-  <text x="96" y="132" font-family="Georgia, serif" font-size="140" font-weight="normal" fill="#26221c" text-anchor="middle" dominant-baseline="middle">❝</text>
+  <!-- Bulletin favicon — the "bullet": a dot on a rounded tile. -->
+  <rect width="192" height="192" rx="42" fill="#f1f1f1"/>
+  <circle cx="96" cy="96" r="56" fill="#c1c1c1"/>
 </svg>
