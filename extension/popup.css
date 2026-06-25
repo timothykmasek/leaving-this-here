@@ -1,11 +1,34 @@
+/* Self-hosted brand fonts (same files as the web app: app/fonts).
+   Cardo = reading serif (body/titles); Routed Gothic Wide = UI labels. */
+@font-face {
+  font-family: 'Cardo';
+  src: url('fonts/Cardo-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Cardo';
+  src: url('fonts/Cardo-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Routed Gothic Wide';
+  src: url('fonts/RoutedGothicWide-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  --ink: #1a1a1a;
-  --paper: #f5f3ec;
-  --muted: #6b6b6b;
-  --line: #e2ded3;
-  --accent: #1a1a1a;
-  --ok: #2f7d4f;
-  --err: #b23b3b;
+  /* Editorial palette — white / grey / darker-grey, matching the web app. */
+  --paper: #ffffff;     /* page canvas */
+  --ink: #2b2b2b;       /* primary text */
+  --muted: #8a8a8a;     /* secondary text (≈ ink/50) */
+  --card: #f1f1f1;      /* surfaces */
+  --line: rgba(43, 43, 43, 0.12);
 }
 
 * { box-sizing: border-box; }
@@ -13,47 +36,45 @@
 body {
   margin: 0;
   width: 320px;
-  font-family: ui-serif, Georgia, "Times New Roman", serif;
+  font-family: 'Cardo', Georgia, 'Times New Roman', serif;
   background: var(--paper);
   color: var(--ink);
 }
 
-.view { padding: 16px; }
+/* The `.label` spec from the web app: Routed Gothic Wide, uppercase, tracked. */
+.label,
+.primary,
+.link {
+  font-family: 'Routed Gothic Wide', ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.view { padding: 18px; }
 .hidden { display: none !important; }
 .center { text-align: center; }
-.muted { color: var(--muted); font-size: 13px; line-height: 1.45; margin: 8px 0 14px; }
-.muted.small { font-size: 12px; margin-top: 0; }
+.muted { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 10px 0 16px; }
+.muted.small { font-size: 13px; margin-top: 0; }
 
-.brand { font-size: 20px; font-weight: 600; margin-bottom: 2px; }
-.brand-sm { font-size: 13px; font-weight: 600; }
-
-/* Bulletin brand mark — a "bullet" dot. */
-.mark {
-  display: inline-block;
-  width: 0.6em;
-  height: 0.6em;
-  border-radius: 50%;
-  background: #c0c0c0;
-  margin-right: 0.34em;
-}
+/* Wordmark — the BULLETIN letterpress logo (same asset as the web app). */
+.logo { display: block; height: 26px; width: auto; margin-bottom: 4px; }
+.logo-sm { display: block; height: 16px; width: auto; }
 
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .primary {
   width: 100%;
-  padding: 10px 14px;
+  padding: 12px 14px;
   border: none;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--ink);
   color: #fff;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 11px;
   cursor: pointer;
   transition: opacity 0.15s ease;
 }
@@ -64,17 +85,16 @@ body {
   background: none;
   border: none;
   color: var(--muted);
-  font-family: inherit;
-  font-size: 12px;
+  font-size: 10px;
   cursor: pointer;
   padding: 0;
 }
 .link:hover { color: var(--ink); text-decoration: underline; }
 
 .hint {
-  font-size: 12px;
-  margin: 10px 0 0;
+  font-size: 13px;
+  margin: 12px 0 0;
   line-height: 1.4;
 }
-.hint.ok { color: var(--ok); }
-.hint.err { color: var(--err); }
+.hint.ok { color: var(--ink); }
+.hint.err { color: var(--ink); font-weight: 700; }
