@@ -5,8 +5,8 @@ const app = document.getElementById('app')
 function renderSignIn() {
   app.innerHTML = `
     <div class="empty">
-      <div class="empty-title">sign in to see your finds</div>
-      <p>Click the according to icon to sign in.</p>
+      <div class="empty-title">sign in to see your bullets</div>
+      <p>Click the Bulletin icon to sign in.</p>
     </div>
   `
 }
@@ -28,8 +28,8 @@ async function loadFinds() {
     if (finds.length === 0) {
       app.innerHTML = `
         <div class="empty">
-          <div class="empty-title">no finds yet</div>
-          <p>Click the according to icon to save your first find.</p>
+          <div class="empty-title">no bullets yet</div>
+          <p>Click the Bulletin icon to save your first bullet.</p>
         </div>
       `
       return
@@ -51,7 +51,7 @@ async function loadFinds() {
       if (find.image_url) {
         const img = document.createElement('img')
         img.src = find.image_url
-        img.alt = find.title || 'find'
+        img.alt = find.title || 'bullet'
         img.onerror = () => {
           img.style.display = 'none'
           imageDiv.textContent = '🔗'
@@ -93,7 +93,7 @@ async function loadFinds() {
     // Genuine failure (offline, server down). Keep it quiet and recoverable.
     app.innerHTML = `
       <div class="empty">
-        <div class="empty-title">couldn't load your finds</div>
+        <div class="empty-title">couldn't load your bullets</div>
         <p>Check your connection and reload the tab.</p>
       </div>
     `

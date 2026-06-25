@@ -47,17 +47,17 @@ function buildMenus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
       id: MENU.PAGE,
-      title: 'Save this page to according to',
+      title: 'Save this page to Bulletin',
       contexts: ['page', 'link'],
     })
     chrome.contextMenus.create({
       id: MENU.IMAGE,
-      title: 'Save this image to according to',
+      title: 'Save this image to Bulletin',
       contexts: ['image'],
     })
     chrome.contextMenus.create({
       id: MENU.SELECTION,
-      title: 'Save this quote to according to',
+      title: 'Save this quote to Bulletin',
       contexts: ['selection'],
     })
     // Items on the toolbar-icon right-click menu.
@@ -95,7 +95,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId === MENU.SIGNOUT) {
     await signOut()
     await syncPopup()
-    notify('Signed out', 'Click the according to icon to sign back in.')
+    notify('Signed out', 'Click the Bulletin icon to sign back in.')
     return
   }
 
@@ -201,7 +201,7 @@ async function promptSignIn() {
   try {
     await chrome.action.openPopup() // best effort — needs a recent gesture
   } catch {
-    notify('Sign in to save', 'Click the according to icon to sign in with Google.')
+    notify('Sign in to save', 'Click the Bulletin icon to sign in with Google.')
   }
 }
 

@@ -29,12 +29,11 @@
 
   const DISMISS_MS = 2500
 
-  // Brand mark — opening quotation mark ("according to"), matches the web
-  // wordmark glyph. Used as the saved-state icon.
+  // Brand mark — a "bullet" dot, matching the Bulletin wordmark glyph. Used as
+  // the saved-state icon.
   const MARK =
     '<svg viewBox="0 0 28 28" width="20" height="20" fill="currentColor" aria-hidden="true">' +
-    '<circle cx="9" cy="15" r="3"/><path d="M6.2 13.8 Q 7 8 11 7.5 Q 9.2 10.6 9.2 14 Z"/>' +
-    '<circle cx="18" cy="15" r="3"/><path d="M15.2 13.8 Q 16 8 20 7.5 Q 18.2 10.6 18.2 14 Z"/></svg>'
+    '<circle cx="14" cy="14" r="7"/></svg>'
 
   const host = document.createElement('div')
   host.id = 'internet-gems-toast-host'
@@ -346,7 +345,7 @@
 
   function showSaved(data) {
     setSpinner(false)
-    setMsg('Saved to your finds')
+    setMsg('Saved to your bullets')
     bookmarkId = data && data.id
     if (data && data.title) {
       el('title').textContent = data.title
@@ -394,7 +393,7 @@
         showSaved(data)
       } else if (state === 'duplicate') {
         setSpinner(false)
-        setMsg('Already in your finds')
+        setMsg('Already in your bullets')
         if (data && data.title) {
           el('title').textContent = data.title
           el('title').style.display = ''

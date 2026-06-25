@@ -27,6 +27,16 @@ body {
 .brand { font-size: 20px; font-weight: 600; margin-bottom: 2px; }
 .brand-sm { font-size: 13px; font-weight: 600; }
 
+/* Bulletin brand mark — a "bullet" dot. */
+.mark {
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: #c0c0c0;
+  margin-right: 0.34em;
+}
+
 .topbar {
   display: flex;
   align-items: center;
