@@ -3,11 +3,15 @@
 // proportions via aspect-ratio + percentage-positioned internals, so it works
 // 2-up on mobile and 4-up at the 272px desktop width.
 
+import Image from 'next/image'
+
 interface LinkCardProps {
   url: string
   title: string
   image: string | null
   listName?: string | null
+  // First-row cards on the home showcase load eagerly for LCP; the rest lazy-load.
+  priority?: boolean
 }
 
 // One corner rivet (the bulletin-board "pin" dots) — ~8px, inset ~7.4%.
@@ -17,7 +21,7 @@ function Rivet({ className }: { className: string }) {
   )
 }
 
-export function LinkCard({ url, title, image, listName }: LinkCardProps) {
+export function LinkCard({ url, title, image, listName, priority = false }: LinkCardProps) {
   return (
     <a
       href={url}
@@ -34,8 +38,14 @@ export function LinkCard({ url, title, image, listName }: LinkCardProps) {
       {/* thumbnail — 67.6% wide, 184:118, at (16.2%, 21.9%) */}
       <div className="absolute left-[16.2%] top-[21.9%] aspect-[184/118] w-[67.6%] overflow-hidden rounded-[10px] bg-black/[0.06]">
         {image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" className="h-full w-full object-cover" />
+          <Image
+            src={image}
+            alt=""
+            fill
+            sizes="(min-width: 1024px) 184px, 25vw"
+            className="object-cover"
+            priority={priority}
+          />
         ) : null}
       </div>
 

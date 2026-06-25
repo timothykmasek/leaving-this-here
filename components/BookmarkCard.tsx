@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { pickCardImage } from '@/lib/cardImage'
 
 interface BookmarkCardProps {
@@ -96,11 +97,15 @@ export function BookmarkCard({
       {/* thumbnail — 67.6% wide, 184:118, at (16.2%, 21.9%); domain fallback */}
       <div className="absolute left-[16.2%] top-[21.9%] aspect-[184/118] w-[67.6%] overflow-hidden rounded-[10px] bg-black/[0.06]">
         {hasImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          // next/image: optimizer resizes the source down to thumbnail width and
+          // lazy-loads off-screen cards. `fill` works because the wrapper above is
+          // positioned. onError falls back to the domain plate.
+          <Image
             src={image!}
             alt=""
-            className="h-full w-full object-cover"
+            fill
+            sizes="(min-width: 1024px) 184px, 25vw"
+            className="object-cover"
             onError={() => setImgError(true)}
           />
         ) : (

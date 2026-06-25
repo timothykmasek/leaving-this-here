@@ -7,6 +7,10 @@ import { FEATURED_URLS } from '@/lib/featured'
 
 const SHOWCASE_COUNT = 16
 
+// Only the columns the showcase cards render (LinkCard + pickCardImage + the
+// membership map). Avoids pulling raw_metadata and other unused blobs.
+const SHOWCASE_COLS = 'id, url, title, image_url, screenshot_url'
+
 function domainOf(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, '')
@@ -57,12 +61,12 @@ export default async function Home({
   // fall back to recent image-bearing bullets.
   let bullets: any[] = []
   if (FEATURED_URLS.length > 0) {
-    const { data } = await supabase.from('bookmarks').select('*').in('url', FEATURED_URLS)
+    const { data } = await supabase.from('bookmarks').select(SHOWCASE_COLS).in('url', FEATURED_URLS)
     bullets = FEATURED_URLS.map((u) => (data || []).find((b) => b.url === u)).filter(Boolean)
   } else {
     const { data } = await supabase
       .from('bookmarks')
-      .select('*')
+      .select(SHOWCASE_COLS)
       .or('image_url.not.is.null,screenshot_url.not.is.null')
       .order('created_at', { ascending: false })
       .limit(SHOWCASE_COUNT)
@@ -115,13 +119,14 @@ export default async function Home({
       {/* Showcase — Bulletin card grid of community bullets */}
       <section className="px-4 pb-28 sm:px-6 lg:px-10">
         <div className="mx-auto grid w-[1184px] max-w-full grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
-          {bullets.map((b) => (
+          {bullets.map((b, i) => (
             <LinkCard
               key={b.id}
               url={b.url}
               title={cleanTitle(b.title, b.url)}
               image={pickCardImage(b.url, b.image_url, b.screenshot_url)}
               listName={listByBookmark.get(b.id) ?? null}
+              priority={i < 4}
             />
           ))}
         </div>

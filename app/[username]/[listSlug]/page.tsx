@@ -1,79 +1,64 @@
-'use client'
-
-import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { createSupabaseServer } from '@/lib/supabase/server'
 import { BookmarkCard } from '@/components/BookmarkCard'
 import { BulletinHeader } from '@/components/BulletinHeader'
 
 // Public, shareable page for a single list at /username/<slug>. Read-only —
 // owners manage membership and rename from their profile. RLS hides private
 // lists from everyone but the owner, so a private slug 404s for visitors.
+//
+// Server-rendered: the card grid ships in the initial HTML (good for shared-link
+// previews + first paint) instead of a client-side loading→fetch waterfall.
 
-export default function ListPage() {
-  const params = useParams()
-  const username = params.username as string
-  const listSlug = params.listSlug as string
-  const supabase = createClient()
+// Only the columns the cards render (raw_metadata is passed but never read).
+const BULLET_COLS =
+  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, created_at'
 
-  const [state, setState] = useState<'loading' | 'notfound' | 'ready'>('loading')
-  const [profile, setProfile] = useState<any>(null)
-  const [list, setList] = useState<any>(null)
-  const [bullets, setBullets] = useState<any[]>([])
+function notFound(username: string) {
+  return (
+    <main className="min-h-screen bg-paper">
+      <div className="mx-auto max-w-6xl px-4 py-12 text-center">
+        <p className="text-gray-500">list not found</p>
+        <Link href={`/${username}`} className="mt-3 inline-block text-sm text-stone-400 hover:text-ink">
+          ← back to profile
+        </Link>
+      </div>
+    </main>
+  )
+}
 
-  useEffect(() => {
-    const load = async () => {
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('id, username, display_name')
-        .eq('username', username)
-        .single()
-      if (!prof) { setState('notfound'); return }
-      setProfile(prof)
+export default async function ListPage({
+  params,
+}: {
+  params: { username: string; listSlug: string }
+}) {
+  const { username, listSlug } = params
+  const supabase = await createSupabaseServer()
 
-      const { data: l, error } = await supabase
-        .from('lists')
-        .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
-        .eq('user_id', prof.id)
-        .eq('slug', listSlug)
-        .single()
-      if (error || !l) { setState('notfound'); return }
-      setList(l)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, username, display_name')
+    .eq('username', username)
+    .single()
+  if (!profile) return notFound(username)
 
-      const ids = (l.list_bookmarks || []).map((x: any) => x.bookmark_id)
-      if (ids.length) {
-        const { data: bmarks } = await supabase
-          .from('bookmarks')
-          .select('*')
-          .in('id', ids)
-          .order('created_at', { ascending: false })
-        setBullets(bmarks || [])
-      }
-      setState('ready')
-    }
-    load()
-  }, [username, listSlug, supabase])
+  const { data: list, error } = await supabase
+    .from('lists')
+    .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
+    .eq('user_id', profile.id)
+    .eq('slug', listSlug)
+    .single()
+  if (error || !list) return notFound(username)
 
-  if (state === 'loading') {
-    return (
-      <main className="min-h-screen bg-paper">
-        <div className="mx-auto max-w-6xl px-4 py-12"><p className="text-gray-400">loading...</p></div>
-      </main>
-    )
-  }
-
-  if (state === 'notfound') {
-    return (
-      <main className="min-h-screen bg-paper">
-        <div className="mx-auto max-w-6xl px-4 py-12 text-center">
-          <p className="text-gray-500">list not found</p>
-          <Link href={`/${username}`} className="mt-3 inline-block text-sm text-stone-400 hover:text-ink">
-            ← back to profile
-          </Link>
-        </div>
-      </main>
-    )
+  const ids = ((list as any).list_bookmarks || []).map((x: any) => x.bookmark_id)
+  let bullets: any[] = []
+  if (ids.length) {
+    const { data: bmarks } = await supabase
+      .from('bookmarks')
+      .select(BULLET_COLS)
+      .in('id', ids)
+      .order('created_at', { ascending: false })
+    bullets = bmarks || []
   }
 
   const owner = profile.display_name || profile.username
@@ -118,7 +103,6 @@ export default function ListPage() {
                 imageUrl={b.image_url}
                 screenshotUrl={b.screenshot_url}
                 faviconUrl={b.favicon_url}
-                rawMetadata={b.raw_metadata}
                 note={b.note}
                 isOwner={false}
                 cardType={b.card_type}
