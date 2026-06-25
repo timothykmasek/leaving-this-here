@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
-  <!-- Master icon source — render with:
-       magick -background none -density 384 icon.svg -resize NxN iconN.png
-       Rounded tile + centered bullet dot (the Bulletin brand mark — a
-       "bullet" •). -->
-  <rect width="128" height="128" rx="28" fill="#F0F0F0"/>
-  <circle cx="64" cy="64" r="37" fill="#C0C0C0"/>
-</svg>

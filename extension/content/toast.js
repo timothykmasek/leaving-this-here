@@ -34,7 +34,7 @@
   // toolbar icon, minus its tile). Shown when a save lands.
   const MARK =
     '<svg viewBox="0 0 28 28" width="24" height="24" aria-hidden="true">' +
-    '<circle cx="14" cy="14" r="10" fill="#C0C0C0"/></svg>'
+    '<circle cx="14" cy="14" r="10" fill="#C1C1C1"/></svg>'
 
   // Self-hosted brand fonts (declared in manifest web_accessible_resources).
   // chrome.runtime.getURL yields the extension-origin URL the page can fetch
