@@ -1,7 +1,8 @@
-// On-page "find" toast — injected into the active tab by the background worker.
-// Visual treatment mirrors mymind's save card: a clean white rounded card with
-// a coral top accent, a circular line-art icon, friendly rounded-sans text, and
-// a collapsible "Add to a list" row. Once saved you can add the gem to a list,
+// On-page "bullet" toast — injected into the active tab by the background worker.
+// Editorial treatment matching the web app: a clean white rounded card, the
+// brand fonts (Cardo + Routed Gothic Wide), a white/grey/ink palette (no accent
+// colour), and a collapsible "Add to a list" row that separates your existing
+// lists from creating a new one. Once saved you can add the bullet to a list,
 // or create + publish a brand-new list inline.
 //
 // Injected via chrome.scripting.executeScript({ files: [...] }) so it runs as a
@@ -29,12 +30,18 @@
 
   const DISMISS_MS = 2500
 
-  // Brand mark — opening quotation mark ("according to"), matches the web
-  // wordmark glyph. Used as the saved-state icon.
+  // Compact "saved" badge — the Bulletin "bullet": a grey dot (same mark as the
+  // toolbar icon, minus its tile). Shown when a save lands.
   const MARK =
-    '<svg viewBox="0 0 28 28" width="20" height="20" fill="currentColor" aria-hidden="true">' +
-    '<circle cx="9" cy="15" r="3"/><path d="M6.2 13.8 Q 7 8 11 7.5 Q 9.2 10.6 9.2 14 Z"/>' +
-    '<circle cx="18" cy="15" r="3"/><path d="M15.2 13.8 Q 16 8 20 7.5 Q 18.2 10.6 18.2 14 Z"/></svg>'
+    '<svg viewBox="0 0 28 28" width="24" height="24" aria-hidden="true">' +
+    '<circle cx="14" cy="14" r="10" fill="#C1C1C1"/></svg>'
+
+  // Self-hosted brand fonts (declared in manifest web_accessible_resources).
+  // chrome.runtime.getURL yields the extension-origin URL the page can fetch
+  // even from inside the shadow DOM.
+  const FONT_CARDO = chrome.runtime.getURL('fonts/Cardo-Regular.woff2')
+  const FONT_CARDO_BOLD = chrome.runtime.getURL('fonts/Cardo-Bold.woff2')
+  const FONT_LABEL = chrome.runtime.getURL('fonts/RoutedGothicWide-Regular.woff2')
 
   const host = document.createElement('div')
   host.id = 'internet-gems-toast-host'
@@ -47,96 +54,116 @@
 
   root.innerHTML = `
     <style>
+      @font-face { font-family:'Cardo'; src:url('${FONT_CARDO}') format('woff2'); font-weight:400; font-display:swap; }
+      @font-face { font-family:'Cardo'; src:url('${FONT_CARDO_BOLD}') format('woff2'); font-weight:700; font-display:swap; }
+      @font-face { font-family:'Routed Gothic Wide'; src:url('${FONT_LABEL}') format('woff2'); font-weight:400; font-display:swap; }
       :host { all: initial; }
       * { box-sizing: border-box; }
       .card {
-        font-family: ui-rounded, 'SF Pro Rounded', system-ui, -apple-system,
-          'Segoe UI', Roboto, sans-serif;
+        font-family: 'Cardo', Georgia, 'Times New Roman', serif;
         width: 340px;
-        background: #fff;
-        color: #1d1d1f;
-        border-radius: 18px;
-        box-shadow: 0 16px 40px rgba(20,20,30,0.20), 0 2px 8px rgba(20,20,30,0.10);
+        background: #ffffff;
+        color: #2b2b2b;
+        border: 1px solid rgba(43,43,43,0.10);
+        border-radius: 16px;
+        box-shadow: 0 16px 40px rgba(20,20,30,0.16), 0 2px 8px rgba(20,20,30,0.08);
         overflow: hidden;
         transform: translateX(120%);
         opacity: 0;
         transition: transform .32s cubic-bezier(.2,.85,.25,1), opacity .32s ease;
       }
       .card.in { transform: translateX(0); opacity: 1; }
-      .accent { height: 5px; background: linear-gradient(90deg,#ff7a4d,#f0653f); }
-      .head { display: flex; align-items: center; gap: 13px; padding: 16px 18px; }
+      .head { display: flex; align-items: center; gap: 12px; padding: 16px 18px; }
       .icon {
-        flex: none; width: 38px; height: 38px; border-radius: 50%;
-        border: 1.5px solid #d9d6cf; display: flex; align-items: center;
-        justify-content: center; font-size: 18px; line-height: 1; color: #1d1d1f;
+        flex: none; width: 34px; height: 34px; display: flex; align-items: center;
+        justify-content: center; overflow: hidden; color: #2b2b2b;
       }
-      .msg { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; flex: 1; }
+      .icon:empty { display: none; }
+      .icon img { width: 100%; height: 100%; object-fit: contain; }
+      .msg { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; flex: 1; }
       .spin {
         width: 16px; height: 16px; border-radius: 50%;
-        border: 2px solid #e4e1da; border-top-color: #f0653f;
+        border: 2px solid #e6e6e6; border-top-color: #2b2b2b;
         animation: spin .7s linear infinite;
       }
       @keyframes spin { to { transform: rotate(360deg); } }
       .title {
-        font-size: 13.5px; color: #86868b; line-height: 1.4;
-        padding: 0 18px 14px 69px; margin-top: -6px;
+        font-size: 14px; color: #8a8a8a; line-height: 1.4;
+        padding: 0 18px 15px; margin-top: -8px;
         display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
         overflow: hidden;
       }
-      .tags { border-top: 1px solid #efece6; }
-      .tagrow {
+      /* Label spec — Routed Gothic Wide, uppercase, tracked (matches the web app). */
+      .label { font-family:'Routed Gothic Wide', ui-monospace, monospace; text-transform:uppercase; letter-spacing:1.5px; }
+      .lists { border-top: 1px solid rgba(43,43,43,0.08); }
+      .listrow {
         display: flex; align-items: center; justify-content: space-between;
         padding: 13px 18px; cursor: pointer; user-select: none;
       }
-      .tagrow .lbl { font-size: 15px; color: #6e6e73; }
-      .chev { font-size: 13px; color: #b9b6af; transition: transform .2s ease; }
-      .tagrow.open .chev { transform: rotate(180deg); }
-      .tagbody { padding: 0 16px 14px; display: none; }
-      .tagbody.open { display: block; }
+      .listrow .label { font-size: 11px; color: #2b2b2b; }
+      .chev { font-size: 12px; color: #b0b0b0; transition: transform .2s ease; }
+      .listrow.open .chev { transform: rotate(180deg); }
+      .listbody { padding: 2px 18px 16px; display: none; }
+      .listbody.open { display: block; }
+      .section + .section { margin-top: 16px; }
+      .section-label { display: block; font-size: 9px; color: #a0a0a0; margin-bottom: 9px; }
       .chips { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
-      .chip {
-        display: inline-flex; align-items: center; gap: 6px;
-        font-size: 13px; line-height: 1; color: #1d1d1f;
-        background: #f4f2ec; border-radius: 999px; padding: 7px 9px 7px 12px;
-      }
-      .chip button {
-        all: unset; cursor: pointer; font-size: 14px; color: #b0aca2;
-        line-height: 1; padding: 0 1px;
-      }
-      .chip button:hover { color: #f0653f; }
-      .add {
-        all: unset; cursor: text; font-family: inherit; font-size: 13px;
-        color: #1d1d1f; min-width: 90px; flex: 1; padding: 7px 4px;
-      }
-      .add::placeholder { color: #b9b6af; }
-      .lists { border-top: 1px solid #efece6; }
+      /* Existing-list toggle chip. Selected = filled ink; unselected = grey. */
       .lchip {
         all: unset; cursor: pointer; box-sizing: border-box;
-        display: inline-flex; align-items: center; gap: 5px;
-        font-size: 13px; line-height: 1; color: #1d1d1f;
-        background: #f4f2ec; border-radius: 999px; padding: 7px 12px;
+        display: inline-flex; align-items: center; gap: 6px;
+        font-family:'Routed Gothic Wide', ui-monospace, monospace;
+        text-transform: uppercase; letter-spacing: 1px; font-size: 10px;
+        color: #2b2b2b; background: #f1f1f1; border-radius: 999px; padding: 8px 12px;
         transition: background .15s ease, color .15s ease;
       }
-      .lchip:hover { background: #e9e6df; }
-      .lchip.on { background: #1d1d1f; color: #fff; }
-      .lchip.on::before { content: '✓'; font-size: 11px; }
-      .add.suggest::placeholder { color: #f0653f; opacity: .85; }
-      .err .msg { color: #d23f3f; }
+      .lchip:hover { background: #e6e6e6; }
+      .lchip.on { background: #2b2b2b; color: #fff; }
+      .lchip.on::before { content: '✓'; font-size: 10px; }
+      /* Create-new field — full-width, clearly its own input. */
+      .add {
+        all: unset; box-sizing: border-box; cursor: text; width: 100%;
+        font-family:'Cardo', Georgia, serif; font-size: 15px; color: #2b2b2b;
+        background: #f1f1f1; border-radius: 10px; padding: 10px 12px;
+      }
+      .add::placeholder { color: #a0a0a0; }
+      /* AI name suggestion — a distinct tappable row, ink/grey only (no accent). */
+      .suggestion {
+        all: unset; cursor: pointer; box-sizing: border-box; width: 100%;
+        display: flex; align-items: center; gap: 9px; margin-top: 9px;
+        padding: 10px 12px; border-radius: 10px; border: 1px dashed rgba(43,43,43,0.22);
+        font-family:'Cardo', Georgia, serif; font-size: 14px; color: #2b2b2b;
+      }
+      .suggestion:hover { background: #f7f7f7; }
+      .suggestion[hidden] { display: none; }
+      .suggestion .sg-label { font-family:'Routed Gothic Wide', monospace; text-transform:uppercase; letter-spacing:1px; font-size:9px; color:#a0a0a0; flex:none; }
+      .suggestion .sg-name { font-style: italic; }
+      .err .msg { color: #2b2b2b; }
     </style>
     <div class="card" id="card">
-      <div class="accent"></div>
       <div class="head" id="head">
-        <span class="icon" id="icon"><svg viewBox="0 0 28 28" width="20" height="20" fill="currentColor" aria-hidden="true"><circle cx="9" cy="15" r="3"/><path d="M6.2 13.8 Q 7 8 11 7.5 Q 9.2 10.6 9.2 14 Z"/><circle cx="18" cy="15" r="3"/><path d="M15.2 13.8 Q 16 8 20 7.5 Q 18.2 10.6 18.2 14 Z"/></svg></span>
+        <span class="icon" id="icon"></span>
         <span class="msg" id="msg">One moment, saving…</span>
       </div>
       <div class="title" id="title" style="display:none"></div>
       <div class="lists" id="lists" style="display:none">
-        <div class="tagrow" id="listrow">
-          <span class="lbl" id="listlbl">Add to a list</span>
+        <div class="listrow" id="listrow">
+          <span class="label" id="listlbl">Add to a list</span>
           <span class="chev">▾</span>
         </div>
-        <div class="tagbody" id="listbody">
-          <div class="chips" id="listchips"></div>
+        <div class="listbody" id="listbody">
+          <div class="section" id="existing" style="display:none">
+            <span class="section-label label">Your lists — tap to add</span>
+            <div class="chips" id="listchips"></div>
+          </div>
+          <div class="section">
+            <span class="section-label label">Create a new list</span>
+            <input class="add" id="addinput" placeholder="Name a new list…" />
+            <button class="suggestion" id="suggestion" hidden>
+              <span class="sg-label">Suggested</span>
+              <span class="sg-name" id="sgname"></span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -171,6 +198,24 @@
   })
 
   el('listrow').addEventListener('click', () => toggleLists())
+
+  // Create-list input is static markup now (not re-rendered), so focus survives
+  // chip re-renders and the async name suggestion.
+  const addInput = el('addinput')
+  addInput.addEventListener('focus', () => { editing = true; clearDismiss() })
+  addInput.addEventListener('blur', () => { editing = false; armDismiss() })
+  addInput.addEventListener('input', () => { userTyped = !!addInput.value })
+  addInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return
+    e.preventDefault()
+    const typed = addInput.value.trim()
+    if (typed) { addInput.value = ''; userTyped = false; createListByName(typed) }
+    else if (suggestedName) createListByName(suggestedName)
+  })
+  el('suggestion').addEventListener('click', (e) => {
+    e.stopPropagation()
+    if (suggestedName) createListByName(suggestedName)
+  })
 
   function clearDismiss() {
     if (dismissTimer) clearTimeout(dismissTimer)
@@ -224,14 +269,22 @@
   }
 
   function focusListInput() {
-    const input = root.querySelector('#listchips .add')
-    if (input && el('listbody').classList.contains('open')) input.focus()
+    if (el('listbody').classList.contains('open')) addInput.focus()
   }
 
+  // Existing-list toggle chips only. The create field + suggestion are static
+  // markup (updated by updateSuggestion), so re-rendering chips never steals
+  // focus from someone mid-type.
   function renderLists() {
     updateListLabel()
+    const existing = el('existing')
     const wrap = el('listchips')
     wrap.innerHTML = ''
+    if (!lists.length) {
+      existing.style.display = 'none'
+      return
+    }
+    existing.style.display = ''
     for (const l of lists) {
       const chip = document.createElement('button')
       chip.className = 'lchip' + (memberOf.has(l.id) ? ' on' : '')
@@ -242,32 +295,18 @@
       })
       wrap.appendChild(chip)
     }
-    const input = document.createElement('input')
-    input.className = 'add' + (suggestedName ? ' suggest' : '')
-    input.placeholder = suggestedName
-      ? `${suggestedName} — press ↵`
-      : lists.length ? 'or create a list…' : 'create a list…'
-    input.addEventListener('focus', () => { editing = true; clearDismiss() })
-    input.addEventListener('blur', () => { editing = false; armDismiss() })
-    input.addEventListener('input', () => { userTyped = !!input.value })
-    input.addEventListener('keydown', (e) => {
-      // Tab accepts the suggestion into the field so it can be tweaked.
-      if (e.key === 'Tab' && suggestedName && !input.value.trim()) {
-        e.preventDefault()
-        input.value = suggestedName
-        input.classList.remove('suggest')
-        userTyped = true
-        return
-      }
-      if (e.key === 'Enter') {
-        e.preventDefault()
-        const typed = input.value.trim()
-        // Enter on an empty field accepts the ghost-text suggestion.
-        if (!typed && suggestedName) return createListByName(suggestedName)
-        createListFromInput(input)
-      }
-    })
-    wrap.appendChild(input)
+  }
+
+  // Show the AI "why you saved it" suggestion as its own tappable row — only
+  // while the user hasn't typed a name or already filed it into a list.
+  function updateSuggestion() {
+    const btn = el('suggestion')
+    if (suggestedName && !userTyped && !memberOf.size) {
+      el('sgname').textContent = `“${suggestedName}”`
+      btn.hidden = false
+    } else {
+      btn.hidden = true
+    }
   }
 
   // Optimistically toggle, then reconcile with the server (revert on failure).
@@ -277,6 +316,7 @@
     if (add) memberOf.add(l.id)
     else memberOf.delete(l.id)
     renderLists()
+    updateSuggestion()
     chrome.runtime.sendMessage(
       { type: 'ig-set-list', listId: l.id, bookmarkId, add },
       (resp) => {
@@ -284,20 +324,14 @@
           if (add) memberOf.delete(l.id)
           else memberOf.add(l.id)
           renderLists()
+          updateSuggestion()
         }
       }
     )
   }
 
-  function createListFromInput(input) {
-    const name = input.value.trim()
-    if (!name) return
-    input.value = ''
-    createListByName(name)
-  }
-
-  // Create + publish a list and add this gem to it. Used by both the typed
-  // input and one-tap acceptance of the suggested name.
+  // Create + publish a list and add this bullet to it. Used by the typed input
+  // and one-tap acceptance of the suggested name.
   function createListByName(name) {
     if (!name || !bookmarkId) return
     chrome.runtime.sendMessage(
@@ -307,7 +341,9 @@
           lists.unshift(resp.list)
           memberOf.add(resp.list.id)
           suggestedName = null // consumed
+          addInput.value = ''
           renderLists()
+          updateSuggestion()
           focusListInput()
         }
       }
@@ -315,23 +351,14 @@
   }
 
   // Ask the backend for a "why you saved it" list-name suggestion. Fire-and-
-  // forget: if it never returns, the card is unaffected. Only surfaces if the
-  // user hasn't typed or already filed the gem into a list.
+  // forget: if it never returns, the card is unaffected.
   function loadSuggestion() {
     if (!bookmarkId) return
     chrome.runtime.sendMessage({ type: 'ig-suggest-name', bookmarkId }, (resp) => {
       if (!resp || !resp.ok || !resp.name) return
       if (userTyped || memberOf.size) return
       suggestedName = resp.name
-      // Update the live input in place if it's empty (keeps focus); otherwise
-      // re-render to attach the ghost text.
-      const input = root.querySelector('#listchips .add')
-      if (input && !input.value) {
-        input.placeholder = `${suggestedName} — press ↵`
-        input.classList.add('suggest')
-      } else {
-        renderLists()
-      }
+      updateSuggestion()
     })
   }
 
@@ -346,7 +373,7 @@
 
   function showSaved(data) {
     setSpinner(false)
-    setMsg('Saved to your finds')
+    setMsg('Saved to your bullets')
     bookmarkId = data && data.id
     if (data && data.title) {
       el('title').textContent = data.title
@@ -372,6 +399,8 @@
     memberOf = new Set()
     suggestedName = null
     userTyped = false
+    addInput.value = ''
+    updateSuggestion()
     el('title').style.display = 'none'
     el('lists').style.display = 'none'
     toggleLists(false)
@@ -394,7 +423,7 @@
         showSaved(data)
       } else if (state === 'duplicate') {
         setSpinner(false)
-        setMsg('Already in your finds')
+        setMsg('Already in your bullets')
         if (data && data.title) {
           el('title').textContent = data.title
           el('title').style.display = ''

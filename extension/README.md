@@ -1,9 +1,9 @@
-# according to — Chrome extension
+# Bulletin — Chrome extension
 
-One-click saving of any page, image, or quote into your according to
+One-click saving of any page, image, or quote into your Bulletin
 collection. Authenticates with Google (via Supabase) and posts to the web
 app's `/api/extension/save` endpoint, which runs the full enrichment
-pipeline server-side (metadata → auto-tags → embedding).
+pipeline server-side (metadata → embedding).
 
 ## How it works
 
@@ -32,10 +32,14 @@ notification.
 No build step — it's plain JS/HTML loaded as an unpacked extension.
 
 ### Endpoints it calls
-- `POST /api/extension/save` — enrich + insert (metadata → auto-tags → embed).
-- `POST /api/extension/tags` — replace a saved gem's tags (from the toast).
+- `POST /api/extension/save` — enrich + insert (metadata → embed).
+- `GET/POST /api/extension/lists` — fetch the user's lists; create + publish a
+  new one and/or add/remove a bullet (from the toast's "Add to a list" row).
+- `POST /api/extension/suggest-list-name` — Haiku "why you saved it" list-name
+  suggestion for a freshly saved bullet.
+- `GET /api/extension/finds` — the user's most recent bullets (new-tab page).
 
-Both are bearer-authenticated with the Supabase access token and RLS-scoped.
+All are bearer-authenticated with the Supabase access token and RLS-scoped.
 
 ## One-time setup
 
@@ -69,9 +73,9 @@ https://<extension-id>.chromiumapp.org/
 - Confirm `manifest.json` `host_permissions` covers whichever you use.
 
 ## Usage
-- Click the according to icon on any page → it saves instantly; an on-page card
+- Click the Bulletin icon on any page → it saves instantly; an on-page card
   confirms it and lets you add it to a list.
-- Right-click a page / image / selection → **Save … to according to**.
+- Right-click a page / image / selection → **Save … to Bulletin**.
 - Right-click the toolbar icon → **Open my finds** / **Sign out**.
 
 ## Notes

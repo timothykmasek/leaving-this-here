@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>according to</title>
+    <title>Bulletin</title>
     <style>
       * {
         box-sizing: border-box;
@@ -34,9 +34,17 @@
         letter-spacing: -0.5px;
       }
 
+      /* Bulletin brand mark — a "bullet" dot. */
       .logo .mark {
-        font-size: 24px;
-        margin-right: 8px;
+        display: inline-block;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #c0c0c0;
+        vertical-align: middle;
+        margin-right: 10px;
+        position: relative;
+        top: -2px;
       }
 
       .container {
@@ -164,7 +172,7 @@
   <body>
     <div class="header">
       <div class="logo">
-        <span class="mark">"</span>according to
+        <span class="mark"></span>Bulletin
       </div>
     </div>
 
@@ -172,7 +180,7 @@
       <div id="app">
         <div class="loading">
           <div class="spinner"></div>
-          <p>loading your finds…</p>
+          <p>loading your bullets…</p>
         </div>
       </div>
     </div>
