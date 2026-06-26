@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js'
 // Anonymous availability check for the homepage claim field. Returns
 // { available: boolean, reason?: 'taken' | 'reserved' | 'invalid' }.
 // This is advisory — the real reservation happens at account creation
-// (/api/onboarding/complete re-checks before inserting the profile).
+// (/api/onboarding/setup re-checks before inserting the profile).
 
 // Handles that collide with routes or smell like infrastructure. Top-level
 // paths in app/ must all be here or a claimed handle would shadow them.

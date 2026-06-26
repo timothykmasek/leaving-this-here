@@ -51,9 +51,8 @@ export default async function Home({
     if (profile) {
       redirect(`/${profile.username}`)
     } else {
-      // Signed in but no page yet → the onboarding finish step (it falls back
-      // to /setup itself if there's no stashed flow state in this browser).
-      redirect('/start?finish=1')
+      // Signed in but no page yet → onboarding resumes at the username step.
+      redirect('/start')
     }
   }
 
@@ -108,7 +107,7 @@ export default async function Home({
         {/* Single primary action. */}
         <div className="mt-9 flex justify-center">
           <a
-            href="/login?mode=signup"
+            href="/start"
             className="label rounded-full bg-ink px-7 py-3 text-paper transition-colors hover:bg-black"
           >
             Sign up — it’s free

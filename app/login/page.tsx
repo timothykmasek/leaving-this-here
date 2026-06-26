@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
@@ -28,6 +28,12 @@ function LoginPageInner() {
   const [signedUp, setSignedUp] = useState(false)
 
   const supabase = createClient()
+
+  // Signup now lives in the account-first onboarding wizard. Funnel any old
+  // /login?mode=signup links there so there's a single signup path.
+  useEffect(() => {
+    if (searchParams?.get('mode') === 'signup') router.replace('/start')
+  }, [searchParams, router])
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -176,9 +182,9 @@ function LoginPageInner() {
             ) : (
               <>
                 Don&apos;t have an account?{' '}
-                <button onClick={() => { setIsSignUp(true); setError(null) }} className="font-medium text-ink underline-offset-2 hover:underline">
+                <Link href="/start" className="font-medium text-ink underline-offset-2 hover:underline">
                   Sign up
-                </button>
+                </Link>
               </>
             )}
           </div>
