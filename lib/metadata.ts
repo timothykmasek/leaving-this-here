@@ -8,6 +8,9 @@
 //      turn the raw blob into the final winning values. Changing these does
 //      NOT require refetching — we can re-run them over stored raw_metadata.
 
+import { fetchOEmbed, type OEmbedResult } from '@/lib/oembed'
+import { urlDerivedTitle, isMapsShortLink } from '@/lib/urlTitle'
+
 export interface RawMetadata {
   og: Record<string, string>
   twitter: Record<string, string>
@@ -17,6 +20,14 @@ export interface RawMetadata {
   firstH1: string | null
   icons: string[]
   url: string
+  // The URL after redirects (short-link resolution). Used for URL-derived
+  // titles (Maps place name). Falls back to `url` when absent.
+  resolvedUrl?: string
+  // Title parsed from a PDF's info dict (/Title), when the link is a PDF.
+  pdfTitle?: string | null
+  // Folded in by extractMetadata for platforms with an oEmbed provider
+  // (Spotify, YouTube, …). Pure pickers prefer it; deriveFromRaw reuses it.
+  oembed?: OEmbedResult | null
 }
 
 export interface ProductInfo {
@@ -46,15 +57,39 @@ export interface MetadataResult {
 
 // ── HTML fetch ──────────────────────────────────────────────────────
 
-export async function fetchHtml(url: string): Promise<string> {
+export interface FetchHtmlResult {
+  html: string
+  // The URL after following redirects (short links like maps.app.goo.gl resolve
+  // to the real /maps/place/<name> URL — needed for URL-derived titles).
+  finalUrl: string
+  contentType: string
+}
+
+const CHROME_UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+// A crawler UA. Some sites (Instagram, Threads) login-wall browser UAs but serve
+// real og:title/og:image to crawlers — exactly what we want for a card.
+const CRAWLER_UA = 'facebookexternalhit/1.1'
+const CRAWLER_UA_HOSTS = ['instagram.com', 'threads.net', 'threads.com', 'reddit.com']
+
+function uaForUrl(url: string): string {
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, '')
+    if (CRAWLER_UA_HOSTS.some((d) => host === d || host.endsWith('.' + d))) {
+      return CRAWLER_UA
+    }
+  } catch {}
+  return CHROME_UA
+}
+
+export async function fetchHtml(url: string): Promise<FetchHtmlResult> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 15000)
 
   try {
     const response = await fetch(url, {
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': uaForUrl(url),
         Accept:
           'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
@@ -62,10 +97,42 @@ export async function fetchHtml(url: string): Promise<string> {
       signal: controller.signal,
     })
 
-    if (!response.ok) return ''
-    return await response.text()
+    const finalUrl = response.url || url
+    const contentType = response.headers.get('content-type') || ''
+    if (!response.ok) return { html: '', finalUrl, contentType }
+    // PDFs are binary — decode as latin1 (1 byte → 1 char) so the ASCII info
+    // dict (/Title …) survives intact; UTF-8 decoding mangles the binary and
+    // drops the title.
+    const looksPdf =
+      /application\/pdf/i.test(contentType) || /\.pdf($|[?#])/i.test(finalUrl)
+    const buf = await response.arrayBuffer()
+    const html = new TextDecoder(looksPdf ? 'latin1' : 'utf-8').decode(buf)
+    return { html, finalUrl, contentType }
   } catch {
-    return ''
+    return { html: '', finalUrl: url, contentType: '' }
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * Resolve a redirect to its Location target using a bot UA. Google Maps short
+ * links (maps.app.goo.gl) 302 to the real /maps/place/<name> URL for bots, but
+ * serve a JS interstitial to browser UAs — so our normal Chrome-UA fetch can't
+ * see the destination. We read the Location header without following it.
+ */
+async function resolveRedirectUrl(url: string): Promise<string | null> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 8000)
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'facebookexternalhit/1.1' },
+      redirect: 'manual',
+      signal: controller.signal,
+    })
+    return res.headers.get('location') || null
+  } catch {
+    return null
   } finally {
     clearTimeout(timeoutId)
   }
@@ -197,6 +264,50 @@ function extractIcons(html: string): string[] {
   return icons
 }
 
+/**
+ * Pull a human title out of a PDF's info dict (`/Title (...)` or `/Title <hex>`).
+ * `text` is the raw PDF bytes read as a string. PDFs are binary, but the info
+ * dict is ASCII and greppable. Returns null if there's no usable title.
+ */
+export function extractPdfTitle(text: string): string | null {
+  if (!text) return null
+
+  // Literal string form: /Title (Cramming More Components ... \(escaped\)).
+  // The char class allows \<anything-incl-newline> so a backslash line-
+  // continuation inside the value doesn't end the match early.
+  const lit = text.match(/\/Title\s*\(((?:[^()\\]|\\[\s\S])*)\)/)
+  if (lit?.[1]) {
+    const decoded = lit[1]
+      .replace(/\\\r\n?|\\\n/g, '') // backslash line-continuation → removed
+      .replace(/\\([nrtbf])/g, ' ') // whitespace escapes → space
+      .replace(/\\([0-7]{1,3})/g, (_, o) => String.fromCharCode(parseInt(o, 8)))
+      .replace(/\\([\s\S])/g, '$1') // drop the backslash from \( \) \\ and stray escapes
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (decoded.length >= 3) return decoded
+  }
+
+  // Hex string form: /Title <FEFF0043...> (often UTF-16BE with a BOM)
+  const hex = text.match(/\/Title\s*<([0-9A-Fa-f]+)>/)
+  if (hex?.[1]) {
+    const bytes = hex[1].replace(/[^0-9A-Fa-f]/g, '')
+    let out = ''
+    if (/^feff/i.test(bytes)) {
+      for (let i = 4; i + 3 < bytes.length; i += 4) {
+        out += String.fromCharCode(parseInt(bytes.slice(i, i + 4), 16))
+      }
+    } else {
+      for (let i = 0; i + 1 < bytes.length; i += 2) {
+        out += String.fromCharCode(parseInt(bytes.slice(i, i + 2), 16))
+      }
+    }
+    out = out.replace(/\s+/g, ' ').trim()
+    if (out.length >= 3) return out
+  }
+
+  return null
+}
+
 function extractJsonLd(html: string): any[] {
   const results: any[] = []
   const regex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
@@ -295,14 +406,28 @@ export function pickBestTitle(raw: RawMetadata | null): string | null {
     if (!t) return false
     const trimmed = t.trim()
     if (trimmed.length < 3) return false
+    const lower = trimmed.toLowerCase()
     // Reject if title is just the site name (case-insensitive)
-    if (siteName && trimmed.toLowerCase() === siteName.toLowerCase().trim()) return false
-    // Reject if title is just the hostname
+    if (siteName && lower === siteName.toLowerCase().trim()) return false
+    // Reject if title is just the hostname ("amazon.com")…
     const host = getHostname(raw.url)
-    if (host && trimmed.toLowerCase() === host.toLowerCase()) return false
-    // Reject obviously-generic titles
-    const generic = ['home', 'homepage', 'index', 'landing', 'untitled']
-    if (generic.includes(trimmed.toLowerCase())) return false
+    if (host && lower === host.toLowerCase()) return false
+    // …or just the brand root of the host ("Instagram" on instagram.com,
+    // "Amazon" on amazon.com) — a bare brand name is never a real title.
+    const hostRoot = host.split('.')[0]
+    if (hostRoot && lower === hostRoot.toLowerCase()) return false
+    // Reject SPA shells / generic placeholders / bot-block interstitials —
+    // these are confidently-wrong titles that look broken to the user.
+    const generic = [
+      'home', 'homepage', 'index', 'landing', 'untitled',
+      'web player', 'spotify', 'spotify – web player', 'spotify - web player',
+      'login', 'log in', 'sign in', 'signin', 'redirecting',
+      'loading', 'loading…', 'loading...',
+      'page not found', 'not found', '404', '404 not found', '403 forbidden',
+      'access denied', 'attention required!', 'just a moment…', 'just a moment...',
+      'are you a robot', 'security check',
+    ]
+    if (generic.includes(lower)) return false
     return true
   }
 
@@ -315,8 +440,22 @@ export function pickBestTitle(raw: RawMetadata | null): string | null {
   const ogLooksTruncated =
     ogTitle && h1 && h1.length > ogTitle.length && h1.startsWith(ogTitle)
 
+  // oEmbed title (Spotify episode name, YouTube video title) is authoritative
+  // for the platforms that have it — it beats the JS-shell og:title.
+  const oembedTitle = raw.oembed?.title || null
+
+  // URL-derived title (Maps place, Amazon slug) — more trustworthy than the
+  // blocked/generic HTML those sites return, so it ranks just below oEmbed.
+  const urlTitle = urlDerivedTitle(raw.url, raw.resolvedUrl)
+
+  // PDF info-dict title — authoritative for PDF links (no og tags exist).
+  const pdfTitle = raw.pdfTitle || null
+
   const candidates: Array<string | null | undefined> = ogLooksTruncated
     ? [
+        oembedTitle,
+        urlTitle,
+        pdfTitle,
         raw.firstH1,
         raw.og['title'],
         raw.twitter['title'],
@@ -324,6 +463,9 @@ export function pickBestTitle(raw: RawMetadata | null): string | null {
         raw.htmlTitle,
       ]
     : [
+        oembedTitle,
+        urlTitle,
+        pdfTitle,
         raw.og['title'],
         raw.twitter['title'],
         extractJsonLdText(raw.jsonLd, ['headline', 'name']),
@@ -337,8 +479,8 @@ export function pickBestTitle(raw: RawMetadata | null): string | null {
     }
   }
 
-  // Last-resort fallback: return htmlTitle even if it matches site name — better than nothing
-  if (raw.htmlTitle) return decodeHtmlEntities(stripSiteSuffix(raw.htmlTitle.trim(), siteName))
+  // No meaningful candidate. Return null rather than a confidently-wrong shell
+  // title ("Web Player", "Amazon.com") — the caller decides the honest fallback.
   return null
 }
 
@@ -414,6 +556,14 @@ export function pickBestImage(raw: RawMetadata | null): string | null {
   const jsonLdImg = extractJsonLdImage(raw.jsonLd)
   if (jsonLdImg && !looksLikeLogo(jsonLdImg)) {
     return resolveUrl(jsonLdImg, raw.url)
+  }
+
+  // Candidate 4: oEmbed thumbnail — the rescue for platforms whose HTML shell
+  // ships no og:image (Spotify episode art, etc.). og still wins above when
+  // present (it's usually higher-res, e.g. YouTube maxresdefault).
+  const oembedThumb = raw.oembed?.thumbnail
+  if (oembedThumb && !looksLikeLogo(oembedThumb)) {
+    return resolveUrl(oembedThumb, raw.url)
   }
 
   // Fallback: og:image even if it looks like a logo (better than nothing)
@@ -678,21 +828,43 @@ export function pickFavicon(raw: RawMetadata | null): string | null {
  * us re-run the pickers in the future without refetching.
  */
 export async function extractMetadata(url: string): Promise<MetadataResult> {
-  const html = await fetchHtml(url)
-  if (!html) {
-    return {
-      title: null,
-      image: null,
-      description: null,
-      siteName: null,
-      favicon: null,
-      product: null,
-      book: null,
-      raw: null,
+  // Fetch HTML and oEmbed concurrently. oEmbed rescues platforms (Spotify,
+  // YouTube, …) that serve a JS shell to a plain fetch — even when the HTML
+  // scrape comes back empty or junk, oEmbed gives a real title + thumbnail.
+  const [fetched, oembed, mapsResolved] = await Promise.all([
+    fetchHtml(url),
+    fetchOEmbed(url),
+    isMapsShortLink(url) ? resolveRedirectUrl(url) : Promise.resolve(null),
+  ])
+  const { html } = fetched
+  const finalUrl = mapsResolved || fetched.finalUrl
+  if (!html && !oembed) {
+    // Even with no HTML/oEmbed, a URL-derived title (Maps place, Amazon slug)
+    // can still produce a usable card — don't bail before checking.
+    const urlTitle = urlDerivedTitle(url, finalUrl)
+    if (!urlTitle) {
+      return {
+        title: null,
+        image: null,
+        description: null,
+        siteName: null,
+        favicon: null,
+        product: null,
+        book: null,
+        raw: null,
+      }
     }
   }
 
-  const raw = extractRawMetadata(html, url)
+  const raw = extractRawMetadata(html || '', url)
+  raw.resolvedUrl = finalUrl
+  raw.oembed = oembed
+  // PDFs have no og tags; pull the title from the PDF's info dict instead.
+  const isPdf =
+    /application\/pdf/i.test(fetched.contentType) ||
+    /\.pdf($|[?#])/i.test(finalUrl) ||
+    /\.pdf($|[?#])/i.test(url)
+  raw.pdfTitle = isPdf ? extractPdfTitle(html) : null
   return {
     title: pickBestTitle(raw),
     image: pickBestImage(raw),

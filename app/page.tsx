@@ -9,7 +9,7 @@ const SHOWCASE_COUNT = 16
 
 // Only the columns the showcase cards render (LinkCard + pickCardImage + the
 // membership map). Avoids pulling raw_metadata and other unused blobs.
-const SHOWCASE_COLS = 'id, url, title, image_url, screenshot_url'
+const SHOWCASE_COLS = 'id, url, title, image_url, screenshot_url, card_type'
 
 function domainOf(url: string): string {
   try {
@@ -123,7 +123,7 @@ export default async function Home({
               key={b.id}
               url={b.url}
               title={cleanTitle(b.title, b.url)}
-              image={pickCardImage(b.url, b.image_url, b.screenshot_url)}
+              image={pickCardImage(b.url, b.image_url, b.screenshot_url, b.card_type)}
               listName={listByBookmark.get(b.id) ?? null}
               priority={i < 4}
             />

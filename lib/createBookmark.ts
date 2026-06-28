@@ -1,5 +1,7 @@
+import { waitUntil } from '@vercel/functions'
 import type { createSupabaseServer } from '@/lib/supabase/server'
 import { extractMetadata } from '@/lib/metadata'
+import { classifyCardType } from '@/lib/cardType'
 import { embed, bookmarkToEmbedText } from '@/lib/embed'
 
 type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServer>>
@@ -49,6 +51,7 @@ export async function createBookmarkFromUrl(
         description: meta.description,
         image_url: meta.image,
         favicon_url: meta.favicon,
+        card_type: classifyCardType(url, meta),
         raw_metadata: meta.raw,
       })
       .select('id')
@@ -75,11 +78,17 @@ export async function createBookmarkFromUrl(
       })()
     }
     if (opts.origin) {
-      void fetch(`${opts.origin}/api/persist-screenshots`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: inserted.id }),
-      }).catch(() => {})
+      // waitUntil keeps the serverless instance alive until this request is
+      // actually sent — a bare fire-and-forget can be dropped when the function
+      // freezes right after responding, leaving screenshot_url null forever and
+      // the card stuck on the og:image.
+      waitUntil(
+        fetch(`${opts.origin}/api/persist-screenshots`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: inserted.id }),
+        }).catch(() => {}),
+      )
     }
 
     return { id: inserted.id }

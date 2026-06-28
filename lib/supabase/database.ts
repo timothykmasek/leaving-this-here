@@ -34,6 +34,7 @@ export type Database = {
           image_url: string | null
           screenshot_url: string | null
           favicon_url: string | null
+          card_type: string | null
           tags: string[]
           is_private: boolean
           created_at: string
@@ -46,6 +47,7 @@ export type Database = {
           image_url?: string | null
           screenshot_url?: string | null
           favicon_url?: string | null
+          card_type?: string | null
           tags?: string[]
           is_private?: boolean
         }
@@ -56,6 +58,7 @@ export type Database = {
           image_url?: string | null
           screenshot_url?: string | null
           favicon_url?: string | null
+          card_type?: string | null
           tags?: string[]
           is_private?: boolean
         }

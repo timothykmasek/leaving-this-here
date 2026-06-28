@@ -29,18 +29,41 @@ export function prefersOgImage(url: string): boolean {
   }
 }
 
+// card_type drives image choice when known (it's classified at save time).
+// These types HAVE a designed, content-bearing image (product shot, article
+// hero, social OG, repo social-card) → the og:image beats a screenshot.
+const OG_FIRST_CARD_TYPES = new Set([
+  'product', 'book', 'article', 'composite', 'fullbleed',
+])
+// These are landing pages / profiles / no-good-image → a screenshot (the
+// "window onto the site") beats the og:image (usually a bare logo).
+const SCREENSHOT_FIRST_CARD_TYPES = new Set([
+  'screenshot', 'profile', 'lth',
+])
+
 /**
- * Pick the card image: screenshot-first everywhere, og-first on content
- * platforms, falling back to whichever one the first choice lacks.
- * `screenshot_url` can be '' (sentinel: no screenshot needed/possible) — treat
- * it as absent.
+ * Pick the card image.
+ *
+ * When `cardType` is known (set at save time by classifyCardType), it decides:
+ * content-type cards prefer their og:image, landing/profile cards prefer the
+ * screenshot. When it's absent (older rows not yet classified), fall back to the
+ * domain heuristic: screenshot-first everywhere, og-first on content platforms.
+ *
+ * Either way we fall back to whichever source the first choice lacks.
+ * `screenshot_url` can be '' (sentinel: no screenshot needed/possible) — treated
+ * as absent.
  */
 export function pickCardImage(
   url: string,
   imageUrl: string | null | undefined,
   screenshotUrl: string | null | undefined,
+  cardType?: string | null,
 ): string | null {
   const og = imageUrl || null
   const ss = screenshotUrl || null
+  if (cardType) {
+    if (OG_FIRST_CARD_TYPES.has(cardType)) return og || ss
+    if (SCREENSHOT_FIRST_CARD_TYPES.has(cardType)) return ss || og
+  }
   return prefersOgImage(url) ? og || ss : ss || og
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { waitUntil } from '@vercel/functions'
 import { extractMetadata } from '@/lib/metadata'
+import { classifyCardType } from '@/lib/cardType'
 import { embed, bookmarkToEmbedText } from '@/lib/embed'
 
 // POST /api/extension/save
@@ -93,6 +95,9 @@ export async function POST(request: NextRequest) {
   const description = meta.description
   const image_url = imageOverride || meta.image
   const favicon_url = meta.favicon
+  // Classify at save so the card knows how to render (image routing now, and
+  // type-specific templates later) — previously only the backfill job set this.
+  const card_type = classifyCardType(url, meta)
 
   // 5. Insert (tags removed — bullets are organized into lists and found via
   //    semantic search, no auto-tagging step)
@@ -106,6 +111,7 @@ export async function POST(request: NextRequest) {
       image_url,
       favicon_url,
       note,
+      card_type,
       raw_metadata: meta.raw,
     })
     .select('id, title, image_url, favicon_url')
@@ -142,14 +148,19 @@ export async function POST(request: NextRequest) {
   }
 
   // Kick off the one-time screenshot capture (cards are screenshot-first).
-  // Fire-and-forget like the embed above — persist-screenshots itself skips
-  // content platforms that already have an og:image.
+  // waitUntil keeps the serverless instance alive until this request is
+  // actually sent — a bare fire-and-forget can be dropped when the function
+  // freezes right after responding, leaving screenshot_url null forever and
+  // the card stuck on the og:image. persist-screenshots itself skips content
+  // platforms that already have an og:image.
   const origin = new URL(request.url).origin
-  void fetch(`${origin}/api/persist-screenshots`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: inserted.id }),
-  }).catch(() => {})
+  waitUntil(
+    fetch(`${origin}/api/persist-screenshots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: inserted.id }),
+    }).catch(() => {}),
+  )
 
   return json({ ok: true, bookmark: inserted })
 }
