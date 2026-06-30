@@ -27,7 +27,7 @@ export function LinkCard({ url, title, image, listName, priority = false }: Link
       href={url}
       target="_blank"
       rel="noopener noreferrer"
-      className="relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]"
+      className="relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card shadow-[0_1px_2px_rgba(40,40,30,0.06)] ring-1 ring-black/[0.03] transition-[transform,box-shadow] duration-[180ms] ease-[cubic-bezier(.22,.61,.36,1)] will-change-transform motion-reduce:transition-none hover:z-10 hover:[transform:rotateX(-4deg)] hover:shadow-[0_20px_32px_-26px_rgba(35,30,20,0.5),0_6px_13px_-14px_rgba(35,30,20,0.35)] focus-visible:z-10 focus-visible:outline-none focus-visible:[transform:rotateX(-4deg)] focus-visible:shadow-[0_20px_32px_-26px_rgba(35,30,20,0.5),0_6px_13px_-14px_rgba(35,30,20,0.35)]"
     >
       {/* corner rivets */}
       <Rivet className="left-[7.4%] top-[7.4%]" />
