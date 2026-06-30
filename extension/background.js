@@ -122,9 +122,47 @@ async function readPageMeta(tabId) {
         const c = (sel) => document.querySelector(sel)?.getAttribute('content')?.trim() || null
         const m = (p) => c(`meta[property="${p}"]`) || c(`meta[name="${p}"]`)
         const abs = (u) => { try { return u ? new URL(u, location.href).href : null } catch { return u } }
+        // The image the publisher DECLARED in JSON-LD (Product/Article/…). High
+        // confidence — we don't guess "the biggest <img>", we read what the site
+        // marked as canonical, skipping Organization/WebSite logos. Catches clean
+        // product/article shots on pages that have no og:image (e.g. Gap), and
+        // when absent we fall through to the visible-tab screenshot.
+        const jsonLdImage = () => {
+          for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
+            let data
+            try { data = JSON.parse(s.textContent) } catch { continue }
+            const nodes = []
+            const collect = (x) => {
+              if (!x) return
+              if (Array.isArray(x)) return x.forEach(collect)
+              if (typeof x === 'object') { nodes.push(x); if (Array.isArray(x['@graph'])) x['@graph'].forEach(collect) }
+            }
+            collect(data)
+            for (const n of nodes) {
+              const t = Array.isArray(n['@type']) ? n['@type'].join() : (n['@type'] || '')
+              if (/Organization|WebSite|BreadcrumbList|Person/i.test(t)) continue
+              const img = n.image
+              if (typeof img === 'string') return img
+              if (Array.isArray(img) && img.length) {
+                const f = img[0]
+                if (typeof f === 'string') return f
+                if (f && typeof f.url === 'string') return f.url
+              }
+              if (img && typeof img === 'object' && typeof img.url === 'string') return img.url
+            }
+          }
+          return null
+        }
+        const image = abs(
+          m('og:image') || m('og:image:url') || m('twitter:image') ||
+          jsonLdImage() ||
+          c('meta[itemprop="image"]') ||
+          document.querySelector('link[rel="image_src"]')?.getAttribute('href') ||
+          null,
+        )
         return {
           title: m('og:title') || m('twitter:title') || (document.title || '').trim() || null,
-          image: abs(m('og:image') || m('og:image:url') || m('twitter:image')),
+          image,
           description: m('og:description') || m('twitter:description') || m('description'),
           siteName: m('og:site_name'),
         }
