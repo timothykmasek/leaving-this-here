@@ -85,6 +85,24 @@ export function etsySlugTitle(url: string): string | null {
   }
 }
 
+/** Title from a PDF's filename slug, e.g. /white-paper-turning-…-infra.pdf.
+ *  A last-resort for PDFs with no usable /Title — many have descriptive
+ *  filenames, and it beats showing "foo.pdf" or the bare domain. (PDF XMP
+ *  dc:title is unreliable — often the cover image's stock metadata, not the
+ *  document title — so we don't trust it.) */
+export function pdfFilenameTitle(url: string): string | null {
+  try {
+    const u = new URL(url)
+    const m = u.pathname.match(/\/([^/]+)\.pdf$/i)
+    if (!m) return null
+    const name = decodeURIComponent(m[1]).replace(/[-_]+/g, ' ').trim()
+    if (name.length < 6 || !/[a-z]/i.test(name)) return null
+    return name.replace(/\b\w/g, (c) => c.toUpperCase())
+  } catch {
+    return null
+  }
+}
+
 /** The best URL-derived title, if any (Maps place, Amazon/Etsy slug, Reddit). */
 export function urlDerivedTitle(originalUrl: string, resolvedUrl?: string | null): string | null {
   const resolved = resolvedUrl || originalUrl

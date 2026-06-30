@@ -9,7 +9,7 @@
 //      NOT require refetching — we can re-run them over stored raw_metadata.
 
 import { fetchOEmbed, type OEmbedResult } from '@/lib/oembed'
-import { urlDerivedTitle, isMapsShortLink } from '@/lib/urlTitle'
+import { urlDerivedTitle, isMapsShortLink, pdfFilenameTitle } from '@/lib/urlTitle'
 
 export interface RawMetadata {
   og: Record<string, string>
@@ -450,6 +450,8 @@ export function pickBestTitle(raw: RawMetadata | null): string | null {
 
   // PDF info-dict title — authoritative for PDF links (no og tags exist).
   const pdfTitle = raw.pdfTitle || null
+  // Last-resort PDF title from the filename slug (below the embedded /Title).
+  const pdfFileTitle = pdfFilenameTitle(raw.resolvedUrl || raw.url)
 
   const candidates: Array<string | null | undefined> = ogLooksTruncated
     ? [
@@ -461,6 +463,7 @@ export function pickBestTitle(raw: RawMetadata | null): string | null {
         raw.twitter['title'],
         extractJsonLdText(raw.jsonLd, ['headline', 'name']),
         raw.htmlTitle,
+        pdfFileTitle,
       ]
     : [
         oembedTitle,
@@ -471,6 +474,7 @@ export function pickBestTitle(raw: RawMetadata | null): string | null {
         extractJsonLdText(raw.jsonLd, ['headline', 'name']),
         raw.firstH1,
         raw.htmlTitle,
+        pdfFileTitle,
       ]
 
   for (const c of candidates) {
