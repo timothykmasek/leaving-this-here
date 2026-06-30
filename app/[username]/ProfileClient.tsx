@@ -11,7 +11,6 @@ import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { uniqueSlug } from '@/lib/slug'
-import { classifyCardType } from '@/lib/cardType'
 
 // Hybrid: the server component ([username]/page.tsx) fetches profile + bullets +
 // lists and passes them in as props, so this island hydrates with content already
@@ -44,11 +43,9 @@ export default function ProfileClient({
   const [profile, setProfile] = useState<any>(initialProfile)
   const [bookmarks, setBookmarks] = useState<any[]>(initialBookmarks)
   const [filtered, setFiltered] = useState<any[]>(initialBookmarks)
-  const [newUrl, setNewUrl] = useState('')
-  const [savingUrl, setSavingUrl] = useState(false)
-  // Save panel — collapsed by default, auto-opens on empty collections as
-  // the onboarding affordance. After the user has any bullets, they re-open
-  // it manually via the "+ save a bullet" pill in the hero.
+  // Save panel — collapsed by default, auto-opens on empty collections as the
+  // onboarding affordance. Saving happens through the extension (it captures the
+  // page from the user's own browser); this panel points them to it.
   const [saveOpen, setSaveOpen] = useState(isOwner && initialBookmarks.length === 0)
   const [editingProfile, setEditingProfile] = useState(false)
   const [editBio, setEditBio] = useState('')
@@ -181,76 +178,6 @@ export default function ProfileClient({
     }
 
     setFiltered(tokenSearch(query))
-  }
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newUrl || !profile) return
-    setSavingUrl(true)
-
-    try {
-      const metaRes = await fetch('/api/fetch-metadata', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: newUrl }),
-      })
-      const meta = await metaRes.json()
-
-      // Return the full inserted row so we can prepend it locally instead of
-      // refetching the whole collection. It's the newest, so it sorts to the top.
-      const { data: inserted, error } = await supabase.from('bookmarks').insert({
-        user_id: profile.id,
-        url: newUrl,
-        title: meta.title || newUrl,
-        description: meta.description,
-        image_url: meta.image || null,
-        // Classify at save so the card routes its image like the extension/seed
-        // paths do — previously web saves left this null (and got mis-rendered).
-        card_type: classifyCardType(newUrl, meta),
-        // screenshot is captured + persisted server-side after insert
-        screenshot_url: null,
-        favicon_url: meta.favicon,
-        raw_metadata: meta.raw || null,
-        tags: [],
-      }).select(BULLET_COLS).single()
-
-      if (!error && inserted) {
-        const next = [inserted, ...bookmarks]
-        setBookmarks(next)
-        setFiltered(next)
-        setNewUrl('')
-
-        fetch('/api/embed-bookmark', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: inserted.id }),
-        }).catch(() => {})
-
-        // Capture + persist the screenshot server-side, then refresh just that
-        // one row so the new card swaps from its branded fallback to the real
-        // image — no full-collection refetch.
-        fetch('/api/persist-screenshots', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: inserted.id }),
-        })
-          .then(async () => {
-            const { data: row } = await supabase
-              .from('bookmarks')
-              .select(BULLET_COLS)
-              .eq('id', inserted.id)
-              .single()
-            if (row) {
-              const merge = (list: any[]) => list.map((b) => (b.id === row.id ? row : b))
-              setBookmarks(merge)
-              setFiltered(merge)
-            }
-          })
-          .catch(() => {})
-      }
-    } finally {
-      setSavingUrl(false)
-    }
   }
 
   const handleSignOut = async () => {
@@ -670,37 +597,18 @@ export default function ProfileClient({
             </button>
 
             {bookmarks.length === 0 ? (
-              <div className="mb-4">
+              <div className="mb-1">
                 <h2 className="text-xl font-light text-gray-900 mb-1">save your first bullet</h2>
                 <p className="text-sm text-gray-500">
-                  paste any link to get started — articles, videos, products, anything.
+                  Bulletin saves straight from your browser — here&apos;s how:
                 </p>
               </div>
             ) : (
-              <p className="text-xs uppercase tracking-wider text-gray-400 mb-3">save a link</p>
+              <h2 className="text-sm font-medium text-gray-700">how to save</h2>
             )}
 
-            <form onSubmit={handleSave}>
-              <div className="flex gap-2">
-                <input
-                  type="url"
-                  value={newUrl}
-                  onChange={(e) => setNewUrl(e.target.value)}
-                  placeholder="paste a link..."
-                  autoFocus
-                  className="flex-1 px-5 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-gray-400 text-sm bg-white"
-                />
-                <button
-                  type="submit"
-                  disabled={savingUrl || !newUrl}
-                  className="px-6 py-3 bg-gray-900 text-white rounded-xl font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 text-sm"
-                >
-                  {savingUrl ? 'saving...' : 'save'}
-                </button>
-              </div>
-            </form>
-
-            {/* Inline save help — extension-first, no separate page. */}
+            {/* Saving is extension-only: it captures the page from your own
+                browser, so even paywalled / blocked pages get a real card. */}
             <SaveHelp extInstalled={extInstalled} />
           </div>
         )}
