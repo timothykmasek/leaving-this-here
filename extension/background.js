@@ -85,7 +85,25 @@ async function saveActiveTab(tab) {
   const session = await getSession()
   if (!session) return promptSignIn()
   const clientMeta = await readPageMeta(tab?.id)
-  await saveFlow(tab, { url: tab?.url, title: tab?.title, clientMeta })
+  // No usable og image → capture the visible tab. It's the user's own rendered
+  // view (their session/IP), so paywalled / no-og pages that defeat our server
+  // screenshot still get a real picture. Viewport/hero only — preview-grade.
+  const clientShot = clientMeta?.image ? null : await captureTab(tab?.windowId)
+  await saveFlow(tab, { url: tab?.url, title: tab?.title, clientMeta, clientShot })
+}
+
+// Screenshot the visible area of the active tab. Needs activeTab (granted on the
+// icon click) — no new permission. Returns a JPEG data URL, or null on
+// chrome://, the Web Store, PDF viewers, or if the gesture didn't grant access.
+async function captureTab(windowId) {
+  try {
+    const opts = { format: 'jpeg', quality: 80 }
+    return windowId != null
+      ? await chrome.tabs.captureVisibleTab(windowId, opts)
+      : await chrome.tabs.captureVisibleTab(opts)
+  } catch {
+    return null
+  }
 }
 
 // Read og/meta tags from the active tab's LIVE DOM — i.e. from the user's own

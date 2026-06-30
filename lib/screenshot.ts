@@ -68,6 +68,29 @@ export interface CaptureResult {
 }
 
 /**
+ * Upload already-captured image bytes to Supabase Storage as
+ * `<bookmarkId>.<ext>` and return the public CDN URL. Used for client-side
+ * captures (the extension's chrome.tabs.captureVisibleTab) — the screenshot was
+ * taken in the user's own browser (bypassing datacenter-IP blocks), so here we
+ * only need to store the bytes, not capture them.
+ */
+export async function storeImageBytes(
+  supabase: SupabaseClient,
+  bookmarkId: string,
+  bytes: Uint8Array,
+  contentType = 'image/jpeg',
+): Promise<CaptureResult> {
+  const ext = /png/.test(contentType) ? 'png' : /webp/.test(contentType) ? 'webp' : 'jpg'
+  const path = `${bookmarkId}.${ext}`
+  const { error } = await supabase.storage
+    .from(SCREENSHOT_BUCKET)
+    .upload(path, bytes, { contentType, upsert: true })
+  if (error) return { publicUrl: null, error: `upload failed: ${error.message}` }
+  const { data } = supabase.storage.from(SCREENSHOT_BUCKET).getPublicUrl(path)
+  return { publicUrl: data.publicUrl, error: null }
+}
+
+/**
  * Capture a screenshot of `url` and upload it to Supabase Storage as
  * `<bookmarkId>.webp`. Returns the public CDN URL, or an error string if the
  * capture failed (dead domain, blocked, rate-limited, etc.).

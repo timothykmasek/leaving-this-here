@@ -4,6 +4,40 @@ import { waitUntil } from '@vercel/functions'
 import { extractMetadata } from '@/lib/metadata'
 import { classifyCardType } from '@/lib/cardType'
 import { embed, bookmarkToEmbedText } from '@/lib/embed'
+import { ensureBucket, storeImageBytes } from '@/lib/screenshot'
+
+// Persist a client-side screenshot (data URL from the extension's
+// captureVisibleTab) to storage and point the row at it. Runs with the service
+// role (storage writes), so it stays behind the bearer-authed save. Promotes an
+// `lth` row to `screenshot` so the card renders the image, not the wordmark.
+async function persistClientShot(bookmarkId: string, dataUrl: string, cardType: string | null) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return
+  const m = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(dataUrl)
+  if (!m) return
+  let bytes: Uint8Array
+  try {
+    bytes = new Uint8Array(Buffer.from(m[2], 'base64'))
+  } catch {
+    return
+  }
+  // Sanity bounds: ignore empty/giant payloads.
+  if (bytes.length < 500 || bytes.length > 5_000_000) return
+  const admin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { persistSession: false } },
+  )
+  try {
+    await ensureBucket(admin)
+    const { publicUrl } = await storeImageBytes(admin, bookmarkId, bytes, m[1])
+    if (!publicUrl) return
+    const update: Record<string, any> = { screenshot_url: publicUrl }
+    if (cardType === 'lth') update.card_type = 'screenshot'
+    await admin.from('bookmarks').update(update).eq('id', bookmarkId)
+  } catch {
+    // best-effort; the server screenshotone path can still backfill later
+  }
+}
 
 // POST /api/extension/save
 //
@@ -157,20 +191,28 @@ export async function POST(request: NextRequest) {
     })()
   }
 
-  // Kick off the one-time screenshot capture (cards are screenshot-first).
-  // waitUntil keeps the serverless instance alive until this request is
-  // actually sent — a bare fire-and-forget can be dropped when the function
-  // freezes right after responding, leaving screenshot_url null forever and
-  // the card stuck on the og:image. persist-screenshots itself skips content
-  // platforms that already have an og:image.
-  const origin = new URL(request.url).origin
-  waitUntil(
-    fetch(`${origin}/api/persist-screenshots`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: inserted.id }),
-    }).catch(() => {}),
-  )
+  // Screenshot. If the extension captured the user's own tab (clientShot), store
+  // that — it bypasses the datacenter-IP block that defeats server screenshots
+  // on paywalled/bot-blocked sites. Otherwise fall back to the server
+  // screenshotone capture via persist-screenshots (which skips content platforms
+  // that already have an og:image). waitUntil keeps the instance alive so the
+  // post-response work isn't dropped when the function freezes.
+  const clientShot =
+    typeof body.clientShot === 'string' && body.clientShot.startsWith('data:image/')
+      ? body.clientShot
+      : null
+  if (clientShot) {
+    waitUntil(persistClientShot(inserted.id, clientShot, card_type))
+  } else {
+    const origin = new URL(request.url).origin
+    waitUntil(
+      fetch(`${origin}/api/persist-screenshots`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: inserted.id }),
+      }).catch(() => {}),
+    )
+  }
 
   return json({ ok: true, bookmark: inserted })
 }
