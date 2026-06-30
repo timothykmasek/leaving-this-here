@@ -91,13 +91,23 @@ export async function POST(request: NextRequest) {
   // 4. Enrich: fetch + parse metadata server-side
   const meta = await extractMetadata(url)
 
-  const title = (typeof body.title === 'string' && body.title.trim()) || meta.title || url
-  const description = meta.description
-  const image_url = imageOverride || meta.image
+  // Client-read og (from the extension, in the user's logged-in browser) wins
+  // over the server fetch: paywalled/bot-blocked sites that 401/403 our server
+  // (WSJ, Bloomberg, Gap, …) still render a real og:image + title in the user's
+  // own tab. Server meta still supplies favicon, JSON-LD product/book, and the
+  // raw_metadata blob for re-derivation.
+  const cm = body.clientMeta && typeof body.clientMeta === 'object' ? body.clientMeta : {}
+  const cmTitle = typeof cm.title === 'string' && cm.title.trim() ? cm.title.trim() : null
+  const cmImage = typeof cm.image === 'string' && cm.image.trim() ? cm.image.trim() : null
+  const cmDesc = typeof cm.description === 'string' && cm.description.trim() ? cm.description.trim() : null
+
+  const title = (typeof body.title === 'string' && body.title.trim()) || cmTitle || meta.title || url
+  const description = meta.description || cmDesc
+  const image_url = imageOverride || cmImage || meta.image
   const favicon_url = meta.favicon
-  // Classify at save so the card knows how to render (image routing now, and
-  // type-specific templates later) — previously only the backfill job set this.
-  const card_type = classifyCardType(url, meta)
+  // Classify with the RESOLVED image so client-og pages route as article/composite
+  // (og-first) instead of falling to the lth/screenshot fallback.
+  const card_type = classifyCardType(url, { ...meta, image: image_url, title })
 
   // 5. Insert (tags removed — bullets are organized into lists and found via
   //    semantic search, no auto-tagging step)

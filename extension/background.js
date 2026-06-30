@@ -84,7 +84,39 @@ chrome.action.onClicked.addListener((tab) => {
 async function saveActiveTab(tab) {
   const session = await getSession()
   if (!session) return promptSignIn()
-  await saveFlow(tab, { url: tab?.url, title: tab?.title })
+  const clientMeta = await readPageMeta(tab?.id)
+  await saveFlow(tab, { url: tab?.url, title: tab?.title, clientMeta })
+}
+
+// Read og/meta tags from the active tab's LIVE DOM — i.e. from the user's own
+// browser, with their session, cookies and (residential) IP. Paywalled and
+// bot-blocked sites (WSJ, Bloomberg, Gap, …) that 401/403 our server still
+// render a real og:image + title here, because the user has access. This is the
+// core of client-side capture. activeTab + scripting already grant it — no new
+// permission. Returns null on chrome://, the Web Store, PDF viewers, etc., where
+// we fall back to the server's extractMetadata.
+async function readPageMeta(tabId) {
+  if (tabId == null) return null
+  try {
+    const [res] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: () => {
+        const c = (sel) => document.querySelector(sel)?.getAttribute('content')?.trim() || null
+        const m = (p) => c(`meta[property="${p}"]`) || c(`meta[name="${p}"]`)
+        const abs = (u) => { try { return u ? new URL(u, location.href).href : null } catch { return u } }
+        return {
+          title: m('og:title') || m('twitter:title') || (document.title || '').trim() || null,
+          image: abs(m('og:image') || m('og:image:url') || m('twitter:image')),
+          description: m('og:description') || m('twitter:description') || m('description'),
+          siteName: m('og:site_name'),
+        }
+      },
+    })
+    const r = res?.result
+    return r && (r.title || r.image) ? r : null
+  } catch {
+    return null
+  }
 }
 
 // ── Context menus ───────────────────────────────────────────────────
@@ -103,13 +135,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const session = await getSession()
   if (!session) return promptSignIn()
 
+  // Page/selection saves are "this page" → attach client-read og. Image saves
+  // keep their explicit srcUrl (the server lets imageOverride win), but still
+  // benefit from the client title.
+  const clientMeta = await readPageMeta(tab?.id)
   let payload
   if (info.menuItemId === MENU.IMAGE) {
-    payload = { url: info.pageUrl || tab?.url, title: tab?.title, image_url: info.srcUrl }
+    payload = { url: info.pageUrl || tab?.url, title: tab?.title, image_url: info.srcUrl, clientMeta }
   } else if (info.menuItemId === MENU.SELECTION) {
-    payload = { url: info.pageUrl || tab?.url, title: tab?.title, note: info.selectionText }
+    payload = { url: info.pageUrl || tab?.url, title: tab?.title, note: info.selectionText, clientMeta }
   } else {
-    payload = { url: info.linkUrl || info.pageUrl || tab?.url, title: tab?.title }
+    payload = { url: info.linkUrl || info.pageUrl || tab?.url, title: tab?.title, clientMeta }
   }
   await saveFlow(tab, payload)
 })
@@ -159,7 +195,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         await signIn()
         await syncPopup()
         notify('Signed in ✓', 'Saving this page to Bulletin…')
-        if (tab) await saveFlow(tab, { url: tab.url, title: tab.title })
+        if (tab) await saveActiveTab(tab)
         sendResponse({ ok: true })
       } catch (err) {
         notify('Sign-in failed', String(err?.message || err))
