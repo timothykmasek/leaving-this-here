@@ -68,21 +68,23 @@ function Rivet({ className }: { className: string }) {
 // owners, original URL for visitors), with the list tag layered above it as an
 // independent link — so no <a>-in-<a> nesting.
 export function BookmarkCard({
-  id, title, url, imageUrl, screenshotUrl, isOwner, onOpen, inLists, ownerUsername,
+  id, title, url, imageUrl, screenshotUrl, cardType, isOwner, onOpen, inLists, ownerUsername,
 }: BookmarkCardProps) {
   const [imgError, setImgError] = useState(false)
 
   const domain = getDomain(url)
   const cleanTitle = getCleanTitle(title, url)
-  const image = pickCardImage(url, imageUrl, screenshotUrl)
+  const image = pickCardImage(url, imageUrl, screenshotUrl, cardType)
   const hasImage = !!image && !imgError
   const first = (inLists || [])[0]
 
   const tagInner = first && (
     <>
-      <span aria-hidden className="text-black/40">[</span>
-      {first.name}
-      <span aria-hidden className="text-black/40">]</span>
+      <span aria-hidden className="shrink-0 text-black/40">[</span>
+      {/* min-w-0 + truncate lets a long list name ellipsis instead of forcing the
+          pill wide enough to collide with the corner rivets on narrow cards. */}
+      <span className="min-w-0 truncate">{first.name}</span>
+      <span aria-hidden className="shrink-0 text-black/40">]</span>
     </>
   )
 
@@ -140,16 +142,16 @@ export function BookmarkCard({
 
       {/* list tag — bracketed pill, centered, bottom; layered above the click target */}
       {first && (
-        <div className="absolute bottom-[5.5%] left-1/2 z-[2] max-w-[88%] -translate-x-1/2">
+        <div className="absolute bottom-[5.5%] left-1/2 z-[2] flex max-w-[76%] -translate-x-1/2 justify-center sm:max-w-[88%]">
           {first.slug && ownerUsername ? (
             <Link
               href={`/${ownerUsername}/${first.slug}`}
-              className="label inline-flex items-center gap-[7px] whitespace-nowrap rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink transition-colors hover:bg-black/[0.10]"
+              className="label inline-flex max-w-full items-center gap-[7px] rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink transition-colors hover:bg-black/[0.10]"
             >
               {tagInner}
             </Link>
           ) : (
-            <span className="label inline-flex items-center gap-[7px] whitespace-nowrap rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink">
+            <span className="label inline-flex max-w-full items-center gap-[7px] rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink">
               {tagInner}
             </span>
           )}

@@ -11,6 +11,7 @@ import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { uniqueSlug } from '@/lib/slug'
+import { classifyCardType } from '@/lib/cardType'
 
 // Hybrid: the server component ([username]/page.tsx) fetches profile + bullets +
 // lists and passes them in as props, so this island hydrates with content already
@@ -203,6 +204,9 @@ export default function ProfileClient({
         title: meta.title || newUrl,
         description: meta.description,
         image_url: meta.image || null,
+        // Classify at save so the card routes its image like the extension/seed
+        // paths do — previously web saves left this null (and got mis-rendered).
+        card_type: classifyCardType(newUrl, meta),
         // screenshot is captured + persisted server-side after insert
         screenshot_url: null,
         favicon_url: meta.favicon,
@@ -476,9 +480,9 @@ export default function ProfileClient({
 
         {/* Hero — bracket strip + view tabs. `group` enables hover-reveal edit. */}
         <div className="group mb-9">
-          <div className="flex flex-col items-start gap-5 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+          <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
             {/* bracket strip — name / bio / links */}
-            <div className="flex min-w-0 max-w-full flex-col items-start gap-[9px] text-black/50">
+            <div className="flex min-w-0 max-w-full flex-col items-start gap-2 text-black/50">
               <BracketLabel>{profile.display_name || profile.username}</BracketLabel>
               {profile.bio && <BracketLabel>{profile.bio}</BracketLabel>}
               {(() => {
@@ -510,7 +514,7 @@ export default function ProfileClient({
 
             {/* right: + Save a bullet + view tabs — all in the bracket-label style */}
             {!activeList && !query.trim() && (
-              <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2">
+              <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-3">
                 {isOwner && !editingProfile && (
                   <button
                     onClick={() => setSaveOpen((v) => !v)}
@@ -539,7 +543,7 @@ export default function ProfileClient({
           {isOwner && !editingProfile && (
             <button
               onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
-              className="mt-4 text-black/35 transition-colors hover:text-ink"
+              className="mt-3 text-black/35 transition-colors hover:text-ink sm:mt-4"
             >
               <BracketLabel>Edit profile</BracketLabel>
             </button>
@@ -704,6 +708,10 @@ export default function ProfileClient({
         {/* Search — owner only: a SEARCH YOUR LINKS pill floating at the bottom */}
         {isOwner && !activeList && !selectedId && (
           <div className="fixed bottom-8 left-1/2 z-40 -translate-x-1/2">
+            {/* font-size MUST stay >=16px: iOS Safari auto-zooms the whole page
+                when you focus an input smaller than that. !text-base keeps the
+                label look (uppercase + tracking) but pins the size to 16px so
+                tapping the search field no longer zooms/clips the page on mobile. */}
             <input
               type="text"
               value={query}
@@ -717,7 +725,7 @@ export default function ProfileClient({
                 if (searchTimer.current) clearTimeout(searchTimer.current)
                 searchTimer.current = setTimeout(() => handleSearch(v), 350)
               }}
-              className="label w-[320px] max-w-[88vw] rounded-full border border-black/20 bg-paper/95 px-7 py-3.5 text-center text-ink shadow-[0_6px_24px_rgba(0,0,0,0.12)] backdrop-blur placeholder:text-black/40 focus:border-black/40 focus:outline-none"
+              className="label !text-base w-[320px] max-w-[88vw] rounded-full border border-black/20 bg-paper/95 px-7 py-3.5 text-center text-ink shadow-[0_6px_24px_rgba(0,0,0,0.12)] backdrop-blur placeholder:text-black/40 focus:border-black/40 focus:outline-none"
             />
           </div>
         )}
