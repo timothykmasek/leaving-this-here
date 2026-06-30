@@ -15,16 +15,26 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 const EVAL_URLS: { category: string; url: string; predict: string }[] = [
-  { category: 'Twitter/X', url: 'https://x.com/brian_lovin/status/2056444390940516409', predict: 'X blocks scrapers — may blank' },
-  { category: 'TikTok', url: 'https://tiktok.com/@mickey17/video/7463175035587448106', predict: 'oEmbed should work' },
-  { category: 'Vimeo', url: 'https://vimeo.com/720775128', predict: 'oEmbed should work' },
-  { category: 'SoundCloud', url: 'https://soundcloud.com/ra-exchange/ra-exchange-558', predict: 'oEmbed should work' },
-  { category: 'Apple Podcasts', url: 'https://podcasts.apple.com/us/podcast/the-unconscious/id1538249280?i=1000558720188', predict: 'og art' },
-  { category: 'LinkedIn', url: 'https://linkedin.com/posts/chefchadbrauze_after-an-incredible-run-with-the-team-at-share-7473017156713103361-yPv0', predict: 'auth wall — may blank' },
-  { category: 'Reddit', url: 'https://reddit.com/r/verticalfarming/comments/1ghpkiv/bowery_farming_to_shut_down_cease_all_operations', predict: 'variable og' },
-  { category: 'Goodreads', url: 'https://www.goodreads.com/book/show/43890641-hamnet', predict: 'book cover' },
-  { category: 'Etsy', url: 'https://www.etsy.com/listing/4309976881/personalized-initial-ring-birth-flower', predict: 'product photo' },
-  { category: '1stDibs', url: 'https://www.1stdibs.com/fashion/accessories/scarves/1980s-psychedelic-floral-design-silk-scarf-jean-patou/id-v_26012362/', predict: 'product vs article' },
+  { category: 'WSJ', url: 'https://wsj.com/articles/wait-are-hearing-aids-cool-now-ask-millennials-629e7e55', predict: 'paywall — og?' },
+  { category: 'Bandcamp', url: 'https://thursdaynjhc.bandcamp.com', predict: 'album art (no oembed)' },
+  { category: 'Pinterest', url: 'https://kr.pinterest.com/pin/inside-a-70sstyle-river-island-home-outside-portland-oregon--286541595037222151', predict: 'pin image or block' },
+  { category: 'Gap', url: 'https://gap.com/browse/product.do?pid=883546022&cid=1041168&pcid=1041168&vid=1', predict: 'product og?' },
+  { category: 'NYT Cooking', url: 'https://cooking.nytimes.com/recipes/1022710-cilantro-date-chutney', predict: 'recipe photo og' },
+  { category: 'YT Shorts', url: 'https://m.youtube.com/shorts/ngqYBt8lPYs', predict: 'oembed (m. host)' },
+  { category: 'Notion', url: 'https://dolightwork.notion.site/Lightwork-Home-report-Mares-Residence-public-5b5a938b26db4b11841b70da4cbb2f28', predict: 'og or screenshot' },
+  { category: 'Figma blog', url: 'https://figma.com/blog/the-figma-agent-is-here', predict: 'article og' },
+  { category: 'OpenAI', url: 'https://openai.com/index/model-disproves-discrete-geometry-conjecture', predict: 'article og' },
+  { category: 'NYMag tag', url: 'https://nymag.com/tags/summer-of-scam', predict: 'tag page — maybe logo' },
+  { category: 'Spotify list', url: 'https://open.spotify.com/playlist/7eCUIW4i1hXGMCFBeMy6Ug', predict: 'oembed cover' },
+  { category: 'Apple Music', url: 'https://music.apple.com/us/playlist/herb-sundays-187-the-field/pl.u-dE1BZCeoN0A', predict: 'og art' },
+  { category: 'Google Doc', url: 'https://docs.google.com/document/d/1SWJw_NTyUvgdB_asRzsnVyKjciW8dZbeqQeUeWsEiQc/edit', predict: 'auth wall — may blank' },
+  { category: 'Bookshop', url: 'https://bookshop.org/p/books/glossy-ambition-beauty-and-the-inside-story-of-emily-weiss-s-glossier/18860199', predict: 'book cover' },
+  { category: 'The Verge', url: 'https://theverge.com/2020/11/16/21570454/lil-nas-x-roblox-concert-33-million-views', predict: 'article og' },
+  { category: 'Medium', url: 'https://medium.com/swlh/what-i-know-about-community-building-939aeac0aa7', predict: 'article og' },
+  { category: 'Vogue', url: 'https://vogue.com/fashion-shows/spring-2026-ready-to-wear/chloe/slideshow/collection', predict: 'runway og' },
+  { category: 'Bloomberg', url: 'https://bloomberg.com/news/articles/2026-02-06/jennifer-garner-s-once-upon-a-farm-rises-17-after-198-million-ipo', predict: 'heavy bot-block' },
+  { category: 'ProductHunt', url: 'https://producthunt.com/products/granite', predict: 'og card' },
+  { category: 'Newsletter', url: 'https://milkkarten.net/p/your-approval-process-is-ruining', predict: 'custom-domain substack og' },
 ]
 
 function titlecaseDomain(url: string): string {
@@ -77,7 +87,7 @@ export default async function EvalPage() {
           screenshot-first types, &apos;&apos; sentinel for og-first. Each card shows its image source below.
         </p>
 
-        <div className="grid grid-cols-2 gap-x-6 gap-y-10 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 [perspective:2400px] sm:grid-cols-3 lg:grid-cols-4">
           {cards.map((c) => (
             <div key={c.url} className="flex flex-col">
               <div className="mb-2 flex items-baseline justify-between">
