@@ -12,6 +12,7 @@
 import {
   saveGem,
   getSession,
+  signIn,
   signOut,
   getLists,
   createList,
@@ -145,6 +146,28 @@ async function saveFlow(tab, payload) {
 
 // ── Messages from popup (post-login) and toast (tag edits) ──────────
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  // Google sign-in runs HERE, not in the popup. launchWebAuthFlow opens an
+  // external window, which steals focus and makes Chrome destroy the popup —
+  // so any "signed in ✓" feedback wired into the popup never renders and the
+  // post-login save never fires. The service worker survives that, so it owns
+  // the flow: complete OAuth, confirm with a notification, then save the page
+  // the user was on (captured before the auth window can change the active tab).
+  if (msg?.type === 'ig-google-signin') {
+    ;(async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      try {
+        await signIn()
+        await syncPopup()
+        notify('Signed in ✓', 'Saving this page to Bulletin…')
+        if (tab) await saveFlow(tab, { url: tab.url, title: tab.title })
+        sendResponse({ ok: true })
+      } catch (err) {
+        notify('Sign-in failed', String(err?.message || err))
+        sendResponse({ error: String(err?.message || err) })
+      }
+    })()
+    return true // async response
+  }
   if (msg?.type === 'ig-save-current-tab') {
     ;(async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
