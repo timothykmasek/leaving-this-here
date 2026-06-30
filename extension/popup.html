@@ -16,8 +16,20 @@
       <section id="view-signin" class="view hidden">
         <img class="logo" src="icons/bulletin-logo.png" alt="Bulletin" />
         <p class="muted">Save anything you find — one click, filed to your page.</p>
-        <button id="btn-signin" class="primary">Continue with Google</button>
+
+        <form id="form-email" autocomplete="on">
+          <input id="email" class="field" type="email" name="email"
+            placeholder="email" autocomplete="username" required />
+          <input id="password" class="field" type="password" name="password"
+            placeholder="password" autocomplete="current-password" required />
+          <button id="btn-email-signin" class="primary" type="submit">Sign in</button>
+        </form>
+
+        <div class="divider"><span>or</span></div>
+
+        <button id="btn-signin" class="primary ghost" type="button">Continue with Google</button>
         <p id="signin-hint" class="hint hidden"></p>
+        <p class="muted small signup-line">New to Bulletin? <a id="link-create" class="link-inline" href="#">Create an account →</a></p>
       </section>
 
       <!-- Signed in (rarely seen — the icon click saves directly) -->
@@ -27,11 +39,7 @@
           <button id="btn-signout" class="link">sign out</button>
         </div>
         <p class="muted">
-          you’re all set. click the Bulletin icon on any page to save it
-          instantly — then add it to a list right on the page.
-        </p>
-        <p class="muted small">
-          tip: right-click a page, image, or highlighted quote to save just that.
+          you’re all set — click the Bulletin icon on any page to save it instantly.
         </p>
       </section>
     </div>

@@ -64,6 +64,40 @@ export async function signIn() {
   return session
 }
 
+// Sign in with email + password. Bulletin accounts can be created with a
+// password on the web (app/login), so the extension must accept them too —
+// Google is not the only provider. We hit GoTrue's password grant directly
+// (same REST surface we already use for token refresh), keeping the extension
+// buildless. Runs entirely in the popup with no external window, so unlike the
+// Google flow it can show inline "signed in ✓" feedback before closing.
+export async function signInWithPassword(email, password) {
+  const res = await fetch(
+    `${CONFIG.SUPABASE_URL}/auth/v1/token?grant_type=password`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: CONFIG.SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ email, password }),
+    }
+  )
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    throw new Error(
+      data.error_description || data.msg || data.error || 'sign-in failed'
+    )
+  }
+  const session = {
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at:
+      data.expires_at || Math.floor(Date.now() / 1000) + (data.expires_in || 3600),
+  }
+  await setSession(session)
+  return session
+}
+
 // Error thrown when the session can't be refreshed and the user must sign in
 // again. Callers (background worker) use this to restore the sign-in popup.
 export class AuthExpiredError extends Error {
