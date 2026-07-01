@@ -19,3 +19,9 @@ npm-debug.log*
 tsconfig.tsbuildinfo
 .claude/
 .vercel
+
+# build bundles (extension zips etc.) — keep binary blobs out of the repo
+*.zip
+
+# local seeding tooling — kept off the public repo (scripts/harvest/out = scraped data)
+/scripts/harvest/
