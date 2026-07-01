@@ -12,6 +12,13 @@ const VOYAGE_ENDPOINT = 'https://api.voyageai.com/v1/embeddings'
 
 export type EmbedInputType = 'document' | 'query'
 
+// The Voyage key is shared across every request, so a burst of concurrent
+// searches can trip the account-wide rate limit (HTTP 429). Retry those (and
+// transient 5xx) with exponential backoff, honoring Retry-After when present,
+// so a brief spike degrades into a small delay instead of a failed search.
+const MAX_RETRIES = 3
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 export async function embed(
   texts: string[],
   inputType: EmbedInputType
@@ -21,18 +28,34 @@ export async function embed(
     throw new Error('VOYAGE_API_KEY is not set')
   }
 
-  const res = await fetch(VOYAGE_ENDPOINT, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      input: texts,
-      model: VOYAGE_MODEL,
-      input_type: inputType,
-    }),
-  })
+  let res: Response
+  let attempt = 0
+  for (;;) {
+    res = await fetch(VOYAGE_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        input: texts,
+        model: VOYAGE_MODEL,
+        input_type: inputType,
+      }),
+    })
+
+    const retryable = res.status === 429 || res.status >= 500
+    if (!retryable || attempt >= MAX_RETRIES) break
+
+    // Prefer the server's Retry-After (seconds); else exponential backoff:
+    // 250ms, 500ms, 1000ms.
+    const retryAfter = Number(res.headers.get('retry-after'))
+    const waitMs = Number.isFinite(retryAfter) && retryAfter > 0
+      ? retryAfter * 1000
+      : 250 * 2 ** attempt
+    await sleep(waitMs)
+    attempt++
+  }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
