@@ -613,28 +613,45 @@ export default function ProfileClient({
           </div>
         )}
 
-        {/* Search — owner only: a SEARCH YOUR LINKS pill floating at the bottom */}
+        {/* Search — owner only: a bracketed SEARCH YOUR LINKS label floating at
+            the bottom. The [ ] are literal Routed Gothic Wide glyphs (via the
+            `label` class) to match every other bracketed label on the page
+            ([ TIM MASEK ], [ EDIT PROFILE ]…) instead of a bespoke bracket. A
+            faint paper backdrop keeps it legible where it floats over the grid. */}
         {isOwner && !activeList && !selectedId && (
           <div className="fixed bottom-8 left-1/2 z-40 -translate-x-1/2">
-            {/* font-size MUST stay >=16px: iOS Safari auto-zooms the whole page
-                when you focus an input smaller than that. !text-base keeps the
-                label look (uppercase + tracking) but pins the size to 16px so
-                tapping the search field no longer zooms/clips the page on mobile. */}
-            <input
-              type="text"
-              value={query}
-              placeholder="Search your links"
-              onChange={(e) => {
-                const v = e.target.value
-                setQuery(v)
-                if (v.trim()) setActiveListId(null)
-                // Debounce the network search so we fire once the user pauses,
-                // not on every keystroke (avoids the embedding API's rate limit).
-                if (searchTimer.current) clearTimeout(searchTimer.current)
-                searchTimer.current = setTimeout(() => handleSearch(v), 350)
-              }}
-              className="label !text-base w-[320px] max-w-[88vw] rounded-full border border-black/20 bg-paper/95 px-7 py-3.5 text-center text-ink shadow-[0_6px_24px_rgba(0,0,0,0.12)] backdrop-blur placeholder:text-black/40 focus:border-black/40 focus:outline-none"
-            />
+            <div className="group flex items-center gap-2 rounded-md bg-paper/80 px-3 py-1.5 backdrop-blur-sm">
+              {/* left bracket — same glyph + font as the rest of the app's labels */}
+              <span
+                aria-hidden
+                className="label !text-base text-black/40 transition-colors group-focus-within:text-black/60"
+              >[</span>
+              {/* font-size MUST stay >=16px: iOS Safari auto-zooms the whole page
+                  when you focus an input smaller than that. !text-base keeps the
+                  label look (uppercase + tracking) but pins the size to 16px so
+                  tapping the search field no longer zooms/clips the page on mobile. */}
+              <input
+                type="text"
+                value={query}
+                placeholder="Search your links"
+                onChange={(e) => {
+                  const v = e.target.value
+                  setQuery(v)
+                  if (v.trim()) setActiveListId(null)
+                  // Debounce the network search so we fire once the user pauses,
+                  // not on every keystroke. 200ms feels near-instant; embed() now
+                  // retries on rate-limit (429) so a short delay can't fail search.
+                  if (searchTimer.current) clearTimeout(searchTimer.current)
+                  searchTimer.current = setTimeout(() => handleSearch(v), 200)
+                }}
+                className="label !text-base w-[264px] max-w-[86vw] bg-transparent text-center tracking-[0.15em] text-black/55 placeholder:text-black/45 focus:outline-none"
+              />
+              {/* right bracket */}
+              <span
+                aria-hidden
+                className="label !text-base text-black/40 transition-colors group-focus-within:text-black/60"
+              >]</span>
+            </div>
           </div>
         )}
 
