@@ -50,7 +50,9 @@ export function BulletinHeader({
     <header className="py-6 sm:py-7">
       {/* Inner box matches the content width (max-w-[1208px] px-6) so the action
           mark lines up with the right card column, and the logo centers over it. */}
-      <div className="relative mx-auto flex max-w-[1208px] items-center justify-center px-4 sm:px-6">
+      {/* Mobile: logo sits on the SAME left gutter as the bio/nav below it, so the
+          whole page shares one left edge. Desktop: centered masthead. */}
+      <div className="relative mx-auto flex max-w-[1208px] items-center justify-start px-4 sm:justify-center sm:px-6">
         {/* centered wordmark (logo image) */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/bulletin-logo.png" alt="Bulletin" className={`${logoClassName} w-auto`} />
