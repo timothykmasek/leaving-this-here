@@ -6,7 +6,9 @@ import { BulletinHeader } from '@/components/BulletinHeader'
 export default function Loading() {
   return (
     <main className="min-h-screen bg-paper">
-      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[26px] sm:h-[34px]" />
+      {/* Logo-only during load — auth state is unknown here, so don't flash
+          "Sign in" at a signed-in owner viewing their own profile. */}
+      <BulletinHeader action={null} logoClassName="h-[26px] sm:h-[34px]" />
       <div className="mx-auto max-w-[1208px] px-4 pb-28 pt-8 sm:px-6 sm:pt-16">
         {/* hero strip placeholder */}
         <div className="mb-9 space-y-3">

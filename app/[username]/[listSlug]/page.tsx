@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { BookmarkCard } from '@/components/BookmarkCard'
-import { BulletinHeader } from '@/components/BulletinHeader'
+import { PublicHeader } from '@/components/PublicHeader'
 
 // Public, shareable page for a single list at /username/<slug>. Read-only —
 // owners manage membership and rename from their profile. RLS hides private
@@ -35,6 +35,8 @@ export default async function ListPage({
   const { username, listSlug } = params
   const supabase = await createSupabaseServer()
 
+  const { data: { user } } = await supabase.auth.getUser()
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, username, display_name')
@@ -65,7 +67,7 @@ export default async function ListPage({
 
   return (
     <main className="min-h-screen bg-paper">
-      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[26px] sm:h-[34px]" />
+      <PublicHeader loggedIn={!!user} logoClassName="h-[26px] sm:h-[34px]" />
       <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
         <div className="mb-8 border-b border-gray-100 pb-6 sm:mb-10 sm:pb-8">
           <Link

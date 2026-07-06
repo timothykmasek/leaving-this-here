@@ -5,7 +5,9 @@ import { BulletinHeader } from '@/components/BulletinHeader'
 export default function Loading() {
   return (
     <main className="min-h-screen bg-paper">
-      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[26px] sm:h-[34px]" />
+      {/* Logo-only during load — auth state is unknown here, so don't guess
+          "Sign in" and flash the wrong action at a signed-in owner. */}
+      <BulletinHeader action={null} logoClassName="h-[26px] sm:h-[34px]" />
       <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
         <div className="mb-8 border-b border-gray-100 pb-6 sm:mb-10 sm:pb-8">
           <div className="h-3 w-24 animate-pulse rounded bg-black/[0.06]" />
