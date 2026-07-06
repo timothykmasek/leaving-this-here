@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { BookmarkCard } from '@/components/BookmarkCard'
 import { PublicHeader } from '@/components/PublicHeader'
+import { ProfileIdentity } from '@/components/ProfileIdentity'
 
 // Public, shareable page for a single list at /username/<slug>. Read-only —
 // owners manage membership and rename from their profile. RLS hides private
@@ -39,7 +40,7 @@ export default async function ListPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, username, display_name')
+    .select('id, username, display_name, bio, links')
     .eq('username', username)
     .single()
   if (!profile) return notFound(username)
@@ -69,12 +70,16 @@ export default async function ListPage({
     <main className="min-h-screen bg-paper">
       <PublicHeader loggedIn={!!user} logoClassName="h-[26px] sm:h-[34px]" />
       <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
+        {/* Author identity strip — keeps profile context when landing here directly. */}
+        <div className="mb-9">
+          <ProfileIdentity name={owner} bio={profile.bio} links={profile.links} />
+        </div>
         <div className="mb-8 border-b border-gray-100 pb-6 sm:mb-10 sm:pb-8">
           <Link
             href={`/${username}`}
-            className="text-xs uppercase tracking-wider text-stone-400 hover:text-ink"
+            className="text-sm text-stone-400 hover:text-ink"
           >
-            {owner}
+            ← back
           </Link>
           <h1 className="mt-2 font-serif text-2xl sm:text-[28px] font-normal italic tracking-tight text-ink leading-tight">
             {list.name}

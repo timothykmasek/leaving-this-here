@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
 import { BulletinHeader, BracketLabel } from '@/components/BulletinHeader'
 import { CollectionCard } from '@/components/CollectionCard'
+import { ProfileIdentity } from '@/components/ProfileIdentity'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
@@ -408,36 +410,29 @@ export default function ProfileClient({
         {/* Hero — bracket strip + view tabs. `group` enables hover-reveal edit. */}
         <div className="group mb-9">
           <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-            {/* bracket strip — name / bio / links */}
-            <div className="flex min-w-0 max-w-full flex-col items-start gap-2 text-black/50">
-              <BracketLabel>{profile.display_name || profile.username}</BracketLabel>
-              {profile.bio && <BracketLabel>{profile.bio}</BracketLabel>}
-              {(() => {
-                const links = (profile.links || {}) as Record<string, string>
-                const entries = ([
-                  ['twitter', 'x', links.twitter],
-                  ['linkedin', 'linkedin', links.linkedin],
-                  ['website', 'website', links.website],
-                ] as [string, string, string | undefined][]).filter((e) => e[2])
-                if (!entries.length) return null
-                return (
-                  <span className="label inline-flex items-center gap-[6px] text-black/50">
-                    <span aria-hidden className="opacity-40">[</span>
-                    <span className="inline-flex items-center gap-[6px]">
-                      {entries.map((e, i) => (
-                        <span key={e[0]}>
-                          <a href={e[2]} target="_blank" rel="noopener noreferrer" className="transition-colors hover:text-ink">
-                            {e[1]}
-                          </a>
-                          {i < entries.length - 1 ? ' · ' : ''}
-                        </span>
-                      ))}
-                    </span>
-                    <span aria-hidden className="opacity-40">]</span>
-                  </span>
-                )
-              })()}
-            </div>
+            {/* bracket strip — name, then bio · link icons · edit, all on one line */}
+            <ProfileIdentity
+              name={profile.display_name || profile.username}
+              bio={profile.bio}
+              links={profile.links}
+              trailing={
+                isOwner && !editingProfile ? (
+                  <button
+                    onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
+                    aria-label="Edit profile"
+                    title="Edit profile"
+                    className="text-black/35 transition-colors hover:text-ink"
+                  >
+                    <BracketLabel>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="inline-block align-[-1px]">
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
+                      </svg>
+                    </BracketLabel>
+                  </button>
+                ) : null
+              }
+            />
 
             {/* right: + Save a bullet + view tabs — all in the bracket-label style */}
             {!activeList && !query.trim() && (
@@ -465,16 +460,6 @@ export default function ProfileClient({
               </div>
             )}
           </div>
-
-          {/* Edit profile — below the strip (owner) */}
-          {isOwner && !editingProfile && (
-            <button
-              onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
-              className="mt-3 text-black/35 transition-colors hover:text-ink sm:mt-4"
-            >
-              <BracketLabel>Edit profile</BracketLabel>
-            </button>
-          )}
 
           {/* Edit profile form */}
           {editingProfile && (
@@ -620,7 +605,13 @@ export default function ProfileClient({
             faint paper backdrop keeps it legible where it floats over the grid. */}
         {isOwner && !activeList && !selectedId && (
           <div className="fixed bottom-8 left-1/2 z-40 -translate-x-1/2">
-            <div className="group flex items-center gap-2 rounded-md bg-paper/80 px-3 py-1.5 backdrop-blur-sm">
+            {/* The input keeps a real 16px font (via !text-base) so iOS Safari
+                doesn't auto-zoom on focus — see note below. To still match the
+                page's 10px `.label` size visually, scale the whole bar to 0.625
+                (=10/16): text renders at 10px while the input stays 16px. */}
+            <div
+              className="group flex origin-center scale-[0.625] items-center gap-2 rounded-md bg-paper/80 px-3 py-1.5 backdrop-blur-sm"
+            >
               {/* left bracket — same glyph + font as the rest of the app's labels */}
               <span
                 aria-hidden
@@ -740,7 +731,12 @@ export default function ProfileClient({
                     count={l.bookmark_ids.length}
                     thumbs={listThumbs(l)}
                     isPrivate={l.is_private}
-                    onClick={() => setActiveListId(l.id)}
+                    // Visitors go straight to the list's public URL. The owner
+                    // keeps the in-page view for rename/delete/description. If a
+                    // list has no slug yet (pre-migration), fall back to in-page.
+                    {...(!isOwner && l.slug
+                      ? { href: `/${profile.username}/${l.slug}` }
+                      : { onClick: () => setActiveListId(l.id) })}
                   />
                 ))}
               </div>
@@ -803,14 +799,12 @@ export default function ProfileClient({
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs uppercase tracking-wider text-stone-400">
                     <span>{listBullets.length} {listBullets.length === 1 ? 'bullet' : 'bullets'}</span>
                     {activeList.slug && (
-                      <a
+                      <Link
                         href={`/${profile.username}/${activeList.slug}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="normal-case tracking-normal text-stone-400 hover:text-ink"
                       >
-                        view public page ↗
-                      </a>
+                        view public page →
+                      </Link>
                     )}
                   </div>
                   {isOwner && (

@@ -2,6 +2,8 @@
 // ProjectX bulletin frame (node 695:856): centered BULLETIN wordmark, with a
 // dot-cornered "SIGN UP" registration mark top-right.
 
+import Link from 'next/link'
+
 // The brand's signature label: `[ TEXT ]` in Routed Gothic Wide (.label),
 // faded brackets. Used across the header, profile strip, and tabs.
 export function BracketLabel({
@@ -53,9 +55,13 @@ export function BulletinHeader({
       {/* Mobile: logo sits on the SAME left gutter as the bio/nav below it, so the
           whole page shares one left edge. Desktop: centered masthead. */}
       <div className="relative mx-auto flex max-w-[1208px] items-center justify-start px-4 sm:justify-center sm:px-6">
-        {/* centered wordmark (logo image) */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/bulletin-logo.png" alt="Bulletin" className={`${logoClassName} w-auto`} />
+        {/* centered wordmark — always links to "/". Logged-out visitors land on
+            the homepage; logged-in users are server-redirected on to their own
+            profile (see app/page.tsx), so the logo is a universal "home". */}
+        <Link href="/" aria-label="Bulletin home" className="inline-flex">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/bulletin-logo.png" alt="Bulletin" className={`${logoClassName} w-auto`} />
+        </Link>
 
         {/* dot-cornered registration mark — aligned to the content's right edge */}
         {action && (action.onClick ? (

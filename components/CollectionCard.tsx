@@ -3,6 +3,8 @@
 // thumbnails and a centered list name + [ N items ]. Spec echoes the homepage
 // frame's "SAMPLE COLLECTION · 60 ITEMS" card.
 
+import Link from 'next/link'
+
 function Rivet({ className }: { className: string }) {
   return <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-[#d9d9d9] ${className}`} />
 }
@@ -13,18 +15,21 @@ export function CollectionCard({
   thumbs,
   isPrivate,
   onClick,
+  href,
 }: {
   name: string
   count: number
   thumbs: string[]
   isPrivate?: boolean
   onClick?: () => void
+  // When set, the card is a real link to the list's public URL (visitors go
+  // straight to /username/<slug>). Otherwise it's a button (owner in-page view).
+  href?: string
 }) {
-  return (
-    <button
-      onClick={onClick}
-      className="relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card text-left shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]"
-    >
+  const className =
+    'relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card text-left shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]'
+  const inner = (
+    <>
       <Rivet className="left-[7.4%] top-[7.4%]" />
       <Rivet className="right-[7.4%] top-[7.4%]" />
       <Rivet className="bottom-[7.4%] left-[7.4%]" />
@@ -49,6 +54,19 @@ export function CollectionCard({
           [ {count} {count === 1 ? 'item' : 'items'}{isPrivate ? ' · private' : ''} ]
         </div>
       </div>
+    </>
+  )
+
+  if (href) {
+    return (
+      <Link href={href} className={className}>
+        {inner}
+      </Link>
+    )
+  }
+  return (
+    <button onClick={onClick} className={className}>
+      {inner}
     </button>
   )
 }
