@@ -344,12 +344,17 @@ export default function ProfileClient({
     return m
   })()
 
-  // Up to 3 preview thumbnails for a list card, from its members' images.
+  // Up to 4 preview thumbnails for a list card, newest link first (so a small
+  // list's single preview shows the latest saved link).
   const bookmarkById = new Map(bookmarks.map((b) => [b.id, b]))
   const listThumbs = (l: any): string[] =>
     (l.bookmark_ids as string[])
       .map((id) => bookmarkById.get(id))
       .filter(Boolean)
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      )
       .map((b: any) => b.image_url || b.screenshot_url)
       .filter(Boolean)
       .slice(0, 4)
@@ -731,10 +736,11 @@ export default function ProfileClient({
                     count={l.bookmark_ids.length}
                     thumbs={listThumbs(l)}
                     isPrivate={l.is_private}
-                    // Visitors go straight to the list's public URL. The owner
-                    // keeps the in-page view for rename/delete/description. If a
-                    // list has no slug yet (pre-migration), fall back to in-page.
-                    {...(!isOwner && l.slug
+                    // Clicking a list navigates straight to its own URL — for
+                    // the owner too (the list page carries the owner controls).
+                    // A slugless list (pre-migration) still falls back to the
+                    // in-page view since it has no URL yet.
+                    {...(l.slug
                       ? { href: `/${profile.username}/${l.slug}` }
                       : { onClick: () => setActiveListId(l.id) })}
                   />
@@ -809,26 +815,42 @@ export default function ProfileClient({
                   </div>
                   {isOwner && (
                     editingDesc ? (
-                      <textarea
-                        autoFocus
-                        value={descValue}
-                        onChange={(e) => setDescValue(e.target.value)}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter' && e.ctrlKey) {
-                            await handleUpdateDescription(activeList.id, descValue)
-                            setEditingDesc(false)
-                          } else if (e.key === 'Escape') {
-                            setEditingDesc(false)
-                          }
-                        }}
-                        onBlur={async () => {
-                          await handleUpdateDescription(activeList.id, descValue)
-                          setEditingDesc(false)
-                        }}
-                        className="mt-2 w-full bg-transparent border-b border-stone-300 pb-1 text-sm text-stone-600 focus:outline-none focus:border-stone-500 resize-none"
-                        rows={2}
-                        placeholder="add a description…"
-                      />
+                      <div className="mt-2">
+                        <textarea
+                          autoFocus
+                          value={descValue}
+                          onChange={(e) => setDescValue(e.target.value)}
+                          onKeyDown={async (e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault()
+                              await handleUpdateDescription(activeList.id, descValue)
+                              setEditingDesc(false)
+                            } else if (e.key === 'Escape') {
+                              setEditingDesc(false)
+                            }
+                          }}
+                          className="w-full bg-transparent border-b border-stone-300 pb-1 text-sm text-stone-600 focus:outline-none focus:border-stone-500 resize-none"
+                          rows={2}
+                          placeholder="add a description…"
+                        />
+                        <div className="mt-2 flex gap-3">
+                          <button
+                            onClick={async () => {
+                              await handleUpdateDescription(activeList.id, descValue)
+                              setEditingDesc(false)
+                            }}
+                            className="text-xs uppercase tracking-wider text-ink hover:underline"
+                          >
+                            save
+                          </button>
+                          <button
+                            onClick={() => setEditingDesc(false)}
+                            className="text-xs uppercase tracking-wider text-stone-400 hover:text-ink transition-colors"
+                          >
+                            cancel
+                          </button>
+                        </div>
+                      </div>
                     ) : (
                       <div className="mt-3">
                         {activeList.description ? (

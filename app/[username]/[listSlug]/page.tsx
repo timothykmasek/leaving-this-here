@@ -3,6 +3,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 import { BookmarkCard } from '@/components/BookmarkCard'
 import { PublicHeader } from '@/components/PublicHeader'
 import { ProfileIdentity } from '@/components/ProfileIdentity'
+import { ListDetailClient } from './ListDetailClient'
 
 // Public, shareable page for a single list at /username/<slug>. Read-only —
 // owners manage membership and rename from their profile. RLS hides private
@@ -45,6 +46,8 @@ export default async function ListPage({
     .single()
   if (!profile) return notFound(username)
 
+  const isOwner = !!user && user.id === profile.id
+
   const { data: list, error } = await supabase
     .from('lists')
     .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
@@ -65,6 +68,53 @@ export default async function ListPage({
   }
 
   const owner = profile.display_name || profile.username
+
+  // Owner view: hand off to a client island that carries the profile's list
+  // controls (rename / delete / description + per-bullet management) onto the
+  // list's own URL. Visitors keep the read-only server render below.
+  if (isOwner) {
+    const { data: allLists } = await supabase
+      .from('lists')
+      .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
+      .eq('user_id', profile.id)
+      .order('created_at', { ascending: false })
+
+    const shapedLists = (allLists || []).map((l: any) => ({
+      id: l.id,
+      name: l.name,
+      slug: l.slug ?? null,
+      is_private: l.is_private,
+      description: l.description ?? null,
+      bookmark_ids: (l.list_bookmarks || []).map((x: any) => x.bookmark_id),
+    }))
+
+    return (
+      <main className="min-h-screen bg-paper">
+        <PublicHeader loggedIn logoClassName="h-[26px] sm:h-[34px]" />
+        <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
+          <div className="mb-9">
+            <ProfileIdentity name={owner} bio={profile.bio} links={profile.links} />
+          </div>
+          <ListDetailClient
+            username={profile.username}
+            profileId={profile.id}
+            bio={profile.bio}
+            ownerName={owner}
+            initialList={{
+              id: (list as any).id,
+              name: (list as any).name,
+              slug: (list as any).slug ?? null,
+              is_private: (list as any).is_private,
+              description: (list as any).description ?? null,
+              bookmark_ids: ids,
+            }}
+            initialBullets={bullets}
+            initialLists={shapedLists}
+          />
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-paper">
