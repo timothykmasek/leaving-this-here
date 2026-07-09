@@ -429,6 +429,17 @@
           el('title').style.display = ''
         }
         armDismiss()
+      } else if (state === 'signin') {
+        // Session expired mid-save — invite a re-sign-in instead of showing the
+        // raw auth error. Neutral ink styling (reuses .err, which is just ink,
+        // no red) and no ⚠ glyph, so it reads as a gentle prompt, not a fault.
+        setSpinner(false)
+        card.classList.add('err')
+        setIcon('')
+        setMsg('Session expired — sign in to save')
+        el('title').textContent = 'Click the Bulletin icon to sign in again.'
+        el('title').style.display = ''
+        armDismiss()
       } else if (state === 'error') {
         setSpinner(false)
         card.classList.add('err')

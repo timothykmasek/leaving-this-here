@@ -142,9 +142,12 @@ async function doRefresh(session) {
     // succeed — and so the next icon click reverts to the sign-in popup.
     const detail = await res.json().catch(() => ({}))
     await signOut()
-    throw new AuthExpiredError(
-      detail.error_description || detail.msg || 'session expired — please sign in again'
-    )
+    // Log GoTrue's raw reason for debugging, but NEVER surface it — Supabase
+    // sends user-hostile strings like "Invalid Refresh Token: Refresh Token Not
+    // Found". Callers show a friendly "sign in again" prompt instead, so throw
+    // the AuthExpiredError with its clean default message.
+    console.warn('[bulletin] token refresh failed:', detail.error_description || detail.msg || res.status)
+    throw new AuthExpiredError()
   }
   const data = await res.json()
   const next = {

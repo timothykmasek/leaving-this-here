@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bulletin — save anything",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Save any page, image, or quote to Bulletin in one click.",
   "permissions": ["identity", "storage", "contextMenus", "activeTab", "scripting", "notifications"],
   "host_permissions": [

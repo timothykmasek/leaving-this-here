@@ -46,5 +46,14 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/bookmarklet', '/setup'],
+  // Run on every page route so the session is refreshed and Supabase's rotated
+  // auth cookies get written back on navigation. Middleware is the ONLY place
+  // Next lets us persist those cookies (server components can't — see
+  // lib/supabase/server.ts), so scoping this to a couple of paths left the
+  // browser holding a stale, single-use refresh token that died on the next
+  // call — a silent logout. Static assets and API routes (bearer-auth /
+  // self-persisting) are skipped.
+  matcher: [
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|txt|xml)$).*)',
+  ],
 }

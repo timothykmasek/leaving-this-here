@@ -224,10 +224,21 @@ async function saveFlow(tab, payload) {
   } catch (err) {
     const msg = String(err.message || err)
     const dup = msg.includes('already saved')
-    // Session died mid-save: refresh() has already cleared the dead session, so
-    // restore the sign-in popup. The next icon click then opens sign-in instead
-    // of silently failing against a token that can never be refreshed.
-    if (err?.authExpired) await syncPopup()
+    // Session died mid-save: refresh() has already cleared the dead session.
+    // Don't show the raw auth error ("Invalid Refresh Token…") — restore the
+    // sign-in popup and prompt a friendly re-sign-in instead.
+    if (err?.authExpired) {
+      await syncPopup() // restore popup.html so the next icon click opens sign-in
+      if (injected) {
+        toast(tabId, 'signin', { title: payload.title })
+      } else {
+        notify('Session expired', 'Click the Bulletin icon to sign in again.')
+      }
+      // Best effort: the save was triggered by a recent icon-click gesture, so
+      // this may pop sign-in open right away. Harmless if the gesture lapsed.
+      try { await chrome.action.openPopup() } catch {}
+      return
+    }
     if (injected) {
       toast(tabId, dup ? 'duplicate' : 'error', { message: msg, title: payload.title })
     } else {
