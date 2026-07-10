@@ -463,15 +463,26 @@ export default function ProfileClient({
                     <BracketLabel>+ Save a bullet</BracketLabel>
                   </button>
                 )}
+                {/* Active tab = full ink + underline indicator; inactive tabs
+                    sit clearly muted. Color alone was too subtle to read as a
+                    selected state, so the underline makes it unambiguous. */}
                 <button
                   onClick={() => setActiveTab('recent')}
-                  className={activeTab === 'recent' ? 'text-ink' : 'text-black/35 transition-colors hover:text-black/60'}
+                  className={
+                    activeTab === 'recent'
+                      ? 'text-ink underline decoration-1 underline-offset-[5px] decoration-black/30'
+                      : 'text-black/30 transition-colors hover:text-black/60'
+                  }
                 >
                   <BracketLabel>Recent bullets</BracketLabel>
                 </button>
                 <button
                   onClick={() => setActiveTab('lists')}
-                  className={activeTab === 'lists' ? 'text-ink' : 'text-black/35 transition-colors hover:text-black/60'}
+                  className={
+                    activeTab === 'lists'
+                      ? 'text-ink underline decoration-1 underline-offset-[5px] decoration-black/30'
+                      : 'text-black/30 transition-colors hover:text-black/60'
+                  }
                 >
                   <BracketLabel>Lists</BracketLabel>
                 </button>
