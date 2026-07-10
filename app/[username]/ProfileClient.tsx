@@ -326,6 +326,13 @@ export default function ProfileClient({
     )
   }
 
+  // Lists render biggest-first — the fullest lists are the ones worth surfacing.
+  // Ties fall back to newest (state is already ordered created_at desc). Sort a
+  // copy so we don't mutate the lists state array in place.
+  const sortedLists = [...lists].sort(
+    (a, b) => b.bookmark_ids.length - a.bookmark_ids.length
+  )
+
   const activeList = activeListId ? lists.find((l) => l.id === activeListId) : null
   const listBullets = activeList
     ? bookmarks.filter((b) => activeList.bookmark_ids.includes(b.id))
@@ -426,7 +433,9 @@ export default function ProfileClient({
                     onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
                     aria-label="Edit profile"
                     title="Edit profile"
-                    className="text-black/35 transition-colors hover:text-ink"
+                    // Hover-reveal on desktop to keep the identity strip clean;
+                    // stays visible on touch (no hover) and on keyboard focus.
+                    className="text-black/35 transition-all hover:text-ink opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                   >
                     <BracketLabel>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="inline-block align-[-1px]">
@@ -733,7 +742,7 @@ export default function ProfileClient({
                   )
                 )}
 
-                {lists.map((l) => (
+                {sortedLists.map((l) => (
                   <CollectionCard
                     key={l.id}
                     name={l.name}
