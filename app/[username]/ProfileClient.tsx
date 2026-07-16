@@ -416,12 +416,12 @@ export default function ProfileClient({
       />
       {/* width = exactly a 4-col grid (4×272 + 3×24 gap = 1160) + px-6, so the
           strip's right edge (tabs) lines up with the rightmost card column. */}
-      <div className="mx-auto max-w-[1208px] px-4 pb-28 pt-8 sm:px-6 sm:pt-16">
+      <div className="mx-auto max-w-[1208px] px-4 pb-28 pt-6 sm:px-6 sm:pt-16">
         {isOwner && <WelcomeBanner />}
 
         {/* Hero — bracket strip + view tabs. `group` enables hover-reveal edit. */}
-        <div className="group mb-9">
-          <div className="flex flex-col items-start gap-6 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
+        <div className="group mb-6 sm:mb-9">
+          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
             {/* bracket strip — name, then bio · link icons · edit, all on one line */}
             <ProfileIdentity
               name={profile.display_name || profile.username}
@@ -455,10 +455,13 @@ export default function ProfileClient({
                     the toolbar icon — so drop the "+ Save a bullet" how-to nudge.
                     (extInstalled is undefined while detecting; only hide on a
                     confirmed install so we don't flicker it away mid-check.) */}
+                {/* Desktop only: saving runs through the Chrome extension, which
+                    doesn't exist on mobile — so the how-to nudge is dead weight
+                    there and just crowds the top. */}
                 {isOwner && !editingProfile && extInstalled !== true && (
                   <button
                     onClick={() => setSaveOpen((v) => !v)}
-                    className="text-black/40 transition-colors hover:text-ink"
+                    className="hidden text-black/40 transition-colors hover:text-ink sm:inline-block"
                   >
                     <BracketLabel>+ Save a bullet</BracketLabel>
                   </button>
