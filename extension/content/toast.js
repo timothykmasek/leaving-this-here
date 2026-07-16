@@ -1,7 +1,7 @@
 // On-page "Saved to your Bulletin" toast — injected into the active tab by the
 // background worker. Two stacked cards (design_handoff_saved_toast):
-//   1. Confirmation card — a top progress bar that counts down the auto-dismiss,
-//      the brand "bullet" dot, and the serif "Saved to your Bulletin" line.
+//   1. Confirmation card — a quiet grey bar that loads along the bottom edge to
+//      signal the auto-dismiss, the brand "bullet" dot, and the serif title.
 //   2. List combobox — an "Add to a list" field that expands into a filterable
 //      panel: tap an existing list to file the bullet, or type + Enter to create
 //      and publish a new one. Filing is optional — doing nothing is a finished
@@ -34,7 +34,7 @@
     return
   }
 
-  // Auto-dismiss window. The orange bar animates 100%→0% over this, and its
+  // Auto-dismiss window. The grey bar loads 0→100% over this, and its
   // animationend is what actually dismisses — so the bar and the timer can never
   // drift, and pausing the bar (on hover/focus) pauses the dismiss for free.
   const DISMISS_MS = 5000
@@ -69,7 +69,7 @@
 
       @keyframes toastIn { from { opacity:0; transform:translateY(12px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
       @keyframes fieldDrop { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
-      @keyframes barShrink { from { width:100%; } to { width:0%; } }
+      @keyframes barLoad { from { width:0%; } to { width:100%; } }
       @keyframes spin { to { transform: rotate(360deg); } }
 
       .wrap {
@@ -89,12 +89,14 @@
       }
       .field[hidden] { display: none; }
 
-      /* Progress / auto-dismiss bar — top edge of the confirmation card. */
+      /* Auto-dismiss bar — a quiet grey line that loads left→right along the
+         BOTTOM edge of the card (Granola-style), not a coloured top bar. */
       .bar {
-        height: 4px; background: #e8551f; border-radius: 4px 4px 0 0; width: 100%;
+        position: absolute; left: 0; bottom: 0;
+        height: 3px; width: 0; background: #cbc9c3;
       }
       .bar[hidden] { display: none; }
-      .bar.run { animation: barShrink var(--dismiss) linear both; }
+      .bar.run { animation: barLoad var(--dismiss) linear both; }
 
       .conf-row { display:flex; align-items:center; gap:18px; padding:26px 28px 28px; }
       .icon { flex:none; width:44px; height:44px; display:flex; align-items:center; justify-content:center; }
