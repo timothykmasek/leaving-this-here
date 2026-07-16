@@ -127,10 +127,11 @@ export function BookmarkCard({
           onClick={() => onOpen(id)}
           aria-label="edit bullet"
           title="edit"
-          // Sits over the bottom-right rivet. Visible by default (so it's tappable
-          // on touch devices with no hover); on hover-capable devices it fades in
-          // only when the card is hovered.
-          className="absolute bottom-3 right-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm backdrop-blur-sm transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+          // Sits over the bottom-right rivet. Desktop only: on hover-capable
+          // devices it's hidden until the card is hovered. On touch devices
+          // (no hover) it's hidden outright — a pencil pinned to every card read
+          // as clutter — so mobile taps just open the link; editing is desktop.
+          className="absolute bottom-3 right-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm backdrop-blur-sm transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:hidden"
         >
           <svg
             aria-hidden
