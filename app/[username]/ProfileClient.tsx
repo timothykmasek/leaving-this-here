@@ -622,29 +622,30 @@ export default function ProfileClient({
           </div>
         )}
 
-        {/* Search — owner only: a bracketed SEARCH YOUR LINKS label floating at
-            the bottom. The [ ] are literal Routed Gothic Wide glyphs (via the
-            `label` class) to match every other bracketed label on the page
-            ([ TIM MASEK ], [ EDIT PROFILE ]…) instead of a bespoke bracket. A
-            faint paper backdrop keeps it legible where it floats over the grid. */}
+        {/* Search — owner only: a floating white pill with a magnifier glyph and
+            a serif "Search your links" placeholder, sitting bottom-centre over the
+            grid. Input font stays 16px so iOS Safari doesn't auto-zoom on focus. */}
         {isOwner && !activeList && !selectedId && (
-          <div className="fixed bottom-8 left-1/2 z-40 -translate-x-1/2">
-            {/* The input keeps a real 16px font (via !text-base) so iOS Safari
-                doesn't auto-zoom on focus — see note below. To still match the
-                page's 10px `.label` size visually, scale the whole bar to 0.625
-                (=10/16): text renders at 10px while the input stays 16px. */}
-            <div
-              className="group flex origin-center scale-[0.625] items-center gap-2 rounded-md bg-paper/80 px-3 py-1.5 backdrop-blur-sm"
-            >
-              {/* left bracket — same glyph + font as the rest of the app's labels */}
-              <span
+          <div className="fixed bottom-8 left-1/2 z-40 w-[340px] max-w-[86vw] -translate-x-1/2">
+            <div className="group flex items-center gap-2.5 rounded-full bg-white px-5 py-3 ring-1 ring-black/[0.04] shadow-[0_12px_36px_-12px_rgba(35,30,20,0.35),0_3px_10px_-6px_rgba(35,30,20,0.22)] transition-shadow focus-within:shadow-[0_16px_44px_-12px_rgba(35,30,20,0.42),0_4px_12px_-6px_rgba(35,30,20,0.26)]">
+              {/* magnifier — thin, greys up on focus */}
+              <svg
                 aria-hidden
-                className="label !text-base text-black/40 transition-colors group-focus-within:text-black/60"
-              >[</span>
-              {/* font-size MUST stay >=16px: iOS Safari auto-zooms the whole page
-                  when you focus an input smaller than that. !text-base keeps the
-                  label look (uppercase + tracking) but pins the size to 16px so
-                  tapping the search field no longer zooms/clips the page on mobile. */}
+                width="17"
+                height="17"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="shrink-0 text-black/30 transition-colors group-focus-within:text-black/55"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.4-3.4" />
+              </svg>
+              {/* font-size stays >=16px: iOS Safari auto-zooms the page when an
+                  input is smaller than that on focus. */}
               <input
                 type="text"
                 value={query}
@@ -659,13 +660,8 @@ export default function ProfileClient({
                   if (searchTimer.current) clearTimeout(searchTimer.current)
                   searchTimer.current = setTimeout(() => handleSearch(v), 200)
                 }}
-                className="label !text-base w-[264px] max-w-[86vw] bg-transparent text-center tracking-[0.15em] text-black/55 placeholder:text-black/45 focus:outline-none"
+                className="w-full bg-transparent font-serif text-[16px] text-ink placeholder:text-black/40 focus:outline-none"
               />
-              {/* right bracket */}
-              <span
-                aria-hidden
-                className="label !text-base text-black/40 transition-colors group-focus-within:text-black/60"
-              >]</span>
             </div>
           </div>
         )}
