@@ -41,7 +41,6 @@ export default function BulletinPreview() {
                 key={f.seed}
                 url={f.url}
                 title={f.title}
-                listName={f.listName}
                 image={`https://picsum.photos/seed/${f.seed}/368/236`}
               />
             ))}

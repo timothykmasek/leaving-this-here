@@ -87,7 +87,6 @@ export default function HomePreview() {
               url={b.url}
               title={cleanTitle(b.title, b.url)}
               image={pickCardImage(b.url, b.image_url, b.screenshot_url)}
-              listName={domainOf(b.url)}
             />
           ))}
         </div>

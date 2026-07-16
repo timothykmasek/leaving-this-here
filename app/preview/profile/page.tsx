@@ -126,7 +126,6 @@ export default function ProfilePreview() {
                 url={b.url}
                 title={cleanTitle(b.title, b.url)}
                 image={pickCardImage(b.url, b.image_url, b.screenshot_url)}
-                listName={listNameByBookmark.get(b.id) || domainOf(b.url)}
               />
             ))}
           </div>

@@ -73,23 +73,6 @@ export default async function Home({
   }
   bullets = bullets.slice(0, SHOWCASE_COUNT)
 
-  // Map each showcase bullet → the (public) list it belongs to, if any. That list
-  // name becomes the card's tag; bullets not in a public list show no tag.
-  const listByBookmark = new Map<string, string>()
-  const ids = bullets.map((b) => b.id)
-  if (ids.length) {
-    const { data: memberships } = await supabase
-      .from('list_bookmarks')
-      .select('bookmark_id, lists(name, is_private)')
-      .in('bookmark_id', ids)
-    for (const m of (memberships as any[]) || []) {
-      const list = Array.isArray(m.lists) ? m.lists[0] : m.lists
-      if (list && !list.is_private && !listByBookmark.has(m.bookmark_id)) {
-        listByBookmark.set(m.bookmark_id, list.name)
-      }
-    }
-  }
-
   return (
     <div className="min-h-screen bg-paper">
       <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[26px] sm:h-[34px]" />
@@ -124,7 +107,6 @@ export default async function Home({
               url={b.url}
               title={cleanTitle(b.title, b.url)}
               image={pickCardImage(b.url, b.image_url, b.screenshot_url, b.card_type)}
-              listName={listByBookmark.get(b.id) ?? null}
               priority={i < 4}
             />
           ))}

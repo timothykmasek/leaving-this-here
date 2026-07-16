@@ -9,7 +9,6 @@ interface LinkCardProps {
   url: string
   title: string
   image: string | null
-  listName?: string | null
   // First-row cards on the home showcase load eagerly for LCP; the rest lazy-load.
   priority?: boolean
 }
@@ -21,7 +20,7 @@ function Rivet({ className }: { className: string }) {
   )
 }
 
-export function LinkCard({ url, title, image, listName, priority = false }: LinkCardProps) {
+export function LinkCard({ url, title, image, priority = false }: LinkCardProps) {
   return (
     <a
       href={url}
@@ -53,17 +52,6 @@ export function LinkCard({ url, title, image, listName, priority = false }: Link
       <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-serif text-[12px] font-bold leading-[13px] text-ink">
         {title}
       </h3>
-
-      {/* list tag — bracketed pill, centered, near bottom */}
-      {listName ? (
-        <div className="absolute bottom-[5.5%] left-1/2 max-w-[88%] -translate-x-1/2">
-          <span className="label inline-flex items-center gap-[7px] whitespace-nowrap rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink">
-            <span aria-hidden className="text-black/40">[</span>
-            {listName}
-            <span aria-hidden className="text-black/40">]</span>
-          </span>
-        </div>
-      ) : null}
     </a>
   )
 }
