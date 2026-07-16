@@ -85,10 +85,13 @@ async function saveActiveTab(tab) {
   const session = await getSession()
   if (!session) return promptSignIn()
   const clientMeta = await readPageMeta(tab?.id)
-  // No usable og image → capture the visible tab. It's the user's own rendered
-  // view (their session/IP), so paywalled / no-og pages that defeat our server
-  // screenshot still get a real picture. Viewport/hero only — preview-grade.
-  const clientShot = clientMeta?.image ? null : await captureTab(tab?.windowId)
+  // Always capture the visible tab — it's the user's own rendered view (their
+  // session/IP), so it bypasses the datacenter-IP block that defeats our server
+  // screenshot, and it's mymind-grade for landing pages. We send BOTH this and
+  // the og image; the server's pickCardImage picks per card_type — landing/
+  // profile pages show the screenshot, articles/products keep their og, so the
+  // shot is stored-but-unused there. Viewport/hero only — preview-grade.
+  const clientShot = await captureTab(tab?.windowId)
   await saveFlow(tab, { url: tab?.url, title: tab?.title, clientMeta, clientShot })
 }
 
