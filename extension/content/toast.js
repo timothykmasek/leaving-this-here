@@ -1,9 +1,14 @@
-// On-page "bullet" toast — injected into the active tab by the background worker.
-// Editorial treatment matching the web app: a clean white rounded card, the
-// brand fonts (Cardo + Routed Gothic Wide), a white/grey/ink palette (no accent
-// colour), and a collapsible "Add to a list" row that separates your existing
-// lists from creating a new one. Once saved you can add the bullet to a list,
-// or create + publish a brand-new list inline.
+// On-page "Saved to your Bulletin" toast — injected into the active tab by the
+// background worker. Two stacked cards (design_handoff_saved_toast):
+//   1. Confirmation card — a top progress bar that counts down the auto-dismiss,
+//      the brand "bullet" dot, and the serif "Saved to your Bulletin" line.
+//   2. List combobox — an "Add to a list" field that expands into a filterable
+//      panel: tap an existing list to file the bullet, or type + Enter to create
+//      and publish a new one. Filing is optional — doing nothing is a finished
+//      save.
+//
+// Design principle: saving is already complete; the list field is a low-friction
+// offer, never a requirement.
 //
 // Injected via chrome.scripting.executeScript({ files: [...] }) so it runs as a
 // content script in the isolated world: it can use chrome.runtime messaging but
@@ -13,12 +18,13 @@
 // Protocol — background → toast (chrome.tabs.sendMessage):
 //   { type: 'ig-toast', state: 'saving' }
 //   { type: 'ig-toast', state: 'saved',     data: { id, title } }
-//   { type: 'ig-toast', state: 'duplicate', data: { title } }
+//   { type: 'ig-toast', state: 'duplicate', data: { id, title } }
+//   { type: 'ig-toast', state: 'signin' }
 //   { type: 'ig-toast', state: 'error',     data: { message } }
 // Protocol — toast → background (chrome.runtime.sendMessage):
-//   { type: 'ig-get-lists' }                       → { ok, lists } | { error }
-//   { type: 'ig-create-list', name, bookmarkId }   → { ok, list, url } | { error }
-//   { type: 'ig-set-list', listId, bookmarkId, add } → { ok } | { error }
+//   { type: 'ig-get-lists' }                          → { ok, lists } | { error }
+//   { type: 'ig-create-list', name, bookmarkId }      → { ok, list, url } | { error }
+//   { type: 'ig-set-list', listId, bookmarkId, add }  → { ok } | { error }
 
 ;(() => {
   // Guard against double-injection: reuse the existing controller if the user
@@ -28,26 +34,28 @@
     return
   }
 
-  const DISMISS_MS = 2500
+  // Auto-dismiss window. The orange bar animates 100%→0% over this, and its
+  // animationend is what actually dismisses — so the bar and the timer can never
+  // drift, and pausing the bar (on hover/focus) pauses the dismiss for free.
+  const DISMISS_MS = 5000
 
-  // Compact "saved" badge — the Bulletin "bullet": a grey dot (same mark as the
-  // toolbar icon, minus its tile). Shown when a save lands.
-  const MARK =
-    '<svg viewBox="0 0 28 28" width="24" height="24" aria-hidden="true">' +
-    '<circle cx="14" cy="14" r="10" fill="#C1C1C1"/></svg>'
+  // Deterministic list-dot palette (hash by name), matching the handoff.
+  const DOT_PALETTE = ['#e8551f', '#3b7a57', '#4a6fa5', '#9a6bb0', '#c9a227']
+  const dotFor = (name) => {
+    let h = 0
+    for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+    return DOT_PALETTE[h % DOT_PALETTE.length]
+  }
 
-  // Self-hosted brand fonts (declared in manifest web_accessible_resources).
-  // chrome.runtime.getURL yields the extension-origin URL the page can fetch
-  // even from inside the shadow DOM.
+  // Self-hosted brand serif (declared in manifest web_accessible_resources).
+  // Substituted for the handoff's Newsreader to keep the extension buildless.
   const FONT_CARDO = chrome.runtime.getURL('fonts/Cardo-Regular.woff2')
   const FONT_CARDO_BOLD = chrome.runtime.getURL('fonts/Cardo-Bold.woff2')
-  const FONT_LABEL = chrome.runtime.getURL('fonts/RoutedGothicWide-Regular.woff2')
 
   const host = document.createElement('div')
   host.id = 'internet-gems-toast-host'
-  // `all:initial` MUST come first — it resets every property, so anything after
-  // it (the positioning) survives. Put it last and it wipes out position:fixed,
-  // dropping the card into normal flow at the bottom of the page.
+  // `all:initial` MUST come first — it resets every property, so the positioning
+  // after it survives. Put it last and it wipes out position:fixed.
   host.style.cssText =
     'all:initial;position:fixed;top:16px;right:16px;z-index:2147483647;'
   const root = host.attachShadow({ mode: 'open' })
@@ -56,282 +64,275 @@
     <style>
       @font-face { font-family:'Cardo'; src:url('${FONT_CARDO}') format('woff2'); font-weight:400; font-display:swap; }
       @font-face { font-family:'Cardo'; src:url('${FONT_CARDO_BOLD}') format('woff2'); font-weight:700; font-display:swap; }
-      @font-face { font-family:'Routed Gothic Wide'; src:url('${FONT_LABEL}') format('woff2'); font-weight:400; font-display:swap; }
       :host { all: initial; }
       * { box-sizing: border-box; }
-      .card {
-        font-family: 'Cardo', Georgia, 'Times New Roman', serif;
-        width: 340px;
-        background: #ffffff;
-        color: #2b2b2b;
-        border: 1px solid rgba(43,43,43,0.10);
-        border-radius: 16px;
-        box-shadow: 0 16px 40px rgba(20,20,30,0.16), 0 2px 8px rgba(20,20,30,0.08);
-        overflow: hidden;
-        transform: translateX(120%);
-        opacity: 0;
-        transition: transform .32s cubic-bezier(.2,.85,.25,1), opacity .32s ease;
-      }
-      .card.in { transform: translateX(0); opacity: 1; }
-      .head { display: flex; align-items: center; gap: 12px; padding: 16px 18px; }
-      .icon {
-        flex: none; width: 34px; height: 34px; display: flex; align-items: center;
-        justify-content: center; overflow: hidden; color: #2b2b2b;
-      }
-      .icon:empty { display: none; }
-      .icon img { width: 100%; height: 100%; object-fit: contain; }
-      .msg { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; flex: 1; }
-      .spin {
-        width: 16px; height: 16px; border-radius: 50%;
-        border: 2px solid #e6e6e6; border-top-color: #2b2b2b;
-        animation: spin .7s linear infinite;
-      }
+
+      @keyframes toastIn { from { opacity:0; transform:translateY(12px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+      @keyframes fieldDrop { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+      @keyframes barShrink { from { width:100%; } to { width:0%; } }
       @keyframes spin { to { transform: rotate(360deg); } }
-      .title {
-        font-size: 14px; color: #8a8a8a; line-height: 1.4;
-        padding: 0 18px 15px; margin-top: -8px;
-        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-        overflow: hidden;
+
+      .wrap {
+        width: 420px; display: flex; flex-direction: column; gap: 10px;
+        font-family: 'Cardo', Georgia, 'Times New Roman', serif;
       }
-      /* Label spec — Routed Gothic Wide, uppercase, tracked (matches the web app). */
-      .label { font-family:'Routed Gothic Wide', ui-monospace, monospace; text-transform:uppercase; letter-spacing:1.5px; }
-      .lists { border-top: 1px solid rgba(43,43,43,0.08); }
-      .listrow {
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 13px 18px; cursor: pointer; user-select: none;
+
+      .card { background:#fff; border-radius:16px; overflow:hidden; }
+      .conf {
+        position: relative;
+        box-shadow: 0 24px 60px rgba(0,0,0,0.28);
+        animation: toastIn 420ms cubic-bezier(0.2,0.8,0.2,1) both;
       }
-      .listrow .label { font-size: 11px; color: #2b2b2b; }
-      .chev { font-size: 12px; color: #b0b0b0; transition: transform .2s ease; }
-      .listrow.open .chev { transform: rotate(180deg); }
-      .listbody { padding: 2px 18px 16px; display: none; }
-      .listbody.open { display: block; }
-      .section + .section { margin-top: 16px; }
-      .section-label { display: block; font-size: 9px; color: #a0a0a0; margin-bottom: 9px; }
-      .chips { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
-      /* Existing-list toggle chip. Selected = filled ink; unselected = grey. */
-      .lchip {
-        all: unset; cursor: pointer; box-sizing: border-box;
-        display: inline-flex; align-items: center; gap: 6px;
-        font-family:'Routed Gothic Wide', ui-monospace, monospace;
-        text-transform: uppercase; letter-spacing: 1px; font-size: 10px;
-        color: #2b2b2b; background: #f1f1f1; border-radius: 999px; padding: 8px 12px;
-        transition: background .15s ease, color .15s ease;
+      .field {
+        box-shadow: 0 24px 60px rgba(0,0,0,0.14);
+        animation: fieldDrop 420ms 120ms cubic-bezier(0.2,0.8,0.2,1) both;
       }
-      .lchip:hover { background: #e6e6e6; }
-      .lchip.on { background: #2b2b2b; color: #fff; }
-      .lchip.on::before { content: '✓'; font-size: 10px; }
-      /* Create-new field — full-width, clearly its own input. */
-      .add {
-        all: unset; box-sizing: border-box; cursor: text; width: 100%;
-        font-family:'Cardo', Georgia, serif; font-size: 15px; color: #2b2b2b;
-        background: #f1f1f1; border-radius: 10px; padding: 10px 12px;
+      .field[hidden] { display: none; }
+
+      /* Progress / auto-dismiss bar — top edge of the confirmation card. */
+      .bar {
+        height: 4px; background: #e8551f; border-radius: 4px 4px 0 0; width: 100%;
       }
-      .add::placeholder { color: #a0a0a0; }
-      /* AI name suggestion — a distinct tappable row, ink/grey only (no accent). */
-      .suggestion {
-        all: unset; cursor: pointer; box-sizing: border-box; width: 100%;
-        display: flex; align-items: center; gap: 9px; margin-top: 9px;
-        padding: 10px 12px; border-radius: 10px; border: 1px dashed rgba(43,43,43,0.22);
-        font-family:'Cardo', Georgia, serif; font-size: 14px; color: #2b2b2b;
+      .bar[hidden] { display: none; }
+      .bar.run { animation: barShrink var(--dismiss) linear both; }
+
+      .conf-row { display:flex; align-items:center; gap:18px; padding:26px 28px 28px; }
+      .icon { flex:none; width:44px; height:44px; display:flex; align-items:center; justify-content:center; }
+      .icon .circle { width:44px; height:44px; border-radius:50%; background:#ececeb; display:flex; align-items:center; justify-content:center; }
+      .icon .pip { width:16px; height:16px; border-radius:50%; background:#b6b6b4; }
+      .icon .spin { width:22px; height:22px; border-radius:50%; border:2px solid #ececeb; border-top-color:#b6b6b4; animation:spin .7s linear infinite; }
+      .icon .warn { font-size:26px; line-height:1; color:#e8551f; }
+      .icon:empty { display:none; }
+
+      .conf-title { font-size:30px; font-weight:400; color:#1c1c1e; letter-spacing:-0.01em; line-height:1.15; }
+      .conf-sub { font-family:system-ui,-apple-system,sans-serif; font-size:14px; color:#9aa0a8; padding:0 28px 24px; margin-top:-14px; line-height:1.4; }
+      .conf-sub[hidden] { display:none; }
+
+      /* ── list combobox ── */
+      .field-row { padding:18px 24px; display:flex; align-items:center; gap:14px; cursor:text; }
+      .field-input {
+        flex:1; border:none; outline:none; background:transparent;
+        font-family:'Cardo', Georgia, serif; font-size:24px; color:#1c1c1e;
+        caret-color:#e8551f; min-width:0;
       }
-      .suggestion:hover { background: #f7f7f7; }
-      .suggestion[hidden] { display: none; }
-      .suggestion .sg-label { font-family:'Routed Gothic Wide', monospace; text-transform:uppercase; letter-spacing:1px; font-size:9px; color:#a0a0a0; flex:none; }
-      .suggestion .sg-name { font-style: italic; }
-      .err .msg { color: #2b2b2b; }
+      .field-input::placeholder { color:#9aa0a8; }
+      .chev { flex:none; color:#9aa0a8; font-size:20px; line-height:1; cursor:pointer; transition:transform 220ms ease; }
+      .chev.open { transform: rotate(180deg); }
+
+      .panel { border-top:1px solid #efefec; max-height:260px; overflow-y:auto; animation:fieldDrop 260ms ease both; }
+      .panel[hidden] { display:none; }
+
+      .lrow { display:flex; align-items:center; gap:12px; padding:14px 24px; cursor:pointer;
+              font-family:system-ui,-apple-system,sans-serif; font-size:15px; color:#2c2c2e; }
+      .lrow:hover { background:#faf8f5; }
+      .lrow .ldot { flex:none; width:8px; height:8px; border-radius:50%; }
+      .lrow .lname { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .lrow .lcheck { flex:none; color:#e8551f; font-size:15px; }
+
+      .createrow { display:flex; align-items:center; gap:12px; padding:14px 24px; cursor:pointer;
+                   font-family:system-ui,-apple-system,sans-serif; font-size:15px; color:#1c1c1e; background:#faf8f5; }
+      .createrow:hover { background:#f4efe9; }
+      .createrow[hidden] { display:none; }
+      .createrow .cplus { flex:none; width:18px; height:18px; display:flex; align-items:center; justify-content:center; color:#e8551f; font-size:18px; line-height:1; }
+      .createrow .ctext { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .createrow .ctext b { font-family:'Cardo', Georgia, serif; font-weight:700; }
+      .createrow .ckey { flex:none; font-size:11px; letter-spacing:0.08em; color:#9aa0a8; text-transform:uppercase;
+                         border:1px solid #e2e2de; border-radius:6px; padding:3px 8px; font-family:system-ui,sans-serif; }
+
+      .emptyrow { padding:16px 24px; font-family:system-ui,-apple-system,sans-serif; font-size:14px; color:#9aa0a8; }
+      .emptyrow[hidden] { display:none; }
     </style>
-    <div class="card" id="card">
-      <div class="head" id="head">
-        <span class="icon" id="icon"></span>
-        <span class="msg" id="msg">One moment, saving…</span>
-      </div>
-      <div class="title" id="title" style="display:none"></div>
-      <div class="lists" id="lists" style="display:none">
-        <div class="listrow" id="listrow">
-          <span class="label" id="listlbl">Add to a list</span>
-          <span class="chev">▾</span>
+    <div class="wrap" id="wrap" style="opacity:0">
+      <div class="card conf" id="conf">
+        <div class="bar" id="bar" hidden></div>
+        <div class="conf-row">
+          <span class="icon" id="icon"></span>
+          <div class="conf-title" id="msg">One moment, saving…</div>
         </div>
-        <div class="listbody" id="listbody">
-          <div class="section" id="existing" style="display:none">
-            <span class="section-label label">Your lists — tap to add</span>
-            <div class="chips" id="listchips"></div>
+        <div class="conf-sub" id="sub" hidden></div>
+      </div>
+      <div class="card field" id="field" hidden>
+        <div class="field-row" id="fieldrow">
+          <input class="field-input" id="addinput" placeholder="Add to a list" autocomplete="off" spellcheck="false" />
+          <span class="chev" id="chev">⌄</span>
+        </div>
+        <div class="panel" id="panel" hidden>
+          <div id="rows"></div>
+          <div class="createrow" id="createrow" hidden>
+            <span class="cplus">+</span>
+            <span class="ctext" id="ctext"></span>
+            <span class="ckey">Enter</span>
           </div>
-          <div class="section">
-            <span class="section-label label">Create a new list</span>
-            <input class="add" id="addinput" placeholder="Name a new list…" />
-            <button class="suggestion" id="suggestion" hidden>
-              <span class="sg-label">Suggested</span>
-              <span class="sg-name" id="sgname"></span>
-            </button>
-          </div>
+          <div class="emptyrow" id="emptyrow" hidden>No lists yet — type a name and press Enter.</div>
         </div>
       </div>
     </div>
   `
 
   const el = (id) => root.getElementById(id)
-  const card = el('card')
+  const wrap = el('wrap')
+  const bar = el('bar')
+  const addInput = el('addinput')
 
   // ── state ──────────────────────────────────────────────────────────
   let bookmarkId = null
-  let dismissTimer = null
   let hovering = false
-  let editing = false
+  let inputFocused = false
+  let expanded = false
   // Lists: the user's lists [{ id, name, slug }] and which ones this gem is in.
   let lists = []
   let memberOf = new Set()
-  // A "why you saved it" name suggestion for a new list (arrives async, never
-  // blocks the card). `userTyped` suppresses it once the user starts typing.
-  let suggestedName = null
-  let userTyped = false
 
   document.documentElement.appendChild(host)
-  requestAnimationFrame(() => card.classList.add('in'))
+  requestAnimationFrame(() => { wrap.style.opacity = '1' })
 
-  card.addEventListener('mouseenter', () => {
-    hovering = true
-    clearDismiss()
-  })
-  card.addEventListener('mouseleave', () => {
-    hovering = false
-    armDismiss()
-  })
+  // ── auto-dismiss bar ───────────────────────────────────────────────
+  // The bar's animationend is the single source of truth for dismissal, so the
+  // countdown a user sees is exactly the countdown that fires.
+  bar.addEventListener('animationend', () => dismiss())
 
-  el('listrow').addEventListener('click', () => toggleLists())
-
-  // Create-list input is static markup now (not re-rendered), so focus survives
-  // chip re-renders and the async name suggestion.
-  const addInput = el('addinput')
-  addInput.addEventListener('focus', () => { editing = true; clearDismiss() })
-  addInput.addEventListener('blur', () => { editing = false; armDismiss() })
-  addInput.addEventListener('input', () => { userTyped = !!addInput.value })
-  addInput.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter') return
-    e.preventDefault()
-    const typed = addInput.value.trim()
-    if (typed) { addInput.value = ''; userTyped = false; createListByName(typed) }
-    else if (suggestedName) createListByName(suggestedName)
-  })
-  el('suggestion').addEventListener('click', (e) => {
-    e.stopPropagation()
-    if (suggestedName) createListByName(suggestedName)
-  })
-
-  function clearDismiss() {
-    if (dismissTimer) clearTimeout(dismissTimer)
-    dismissTimer = null
+  function armBar() {
+    bar.hidden = false
+    bar.classList.remove('run')
+    // Force reflow so re-adding .run restarts the animation from 100%.
+    void bar.offsetWidth
+    bar.classList.add('run')
+    updateBarPause()
   }
-  function armDismiss(ms = DISMISS_MS) {
-    clearDismiss()
-    dismissTimer = setTimeout(() => {
-      // Stay open while the pointer is over the card, or while the user is
-      // mid-thought in the create field. The list input is auto-focused on
-      // save, so focus alone shouldn't pin the card open forever — only keep
-      // it up if they've actually started typing a name.
-      if (hovering || (editing && userTyped)) return armDismiss(1500)
-      dismiss()
-    }, ms)
+  function stopBar() {
+    bar.classList.remove('run')
+    bar.hidden = true
+  }
+  function updateBarPause() {
+    // Pause the countdown (and thus the dismiss) while the pointer is over the
+    // card or the user is engaged in the list input.
+    bar.style.animationPlayState = hovering || inputFocused ? 'paused' : 'running'
   }
   function dismiss() {
-    clearDismiss()
-    card.classList.remove('in')
-    setTimeout(() => host.remove(), 340)
+    wrap.style.transition = 'opacity .3s ease, transform .3s ease'
+    wrap.style.opacity = '0'
+    wrap.style.transform = 'translateY(-6px)'
+    setTimeout(() => host.remove(), 320)
     window.__igToast = null
   }
 
-  // ── rendering ──────────────────────────────────────────────────────
-  function setMsg(msg) {
-    el('msg').textContent = msg
+  // Hovering anywhere in the toast pauses the countdown.
+  wrap.addEventListener('mouseenter', () => { hovering = true; updateBarPause() })
+  wrap.addEventListener('mouseleave', () => { hovering = false; updateBarPause() })
+
+  // ── confirmation card content ──────────────────────────────────────
+  function setMsg(msg) { el('msg').textContent = msg }
+  function setSub(text) {
+    const sub = el('sub')
+    if (text) { sub.textContent = text; sub.hidden = false }
+    else { sub.hidden = true }
   }
-  function setIcon(html) {
-    el('icon').innerHTML = html
-  }
-  function setSpinner(on) {
-    setIcon(on ? '<span class="spin"></span>' : MARK)
+  function setIcon(kind) {
+    const icon = el('icon')
+    if (kind === 'bullet') icon.innerHTML = '<span class="circle"><span class="pip"></span></span>'
+    else if (kind === 'spin') icon.innerHTML = '<span class="spin"></span>'
+    else if (kind === 'warn') icon.innerHTML = '<span class="warn">⚠</span>'
+    else icon.innerHTML = ''
   }
 
-  // ── lists ──────────────────────────────────────────────────────────
-  function toggleLists(force) {
-    const open = force === undefined ? !el('listbody').classList.contains('open') : force
-    el('listbody').classList.toggle('open', open)
-    el('listrow').classList.toggle('open', open)
-    if (open) {
-      clearDismiss()
-      focusListInput()
-    } else {
-      armDismiss()
+  // ── list combobox ──────────────────────────────────────────────────
+  el('fieldrow').addEventListener('click', (e) => {
+    if (e.target === el('chev')) return // chevron handles its own toggle
+    addInput.focus()
+  })
+  el('chev').addEventListener('click', (e) => {
+    e.stopPropagation()
+    expanded = !expanded
+    if (expanded) addInput.focus()
+    renderPanel()
+  })
+  addInput.addEventListener('focus', () => { inputFocused = true; updateBarPause() })
+  addInput.addEventListener('blur', () => { inputFocused = false; updateBarPause() })
+  addInput.addEventListener('input', () => renderPanel())
+  addInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const typed = addInput.value.trim()
+      if (!typed) return
+      const exact = lists.find((l) => l.name.toLowerCase() === typed.toLowerCase())
+      if (exact) { if (!memberOf.has(exact.id)) toggleListMembership(exact); addInput.value = ''; renderPanel() }
+      else createListByName(typed)
+    } else if (e.key === 'Escape') {
+      addInput.value = ''
+      expanded = false
+      renderPanel()
+      addInput.blur()
     }
-  }
+  })
 
-  function updateListLabel() {
-    const n = memberOf.size
-    el('listlbl').textContent = n ? `In ${n} list${n === 1 ? '' : 's'}` : 'Add to a list'
-  }
+  function renderPanel() {
+    const raw = addInput.value
+    const q = raw.trim().toLowerCase()
+    el('chev').classList.toggle('open', expanded)
 
-  function focusListInput() {
-    if (el('listbody').classList.contains('open')) addInput.focus()
-  }
+    const showPanel = expanded || raw.length > 0
+    el('panel').hidden = !showPanel
+    if (!showPanel) return
 
-  // Existing-list toggle chips only. The create field + suggestion are static
-  // markup (updated by updateSuggestion), so re-rendering chips never steals
-  // focus from someone mid-type.
-  function renderLists() {
-    updateListLabel()
-    const existing = el('existing')
-    const wrap = el('listchips')
-    wrap.innerHTML = ''
-    if (!lists.length) {
-      existing.style.display = 'none'
-      return
+    const matches = lists.filter((l) => !q || l.name.toLowerCase().includes(q))
+    const exactMatch = lists.some((l) => l.name.toLowerCase() === q)
+    const showCreate = q.length > 0 && !exactMatch
+
+    // List rows
+    const rows = el('rows')
+    rows.innerHTML = ''
+    for (const l of matches) {
+      const row = document.createElement('div')
+      row.className = 'lrow'
+      row.title = l.name
+      const selected = memberOf.has(l.id)
+      row.innerHTML =
+        `<span class="ldot" style="background:${dotFor(l.name)}"></span>` +
+        `<span class="lname"></span>` +
+        (selected ? '<span class="lcheck">✓</span>' : '')
+      row.querySelector('.lname').textContent = l.name
+      row.addEventListener('click', (e) => { e.stopPropagation(); toggleListMembership(l) })
+      rows.appendChild(row)
     }
-    existing.style.display = ''
-    for (const l of lists) {
-      const chip = document.createElement('button')
-      chip.className = 'lchip' + (memberOf.has(l.id) ? ' on' : '')
-      chip.textContent = l.name
-      chip.addEventListener('click', (e) => {
-        e.stopPropagation()
-        toggleListMembership(l)
-      })
-      wrap.appendChild(chip)
+
+    // Create row
+    const createrow = el('createrow')
+    createrow.hidden = !showCreate
+    if (showCreate) {
+      el('ctext').innerHTML = 'Create “<b></b>”'
+      el('ctext').querySelector('b').textContent = raw.trim()
     }
+
+    // Empty row (no matches, nothing to create)
+    el('emptyrow').hidden = !(matches.length === 0 && !showCreate)
   }
 
-  // Show the AI "why you saved it" suggestion as its own tappable row — only
-  // while the user hasn't typed a name or already filed it into a list.
-  function updateSuggestion() {
-    const btn = el('suggestion')
-    if (suggestedName && !userTyped && !memberOf.size) {
-      el('sgname').textContent = `“${suggestedName}”`
-      btn.hidden = false
-    } else {
-      btn.hidden = true
-    }
-  }
+  el('createrow').addEventListener('click', (e) => {
+    e.stopPropagation()
+    const typed = addInput.value.trim()
+    if (typed) createListByName(typed)
+  })
 
-  // Optimistically toggle, then reconcile with the server (revert on failure).
+  // Optimistically toggle membership, then reconcile with the server.
   function toggleListMembership(l) {
     if (!bookmarkId) return
     const add = !memberOf.has(l.id)
     if (add) memberOf.add(l.id)
     else memberOf.delete(l.id)
-    renderLists()
-    updateSuggestion()
+    renderPanel()
     chrome.runtime.sendMessage(
       { type: 'ig-set-list', listId: l.id, bookmarkId, add },
       (resp) => {
         if (!resp || resp.error) {
           if (add) memberOf.delete(l.id)
           else memberOf.add(l.id)
-          renderLists()
-          updateSuggestion()
+          renderPanel()
         }
-      }
+      },
     )
   }
 
-  // Create + publish a list and add this bullet to it. Used by the typed input
-  // and one-tap acceptance of the suggested name.
+  // Create + publish a list and file this bullet into it.
   function createListByName(name) {
     if (!name || !bookmarkId) return
     chrome.runtime.sendMessage(
@@ -340,78 +341,55 @@
         if (resp && resp.ok && resp.list) {
           lists.unshift(resp.list)
           memberOf.add(resp.list.id)
-          suggestedName = null // consumed
           addInput.value = ''
-          renderLists()
-          updateSuggestion()
-          focusListInput()
+          renderPanel()
+          addInput.focus()
         }
-      }
+      },
     )
-  }
-
-  // Ask the backend for a "why you saved it" list-name suggestion. Fire-and-
-  // forget: if it never returns, the card is unaffected.
-  function loadSuggestion() {
-    if (!bookmarkId) return
-    chrome.runtime.sendMessage({ type: 'ig-suggest-name', bookmarkId }, (resp) => {
-      if (!resp || !resp.ok || !resp.name) return
-      if (userTyped || memberOf.size) return
-      suggestedName = resp.name
-      updateSuggestion()
-    })
   }
 
   function loadLists() {
     chrome.runtime.sendMessage({ type: 'ig-get-lists' }, (resp) => {
       if (resp && resp.ok && Array.isArray(resp.lists)) {
         lists = resp.lists
-        renderLists()
+        if (!el('panel').hidden) renderPanel()
       }
     })
   }
 
-  function showSaved(data) {
-    setSpinner(false)
-    setMsg('Saved to your bullets')
-    bookmarkId = data && data.id
-    if (data && data.title) {
-      el('title').textContent = data.title
-      el('title').style.display = ''
-    }
+  // ── saved: reveal the list field + start the countdown ─────────────
+  function showSaved(msg, data) {
+    setIcon('bullet')
+    setMsg(msg)
+    setSub('')
+    bookmarkId = (data && data.id) || null
     if (bookmarkId) {
-      // Add the gem to a list (or create + publish a new one) right here.
-      el('lists').style.display = ''
+      el('field').hidden = false
       memberOf = new Set()
-      renderLists() // lists were prefetched at save time — show whatever's loaded
-      loadSuggestion()
-      toggleLists(true)
+      renderPanel()
+    } else {
+      el('field').hidden = true
     }
-    armDismiss()
+    armBar()
   }
 
   // ── controller exposed to background messages ──────────────────────
   function reset() {
-    clearDismiss()
+    stopBar()
     bookmarkId = null
-    editing = false
+    expanded = false
     lists = []
     memberOf = new Set()
-    suggestedName = null
-    userTyped = false
     addInput.value = ''
-    updateSuggestion()
-    el('title').style.display = 'none'
-    el('lists').style.display = 'none'
-    toggleLists(false)
-    card.classList.remove('err')
-    setSpinner(true)
+    el('field').hidden = true
+    el('panel').hidden = true
+    setSub('')
+    setIcon('spin')
     setMsg('One moment, saving…')
-    // Prefetch the user's lists now, in parallel with the save round-trip, so
-    // the chips are ready the instant the gem lands instead of after a second
-    // sequential request.
+    // Prefetch lists in parallel with the save round-trip so the panel is ready
+    // the instant the bullet lands.
     loadLists()
-    card.classList.add('in')
   }
 
   window.__igToast = {
@@ -420,39 +398,29 @@
       if (state === 'saving') {
         reset()
       } else if (state === 'saved') {
-        showSaved(data)
+        showSaved('Saved to your Bulletin', data)
       } else if (state === 'duplicate') {
-        setSpinner(false)
-        setMsg('Already in your bullets')
-        if (data && data.title) {
-          el('title').textContent = data.title
-          el('title').style.display = ''
-        }
-        armDismiss()
+        showSaved('Already in your Bulletin', data)
       } else if (state === 'signin') {
-        // Session expired mid-save — invite a re-sign-in instead of showing the
-        // raw auth error. Neutral ink styling (reuses .err, which is just ink,
-        // no red) and no ⚠ glyph, so it reads as a gentle prompt, not a fault.
-        setSpinner(false)
-        card.classList.add('err')
-        setIcon('')
+        // Session expired mid-save — invite a re-sign-in, not the raw auth error.
+        setIcon('warn')
         setMsg('Session expired — sign in to save')
-        el('title').textContent = 'Click the Bulletin icon to sign in again.'
-        el('title').style.display = ''
-        armDismiss()
+        setSub('Click the Bulletin icon to sign in again.')
+        el('field').hidden = true
+        armBar()
       } else if (state === 'error') {
-        setSpinner(false)
-        card.classList.add('err')
-        setIcon('⚠')
-        setMsg((data && data.message) || 'Could not save')
-        armDismiss()
+        setIcon('warn')
+        setMsg('Couldn’t save')
+        setSub((data && data.message) || 'Something went wrong — try again.')
+        el('field').hidden = true
+        armBar()
       }
     },
   }
 
-  setSpinner(true)
-  // First injection in a tab doesn't go through reset(); kick off the list
-  // prefetch here so it overlaps the in-flight save round-trip.
+  // First injection in a tab doesn't go through reset(): start in the saving
+  // state and kick off the list prefetch so it overlaps the in-flight save.
+  setIcon('spin')
   loadLists()
 
   chrome.runtime.onMessage.addListener((m) => {
