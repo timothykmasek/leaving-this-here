@@ -54,7 +54,7 @@ export function ProfileIdentity({
       <BracketLabel>{name}</BracketLabel>
       {hasSecondLine && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          {bio && <BracketLabel>{bio}</BracketLabel>}
+          {bio && <BracketLabel className="bio-label">{bio}</BracketLabel>}
           {entries.length > 0 && (
             <span className="label inline-flex items-center gap-[10px] text-black/50">
               <span aria-hidden className="opacity-40">[</span>

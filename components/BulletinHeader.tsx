@@ -24,10 +24,12 @@ export function BracketLabel({
   )
 }
 
-// Corner dot for the SIGN UP registration mark (4px).
+// Corner dot for the SIGN UP registration mark (4px). Hidden on mobile — at
+// phone size the label's wide padding leaves the dots floating as stray specks;
+// the mark only reads as intentional on the roomier desktop masthead.
 function Dot({ className }: { className: string }) {
   return (
-    <span aria-hidden className={`absolute h-[4px] w-[4px] rounded-full bg-black/[0.35] ${className}`} />
+    <span aria-hidden className={`absolute hidden h-[4px] w-[4px] rounded-full bg-black/[0.35] sm:block ${className}`} />
   )
 }
 

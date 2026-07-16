@@ -92,7 +92,7 @@ export default async function Home({
 
   return (
     <div className="min-h-screen bg-paper">
-      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[34px] sm:h-[44px]" />
+      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[26px] sm:h-[34px]" />
 
       {/* Hero */}
       <section className="px-6 pb-20 pt-10 text-center">

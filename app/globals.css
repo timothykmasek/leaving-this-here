@@ -25,6 +25,16 @@ body {
   text-transform: uppercase;
 }
 
+/* A long bio in the label font sprawls to 3 lines on a phone — uppercase + 1.5px
+   tracking is very wide. On mobile, tighten the tracking and drop a point so it
+   settles to ~2 lines. Defined after .label so it wins the cascade. */
+@media (max-width: 639px) {
+  .bio-label {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+  }
+}
+
 /* Vintage print-grain texture — DISABLED for the editorial rebrand (flat white
    to match Figma). Kept here so it can be restored if we want brand texture back. */
 body::before {
