@@ -17,6 +17,15 @@ export const SCREENSHOT_BUCKET = 'card-images'
 
 const SCREENSHOTONE_BASE = 'https://api.screenshotone.com/take'
 
+// screenshotone sometimes serves its OWN errors as a rendered image (HTTP 200,
+// content-type image/webp) instead of JSON — e.g. a blank white webp with the
+// text "local_rate_limited". Those pass the res.ok + image/* guard and get
+// stored as if they were real captures, leaving the card permanently blank.
+// They're tiny: a real 1280×900 capture is 11KB+ even for a near-empty page
+// (example.com is 11.3KB); the error placeholders are all under ~7KB. Reject
+// anything below this floor so it's treated as a (retryable) failure instead.
+const MIN_SCREENSHOT_BYTES = 8000
+
 /**
  * Build a screenshotone capture URL. Reads the access key from the
  * SCREENSHOTONE_ACCESS_KEY env var — never hardcode it.
@@ -124,6 +133,24 @@ export async function captureAndStore(
   }
 
   const bytes = new Uint8Array(await res.arrayBuffer())
+
+  // Guard against error-placeholder images that slip past the checks above by
+  // arriving as a valid 200 image. Two cases produce these: (a) the target site
+  // 429/403s ScreenshotOne's datacenter IP and — because we pass
+  // ignore_host_errors — we capture the site's OWN blank block/rate-limit page;
+  // (b) ScreenshotOne renders its own error as an image. Either way the bytes are
+  // tiny. The caller distinguishes this "blank capture" from a genuine
+  // ScreenshotOne rate-limit (which is retryable): a blank means the host blocks
+  // datacenter capture, so after one retry it's sentinel'd out of the queue
+  // rather than retried forever. Deliberately does NOT say "limit" so it isn't
+  // mistaken for the rate-limit path.
+  if (bytes.byteLength < MIN_SCREENSHOT_BYTES) {
+    return {
+      publicUrl: null,
+      error: `blank capture (${bytes.byteLength}B < ${MIN_SCREENSHOT_BYTES}B) — host likely blocks datacenter screenshots`,
+    }
+  }
+
   const path = `${bookmarkId}.webp`
 
   const { error: uploadError } = await supabase.storage

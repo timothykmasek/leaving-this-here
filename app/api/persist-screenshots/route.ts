@@ -84,8 +84,15 @@ export async function POST(request: NextRequest) {
 
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
   const isRateLimit = (e: string | null) => !!e && /limit|429|too many/i.test(e)
-  // Only DNS-dead domains are permanent. Everything else (bot-blocks, timeouts,
-  // transient connect errors) is retryable — never freeze those as placeholders.
+  // A "blank capture" means the site returned a tiny placeholder/block page to
+  // ScreenshotOne's datacenter IP (see lib/screenshot.ts). Unlike a transient
+  // rate-limit, this won't fix itself on retry — server capture is permanently
+  // blocked for this host — so after one retry we sentinel it out of the queue.
+  const isBlank = (e: string | null) => !!e && /blank capture/i.test(e)
+  // DNS-dead domains and datacenter-blocked hosts are permanent: freeze them with
+  // the '' sentinel so they render the domain plate instead of retrying forever.
+  // Everything else (soft bot-blocks, timeouts, transient connect errors) stays
+  // retryable.
   const isPermanent = (e: string | null) => !!e && /not resolved|name_not_resolved|name not resolved/i.test(e)
 
   // Bounded concurrency: capture several rows at once to use the headroom under
@@ -124,8 +131,9 @@ export async function POST(request: NextRequest) {
       row.url,
     )
 
-    // One backoff retry if we tripped the per-minute rate limit.
-    if (!publicUrl && isRateLimit(capError)) {
+    // One backoff retry if we tripped the per-minute rate limit, or if the host
+    // handed back a blank/block page (it may have been a transient host 429).
+    if (!publicUrl && (isRateLimit(capError) || isBlank(capError))) {
       await sleep(8000)
       ;({ publicUrl, error: capError } = await captureAndStore(
         supabaseAdmin,
@@ -138,9 +146,12 @@ export async function POST(request: NextRequest) {
       failed++
       failures.push({ url: row.url, error: capError || 'unknown' })
       if (isRateLimit(capError)) rateLimited++
-      if (isPermanent(capError)) {
-        // Genuinely dead (DNS not resolved) — mark with an empty sentinel so it
-        // leaves the queue and renders the branded fallback.
+      if (isPermanent(capError) || isBlank(capError)) {
+        // Permanently uncapturable server-side (DNS-dead, or the host blocks the
+        // datacenter bot and only ever returns a blank page). Sentinel with '' so
+        // it leaves the queue and renders the domain plate — pickCardImage still
+        // falls back to the og:image if one exists. A later client-side capture
+        // (extension captureVisibleTab) can overwrite this with a real shot.
         await supabaseAdmin
           .from('bookmarks')
           .update({ screenshot_url: '' })
