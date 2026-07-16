@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import Image from 'next/image'
 import { pickCardImage } from '@/lib/cardImage'
 
@@ -31,8 +30,9 @@ interface BookmarkCardProps {
   // When set (owner view), clicking the card opens the bullet detail modal
   // instead of navigating to the original URL.
   onOpen?: (id: string) => void
-  // Lists this bullet belongs to. The first list becomes the card's tag, linking
-  // to its published page at /<ownerUsername>/<slug>.
+  // Lists this bullet belongs to / the owner's handle. Still accepted from the
+  // callers but no longer rendered — the card used to show the first list as a
+  // bottom tag; we dropped it so the card stays about the bullet itself.
   inLists?: { id: string; name: string; slug: string | null }[]
   ownerUsername?: string
 }
@@ -61,14 +61,13 @@ function Rivet({ className }: { className: string }) {
 }
 
 // Bulletin "Link card" — uniform 272×270 plate: #f1f1f1 panel w/ corner rivets,
-// inset rounded thumbnail, Cardo-bold title, bracketed list tag. Spec: Figma
-// node 695:840.
+// inset rounded thumbnail, Cardo-bold title. Spec: Figma node 695:840.
 //
-// Uses a stretched-link pattern: the whole card is one click target (modal for
-// owners, original URL for visitors), with the list tag layered above it as an
-// independent link — so no <a>-in-<a> nesting.
+// Uses a stretched-link pattern: the whole card is one click target (the
+// original URL), with the owner's edit button layered above it — so no
+// <a>-in-<a> / button-in-<a> nesting.
 export function BookmarkCard({
-  id, title, url, imageUrl, screenshotUrl, cardType, isOwner, onOpen, inLists, ownerUsername,
+  id, title, url, imageUrl, screenshotUrl, cardType, isOwner, onOpen,
 }: BookmarkCardProps) {
   const [imgError, setImgError] = useState(false)
 
@@ -76,17 +75,6 @@ export function BookmarkCard({
   const cleanTitle = getCleanTitle(title, url)
   const image = pickCardImage(url, imageUrl, screenshotUrl, cardType)
   const hasImage = !!image && !imgError
-  const first = (inLists || [])[0]
-
-  const tagInner = first && (
-    <>
-      <span aria-hidden className="shrink-0 text-black/40">[</span>
-      {/* min-w-0 + truncate lets a long list name ellipsis instead of forcing the
-          pill wide enough to collide with the corner rivets on narrow cards. */}
-      <span className="min-w-0 truncate">{first.name}</span>
-      <span aria-hidden className="shrink-0 text-black/40">]</span>
-    </>
-  )
 
   return (
     <div className="group relative aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]">
@@ -130,24 +118,6 @@ export function BookmarkCard({
         aria-label={cleanTitle}
         className="absolute inset-0 z-[1]"
       />
-
-      {/* list tag — bracketed pill, centered, bottom; layered above the click target */}
-      {first && (
-        <div className="absolute bottom-[5.5%] left-1/2 z-[2] flex max-w-[76%] -translate-x-1/2 justify-center sm:max-w-[88%]">
-          {first.slug && ownerUsername ? (
-            <Link
-              href={`/${ownerUsername}/${first.slug}`}
-              className="label inline-flex max-w-full items-center gap-[7px] rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink transition-colors hover:bg-black/[0.10]"
-            >
-              {tagInner}
-            </Link>
-          ) : (
-            <span className="label inline-flex max-w-full items-center gap-[7px] rounded-full bg-black/[0.06] px-[11px] py-[4px] text-ink">
-              {tagInner}
-            </span>
-          )}
-        </div>
-      )}
 
       {/* Hover affordance to open the detail/edit view — owners click the card to
           reach the original site, so this gives them a direct way into editing. */}
