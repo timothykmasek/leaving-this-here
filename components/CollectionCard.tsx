@@ -60,12 +60,23 @@ export function CollectionCard({
         </div>
       )}
 
-      {/* centered name + item count */}
-      <div className="absolute left-1/2 top-[71%] w-[76%] -translate-x-1/2 text-center">
-        <div className="label line-clamp-2 leading-[14px] text-ink">{name}</div>
-        <div className="label mt-[7px] text-black/40">
+      {/* name — matches the bullet card's title: Cardo serif, left-aligned to
+          the thumbnail, 2 lines. Keeps lists and bullets on one type system.
+          `capitalize` title-cases the display (list names are often typed
+          lowercase, e.g. "ai"/"technology") while leaving the stored name — the
+          source of the frozen slug — untouched. Already-uppercase words like an
+          acronym stay as-is (capitalize only touches each word's first letter). */}
+      <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-serif text-[12px] font-bold capitalize leading-[13px] text-ink">
+        {name}
+      </h3>
+
+      {/* item count — bracketed label font, centered near the bottom (the slot
+          the bullet card gives its [ list ] tag), so the count reads as a caption
+          rather than a second title. */}
+      <div className="absolute bottom-[5.5%] left-1/2 max-w-[88%] -translate-x-1/2">
+        <span className="label whitespace-nowrap text-black/40">
           [ {count} {count === 1 ? 'item' : 'items'}{isPrivate ? ' · private' : ''} ]
-        </div>
+        </span>
       </div>
     </>
   )
