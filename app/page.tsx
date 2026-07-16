@@ -132,18 +132,21 @@ export default async function Home({
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-black/[0.06] px-10 py-12">
+      <footer className="border-t border-black/[0.06] px-6 py-12 sm:px-10">
         <div className="mx-auto flex w-[1184px] max-w-full flex-col items-center gap-6 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/bulletin-logo.png" alt="Bulletin" className="h-[20px] w-auto opacity-80" />
             <span className="label text-black/35">© 2026</span>
           </div>
-          <nav className="flex items-center gap-8">
-            <a href="/login?mode=signup" className="label text-black/45 transition-colors hover:text-ink">Sign up</a>
-            <a href="/login" className="label text-black/45 transition-colors hover:text-ink">Sign in</a>
-            <a href="/privacy" className="label text-black/45 transition-colors hover:text-ink">Privacy</a>
-            <a href="https://chromewebstore.google.com/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc" target="_blank" rel="noopener noreferrer" className="label text-black/45 transition-colors hover:text-ink">Extension</a>
+          {/* flex-wrap + whitespace-nowrap so on a narrow screen the LINKS wrap as
+              whole units (centred), instead of each two-word link breaking
+              mid-label ("SIGN" / "UP"). */}
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2.5 sm:justify-end sm:gap-8">
+            <a href="/login?mode=signup" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Sign up</a>
+            <a href="/login" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Sign in</a>
+            <a href="/privacy" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Privacy</a>
+            <a href="https://chromewebstore.google.com/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc" target="_blank" rel="noopener noreferrer" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Extension</a>
           </nav>
         </div>
       </footer>
