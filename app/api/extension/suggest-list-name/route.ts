@@ -3,14 +3,19 @@ import { createClient } from '@supabase/supabase-js'
 
 // POST /api/extension/suggest-list-name
 //
-// Suggests a short, "why you saved it" name for a NEW list to drop a freshly
-// saved bullet into. Lists are about purpose/theme (a reason to collect), not the
+// Suggests short, "why you saved it" names for NEW lists to drop a freshly saved
+// bullet into. Lists are about purpose/theme (a reason to collect), not the
 // page's topic — so we steer Claude away from tag-like nouns ("technology",
 // "ai") and toward curatorial names ("Design Inspo", "Weekend Reads").
 //
+// Returns { names: string[] } — up to SUGGESTION_COUNT proposals, already
+// filtered against the lists the user owns (the toast renders those separately
+// under "Your Lists"; a suggestion that duplicates one is noise). `name` mirrors
+// names[0] for older callers.
+//
 // Called by the Chrome extension after a save, off the critical path: the toast
-// shows immediately and only paints the ghost-text suggestion if/when this
-// returns. Auth + CORS mirror the other extension routes (bearer token).
+// shows immediately and only paints the suggestions if/when this returns. Auth +
+// CORS mirror the other extension routes (bearer token).
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -18,6 +23,10 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'authorization, content-type',
   'Access-Control-Max-Age': '86400',
 }
+
+// How many proposals to ask for. The toast shows them as a "Suggested for this
+// page" group; more than three turns a quiet offer into a decision.
+const SUGGESTION_COUNT = 3
 
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: CORS_HEADERS })
@@ -72,9 +81,20 @@ export async function POST(request: NextRequest) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) {
-    // Not configured — degrade gracefully, the UI just won't show a suggestion.
-    return json({ name: null })
+    // Not configured — degrade gracefully, the UI just won't show suggestions.
+    return json({ names: [], name: null })
   }
+
+  // The user's own lists, so we can both steer Claude away from re-proposing
+  // them and hard-filter anything it proposes anyway. RLS scopes this to them.
+  const { data: ownLists } = await supabase
+    .from('lists')
+    .select('name')
+    .eq('user_id', user.id)
+  const ownNames = (ownLists || [])
+    .map((l: { name: string | null }) => (l.name || '').trim())
+    .filter(Boolean)
+  const ownSet = new Set(ownNames.map((n) => n.toLowerCase()))
 
   let host = ''
   try {
@@ -95,12 +115,18 @@ export async function POST(request: NextRequest) {
     `Inspo", "Weekend Reads", "Gift Ideas", "Recipes to Try") — NOT what the ` +
     `page is about. Avoid generic topic tags like "technology", "ai", or ` +
     `"design".\n\n` +
-    `Suggest ONE list name a person might file this saved link under:\n\n` +
+    `Suggest ${SUGGESTION_COUNT} different list names a person might file this ` +
+    `saved link under:\n\n` +
     `${context}\n\n` +
-    `Reply with only the list name: 1-3 words, Title Case, no quotes, no ` +
-    `punctuation, no explanation.`
+    (ownNames.length
+      ? `They already have these lists, so do NOT suggest these or close ` +
+        `variants of them — propose collections they don't have yet:\n` +
+        `${ownNames.map((n) => `- ${n}`).join('\n')}\n\n`
+      : '') +
+    `Reply with only the ${SUGGESTION_COUNT} names, one per line: each 1-3 ` +
+    `words, Title Case, no quotes, no numbering, no punctuation, no explanation.`
 
-  let name: string | null = null
+  let names: string[] = []
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -111,7 +137,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5',
-        max_tokens: 24,
+        max_tokens: 64,
         messages: [{ role: 'user', content: prompt }],
       }),
     })
@@ -119,19 +145,32 @@ export async function POST(request: NextRequest) {
       const data = await res.json()
       const raw = data?.content?.[0]?.text
       if (typeof raw === 'string') {
-        // Take the first line, strip stray quotes/punctuation, cap the length.
-        name = raw
+        const seen = new Set<string>()
+        names = raw
           .trim()
-          .split('\n')[0]
-          .replace(/^["'“”]+|["'“”.]+$/g, '')
-          .trim()
-          .slice(0, 40)
-        if (!name) name = null
+          .split('\n')
+          // Strip list markers ("1. ", "- "), stray quotes/punctuation, and cap
+          // the length — Haiku mostly complies, but not always.
+          .map((line) =>
+            line
+              .trim()
+              .replace(/^[-*\d.)\s]+/, '')
+              .replace(/^["'“”]+|["'“”.]+$/g, '')
+              .trim()
+              .slice(0, 40)
+          )
+          .filter((n) => {
+            const k = n.toLowerCase()
+            if (!n || ownSet.has(k) || seen.has(k)) return false
+            seen.add(k)
+            return true
+          })
+          .slice(0, SUGGESTION_COUNT)
       }
     }
   } catch {
-    // Suggestion is a nicety — never surface an error to the toast.
+    // Suggestions are a nicety — never surface an error to the toast.
   }
 
-  return json({ name })
+  return json({ names, name: names[0] || null })
 }

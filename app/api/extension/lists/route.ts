@@ -5,9 +5,14 @@ import { uniqueSlug } from '@/lib/slug'
 // Lists API for the Chrome extension.
 //
 //   GET  /api/extension/lists           → { lists: [{ id, name, slug }] }
+//     ?bookmark_id=… also returns { member_of: [listId] } — which of those lists
+//     already hold that bullet, so the toast can show its checkmarks on a
+//     re-save instead of claiming the bullet is filed nowhere.
 //   POST /api/extension/lists           → op-dispatched:
 //     { op: 'create', name, bookmark_id? } → mints a frozen slug, publishes the
-//          list, optionally adds the bullet. Returns { list, url }.
+//          list, optionally adds the bullet. Returns { list, url, existed }.
+//          Idempotent by name: creating a list the user already has returns that
+//          list (existed: true) instead of minting a same-name twin.
 //     { op: 'add',    list_id, bookmark_id } → add bullet to a list.
 //     { op: 'remove', list_id, bookmark_id } → remove bullet from a list.
 //
@@ -64,7 +69,21 @@ export async function GET(request: NextRequest) {
     .eq('user_id', a.userId)
     .order('created_at', { ascending: false })
   if (error) return json({ error: error.message }, 400)
-  return json({ lists: data || [] })
+  const lists = data || []
+
+  const bookmarkId = new URL(request.url).searchParams.get('bookmark_id')
+  if (!bookmarkId || lists.length === 0) return json({ lists, member_of: [] })
+
+  // Constrained to the caller's own list ids, so this can't be used to probe
+  // which of someone else's lists a bullet sits in.
+  const { data: mem, error: memErr } = await a.supabase
+    .from('list_bookmarks')
+    .select('list_id')
+    .eq('bookmark_id', bookmarkId)
+    .in('list_id', lists.map((l) => l.id))
+  if (memErr) return json({ error: memErr.message }, 400)
+
+  return json({ lists, member_of: (mem || []).map((m) => m.list_id) })
 }
 
 export async function POST(request: NextRequest) {
@@ -87,9 +106,27 @@ export async function POST(request: NextRequest) {
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) return json({ error: 'list name required' }, 400)
 
+    // Creating a list the user already has is a no-op on the list itself: reuse
+    // it and just file the bullet. Without this, "create Testing" twice mints
+    // `testing` AND `testing-2` — two lists with the same name, which is never
+    // what anyone means. The client dedupes too; this makes it true regardless
+    // of double-submits, races, or an older extension build.
+    //
+    // ilike treats % and _ as wildcards, so escape them — a list named "50%"
+    // must not match "50 off". limit(1) rather than maybeSingle() because
+    // accounts may already contain same-name pairs from before this guard.
+    const escaped = name.replace(/[\\%_]/g, '\\$&')
+    const { data: dupes } = await supabase
+      .from('lists')
+      .select('id, name, slug')
+      .eq('user_id', userId)
+      .ilike('name', escaped)
+      .limit(1)
+    let listRow: { id: string; name: string; slug: string } | null = dupes?.[0] || null
+    const existed = !!listRow
+
     // Mint a slug unique among this owner's lists, retrying once if a concurrent
     // create raced us to the same slug (the (user_id, slug) unique index).
-    let listRow: { id: string; name: string; slug: string } | null = null
     let lastErr: any = null
     for (let attempt = 0; attempt < 2 && !listRow; attempt++) {
       const { data: existing } = await supabase
@@ -127,7 +164,7 @@ export async function POST(request: NextRequest) {
     const origin = new URL(request.url).origin
     const url = prof?.username ? `${origin}/${prof.username}/${listRow.slug}` : null
 
-    return json({ ok: true, list: listRow, url })
+    return json({ ok: true, list: listRow, url, existed })
   }
 
   // ── add / remove a bullet from an existing list ───────────────────────
