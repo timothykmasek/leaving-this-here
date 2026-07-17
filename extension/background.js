@@ -17,7 +17,7 @@ import {
   getLists,
   createList,
   setListMembership,
-  suggestListName,
+  suggestListNames,
 } from './auth.js'
 import { CONFIG } from './config.js'
 
@@ -283,8 +283,8 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true // keep the channel open for the async response
   }
   if (msg?.type === 'ig-get-lists') {
-    getLists()
-      .then((r) => sendResponse({ ok: true, lists: r.lists || [] }))
+    getLists(msg.bookmarkId)
+      .then((r) => sendResponse({ ok: true, lists: r.lists || [], memberOf: r.member_of || [] }))
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }
@@ -300,9 +300,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }
-  if (msg?.type === 'ig-suggest-name') {
-    suggestListName(msg.bookmarkId)
-      .then((r) => sendResponse({ ok: true, name: (r && r.name) || null }))
+  if (msg?.type === 'ig-suggest-lists') {
+    suggestListNames(msg.bookmarkId)
+      .then((r) => sendResponse({ ok: true, names: (r && r.names) || [] }))
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }

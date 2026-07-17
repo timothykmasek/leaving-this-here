@@ -34,9 +34,10 @@ No build step — it's plain JS/HTML loaded as an unpacked extension.
 ### Endpoints it calls
 - `POST /api/extension/save` — enrich + insert (metadata → embed).
 - `GET/POST /api/extension/lists` — fetch the user's lists; create + publish a
-  new one and/or add/remove a bullet (from the toast's "Add to a list" row).
-- `POST /api/extension/suggest-list-name` — Haiku "why you saved it" list-name
-  suggestion for a freshly saved bullet.
+  new one and/or add/remove a bullet (from the toast's list card).
+- `POST /api/extension/suggest-list-name` — Haiku "why you saved it" names for
+  new lists to file a freshly saved bullet under, filtered against the lists the
+  user already has. Powers the toast's "Suggested for this page" group.
 - `GET /api/extension/finds` — the user's most recent bullets (new-tab page).
 
 All are bearer-authenticated with the Supabase access token and RLS-scoped.

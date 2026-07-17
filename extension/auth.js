@@ -231,8 +231,11 @@ export async function saveGem(payload) {
 
 // ── Lists ───────────────────────────────────────────────────────────
 // The signed-in user's lists: [{ id, name, slug }].
-export async function getLists() {
-  return apiGet('/api/extension/lists')
+// The user's lists. Pass a bookmarkId to also get `member_of` — the ids of the
+// lists that already hold it (only meaningful for a bullet saved earlier).
+export async function getLists(bookmarkId) {
+  const qs = bookmarkId ? `?bookmark_id=${encodeURIComponent(bookmarkId)}` : ''
+  return apiGet(`/api/extension/lists${qs}`)
 }
 
 // Create a new (published) list and optionally add a gem to it. Returns
@@ -257,8 +260,9 @@ export async function getFinds(limit = 40) {
   return apiGet(`/api/extension/finds?limit=${limit}`)
 }
 
-// Ask the backend for a "why you saved it" list-name suggestion for a gem.
-// Returns { name } (or { name: null } if nothing sensible could be generated).
-export async function suggestListName(bookmarkId) {
+// Ask the backend for "why you saved it" names for NEW lists to file a gem
+// under. Returns { names } — already filtered against the user's own lists, and
+// empty if nothing sensible could be generated.
+export async function suggestListNames(bookmarkId) {
   return apiPost('/api/extension/suggest-list-name', { bookmark_id: bookmarkId })
 }
