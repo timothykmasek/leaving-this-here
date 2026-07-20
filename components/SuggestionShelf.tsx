@@ -203,19 +203,20 @@ export function SuggestionShelf({
         const s = pending[0]
         const title = formatCardTitle({ title: s.title, description: s.description, url: s.url, siteName: null })
         return (
-          <div className="mt-[14px] flex items-center gap-4 rounded-[12px] border border-[#eeede9] bg-white p-[14px]">
-            <Thumb s={s} className="aspect-[16/10] w-[132px] flex-none" />
+          <div className="mt-[14px] flex items-center gap-3 rounded-[12px] border border-[#eeede9] bg-white p-[14px] sm:gap-4">
+            {/* thumb shrinks on phones so the title keeps room; full size ≥sm */}
+            <Thumb s={s} className="aspect-[16/10] w-[92px] flex-none sm:w-[132px]" />
             <div className="min-w-0 flex-1">
               <div className="label text-[10px]" style={{ color: '#bcbab3' }}>
                 {getDomain(s.url)} · Last one
               </div>
-              <div className="mt-[3px] font-serif text-[18px] font-semibold leading-[1.15] text-ink">
+              <div className="mt-[3px] font-serif text-[16px] font-semibold leading-[1.15] text-ink sm:text-[18px]">
                 {title}
               </div>
             </div>
             <button
               onClick={() => handleAdd(s)}
-              className="flex-none rounded-[22px] px-[18px] py-[9px] text-white transition-[filter] hover:brightness-110"
+              className="flex-none rounded-[22px] px-[14px] py-[9px] text-white transition-[filter] hover:brightness-110 sm:px-[18px]"
               style={{ background: ACCENT }}
             >
               <span className="label text-[11px] text-white">+ Add</span>
