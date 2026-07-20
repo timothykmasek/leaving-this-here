@@ -47,6 +47,24 @@ function normalize(v: Vec): Vec {
   return v.map((x) => x / n)
 }
 
+function dot(a: Vec, b: Vec): number {
+  let s = 0
+  const n = Math.min(a.length, b.length)
+  for (let i = 0; i < n; i++) s += a[i] * b[i]
+  return s
+}
+
+// Cosine similarity. `target` is already unit-norm, but divide by |b| so raw
+// candidate embeddings compare fairly. Mismatched/empty vectors → 0 (skipped).
+function cosine(a: Vec, b: Vec): number {
+  if (!a.length || !b.length) return 0
+  let nb = 0
+  for (const x of b) nb += x * x
+  nb = Math.sqrt(nb)
+  if (nb === 0) return 0
+  return dot(a, b) / nb / (Math.sqrt(dot(a, a)) || 1)
+}
+
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, n))
 
@@ -95,6 +113,9 @@ export async function GET(
       return NextResponse.json({ error: memErr.message }, { status: 500 })
     }
 
+    const memberIds = new Set(
+      (members || []).map((m: any) => m.bookmarks?.id).filter(Boolean) as string[]
+    )
     const memberVecs: Vec[] = (members || [])
       .map((m: any) => parseVec(m.bookmarks?.embedding))
       .filter((v: Vec | null): v is Vec => !!v && v.length > 0)
@@ -140,23 +161,41 @@ export async function GET(
     }
     target = normalize(target)
 
-    // pgvector wants a string literal (raw JS arrays can silently no-op).
-    const literal = `[${target.join(',')}]`
-
-    const { data, error } = await supabase.rpc('match_bookmarks_for_list', {
-      query_embedding: literal as any,
-      target_user_id: user.id,
-      exclude_list_id: listId,
-      include_private: true,
-      match_threshold: threshold,
-      match_count: limit,
-    })
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    // Candidate pool: the owner's OTHER embedded bookmarks. We rank in JS rather
+    // than via a DB function so the feature ships on a plain deploy — no
+    // migration/RPC to run against Supabase. Fine at current scale (a library is
+    // ~hundreds–low thousands of vectors); if libraries get huge this is the spot
+    // to promote to an indexed pgvector RPC. Paginate — PostgREST caps at 1000/req.
+    const CARD_COLS =
+      'id, url, title, description, image_url, screenshot_url, favicon_url, card_type, is_private, embedding'
+    let pool: any[] = []
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await supabase
+        .from('bookmarks')
+        .select(CARD_COLS)
+        .eq('user_id', user.id)
+        .not('embedding', 'is', null)
+        .range(from, from + 999)
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      pool = pool.concat(data || [])
+      if (!data || data.length < 1000) break
     }
 
+    const suggestions = pool
+      .filter((b) => !memberIds.has(b.id)) // never re-suggest what's already filed
+      .map((b) => ({ b, similarity: cosine(target, parseVec(b.embedding) || []) }))
+      .filter((x) => x.similarity > threshold)
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, limit)
+      .map(({ b, similarity }) => {
+        const { embedding, ...card } = b // don't ship the raw vector to the client
+        return { ...card, similarity }
+      })
+
     return NextResponse.json({
-      suggestions: data || [],
+      suggestions,
       meta: {
         seed_count: memberVecs.length,
         used_name: !!nameVec,
