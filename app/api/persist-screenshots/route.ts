@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
   )
 
   const body = await request.json().catch(() => ({}))
-  const { limit = 8, offset = 0, id = null } = body
+  const { limit = 8, offset = 0, id = null, ids = null, force = false } = body
 
   try {
     await ensureBucket(supabaseAdmin)
@@ -63,6 +63,10 @@ export async function POST(request: NextRequest) {
 
   if (id) {
     query = query.eq('id', id)
+  } else if (ids && Array.isArray(ids) && ids.length) {
+    // Targeted re-capture: an explicit list of ids (used with force to fix a
+    // known-bad cohort). Bounded so a stray huge array can't blow the batch.
+    query = query.in('id', ids.slice(0, 100))
   } else {
     // Drain-based: only rows that still need a persisted screenshot (null, or a
     // live screenshotone URL). Persisted rows point at Supabase Storage and
@@ -108,7 +112,12 @@ export async function POST(request: NextRequest) {
   const failures: Array<{ url: string; error: string }> = []
 
   const processRow = async (row: any) => {
-    if (isPersistedScreenshot(row.screenshot_url)) {
+    // Normally a row that already points at a persisted Storage copy is done and
+    // skipped. `force` is the deliberate re-capture path: it overwrites even a
+    // good-looking persisted shot (used to fix stale/bad-crop captures, which
+    // byte-size can't detect) and captures `fresh` so ScreenshotOne re-renders
+    // instead of serving its cached copy.
+    if (!force && isPersistedScreenshot(row.screenshot_url)) {
       skipped++
       return
     }
@@ -129,6 +138,7 @@ export async function POST(request: NextRequest) {
       supabaseAdmin,
       row.id,
       row.url,
+      { fresh: force },
     )
 
     // One backoff retry if we tripped the per-minute rate limit, or if the host
@@ -139,6 +149,7 @@ export async function POST(request: NextRequest) {
         supabaseAdmin,
         row.id,
         row.url,
+        { fresh: force },
       ))
     }
 
@@ -198,7 +209,8 @@ export async function POST(request: NextRequest) {
     marked,
     failures: failures.slice(0, 10),
     // Drain-based: more work remains as long as this batch still found
-    // unpersisted rows. The runner stops on sustained zero progress.
-    hasMore: !id && rows.length > 0,
+    // unpersisted rows. The runner stops on sustained zero progress. Targeted
+    // modes (id / ids) are one-shot — never report more.
+    hasMore: !id && !ids && rows.length > 0,
   })
 }

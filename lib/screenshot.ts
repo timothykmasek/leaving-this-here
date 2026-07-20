@@ -29,8 +29,13 @@ const MIN_SCREENSHOT_BYTES = 8000
 /**
  * Build a screenshotone capture URL. Reads the access key from the
  * SCREENSHOTONE_ACCESS_KEY env var — never hardcode it.
+ *
+ * `fresh: true` forces `cache: false` so ScreenshotOne re-renders the page
+ * instead of serving its 30-day-cached copy. Required for deliberate
+ * re-captures (fixing a stale/bad-crop shot) — with the default `cache: true`,
+ * a re-capture within the TTL would just hand back the same stale image.
  */
-export function screenshotApiUrl(url: string): string {
+export function screenshotApiUrl(url: string, opts: { fresh?: boolean } = {}): string {
   const key = process.env.SCREENSHOTONE_ACCESS_KEY
   if (!key) throw new Error('SCREENSHOTONE_ACCESS_KEY is not set')
   const params = new URLSearchParams({
@@ -43,8 +48,14 @@ export function screenshotApiUrl(url: string): string {
     block_ads: 'true',
     block_cookie_banners: 'true',
     block_chats: 'true',
+    // Freeze animations/carousels so we never capture a mid-transition frame,
+    // and wait for the network to settle so lazy-loaded hero images have
+    // painted before the shot — both raise capture reliability on heavy
+    // marketing sites (the class that was cropping wrong).
+    reduced_motion: 'true',
+    wait_until: 'networkidle2',
     delay: '2',
-    cache: 'true',
+    cache: opts.fresh ? 'false' : 'true',
     cache_ttl: '2592000',
     // Many live sites bot-block or return non-2xx to the crawler but still
     // render fine — capture them anyway instead of failing.
@@ -108,12 +119,13 @@ export async function captureAndStore(
   supabase: SupabaseClient,
   bookmarkId: string,
   url: string,
+  opts: { fresh?: boolean } = {},
 ): Promise<CaptureResult> {
   let res: Response
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 60000)
-    res = await fetch(screenshotApiUrl(url), { signal: controller.signal })
+    res = await fetch(screenshotApiUrl(url, opts), { signal: controller.signal })
     clearTimeout(timeout)
   } catch (err) {
     return { publicUrl: null, error: `fetch failed: ${String(err)}` }
