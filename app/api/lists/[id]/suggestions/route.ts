@@ -77,10 +77,14 @@ export async function GET(
     const url = new URL(req.url)
     const threshold = clamp(Number(url.searchParams.get('threshold')) || 0.55, 0, 1)
     const limit = clamp(Math.trunc(Number(url.searchParams.get('limit')) || 6), 1, 24)
+    // Default 0: rank on the list's existing bullets only, no per-load Voyage
+    // call for the name embedding — noticeably faster, and for a list with a few
+    // bullets the results are ~identical. Pass ?nameWeight=0.3 to re-enable the
+    // name blend (helps thin/empty lists cold-start, at the cost of a round-trip).
     const nameWeight = clamp(
       url.searchParams.get('nameWeight') !== null
         ? Number(url.searchParams.get('nameWeight'))
-        : 0.3,
+        : 0,
       0,
       1
     )
