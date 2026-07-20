@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
 import { BulletDetail } from '@/components/BulletDetail'
+import { SuggestionShelf, type Suggestion } from '@/components/SuggestionShelf'
 import { uniqueSlug } from '@/lib/slug'
 
 // Owner-editing island for a list at /username/<slug>. Visitors get the plain
@@ -121,6 +122,37 @@ export function ListDetailClient({
     if (listId === list.id && !add) {
       setMemberIds((prev) => prev.filter((x) => x !== bookmarkId))
     }
+  }
+
+  // Ambient shelf: file a suggested bullet into THIS list. Reuses the same
+  // list_bookmarks insert as manual filing, then drops it into the grid + count
+  // so the page reflects the add without a reload.
+  const handleAddSuggestion = async (s: Suggestion) => {
+    const { error } = await supabase
+      .from('list_bookmarks')
+      .insert({ list_id: list.id, bookmark_id: s.id })
+    // 23505 = already a member (raced/dupe) — treat as success, not a failure.
+    if (error && error.code !== '23505') throw error
+
+    bulletsById.set(s.id, {
+      id: s.id,
+      title: s.title,
+      description: s.description,
+      url: s.url,
+      image_url: s.image_url,
+      screenshot_url: s.screenshot_url,
+      favicon_url: s.favicon_url,
+      note: null,
+      card_type: s.card_type,
+    })
+    setMemberIds((prev) => (prev.includes(s.id) ? prev : [s.id, ...prev]))
+    setLists((prev) =>
+      prev.map((l) =>
+        l.id === list.id && !l.bookmark_ids.includes(s.id)
+          ? { ...l, bookmark_ids: [...l.bookmark_ids, s.id] }
+          : l
+      )
+    )
   }
 
   const handleCreateList = async (name: string, bookmarkIds: string[] = []) => {
@@ -348,6 +380,10 @@ export function ListDetailClient({
           </p>
         </div>
       )}
+
+      {/* Ambient shelf — suggests other saved links that fit this list. Renders
+          nothing until it has confident suggestions, so it's fully ignorable. */}
+      <SuggestionShelf listId={list.id} onAdd={handleAddSuggestion} />
 
       {selectedId && (() => {
         const bullet = bulletsById.get(selectedId)
