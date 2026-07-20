@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { pickCardImage } from '@/lib/cardImage'
+import { formatCardTitle } from '@/lib/cardTitle'
 
 interface BookmarkCardProps {
   id: string
@@ -45,16 +46,6 @@ function getDomain(url: string): string {
   }
 }
 
-function getCleanTitle(title: string | null, url: string): string {
-  const domain = getDomain(url)
-  if (!title) return domain
-  const cleaned = title.trim()
-  if (!cleaned) return domain
-  if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) return domain
-  if (['home', 'landing', 'index'].includes(cleaned.toLowerCase())) return domain
-  return cleaned
-}
-
 // Corner rivet (the bulletin-board "pin" dots) — ~8px, inset ~7.4%.
 function Rivet({ className }: { className: string }) {
   return <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-[#d9d9d9] ${className}`} />
@@ -67,12 +58,17 @@ function Rivet({ className }: { className: string }) {
 // original URL), with the owner's edit button layered above it — so no
 // <a>-in-<a> / button-in-<a> nesting.
 export function BookmarkCard({
-  id, title, url, imageUrl, screenshotUrl, cardType, isOwner, onOpen,
+  id, title, description, url, imageUrl, screenshotUrl, rawMetadata, cardType, isOwner, onOpen,
 }: BookmarkCardProps) {
   const [imgError, setImgError] = useState(false)
 
   const domain = getDomain(url)
-  const cleanTitle = getCleanTitle(title, url)
+  const cleanTitle = formatCardTitle({
+    title,
+    description,
+    url,
+    siteName: rawMetadata?.og?.site_name ?? null,
+  })
   const image = pickCardImage(url, imageUrl, screenshotUrl, cardType)
   const hasImage = !!image && !imgError
 
