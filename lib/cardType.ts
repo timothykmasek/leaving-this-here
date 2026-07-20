@@ -48,10 +48,13 @@ const ARTICLE_URL_SIGNALS = [
 ]
 
 /** True if a URL strongly looks like a logo / wordmark / brand asset. */
-function looksLikeLogoUrl(urlStr: string | null | undefined): boolean {
+export function looksLikeLogoUrl(urlStr: string | null | undefined): boolean {
   if (!urlStr) return false
   const lower = urlStr.toLowerCase()
-  if (/\b(logo|favicon|brandmark|wordmark|sprite|symbol|emblem)\b/.test(lower)) return true
+  // Match the keyword when flanked by anything that isn't an alphanumeric —
+  // `_`, `-`, `/`, `.` all count as separators. Plain `\b` fails here because
+  // `_` is a word char, so `\bwordmark\b` misses `mistergreen_wordmark_logo.png`.
+  if (/(?<![a-z0-9])(logo|favicon|brandmark|wordmark|sprite|symbol|emblem)(?![a-z0-9])/.test(lower)) return true
   if (/\/(icons?|logos?|brand|brandmarks)\//.test(lower)) return true
   return false
 }

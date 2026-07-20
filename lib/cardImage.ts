@@ -5,6 +5,8 @@
 // IS the content (video thumbnail, episode art, tweet media) — a screenshot of
 // a watch/player page (chrome, sidebars, consent walls) is strictly worse.
 
+import { looksLikeLogoUrl } from '@/lib/cardType'
+
 const OG_FIRST_DOMAINS = [
   'youtube.com',
   'youtu.be',
@@ -59,8 +61,17 @@ export function pickCardImage(
   screenshotUrl: string | null | undefined,
   cardType?: string | null,
 ): string | null {
-  const og = imageUrl || null
   const ss = screenshotUrl || null
+  // A bare logo/wordmark og:image renders as garbage when cropped to fill the
+  // card (a zoomed-in slice of the mark). It's never the right choice when a
+  // screenshot exists — so drop it here, before any card-type routing. This
+  // catches rows classified before logo detection landed in classifyCardType,
+  // deterministically at render time (no backfill needed). Content platforms
+  // (prefersOgImage) are exempt: their "logo" is often the actual thumbnail.
+  const og =
+    imageUrl && ss && looksLikeLogoUrl(imageUrl) && !prefersOgImage(url)
+      ? null
+      : imageUrl || null
   if (cardType) {
     if (OG_FIRST_CARD_TYPES.has(cardType)) return og || ss
     if (SCREENSHOT_FIRST_CARD_TYPES.has(cardType)) return ss || og
