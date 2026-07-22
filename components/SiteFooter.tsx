@@ -39,6 +39,7 @@ export const SiteFooter = forwardRef<
       >
         <span className="label text-black/35">© 2026</span>
         <nav className="flex items-center gap-8">
+          <a href="/import" className="label text-black/45 transition-colors hover:text-ink">Import</a>
           <a href="/privacy" className="label text-black/45 transition-colors hover:text-ink">Privacy</a>
           <a
             href="https://chromewebstore.google.com/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc"
