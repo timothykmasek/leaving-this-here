@@ -69,6 +69,12 @@ export default function ProfileClient({
   // Debounce timer for the search — one request per pause, not per keystroke
   // (the embedding API is rate-limited, so per-keystroke calls 429 instantly).
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Floating search pill: hides itself the moment the footer scrolls into view so
+  // it's never stranded *below* the footer. The content min-height pushes the
+  // footer past the fold on load (so a sparse page shows the pill, not the
+  // footer); this observer handles the scrolled-to-bottom case.
+  const footerRef = useRef<HTMLElement | null>(null)
+  const [footerInView, setFooterInView] = useState(false)
   const [newListName, setNewListName] = useState('')
   const [creatingList, setCreatingList] = useState(false)
   // List-detail rename + share affordances.
@@ -88,6 +94,19 @@ export default function ProfileClient({
 
   // Leaving / switching a list closes any in-progress rename.
   useEffect(() => { setRenaming(false) }, [activeListId])
+
+  // Hide the floating search pill whenever the footer is on screen, so the two
+  // never overlap. Only relevant for the owner (the pill + footer are both
+  // owner-only), and the ref is attached to the footer below.
+  useEffect(() => {
+    const el = footerRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([entry]) => setFooterInView(entry.isIntersecting),
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [isOwner])
 
   // Background full-load: the server only SSRs the newest page of bullets for a
   // fast first paint. Once hydrated, pull the complete set so search and list
@@ -416,7 +435,7 @@ export default function ProfileClient({
       />
       {/* width = exactly a 4-col grid (4×272 + 3×24 gap = 1160) + px-6, so the
           strip's right edge (tabs) lines up with the rightmost card column. */}
-      <div className="mx-auto max-w-[1208px] px-4 pb-28 pt-6 sm:px-6 sm:pt-16">
+      <div className="mx-auto min-h-screen max-w-[1208px] px-4 pb-28 pt-6 sm:px-6 sm:pt-16">
         {isOwner && <WelcomeBanner />}
 
         {/* Hero — bracket strip + view tabs. `group` enables hover-reveal edit. */}
@@ -494,7 +513,7 @@ export default function ProfileClient({
                   type="text"
                   value={editBio}
                   onChange={(e) => setEditBio(e.target.value)}
-                  placeholder="a short line about you"
+                  placeholder="Tools, essays, and rabbit holes for people who make things."
                   maxLength={160}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
                 />
@@ -626,7 +645,11 @@ export default function ProfileClient({
             a serif "Search your links" placeholder, sitting bottom-centre over the
             grid. Input font stays 16px so iOS Safari doesn't auto-zoom on focus. */}
         {isOwner && !activeList && !selectedId && (
-          <div className="fixed bottom-8 left-1/2 z-40 w-[340px] max-w-[86vw] -translate-x-1/2">
+          <div
+            className={`fixed bottom-8 left-1/2 z-40 w-[340px] max-w-[86vw] -translate-x-1/2 transition-all duration-300 ${
+              footerInView ? 'pointer-events-none translate-y-3 opacity-0' : 'translate-y-0 opacity-100'
+            }`}
+          >
             <div className="group flex items-center gap-2.5 rounded-full bg-white px-5 py-3 ring-1 ring-black/[0.04] shadow-[0_12px_36px_-12px_rgba(35,30,20,0.35),0_3px_10px_-6px_rgba(35,30,20,0.22)] transition-shadow focus-within:shadow-[0_16px_44px_-12px_rgba(35,30,20,0.42),0_4px_12px_-6px_rgba(35,30,20,0.26)]">
               {/* magnifier — thin, greys up on focus */}
               <svg
@@ -931,7 +954,7 @@ export default function ProfileClient({
           (mirrors the homepage footer) now that the "+ Save a bullet" nudge
           disappears once it's installed. */}
       {isOwner && (
-        <footer className="border-t border-black/[0.06] px-6 py-10">
+        <footer ref={footerRef} className="border-t border-black/[0.06] px-6 py-10">
           <div className="mx-auto flex max-w-[1208px] flex-col items-center gap-4 sm:flex-row sm:justify-between">
             <span className="label text-black/35">© 2026</span>
             <nav className="flex items-center gap-8">
