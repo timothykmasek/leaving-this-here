@@ -108,6 +108,31 @@ function shortDescriptor(description: string | null | undefined, brand: string |
   return d.charAt(0).toUpperCase() + d.slice(1)
 }
 
+// Browser-tab notification badges leak into extension-captured titles —
+// "(9+) Instagram", "(2) WhatsApp". That's tab state, not the page title.
+const TAB_BADGE = /^\(\d+\+?\)\s*/
+
+// Instagram's metadata is junk for profile pages: the title is just
+// "Instagram" (plus a tab badge), and the description is either login-wall
+// copy or a follower-stats dump. The good part — the account — hides inside
+// that stats string ("… from NATURE TALKS (@handle)") or in the URL path.
+// Rebuild `Instagram — <account>` from those instead.
+const IG_PATH_NOT_A_HANDLE = new Set([
+  'p', 'reel', 'reels', 'stories', 'explore', 'accounts', 'direct', 'tv',
+])
+function instagramTitle(url: string, description?: string | null): string | null {
+  if (getDomain(url) !== 'instagram.com') return null
+  const m = (description || '').match(/from (.{1,40}?) \(@[\w.]+\)/)
+  if (m) return `Instagram — ${m[1]}`
+  try {
+    const seg = new URL(url).pathname.split('/').filter(Boolean)[0]
+    if (seg && !IG_PATH_NOT_A_HANDLE.has(seg.toLowerCase())) {
+      return `Instagram — @${seg}`
+    }
+  } catch {}
+  return null
+}
+
 export interface CardTitleInput {
   title?: string | null
   description?: string | null
@@ -120,11 +145,14 @@ export interface CardTitleInput {
  * Falls back to the domain when there's no usable title or brand.
  */
 export function formatCardTitle({ title, description, url, siteName }: CardTitleInput): string {
+  const ig = instagramTitle(url, description)
+  if (ig) return ig
+
   const domain = getDomain(url)
   const domainBrand = brandFromUrl(url)
   const brand = cleanSiteName(siteName) || domainBrand
 
-  const raw = (title || '').trim()
+  const raw = (title || '').trim().replace(TAB_BADGE, '')
   if (!raw || /^https?:\/\//i.test(raw) || GENERIC.has(raw.toLowerCase())) {
     return brand || domain
   }
