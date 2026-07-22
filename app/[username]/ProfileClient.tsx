@@ -199,7 +199,13 @@ export default function ProfileClient({
       if (ids.length === 0) return
       const byId = new Map(bookmarks.map((b) => [b.id, b]))
       const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as any[]
-      if (ordered.length > 0) setFiltered(ordered)
+      if (ordered.length === 0) return
+      // Union, not replace: semantic ranking on top, then any token-filter hits
+      // it missed. A card whose title literally contains the query must never
+      // vanish just because its embedding is null or under the RPC threshold.
+      const seen = new Set(ordered.map((b) => b.id))
+      const tokenHits = tokenSearch(query).filter((b) => !seen.has(b.id))
+      setFiltered([...ordered, ...tokenHits])
     } catch {
       // keep the instant token results already on screen
     }
