@@ -36,6 +36,9 @@ export function prefersOgImage(url: string): boolean {
 // hero, social OG, repo social-card) → the og:image beats a screenshot.
 const OG_FIRST_CARD_TYPES = new Set([
   'product', 'book', 'article', 'composite', 'fullbleed',
+  // tweet: the captured media image IS the content; screenshot of the page
+  // (chrome, replies, login nags) is strictly worse.
+  'tweet',
 ])
 // These are landing pages / profiles / no-good-image → a screenshot (the
 // "window onto the site") beats the og:image (usually a bare logo).

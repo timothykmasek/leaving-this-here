@@ -16,6 +16,7 @@ export type CardType =
   | 'product'
   | 'article'
   | 'book'
+  | 'tweet'
   | 'lth'
 
 const SOCIAL_PROFILE_DOMAINS = [
@@ -86,6 +87,17 @@ export function classifyCardType(url: string, meta: MetadataResult): CardType {
     // ── Products — schema.org/Product (price now optional) ───────────
     if (meta.product && meta.product.name) {
       return 'product'
+    }
+
+    // ── Tweets — a single status is content, not a profile. No tweet
+    // layout exists yet (renders as the generic plate); the type is set at
+    // save time so the data is ready when the per-type card ships. ─────
+    if (
+      (hostname === 'x.com' || hostname === 'twitter.com' ||
+        hostname.endsWith('.x.com') || hostname.endsWith('.twitter.com')) &&
+      /\/status\/\d+/.test(pathname)
+    ) {
+      return 'tweet'
     }
 
     // ── Social profiles ──────────────────────────────────────────────

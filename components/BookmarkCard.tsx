@@ -24,6 +24,7 @@ interface BookmarkCardProps {
     | 'product'
     | 'article'
     | 'book'
+    | 'tweet'
     | 'lth'
     | null
   onDelete?: (id: string) => void

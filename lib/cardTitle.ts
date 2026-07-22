@@ -151,6 +151,17 @@ function instagramTitle(url: string, title?: string | null, description?: string
   return null
 }
 
+// X/Twitter machine titles arrive as "NAME (@handle) on X" (our extension
+// capture) or `NAME on X: "…"` (their og). Lead with the platform like every
+// other card: `X — NAME (@handle)`. Anything else is a hand-edit → generic path.
+function xTitle(url: string, title?: string | null): string | null {
+  const d = getDomain(url)
+  if (d !== 'x.com' && d !== 'twitter.com') return null
+  const raw = (title || '').replace(TAB_BADGE, '').trim()
+  const m = raw.match(/^(.{1,60}?) on (?:X|Twitter)(?::.*)?$/)
+  return m ? `X — ${m[1]}` : null
+}
+
 export interface CardTitleInput {
   title?: string | null
   description?: string | null
@@ -165,6 +176,8 @@ export interface CardTitleInput {
 export function formatCardTitle({ title, description, url, siteName }: CardTitleInput): string {
   const ig = instagramTitle(url, title, description)
   if (ig) return ig
+  const xt = xTitle(url, title)
+  if (xt) return xt
 
   const domain = getDomain(url)
   const domainBrand = brandFromUrl(url)

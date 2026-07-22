@@ -214,6 +214,36 @@ async function readPageMeta(tabId) {
           if (avatar) meta.image = avatar
         }
 
+        // Per-site: X/Twitter status pages. og is login-walled junk, but the
+        // tweet is right there in the rendered DOM. Match the <article> whose
+        // timestamp link points at THIS status id — never a thread parent or a
+        // reply. Captured text becomes the description (search + embeddings +
+        // the future tweet card layout all ride on it).
+        const xStatus =
+          /(^|\.)(x|twitter)\.com$/.test(location.hostname) &&
+          location.pathname.match(/^\/([^/]+)\/status\/(\d+)/)
+        if (xStatus) {
+          const statusId = xStatus[2]
+          const articles = [...document.querySelectorAll('article')]
+          const art =
+            articles.find((a) => a.querySelector(`a[href*="/status/${statusId}"] time`)) ||
+            articles[0]
+          if (art) {
+            const text = art.querySelector('[data-testid="tweetText"]')?.innerText?.trim() || null
+            // User-Name block reads "Roy\n@im_roy_lee\n·\n1h" — name first,
+            // handle is the @-prefixed line (URL segment as fallback).
+            const lines = (art.querySelector('[data-testid="User-Name"]')?.innerText || '')
+              .split('\n').map((s) => s.trim()).filter(Boolean)
+            const name = lines[0] || null
+            const handle = lines.find((l) => l.startsWith('@')) || `@${xStatus[1]}`
+            const media = art.querySelector('[data-testid="tweetPhoto"] img')?.src || null
+            if (text) meta.description = text
+            if (name) meta.title = `${name} (${handle}) on X`
+            if (media) meta.image = media
+            meta.siteName = 'X'
+          }
+        }
+
         // Last-resort title: the tab title, minus any "(9+)" notification badge.
         if (!meta.title) meta.title = (document.title || '').replace(/^\(\d+\+?\)\s*/, '').trim() || null
 
