@@ -12,6 +12,7 @@ import { BulletDetail } from '@/components/BulletDetail'
 import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
+import { SiteFooter } from '@/components/SiteFooter'
 import { uniqueSlug } from '@/lib/slug'
 
 // Hybrid: the server component ([username]/page.tsx) fetches profile + bullets +
@@ -954,22 +955,7 @@ export default function ProfileClient({
           (mirrors the homepage footer) now that the "+ Save a bullet" nudge
           disappears once it's installed. */}
       {isOwner && (
-        <footer ref={footerRef} className="border-t border-black/[0.06] px-6 py-10">
-          <div className="mx-auto flex max-w-[1208px] flex-col items-center gap-4 sm:flex-row sm:justify-between">
-            <span className="label text-black/35">© 2026</span>
-            <nav className="flex items-center gap-8">
-              <a href="/privacy" className="label text-black/45 transition-colors hover:text-ink">Privacy</a>
-              <a
-                href="https://chromewebstore.google.com/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="label text-black/45 transition-colors hover:text-ink"
-              >
-                {extInstalled === true ? 'Extension' : 'Get the extension'}
-              </a>
-            </nav>
-          </div>
-        </footer>
+        <SiteFooter ref={footerRef} />
       )}
     </main>
   )

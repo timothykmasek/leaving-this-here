@@ -4,6 +4,7 @@ import { BookmarkCard } from '@/components/BookmarkCard'
 import { PublicHeader } from '@/components/PublicHeader'
 import { ProfileIdentity } from '@/components/ProfileIdentity'
 import { ListDetailClient } from './ListDetailClient'
+import { SiteFooter } from '@/components/SiteFooter'
 
 // Public, shareable page for a single list at /username/<slug>. Read-only —
 // owners manage membership and rename from their profile. RLS hides private
@@ -112,6 +113,7 @@ export default async function ListPage({
             initialLists={shapedLists}
           />
         </div>
+        <SiteFooter />
       </main>
     )
   }
@@ -172,6 +174,7 @@ export default async function ListPage({
           </div>
         )}
       </div>
+      <SiteFooter />
     </main>
   )
 }
