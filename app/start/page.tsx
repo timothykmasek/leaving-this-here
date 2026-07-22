@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { BulletinHeader } from '@/components/BulletinHeader'
-import { SEED_LIBRARY, seedImageUrl } from '@/lib/seedLibrary'
+import { SEED_LIBRARY, seedImageUrl, CATEGORY, INTERESTS, INTEREST_LABEL, type Interest } from '@/lib/seedLibrary'
 
 // Account-first onboarding (no AI). The account is created at step 1, so every
 // step after it runs with a real session — none of the localStorage-across-auth
@@ -26,13 +26,13 @@ const STORE_KEY = 'bulletin-onboarding'
 const WEB_STORE_URL =
   'https://chrome.google.com/webstore/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc'
 
-type Step = 'account' | 'username' | 'about' | 'picks' | 'building' | 'check-email' | 'ext'
+type Step = 'account' | 'username' | 'about' | 'interests' | 'picks' | 'building' | 'check-email' | 'ext'
 
 function titlecase(s: string): string {
   return s.replace(/[-_.]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim()
 }
 
-function loadState(): { handle?: string; displayName?: string; bio?: string; picks?: number[] } {
+function loadState(): { handle?: string; displayName?: string; bio?: string; interests?: Interest[]; picks?: string[] } {
   try {
     return JSON.parse(localStorage.getItem(STORE_KEY) || '{}')
   } catch {
@@ -49,7 +49,11 @@ export default function StartPage() {
   const [handle, setHandle] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
-  const [picks, setPicks] = useState<number[]>([])
+  // Interests picked in the new interests-first step; the picks grid filters to
+  // seed links matching these. `picks` holds the chosen seed URLs (not indices,
+  // so filtering the grid can't shuffle the selection out from under the user).
+  const [interests, setInterests] = useState<Interest[]>([])
+  const [picks, setPicks] = useState<string[]>([])
   const [username, setUsername] = useState('')
 
   // Resume from a refresh + decide the entry step from auth state.
@@ -58,7 +62,11 @@ export default function StartPage() {
     if (saved.handle) setHandle(saved.handle)
     if (saved.displayName) setDisplayName(saved.displayName)
     if (saved.bio) setBio(saved.bio)
-    if (Array.isArray(saved.picks)) setPicks(saved.picks.slice(0, 3))
+    if (Array.isArray(saved.interests)) setInterests(saved.interests.slice(0, 3))
+    // picks are seed URLs now (were array indices pre-Tier-B); drop any stale
+    // non-string entries so we never POST a number to the setup route.
+    if (Array.isArray(saved.picks))
+      setPicks(saved.picks.filter((p): p is string => typeof p === 'string').slice(0, 3))
 
     ;(async () => {
       const {
@@ -86,12 +94,13 @@ export default function StartPage() {
   useEffect(() => {
     if (booting) return
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ handle, displayName, bio, picks }))
+      localStorage.setItem(STORE_KEY, JSON.stringify({ handle, displayName, bio, interests, picks }))
     } catch {}
-  }, [booting, handle, displayName, bio, picks])
+  }, [booting, handle, displayName, bio, interests, picks])
 
-  const showBack = step === 'about' || step === 'picks'
-  const back = () => setStep(step === 'picks' ? 'about' : 'username')
+  const showBack = step === 'about' || step === 'interests' || step === 'picks'
+  const back = () =>
+    setStep(step === 'picks' ? 'interests' : step === 'interests' ? 'about' : 'username')
   const wide = step === 'picks'
 
   return (
@@ -127,10 +136,17 @@ export default function StartPage() {
             bio={bio}
             setDisplayName={setDisplayName}
             setBio={setBio}
-            onNext={() => setStep('picks')}
+            onNext={() => setStep('interests')}
           />
+        ) : step === 'interests' ? (
+          <Interests interests={interests} setInterests={setInterests} onNext={() => setStep('picks')} />
         ) : step === 'picks' ? (
-          <Picks picks={picks} setPicks={setPicks} onNext={() => setStep('building')} />
+          <Picks
+            interests={interests}
+            picks={picks}
+            setPicks={setPicks}
+            onNext={() => setStep('building')}
+          />
         ) : step === 'building' ? (
           <Building
             handle={handle}
@@ -426,7 +442,7 @@ function About({
         <textarea
           value={bio}
           onChange={(e) => setBio(e.target.value.slice(0, 140))}
-          placeholder="a bit of consumer tech, some DTC, some B2B."
+          placeholder="Tools, essays, and rabbit holes for people who make things."
           className={`${fieldClass} min-h-[104px] resize-none leading-relaxed`}
         />
         <div className="mt-1 text-right text-xs text-black/30">{bio.length}/140</div>
@@ -439,41 +455,117 @@ function About({
   )
 }
 
-/* ── 04 · pick 3 ──────────────────────────────────────────────────────── */
+/* ── 04 · interests ───────────────────────────────────────────────────── */
+
+function Interests({
+  interests,
+  setInterests,
+  onNext,
+}: {
+  interests: Interest[]
+  setInterests: (v: Interest[]) => void
+  onNext: () => void
+}) {
+  const toggle = (k: Interest) => {
+    if (interests.includes(k)) setInterests(interests.filter((i) => i !== k))
+    else if (interests.length < 3) setInterests([...interests, k])
+  }
+
+  return (
+    <div>
+      <Headline>What are you into?</Headline>
+      <Sub>Pick 2&ndash;3 &mdash; we&rsquo;ll pull links to match, so your page starts as yours.</Sub>
+
+      <div className="mt-6 flex flex-wrap gap-2.5">
+        {INTERESTS.map(({ key, label }) => {
+          const sel = interests.includes(key)
+          const full = !sel && interests.length >= 3
+          return (
+            <button
+              key={key}
+              onClick={() => toggle(key)}
+              disabled={full}
+              aria-pressed={sel}
+              className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                sel
+                  ? 'border-ink bg-ink text-white'
+                  : full
+                    ? 'cursor-not-allowed border-black/10 text-black/25'
+                    : 'border-black/15 text-ink hover:border-black/40'
+              }`}
+            >
+              {label}
+            </button>
+          )
+        })}
+      </div>
+
+      <button onClick={onNext} disabled={interests.length < 2} className={`${primaryBtn} mt-7`}>
+        continue →
+      </button>
+    </div>
+  )
+}
+
+/* ── 05 · pick 3 ──────────────────────────────────────────────────────── */
 
 function Picks({
+  interests,
   picks,
   setPicks,
   onNext,
 }: {
-  picks: number[]
-  setPicks: (p: number[]) => void
+  interests: Interest[]
+  picks: string[]
+  setPicks: (p: string[]) => void
   onNext: () => void
 }) {
-  const toggle = (i: number) => {
-    if (picks.includes(i)) {
-      setPicks(picks.filter((p) => p !== i))
+  const toggle = (url: string) => {
+    if (picks.includes(url)) {
+      setPicks(picks.filter((p) => p !== url))
     } else if (picks.length < 3) {
-      setPicks([...picks, i])
+      setPicks([...picks, url])
     }
   }
+
+  // Tier B: show only the seed links matching the chosen interests. Fall back to
+  // the whole library if somehow no interests were picked (shouldn't happen —
+  // the interests step requires ≥2 before continuing).
+  const shown =
+    interests.length > 0
+      ? SEED_LIBRARY.filter((L) => L.interests.some((i) => interests.includes(i)))
+      : SEED_LIBRARY
+
+  const because = interests.map((i) => INTEREST_LABEL[i]).filter(Boolean)
+  const becauseLine =
+    because.length === 1
+      ? because[0]
+      : because.length === 2
+        ? `${because[0]} and ${because[1]}`
+        : because.slice(0, -1).join(', ') + ', and ' + because[because.length - 1]
 
   return (
     <div>
       <div className="mb-7">
         <Headline>Pick 3 to start.</Headline>
-        <Sub>A few favourites so your page isn&rsquo;t empty. You can swap them anytime.</Sub>
+        <Sub>
+          {because.length ? (
+            <>Because you like <span className="text-ink">{becauseLine}</span>. You can swap them anytime.</>
+          ) : (
+            <>A few favourites so your page isn&rsquo;t empty. You can swap them anytime.</>
+          )}
+        </Sub>
       </div>
 
       {/* Same geometry as the live grid (1184px / 4-col / gap-x-8 = 272px cards). */}
       <div className="mx-auto grid w-[1184px] max-w-full grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
-        {SEED_LIBRARY.map((L, i) => {
-          const sel = picks.includes(i)
-          const pos = picks.indexOf(i)
+        {shown.map((L) => {
+          const sel = picks.includes(L.url)
+          const pos = picks.indexOf(L.url)
           return (
             <button
               key={L.url}
-              onClick={() => toggle(i)}
+              onClick={() => toggle(L.url)}
               className={`relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card text-left shadow-[0_4px_18px_rgba(0,0,0,0.06)] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)] ${
                 sel ? 'ring-2 ring-ink' : 'ring-1 ring-black/[0.03]'
               }`}
@@ -493,14 +585,29 @@ function Picks({
                 {sel ? pos + 1 : ''}
               </span>
 
-              {/* thumbnail — same geometry as LinkCard */}
-              <div className="absolute left-[16.2%] top-[21.9%] aspect-[184/118] w-[67.6%] overflow-hidden rounded-[10px] bg-black/[0.06]">
+              {/* thumbnail — same geometry as LinkCard. A category-coloured
+                  block with the domain sits underneath; the baked screenshot
+                  covers it when present, and an un-baked domain (img onError)
+                  reveals the block instead of a broken image. */}
+              <div
+                className="absolute left-[16.2%] top-[21.9%] flex aspect-[184/118] w-[67.6%] items-center justify-center overflow-hidden rounded-[10px]"
+                style={{ backgroundColor: CATEGORY[L.type].bg }}
+              >
+                <span
+                  className="px-2 text-center text-[10px] font-medium leading-tight"
+                  style={{ color: CATEGORY[L.type].fg }}
+                >
+                  {L.domain}
+                </span>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={seedImageUrl(L)}
                   alt=""
                   loading="lazy"
-                  className="h-full w-full object-cover"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none'
+                  }}
+                  className="absolute inset-0 h-full w-full object-cover"
                 />
               </div>
 
@@ -530,7 +637,7 @@ function Picks({
   )
 }
 
-/* ── 05 · building ────────────────────────────────────────────────────── */
+/* ── 06 · building ────────────────────────────────────────────────────── */
 
 const BUILD_LOG = [
   'reserving your handle',
@@ -551,7 +658,7 @@ function Building({
   handle: string
   displayName: string
   bio: string
-  picks: number[]
+  picks: string[]
   onDone: (username: string) => void
   onTaken: (h: string) => void
 }) {
@@ -577,7 +684,7 @@ function Building({
             handle: h,
             displayName,
             bio,
-            picks: picks.map((i) => SEED_LIBRARY[i].url),
+            picks,
           }),
         })
         clearInterval(iv)
