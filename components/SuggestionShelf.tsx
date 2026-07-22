@@ -43,20 +43,43 @@ export function SuggestionShelf({
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [showAll, setShowAll] = useState(false)
 
+  // Per-tab cache so revisiting a list paints the shelf instantly, then a
+  // background fetch replaces it with fresh ranking. sessionStorage (not local)
+  // keeps staleness bounded to the tab's lifetime.
+  const cacheKey = `bulletin:shelf:${listId}`
+
   useEffect(() => {
     let cancelled = false
+
+    try {
+      const cached = sessionStorage.getItem(cacheKey)
+      if (cached) setSuggestions(JSON.parse(cached))
+    } catch {
+      // cache is best-effort only
+    }
+
     fetch(`/api/lists/${listId}/suggestions`)
-      .then((r) => (r.ok ? r.json() : { suggestions: [] }))
+      .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
-        if (!cancelled) setSuggestions(Array.isArray(d.suggestions) ? d.suggestions : [])
+        if (cancelled) return
+        if (d && Array.isArray(d.suggestions)) {
+          setSuggestions(d.suggestions)
+          try {
+            sessionStorage.setItem(cacheKey, JSON.stringify(d.suggestions))
+          } catch {}
+        } else {
+          // Fetch failed: keep showing the cache if we had one; otherwise stay
+          // hidden. Never blank a shelf the user is already looking at.
+          setSuggestions((prev) => prev ?? [])
+        }
       })
       .catch(() => {
-        if (!cancelled) setSuggestions([])
+        if (!cancelled) setSuggestions((prev) => prev ?? [])
       })
     return () => {
       cancelled = true
     }
-  }, [listId])
+  }, [listId, cacheKey])
 
   // Still loading, or nothing to offer → render nothing (stays ignorable; no
   // skeleton flash, no "empty" announcement on a list that had zero suggestions).
@@ -70,6 +93,15 @@ export function SuggestionShelf({
     setAddedIds((prev) => new Set(prev).add(s.id))
     try {
       await onAdd(s)
+      // Keep the cache consistent so a reload in this tab doesn't resurrect the
+      // card before the background refresh corrects it.
+      try {
+        const cached = JSON.parse(sessionStorage.getItem(cacheKey) || '[]')
+        sessionStorage.setItem(
+          cacheKey,
+          JSON.stringify(cached.filter((x: Suggestion) => x.id !== s.id))
+        )
+      } catch {}
     } catch {
       setAddedIds((prev) => {
         const next = new Set(prev)
