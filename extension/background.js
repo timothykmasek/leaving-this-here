@@ -332,9 +332,8 @@ async function saveFlow(tab, payload) {
     const bm = result?.bookmark || {}
     const refreshed = !!result?.refreshed
     if (injected) {
-      // title + image feed the toast's capture preview (QA: see what actually
-      // got stored, right at save time). `refreshed` = re-save updated in place.
-      toast(tabId, 'saved', { id: bm.id, title: bm.title, image: bm.image_url, refreshed })
+      // `refreshed` = re-save updated the existing card in place.
+      toast(tabId, 'saved', { id: bm.id, title: bm.title, refreshed })
     } else {
       notify(refreshed ? 'Updated' : 'Saved', bm.title || 'Added to your collection.')
     }
