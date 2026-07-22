@@ -3,15 +3,18 @@
 --
 -- This adds:
 --   1. The pgvector extension
---   2. An `embedding` column on `bookmarks` (voyage-3-lite returns 1024 dims)
+--   2. An `embedding` column on `bookmarks` (voyage-3-lite returns 512 dims)
 --   3. An HNSW index for fast cosine similarity
 --   4. A `match_bookmarks` RPC that takes a query embedding + a user_id and
 --      returns that user's bookmarks ranked by semantic similarity.
 
 create extension if not exists vector;
 
+-- NOTE: originally shipped as vector(1024) by mistake — voyage-3-lite outputs
+-- 512 dims. The live DB was corrected in place; this file now matches it so a
+-- from-scratch rebuild works.
 alter table bookmarks
-  add column if not exists embedding vector(1024);
+  add column if not exists embedding vector(512);
 
 -- HNSW is faster than ivfflat for small-to-medium datasets and requires no
 -- pre-training. cosine distance because that's what Voyage's docs recommend.
@@ -23,7 +26,7 @@ create index if not exists bookmarks_embedding_hnsw_idx
 -- Respects the `is_private` flag: if `include_private` is false, private
 -- bookmarks are excluded (used when a non-owner is viewing a profile).
 create or replace function match_bookmarks(
-  query_embedding vector(1024),
+  query_embedding vector(512),
   target_user_id uuid,
   include_private boolean default false,
   match_threshold float default 0.3,

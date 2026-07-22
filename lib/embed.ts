@@ -1,7 +1,7 @@
 // Thin wrapper around Voyage AI's embeddings API.
 // https://docs.voyageai.com/reference/embeddings-api
 //
-// We use `voyage-3-lite` — 1024 dims, fast, very cheap. Good enough for
+// We use `voyage-3-lite` — 512 dims, fast, very cheap. Good enough for
 // bookmark-sized text (title + description + domain + tags).
 //
 // `input_type: 'document'` is for indexing, `'query'` is for search queries.

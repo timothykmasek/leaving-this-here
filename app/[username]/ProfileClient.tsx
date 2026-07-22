@@ -173,9 +173,18 @@ export default function ProfileClient({
     })
   }
 
+  // Monotonic id per semantic request. A slow response for an older query must
+  // never clobber what the user is currently looking at — every keystroke (and
+  // clearing the input) bumps the seq, and stale responses are dropped.
+  const searchSeq = useRef(0)
+
+  // Semantic re-rank pass. The grid already shows instant token-filter results
+  // (set synchronously on the keystroke) — this runs after the debounce and,
+  // when the embedding search lands, re-orders to semantic ranking. On error
+  // or zero hits we simply keep the token results already on screen.
   const handleSearch = async (query: string) => {
-    if (!query.trim()) { setFiltered(bookmarks); return }
-    if (!profile) return
+    if (!query.trim() || !profile) return
+    const seq = ++searchSeq.current
 
     try {
       const res = await fetch('/api/search', {
@@ -183,23 +192,17 @@ export default function ProfileClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query, user_id: profile.id }),
       })
-      if (res.ok) {
-        const data = await res.json()
-        const ids: string[] = (data.bookmarks || []).map((b: any) => b.id)
-        if (ids.length > 0) {
-          const byId = new Map(bookmarks.map((b) => [b.id, b]))
-          const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as any[]
-          if (ordered.length > 0) {
-            setFiltered(ordered)
-            return
-          }
-        }
-      }
+      if (!res.ok) return
+      const data = await res.json()
+      if (seq !== searchSeq.current) return // stale — a newer query superseded us
+      const ids: string[] = (data.bookmarks || []).map((b: any) => b.id)
+      if (ids.length === 0) return
+      const byId = new Map(bookmarks.map((b) => [b.id, b]))
+      const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as any[]
+      if (ordered.length > 0) setFiltered(ordered)
     } catch {
-      // fall through to token search
+      // keep the instant token results already on screen
     }
-
-    setFiltered(tokenSearch(query))
   }
 
   const handleSignOut = async () => {
@@ -678,11 +681,19 @@ export default function ProfileClient({
                   const v = e.target.value
                   setQuery(v)
                   if (v.trim()) setActiveListId(null)
-                  // Debounce the network search so we fire once the user pauses,
-                  // not on every keystroke. 200ms feels near-instant; embed() now
-                  // retries on rate-limit (429) so a short delay can't fail search.
+                  // Any input change supersedes in-flight semantic requests —
+                  // including clearing the box (a late response must not
+                  // repopulate a cleared search).
+                  searchSeq.current++
+                  // Instant local filter: links update on the keystroke itself
+                  // (mymind-style). The semantic pass below re-ranks when it lands.
+                  setFiltered(v.trim() ? tokenSearch(v) : bookmarks)
+                  // Debounce only the network (embedding) search — one request
+                  // per pause, not per keystroke; embed() retries on 429.
                   if (searchTimer.current) clearTimeout(searchTimer.current)
-                  searchTimer.current = setTimeout(() => handleSearch(v), 200)
+                  if (v.trim()) {
+                    searchTimer.current = setTimeout(() => handleSearch(v), 250)
+                  }
                 }}
                 className="w-full bg-transparent font-serif text-[16px] text-ink placeholder:text-black/40 focus:outline-none"
               />
