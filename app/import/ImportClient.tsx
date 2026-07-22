@@ -2,6 +2,8 @@
 
 import { useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { BulletinHeader } from '@/components/BulletinHeader'
 
 // Bulk import: paste anything (or drop a CSV) → we pull out the URLs → save
@@ -52,6 +54,8 @@ function extractUrls(text: string): string[] {
 type Phase = 'input' | 'running' | 'done'
 
 export default function ImportClient({ username }: { username: string }) {
+  const router = useRouter()
+  const supabase = createClient()
   const [text, setText] = useState('')
   const [phase, setPhase] = useState<Phase>('input')
   const [progress, setProgress] = useState({ done: 0, saved: 0, skipped: 0, failed: 0 })
@@ -59,6 +63,13 @@ export default function ImportClient({ username }: { username: string }) {
   const cancelled = useRef(false)
 
   const urls = extractUrls(text)
+
+  // Same logged-in header action as the profile page.
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/')
+    router.refresh()
+  }
 
   const readFile = (file: File) => {
     const reader = new FileReader()
@@ -101,10 +112,16 @@ export default function ImportClient({ username }: { username: string }) {
   return (
     <main className="min-h-screen bg-paper">
       <BulletinHeader
-        action={{ label: 'Your bulletin', href: `/${username}` }}
+        action={{ label: 'Log out', onClick: handleSignOut }}
         logoClassName="h-[26px] sm:h-[34px]"
       />
       <div className="mx-auto max-w-2xl px-6 pb-20 pt-8 sm:px-8">
+        <Link
+          href={`/${username}`}
+          className="label mb-6 inline-block text-black/35 transition-colors hover:text-ink"
+        >
+          ← back
+        </Link>
         <h1 className="mb-2 font-serif text-3xl font-bold tracking-tight text-ink">
           Import links
         </h1>
