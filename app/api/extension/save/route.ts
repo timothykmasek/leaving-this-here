@@ -4,7 +4,12 @@ import { waitUntil } from '@vercel/functions'
 import { extractMetadata } from '@/lib/metadata'
 import { classifyCardType } from '@/lib/cardType'
 import { embed, bookmarkToEmbedText } from '@/lib/embed'
-import { ensureBucket, storeImageBytes } from '@/lib/screenshot'
+import {
+  ensureBucket,
+  storeImageBytes,
+  isRotProneImageUrl,
+  persistCardImage,
+} from '@/lib/screenshot'
 
 // Persist a client-side screenshot (data URL from the extension's
 // captureVisibleTab) to storage and point the row at it. Runs with the service
@@ -37,6 +42,31 @@ async function persistClientShot(bookmarkId: string, dataUrl: string, cardType: 
   } catch {
     // best-effort; the server screenshotone path can still backfill later
   }
+}
+
+// Copy a rot-prone hotlinked image (signed IG/FB/LinkedIn CDN URL) into our
+// bucket and repoint the row — the signature is fresh at save time, so this is
+// the one moment the bytes are reliably fetchable. Best-effort, post-response.
+function persistRotProneImage(bookmarkId: string, imageUrl: string | null | undefined) {
+  if (!imageUrl || !isRotProneImageUrl(imageUrl)) return
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return
+  waitUntil(
+    (async () => {
+      const admin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false } },
+      )
+      try {
+        const { publicUrl } = await persistCardImage(admin, bookmarkId, imageUrl)
+        if (publicUrl) {
+          await admin.from('bookmarks').update({ image_url: publicUrl }).eq('id', bookmarkId)
+        }
+      } catch {
+        // hotlink keeps working until the signature lapses; nothing to break
+      }
+    })(),
+  )
 }
 
 // POST /api/extension/save
@@ -217,6 +247,7 @@ export async function POST(request: NextRequest) {
           ? body.clientShot
           : null
       if (dupShot) waitUntil(persistClientShot(refreshed.id, dupShot, card_type))
+      persistRotProneImage(refreshed.id, image_url)
       return json({ bookmark: refreshed, refreshed: true })
     }
     return json({ error: insertErr.message }, 400)
@@ -250,6 +281,9 @@ export async function POST(request: NextRequest) {
   // screenshotone capture via persist-screenshots (which skips content platforms
   // that already have an og:image). waitUntil keeps the instance alive so the
   // post-response work isn't dropped when the function freezes.
+  // Rot-prone hotlinks (signed IG/FB/LinkedIn CDN URLs) get a permanent copy.
+  persistRotProneImage(inserted.id, image_url)
+
   const clientShot =
     typeof body.clientShot === 'string' && body.clientShot.startsWith('data:image/')
       ? body.clientShot

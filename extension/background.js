@@ -244,6 +244,38 @@ async function readPageMeta(tabId) {
           }
         }
 
+        // Per-site: LinkedIn single-post pages (/posts/…-activity-… or
+        // /feed/update/urn:…). Server og is auth-walled; the post is in the
+        // rendered DOM. LinkedIn reshuffles classes often, so each field tries
+        // a list of known selector generations and silently degrades to og.
+        const liPost =
+          /(^|\.)linkedin\.com$/.test(location.hostname) &&
+          (/\/posts\//.test(location.pathname) || /\/feed\/update\//.test(location.pathname))
+        if (liPost) {
+          const firstText = (root, sels) => {
+            for (const sel of sels) {
+              const t = root.querySelector(sel)?.innerText?.trim()
+              if (t) return t
+            }
+            return null
+          }
+          const scope = document.querySelector('.feed-shared-update-v2, [data-urn*="activity"], main') || document
+          const text = firstText(scope, [
+            '.update-components-text',
+            '.feed-shared-inline-show-more-text',
+            '.attributed-text-segment-list__content',
+          ])
+          const author = (firstText(scope, [
+            '.update-components-actor__title',
+            '[data-tracking-control-name*="actor"]',
+          ]) || '').split('\n')[0].trim() || null
+          const img = scope.querySelector('.update-components-image img, .ivm-view-attr__img--centered')?.src || null
+          if (text) meta.description = text
+          if (author) meta.title = `${author} on LinkedIn`
+          if (img && !/data:image\/gif/.test(img)) meta.image = img
+          if (text || author) meta.siteName = 'LinkedIn'
+        }
+
         // Last-resort title: the tab title, minus any "(9+)" notification badge.
         if (!meta.title) meta.title = (document.title || '').replace(/^\(\d+\+?\)\s*/, '').trim() || null
 
@@ -298,10 +330,13 @@ async function saveFlow(tab, payload) {
   try {
     const result = await saveGem(payload)
     const bm = result?.bookmark || {}
+    const refreshed = !!result?.refreshed
     if (injected) {
-      toast(tabId, 'saved', { id: bm.id, title: bm.title })
+      // title + image feed the toast's capture preview (QA: see what actually
+      // got stored, right at save time). `refreshed` = re-save updated in place.
+      toast(tabId, 'saved', { id: bm.id, title: bm.title, image: bm.image_url, refreshed })
     } else {
-      notify('Saved', bm.title || 'Added to your collection.')
+      notify(refreshed ? 'Updated' : 'Saved', bm.title || 'Added to your collection.')
     }
   } catch (err) {
     const msg = String(err.message || err)

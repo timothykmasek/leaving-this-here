@@ -87,6 +87,71 @@ export interface CaptureResult {
   error: string | null
 }
 
+// Hosts whose image URLs carry expiring signatures — hotlinked cards silently
+// rot when the signature lapses (Instagram/Facebook CDN: weeks; LinkedIn
+// media: days). Images from these hosts get copied into our bucket at save
+// time. Stable public CDNs (pbs.twimg.com, ytimg, …) stay hotlinked.
+const ROT_PRONE_IMAGE_HOSTS = ['cdninstagram.com', 'fbcdn.net', 'licdn.com']
+
+/** True when `imageUrl` is served with an expiring signature and must be persisted. */
+export function isRotProneImageUrl(imageUrl: string | null | undefined): boolean {
+  if (!imageUrl) return false
+  try {
+    const host = new URL(imageUrl).hostname
+    return ROT_PRONE_IMAGE_HOSTS.some((d) => host === d || host.endsWith(`.${d}`))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Copy a remote card image into our bucket as `og/<bookmarkId>.<ext>` (its own
+ * namespace — `<bookmarkId>.<ext>` at the root belongs to screenshots) and
+ * return the permanent public URL. The signed source URL is fresh at save time,
+ * so a plain server-side fetch works — no cookies needed, the signature IS the
+ * access grant.
+ */
+export async function persistCardImage(
+  supabase: SupabaseClient,
+  bookmarkId: string,
+  imageUrl: string,
+): Promise<CaptureResult> {
+  let res: Response
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+    res = await fetch(imageUrl, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
+    })
+    clearTimeout(timeout)
+  } catch (err) {
+    return { publicUrl: null, error: `fetch failed: ${String(err)}` }
+  }
+  const contentType = res.headers.get('content-type') || ''
+  if (!res.ok || !contentType.startsWith('image/')) {
+    return { publicUrl: null, error: `HTTP ${res.status} / ${contentType}` }
+  }
+  const bytes = new Uint8Array(await res.arrayBuffer())
+  // Same sanity bounds as client shots: no empty placeholders, no monsters.
+  if (bytes.byteLength < 500 || bytes.byteLength > 5_000_000) {
+    return { publicUrl: null, error: `implausible size ${bytes.byteLength}B` }
+  }
+  const ext = /png/.test(contentType) ? 'png' : /webp/.test(contentType) ? 'webp' : 'jpg'
+  const path = `og/${bookmarkId}.${ext}`
+  try {
+    await ensureBucket(supabase)
+  } catch {
+    /* bucket exists in practice; upload below surfaces real failures */
+  }
+  const { error } = await supabase.storage
+    .from(SCREENSHOT_BUCKET)
+    .upload(path, bytes, { contentType, upsert: true })
+  if (error) return { publicUrl: null, error: `upload failed: ${error.message}` }
+  const { data } = supabase.storage.from(SCREENSHOT_BUCKET).getPublicUrl(path)
+  return { publicUrl: data.publicUrl, error: null }
+}
+
 /**
  * Upload already-captured image bytes to Supabase Storage as
  * `<bookmarkId>.<ext>` and return the public CDN URL. Used for client-side

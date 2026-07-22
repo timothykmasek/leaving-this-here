@@ -119,6 +119,14 @@
       .conf-sub { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#b0b0b0; line-height:1.45; padding:8px 0 0 43px; }
       .conf-sub[hidden] { display:none; }
 
+      /* ── capture preview (QA): what the card actually stored ── */
+      .preview { display:flex; align-items:center; gap:10px; padding:10px 0 2px 43px; animation: fadeUp .3s ease both; }
+      .preview[hidden] { display:none; }
+      .pimg { flex:none; width:56px; height:38px; border-radius:6px; object-fit:cover; background:#f1f1f1; }
+      .pimg[hidden] { display:none; }
+      .ptitle { flex:1; min-width:0; font-size:12.5px; line-height:1.3; color:#6b6b6b;
+                display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
       /* ── list card ── */
       .group[hidden] { display:none; }
       .label {
@@ -165,6 +173,10 @@
         <div class="conf-row saving" id="confrow">
           <span class="radio" id="ind"></span>
           <div class="conf-text" id="msg">Saving to your Bulletin…</div>
+        </div>
+        <div class="preview" id="preview" hidden>
+          <img class="pimg" id="pimg" alt="" />
+          <div class="ptitle" id="ptitle"></div>
         </div>
         <div class="conf-sub" id="sub" hidden></div>
       </div>
@@ -509,11 +521,28 @@
     })
   }
 
+  // ── capture preview (QA) ───────────────────────────────────────────
+  // Shows the RAW stored title + image so a bad extraction is visible the
+  // moment it happens, instead of being discovered on the board later. The
+  // page's CSP can block a cross-origin thumbnail — onerror just hides it.
+  function setPreview(data) {
+    const box = el('preview')
+    const img = el('pimg')
+    const title = (data && data.title) || ''
+    const src = (data && data.image) || ''
+    if (!title && !src) { box.hidden = true; return }
+    el('ptitle').textContent = title
+    img.onerror = () => { img.hidden = true }
+    if (src) { img.hidden = false; img.src = src } else { img.hidden = true }
+    box.hidden = false
+  }
+
   // ── saved: reveal the list card ────────────────────────────────────
   function showSaved(msg, data) {
     setConfState('saved')
     setMsg(msg)
     setSub('')
+    setPreview(data)
     bookmarkId = (data && data.id) || null
     if (bookmarkId) {
       el('lists').hidden = false
@@ -534,6 +563,7 @@
     setConfState('warn')
     setMsg(msg)
     setSub(sub)
+    setPreview(null)
     el('lists').hidden = true
     armBar()
   }
@@ -549,6 +579,7 @@
     createInput.value = ''
     el('lists').hidden = true
     setSub('')
+    setPreview(null)
     setConfState('saving')
     setMsg('Saving to your Bulletin…')
     render()
@@ -563,7 +594,7 @@
       if (state === 'saving') {
         reset()
       } else if (state === 'saved') {
-        showSaved('Saved to your Bulletin', data)
+        showSaved(data && data.refreshed ? 'Updated in your Bulletin' : 'Saved to your Bulletin', data)
       } else if (state === 'duplicate') {
         showSaved('Already in your Bulletin', data)
       } else if (state === 'signin') {
