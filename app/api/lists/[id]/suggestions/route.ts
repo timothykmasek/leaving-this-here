@@ -98,7 +98,7 @@ export async function GET(
     // List (for the ownership check) and member embeddings don't depend on each
     // other — fetch both concurrently. Sequentially these were the second-biggest
     // slice of shelf latency after the pool pull.
-    const [listRes, membersRes] = await Promise.all([
+    const [listRes, membersRes, dismissalsRes] = await Promise.all([
       supabase
         .from('lists')
         .select('id, name, description, user_id')
@@ -108,7 +108,21 @@ export async function GET(
         .from('list_bookmarks')
         .select('bookmarks(id, embedding)')
         .eq('list_id', listId),
+      // "✕ not for this list" refusals (optional table, migration 013). RLS
+      // scopes rows to the caller. An error (e.g. table not created yet) just
+      // means no server-side dismissals — the client's localStorage layer still
+      // applies its own.
+      supabase
+        .from('shelf_dismissals')
+        .select('bookmark_id')
+        .eq('list_id', listId),
     ])
+
+    const dismissedIds = new Set(
+      (dismissalsRes.error ? [] : dismissalsRes.data || []).map(
+        (d: any) => d.bookmark_id as string
+      )
+    )
 
     // Owner-only: suggestions read the owner's private/unfiled library.
     const { data: list, error: listErr } = listRes
@@ -193,8 +207,12 @@ export async function GET(
         }
       )
       if (!rpcErr && Array.isArray(rpcData)) {
+        // The function doesn't know about dismissals — post-filter here. The
+        // client over-fetches (limit 12 vs a 4-up row), so a few filtered rows
+        // don't leave the shelf sparse.
+        const kept = rpcData.filter((r: any) => !dismissedIds.has(r.id))
         return NextResponse.json({
-          suggestions: rpcData,
+          suggestions: kept,
           meta: {
             seed_count: memberVecs.length,
             used_name: !!nameVec,
@@ -228,7 +246,7 @@ export async function GET(
     }
 
     const suggestions = pool
-      .filter((b) => !memberIds.has(b.id)) // never re-suggest what's already filed
+      .filter((b) => !memberIds.has(b.id) && !dismissedIds.has(b.id)) // filed or refused → never re-suggest
       .map((b) => ({ b, similarity: cosine(target, parseVec(b.embedding) || []) }))
       .filter((x) => x.similarity > threshold)
       .sort((a, b) => b.similarity - a.similarity)
