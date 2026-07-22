@@ -426,8 +426,14 @@ export function pickBestTitle(raw: RawMetadata | null): string | null {
       'page not found', 'not found', '404', '404 not found', '403 forbidden',
       'access denied', 'attention required!', 'just a moment…', 'just a moment...',
       'are you a robot', 'security check',
+      // Shopify & friends serve a datacenter fetcher the cart page's <title>
+      // ("Your cart -") instead of the storefront's.
+      'cart', 'your cart', 'shopping cart', 'shopping bag', 'your bag', 'checkout',
     ]
-    if (generic.includes(lower)) return false
+    // Compare with dangling separator punctuation stripped, so "Your cart -"
+    // (trailing hyphen and all) still matches the list.
+    const bare = lower.replace(/[\s|•·—–-]+$/, '')
+    if (generic.includes(lower) || generic.includes(bare)) return false
     return true
   }
 

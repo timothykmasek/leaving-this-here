@@ -20,9 +20,14 @@ const SEP = /\s*[|•·▪‧・—–]\s*|\s+[-]\s+/
 const PUBLIC_SLDS = new Set(['co', 'com', 'org', 'net', 'gov', 'edu', 'ac'])
 
 // Titles that carry no information — fall back to the brand/domain instead.
+// Also filtered out per-segment: Shopify and friends serve datacenter fetchers
+// titles like "Your cart – Areaware", and the cart half is site state, not the
+// page. Applied at render time, so already-stored junk heals with no backfill.
 const GENERIC = new Set([
   'home', 'homepage', 'index', 'landing', 'untitled', 'welcome',
   'login', 'log in', 'sign in', 'loading', 'page not found', 'not found',
+  'cart', 'your cart', 'shopping cart', 'shopping bag', 'your bag', 'checkout',
+  'access denied', 'attention required', 'just a moment', 'error',
 ])
 
 function getDomain(url: string): string {
@@ -93,9 +98,15 @@ function shortDescriptor(description: string | null | undefined, brand: string |
   d = d.split(/(?<=[.!?])\s/)[0] || d
 
   // Drop a leading brand mention ("Crosby is …", "Crosby: …", "Crosby —").
+  // Try the full brand, then its first word — og:site_name is often longer
+  // than how the copy refers to itself ("Areaware Retail" vs "Areaware is…").
   if (brand) {
-    const b = brand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    d = d.replace(new RegExp(`^${b}\\s*(?:is|:|—|–|-|,)?\\s*`, 'i'), '').trim()
+    for (const candidate of [brand, brand.split(/\s+/)[0]]) {
+      if (!candidate || candidate.length < 3) continue
+      const b = candidate.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const next = d.replace(new RegExp(`^${b}\\s*(?:is|:|—|–|-|,)?\\s*`, 'i'), '').trim()
+      if (next !== d) { d = next; break }
+    }
   }
 
   // Cap at a word boundary.
@@ -183,9 +194,17 @@ export function formatCardTitle({ title, description, url, siteName }: CardTitle
   const domainBrand = brandFromUrl(url)
   const brand = cleanSiteName(siteName) || domainBrand
 
-  const raw = (title || '').trim().replace(TAB_BADGE, '')
+  // Strip tab badges and dangling separator punctuation — stored titles like
+  // "Your cart -" (Shopify cart <title>, trailing hyphen and all) must land in
+  // the GENERIC check, not survive as an "informative" segment.
+  const raw = (title || '')
+    .trim()
+    .replace(TAB_BADGE, '')
+    .replace(/^[\s|•·—–-]+|[\s|•·—–-]+$/g, '')
   if (!raw || /^https?:\/\//i.test(raw) || GENERIC.has(raw.toLowerCase())) {
-    return brand || domain
+    if (!brand) return domain
+    const d = shortDescriptor(description, brand)
+    return d ? `${brand} — ${d}` : brand
   }
   if (!brand) return raw
 
@@ -197,9 +216,10 @@ export function formatCardTitle({ title, description, url, siteName }: CardTitle
 
   if (idx !== -1) {
     // Brand is already in the title — lead with it (keeping its own casing),
-    // then the rest. If it's the ONLY segment, add a descriptor.
+    // then the rest (minus generic junk segments like "Your cart"). If nothing
+    // informative remains, add a descriptor.
     const brandText = segs[idx]
-    const rest = segs.filter((_, i) => i !== idx)
+    const rest = segs.filter((s, i) => i !== idx && !GENERIC.has(s.toLowerCase()))
     if (rest.length === 0) {
       const d = shortDescriptor(description, brandText)
       return d ? `${brandText} — ${d}` : brandText
@@ -207,6 +227,11 @@ export function formatCardTitle({ title, description, url, siteName }: CardTitle
     return `${brandText} — ${rest.join(' — ')}`
   }
 
-  // Brand absent from the title — prepend it.
-  return `${brand} — ${segs.join(' — ')}`
+  // Brand absent from the title — prepend it (minus generic junk segments).
+  const informative = segs.filter((s) => !GENERIC.has(s.toLowerCase()))
+  if (informative.length === 0) {
+    const d = shortDescriptor(description, brand)
+    return d ? `${brand} — ${d}` : brand
+  }
+  return `${brand} — ${informative.join(' — ')}`
 }

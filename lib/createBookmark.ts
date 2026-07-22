@@ -29,18 +29,29 @@ function titlecaseDomain(url: string): string {
  * Returns the new bookmark id, or null if the insert failed (e.g. the user
  * already saved this URL — (user_id, url) is unique). A bad link must never
  * throw out of here; callers seeding multiple URLs rely on that.
+ *
+ * `opts.title` / `opts.screenshotUrl` let a caller with better data than a live
+ * fetch (the onboarding seed library: curated titles, pre-baked screenshots)
+ * override what the fetch returns — shop sites hand a datacenter fetcher junk
+ * like "Your cart" titles and blocked og:images. A provided screenshot also
+ * skips the capture call: it IS a production capture, just done at bake time.
  */
 export async function createBookmarkFromUrl(
   supabase: SupabaseServer,
   userId: string,
   url: string,
-  opts: { origin: string; listId?: string | null } = { origin: '' }
+  opts: {
+    origin: string
+    listId?: string | null
+    title?: string | null
+    screenshotUrl?: string | null
+  } = { origin: '' }
 ): Promise<{ id: string } | null> {
   try {
     const meta = await extractMetadata(url)
     // Blocked/empty fetches happen (Cloudflare etc.) — fall back to a
     // titlecased domain root, never the raw URL.
-    const title = meta.title || titlecaseDomain(url)
+    const title = opts.title || meta.title || titlecaseDomain(url)
 
     const { data: inserted } = await supabase
       .from('bookmarks')
@@ -51,6 +62,7 @@ export async function createBookmarkFromUrl(
         description: meta.description,
         image_url: meta.image,
         favicon_url: meta.favicon,
+        screenshot_url: opts.screenshotUrl || null,
         card_type: classifyCardType(url, meta),
         raw_metadata: meta.raw,
       })
@@ -77,7 +89,7 @@ export async function createBookmarkFromUrl(
         } catch {}
       })()
     }
-    if (opts.origin) {
+    if (opts.origin && !opts.screenshotUrl) {
       // waitUntil keeps the serverless instance alive until this request is
       // actually sent — a bare fire-and-forget can be dropped when the function
       // freezes right after responding, leaving screenshot_url null forever and

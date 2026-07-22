@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { uniqueSlug } from '@/lib/slug'
 import { createBookmarkFromUrl } from '@/lib/createBookmark'
-import { SEED_LIBRARY, CATEGORY, type SeedLink } from '@/lib/seedLibrary'
+import { SEED_LIBRARY, CATEGORY, seedImageUrl, type SeedLink } from '@/lib/seedLibrary'
 
 // POST /api/onboarding/setup — the build step of account-first onboarding.
 //
@@ -32,6 +32,20 @@ function titlecase(s: string): string {
 }
 
 const SEED_BY_URL = new Map(SEED_LIBRARY.map((s) => [s.url, s]))
+
+// The baked seed screenshot, if this domain actually has one in storage.
+// Shop sites hand a live fetcher junk ("Your cart" titles, blocked og:images),
+// so the pre-baked capture is strictly better card material — but the bake can
+// skip a domain, and a card must never point at a 404.
+async function bakedSeedScreenshot(seed: SeedLink): Promise<string | null> {
+  const url = seedImageUrl(seed)
+  try {
+    const res = await fetch(url, { method: 'HEAD' })
+    return res.ok ? url : null
+  } catch {
+    return null
+  }
+}
 
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServer()
@@ -111,6 +125,11 @@ export async function POST(request: NextRequest) {
     await createBookmarkFromUrl(supabase, user.id, pick.url, {
       origin,
       listId: inList ? listId : null,
+      // Curated seed data beats whatever a live fetch returns for these
+      // domains — the library title is hand-written, and the baked screenshot
+      // is the same production capture the picker already shows.
+      title: pick.title,
+      screenshotUrl: await bakedSeedScreenshot(pick),
     })
   }
 
