@@ -95,12 +95,23 @@ export async function GET(
       return NextResponse.json({ error: 'not authenticated' }, { status: 401 })
     }
 
+    // List (for the ownership check) and member embeddings don't depend on each
+    // other — fetch both concurrently. Sequentially these were the second-biggest
+    // slice of shelf latency after the pool pull.
+    const [listRes, membersRes] = await Promise.all([
+      supabase
+        .from('lists')
+        .select('id, name, description, user_id')
+        .eq('id', listId)
+        .single(),
+      supabase
+        .from('list_bookmarks')
+        .select('bookmarks(id, embedding)')
+        .eq('list_id', listId),
+    ])
+
     // Owner-only: suggestions read the owner's private/unfiled library.
-    const { data: list, error: listErr } = await supabase
-      .from('lists')
-      .select('id, name, description, user_id')
-      .eq('id', listId)
-      .single()
+    const { data: list, error: listErr } = listRes
     if (listErr || !list) {
       return NextResponse.json({ error: 'list not found' }, { status: 404 })
     }
@@ -109,10 +120,7 @@ export async function GET(
     }
 
     // Embeddings of the bullets already in the list → centroid.
-    const { data: members, error: memErr } = await supabase
-      .from('list_bookmarks')
-      .select('bookmarks(id, embedding)')
-      .eq('list_id', listId)
+    const { data: members, error: memErr } = membersRes
     if (memErr) {
       return NextResponse.json({ error: memErr.message }, { status: 500 })
     }
@@ -165,11 +173,43 @@ export async function GET(
     }
     target = normalize(target)
 
-    // Candidate pool: the owner's OTHER embedded bookmarks. We rank in JS rather
-    // than via a DB function so the feature ships on a plain deploy — no
-    // migration/RPC to run against Supabase. Fine at current scale (a library is
-    // ~hundreds–low thousands of vectors); if libraries get huge this is the spot
-    // to promote to an indexed pgvector RPC. Paginate — PostgREST caps at 1000/req.
+    // Fast path: if the optional match_bookmarks_for_list function exists in
+    // Supabase (migrations/012_list_suggestions_optional.sql), let Postgres do
+    // the ranking — an indexed pgvector scan returning ~`limit` rows (~10KB)
+    // instead of pulling the whole library's vectors (~7MB at 1k bookmarks).
+    // Detected per-request; any error falls through to the JS path below, so
+    // the SQL is a paste-once speed upgrade, never a deploy dependency.
+    {
+      const literal = `[${target.join(',')}]` // pgvector wants a string literal
+      const { data: rpcData, error: rpcErr } = await supabase.rpc(
+        'match_bookmarks_for_list',
+        {
+          query_embedding: literal as any,
+          target_user_id: user.id,
+          exclude_list_id: listId,
+          include_private: true,
+          match_threshold: threshold,
+          match_count: limit,
+        }
+      )
+      if (!rpcErr && Array.isArray(rpcData)) {
+        return NextResponse.json({
+          suggestions: rpcData,
+          meta: {
+            seed_count: memberVecs.length,
+            used_name: !!nameVec,
+            name_weight: nameVec ? nameWeight : 0,
+            threshold,
+            engine: 'rpc',
+          },
+        })
+      }
+    }
+
+    // Fallback: rank in JS over the owner's OTHER embedded bookmarks. Works with
+    // zero DB objects, so the feature never depends on a migration. Fine at
+    // current scale (hundreds–low thousands of vectors), just heavier per load.
+    // Paginate — PostgREST caps at 1000/req.
     const CARD_COLS =
       'id, url, title, description, image_url, screenshot_url, favicon_url, card_type, is_private, embedding'
     let pool: any[] = []
@@ -205,6 +245,7 @@ export async function GET(
         used_name: !!nameVec,
         name_weight: nameVec ? nameWeight : 0,
         threshold,
+        engine: 'js',
       },
     })
   } catch (err: any) {
