@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { BookmarkCard } from '@/components/BookmarkCard'
 
 // "Ambient shelf" — a quiet panel under a list's bullets that surfaces OTHER
@@ -108,7 +109,11 @@ export function SuggestionShelf({
   const visible = showAll ? pending : pending.slice(0, COLLAPSED_MAX)
 
   // "✕ not for this list" — quiet refusal. No confirmation, no undo UI; the
-  // card just leaves and stays gone on this browser.
+  // card just leaves. Two persistence layers: localStorage applies instantly on
+  // this browser, and a fire-and-forget insert into shelf_dismissals (optional
+  // table, migration 013; user_id defaults to auth.uid()) syncs the refusal
+  // across devices via the route's server-side filter. If the table doesn't
+  // exist the insert fails silently and the local layer still holds.
   const handleDismiss = (s: Suggestion) => {
     setDismissedIds((prev) => {
       const next = new Set(prev).add(s.id)
@@ -117,6 +122,10 @@ export function SuggestionShelf({
       } catch {}
       return next
     })
+    createClient()
+      .from('shelf_dismissals')
+      .insert({ list_id: listId, bookmark_id: s.id })
+      .then(() => {}, () => {})
   }
 
   const handleAdd = async (s: Suggestion) => {
