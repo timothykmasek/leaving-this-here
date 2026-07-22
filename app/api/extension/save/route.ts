@@ -135,8 +135,14 @@ export async function POST(request: NextRequest) {
   const cmImage = typeof cm.image === 'string' && cm.image.trim() ? cm.image.trim() : null
   const cmDesc = typeof cm.description === 'string' && cm.description.trim() ? cm.description.trim() : null
 
-  const title = (typeof body.title === 'string' && body.title.trim()) || cmTitle || meta.title || url
-  const description = meta.description || cmDesc
+  // Client og BEATS the raw tab title: body.title is document.title, which
+  // carries junk like "(9+) Instagram" (the tab's unread badge) and goes stale
+  // on SPA navigations. The badge strip covers older extension versions too.
+  const stripBadge = (t: string) => t.replace(/^\(\d+\+?\)\s*/, '').trim()
+  const bodyTitle =
+    typeof body.title === 'string' && stripBadge(body.title) ? stripBadge(body.title) : null
+  const title = cmTitle || bodyTitle || meta.title || url
+  const description = cmDesc || meta.description
   const image_url = imageOverride || cmImage || meta.image
   const favicon_url = meta.favicon
   // Classify with the RESOLVED image so client-og pages route as article/composite
@@ -162,9 +168,56 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (insertErr) {
-    // Unique violation on (user_id, url) — already saved
+    // Unique violation on (user_id, url) — already saved. Re-saving is the
+    // user's "refresh this card" gesture: update the metadata in place (the
+    // page may render better now — SPA-stale og fixed, richer client capture)
+    // while preserving note, list membership, and created_at. Deliberately
+    // overwrites a hand-edited title: an explicit re-save says "take the page
+    // as it is now".
     if ((insertErr as any).code === '23505') {
-      return json({ error: 'already saved', alreadySaved: true }, 409)
+      const { data: existing } = await supabase
+        .from('bookmarks')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('url', url)
+        .single()
+      if (!existing) {
+        return json({ error: 'already saved', alreadySaved: true }, 409)
+      }
+      const { data: refreshed, error: refreshErr } = await supabase
+        .from('bookmarks')
+        .update({ title, description, image_url, favicon_url, card_type, raw_metadata: meta.raw })
+        .eq('id', existing.id)
+        .select('id, title, image_url, favicon_url')
+        .single()
+      if (refreshErr || !refreshed) {
+        return json({ error: 'already saved', alreadySaved: true }, 409)
+      }
+      // Text changed → the old embedding is stale. Re-embed out-of-band,
+      // mirroring the insert path; the nightly backfill only covers NULLs, so
+      // clear it first — a frozen instance then heals instead of drifting.
+      const refreshEmbedText = bookmarkToEmbedText({ title, description, url })
+      if (refreshEmbedText.trim()) {
+        await supabase.from('bookmarks').update({ embedding: null as any }).eq('id', refreshed.id)
+        void (async () => {
+          try {
+            const [vector] = await embed([refreshEmbedText], 'document')
+            const vectorLiteral = `[${vector.join(',')}]`
+            await supabase
+              .from('bookmarks')
+              .update({ embedding: vectorLiteral as any })
+              .eq('id', refreshed.id)
+          } catch {
+            // nightly backfill sweeps embedding IS NULL
+          }
+        })()
+      }
+      const dupShot =
+        typeof body.clientShot === 'string' && body.clientShot.startsWith('data:image/')
+          ? body.clientShot
+          : null
+      if (dupShot) waitUntil(persistClientShot(refreshed.id, dupShot, card_type))
+      return json({ bookmark: refreshed, refreshed: true })
     }
     return json({ error: insertErr.message }, 400)
   }

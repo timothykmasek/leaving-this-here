@@ -120,10 +120,28 @@ const TAB_BADGE = /^\(\d+\+?\)\s*/
 const IG_PATH_NOT_A_HANDLE = new Set([
   'p', 'reel', 'reels', 'stories', 'explore', 'accounts', 'direct', 'tv',
 ])
-function instagramTitle(url: string, description?: string | null): string | null {
+// Machine-generated Instagram title shapes. Anything else is either a user's
+// hand-edit or already-good data — leave those to the generic formatter.
+const IG_JUNK_TITLE = /^(instagram)?$|• Instagram photos and videos/i
+
+function instagramTitle(url: string, title?: string | null, description?: string | null): string | null {
   if (getDomain(url) !== 'instagram.com') return null
-  const m = (description || '').match(/from (.{1,40}?) \(@[\w.]+\)/)
+  const raw = (title || '').replace(TAB_BADGE, '').trim()
+  if (raw && !IG_JUNK_TITLE.test(raw)) return null
+
+  // Best source: the real og:title, "NAME (@handle) • Instagram photos and
+  // videos" or "handle • Instagram photos and videos".
+  const lead = raw.replace(/\s*[•·]\s*Instagram photos and videos.*$/i, '').trim()
+  if (lead && !/^instagram$/i.test(lead)) {
+    const m = lead.match(/^(.+?)\s*\(@[\w.]+\)$/)
+    return `Instagram — ${m ? m[1] : lead}`
+  }
+  // Next: the stats description, "… from NAME (@handle)" / "… from @handle".
+  let m = (description || '').match(/from (.{1,40}?) \(@[\w.]+\)/)
   if (m) return `Instagram — ${m[1]}`
+  m = (description || '').match(/from @([\w.]+)/)
+  if (m) return `Instagram — @${m[1]}`
+  // Last: the @handle straight from a profile URL.
   try {
     const seg = new URL(url).pathname.split('/').filter(Boolean)[0]
     if (seg && !IG_PATH_NOT_A_HANDLE.has(seg.toLowerCase())) {
@@ -145,7 +163,7 @@ export interface CardTitleInput {
  * Falls back to the domain when there's no usable title or brand.
  */
 export function formatCardTitle({ title, description, url, siteName }: CardTitleInput): string {
-  const ig = instagramTitle(url, description)
+  const ig = instagramTitle(url, title, description)
   if (ig) return ig
 
   const domain = getDomain(url)

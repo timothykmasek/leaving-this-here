@@ -121,17 +121,17 @@ async function readPageMeta(tabId) {
   try {
     const [res] = await chrome.scripting.executeScript({
       target: { tabId },
-      func: () => {
-        const c = (sel) => document.querySelector(sel)?.getAttribute('content')?.trim() || null
-        const m = (p) => c(`meta[property="${p}"]`) || c(`meta[name="${p}"]`)
+      func: async () => {
+        const c = (sel, doc = document) => doc.querySelector(sel)?.getAttribute('content')?.trim() || null
+        const m = (p, doc = document) => c(`meta[property="${p}"]`, doc) || c(`meta[name="${p}"]`, doc)
         const abs = (u) => { try { return u ? new URL(u, location.href).href : null } catch { return u } }
         // The image the publisher DECLARED in JSON-LD (Product/Article/…). High
         // confidence — we don't guess "the biggest <img>", we read what the site
         // marked as canonical, skipping Organization/WebSite logos. Catches clean
         // product/article shots on pages that have no og:image (e.g. Gap), and
         // when absent we fall through to the visible-tab screenshot.
-        const jsonLdImage = () => {
-          for (const s of document.querySelectorAll('script[type="application/ld+json"]')) {
+        const jsonLdImage = (doc = document) => {
+          for (const s of doc.querySelectorAll('script[type="application/ld+json"]')) {
             let data
             try { data = JSON.parse(s.textContent) } catch { continue }
             const nodes = []
@@ -156,19 +156,68 @@ async function readPageMeta(tabId) {
           }
           return null
         }
-        const image = abs(
-          m('og:image') || m('og:image:url') || m('twitter:image') ||
-          jsonLdImage() ||
-          c('meta[itemprop="image"]') ||
-          document.querySelector('link[rel="image_src"]')?.getAttribute('href') ||
-          null,
-        )
-        return {
-          title: m('og:title') || m('twitter:title') || (document.title || '').trim() || null,
-          image,
-          description: m('og:description') || m('twitter:description') || m('description'),
-          siteName: m('og:site_name'),
+        const extract = (doc = document) => ({
+          title: m('og:title', doc) || m('twitter:title', doc) || null,
+          image: abs(
+            m('og:image', doc) || m('og:image:url', doc) || m('twitter:image', doc) ||
+            jsonLdImage(doc) ||
+            c('meta[itemprop="image"]', doc) ||
+            doc.querySelector('link[rel="image_src"]')?.getAttribute('href') ||
+            null,
+          ),
+          description: m('og:description', doc) || m('twitter:description', doc) || m('description', doc),
+          siteName: m('og:site_name', doc),
+          ogUrl: m('og:url', doc),
+        })
+
+        let meta = extract()
+
+        // SPA staleness: after client-side navigation (Instagram, Twitter, …)
+        // the <meta> tags still describe the PREVIOUS page — og:url disagrees
+        // with the address bar. Refetch the current URL same-origin WITH the
+        // user's cookies (that's the whole trick: the server returns fresh
+        // HTML with correct og for the page they're actually on) and re-read.
+        try {
+          const samePath = (a, b) => {
+            try { return new URL(a).pathname.replace(/\/+$/, '') === new URL(b).pathname.replace(/\/+$/, '') } catch { return true }
+          }
+          if (!meta.title || (meta.ogUrl && !samePath(meta.ogUrl, location.href))) {
+            const r = await fetch(location.href, { credentials: 'include' })
+            const doc2 = new DOMParser().parseFromString(await r.text(), 'text/html')
+            const fresh = extract(doc2)
+            if (fresh.title || fresh.image) {
+              for (const k of ['title', 'image', 'description', 'siteName']) {
+                if (fresh[k]) meta[k] = k === 'image' ? abs(fresh[k]) : fresh[k]
+              }
+            }
+          }
+        } catch {}
+
+        // Per-site: Instagram profile pages. og:description is a follower-stats
+        // dump and the bio never appears in metadata at all — but it's right
+        // there in the rendered header. Grab bio + avatar from the DOM.
+        // Profile pages only (/<handle>), never posts/reels/etc.
+        const igProfile =
+          /(^|\.)instagram\.com$/.test(location.hostname) &&
+          /^\/[^/]+\/?$/.test(location.pathname) &&
+          !/^\/(p|reel|reels|stories|explore|accounts|direct|tv)\//.test(location.pathname + '/')
+        if (igProfile) {
+          const avatar = document.querySelector('header img[alt*="profile picture" i]')?.src || null
+          // The bio is the wordiest text block in the profile header; skip
+          // counts ("198 posts"), buttons, and the "Followed by …" line.
+          const junk = /^(\d|Follow\b|Message\b|Followed by)/
+          const bio = [...document.querySelectorAll('header section span[dir="auto"]')]
+            .map((s) => s.textContent.trim())
+            .filter((t) => t.length > 8 && !junk.test(t))
+            .sort((a, b) => b.length - a.length)[0] || null
+          if (bio) meta.description = bio
+          if (avatar) meta.image = avatar
         }
+
+        // Last-resort title: the tab title, minus any "(9+)" notification badge.
+        if (!meta.title) meta.title = (document.title || '').replace(/^\(\d+\+?\)\s*/, '').trim() || null
+
+        return { title: meta.title, image: meta.image, description: meta.description, siteName: meta.siteName }
       },
     })
     const r = res?.result
