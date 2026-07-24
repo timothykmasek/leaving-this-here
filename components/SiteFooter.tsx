@@ -1,7 +1,6 @@
 'use client'
 
 import { forwardRef } from 'react'
-import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 
 // Site footer — © + Privacy + extension link. Extracted from ProfileClient so
 // list pages (and anything else) show the same footer instead of losing it off
@@ -17,8 +16,6 @@ export const SiteFooter = forwardRef<
   HTMLElement,
   { reveal?: boolean; revealed?: boolean }
 >(function SiteFooter({ reveal = false, revealed = false }, ref) {
-  const extInstalled = useExtensionInstalled()
-
   return (
     <footer
       ref={ref}
@@ -37,17 +34,19 @@ export const SiteFooter = forwardRef<
           reveal ? 'flex-row justify-between' : 'flex-col gap-4 sm:flex-row sm:justify-between'
         }`}
       >
-        <span className="label text-black/35">© 2026</span>
-        <nav className="flex items-center gap-8">
-          <a href="/import" className="label text-black/45 transition-colors hover:text-ink">Import</a>
-          <a href="/privacy" className="label text-black/45 transition-colors hover:text-ink">Privacy</a>
+        <span className="label whitespace-nowrap text-black/35">© 2026</span>
+        {/* Tighter gap in the reveal bar so all three links + © fit one slim row
+            on a 375px phone without any item wrapping onto a second line. */}
+        <nav className={`flex items-center ${reveal ? 'gap-5 sm:gap-8' : 'gap-8'}`}>
+          <a href="/import" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Import</a>
+          <a href="/privacy" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Privacy</a>
           <a
             href="https://chromewebstore.google.com/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc"
             target="_blank"
             rel="noopener noreferrer"
-            className="label text-black/45 transition-colors hover:text-ink"
+            className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink"
           >
-            {extInstalled === true ? 'Extension' : 'Get the extension'}
+            Extension
           </a>
         </nav>
       </div>

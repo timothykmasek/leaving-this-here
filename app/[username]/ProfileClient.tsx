@@ -671,9 +671,17 @@ export default function ProfileClient({
               {/* font-size stays >=16px: iOS Safari auto-zooms the page when an
                   input is smaller than that on focus. */}
               <input
-                type="text"
+                type="search"
                 value={query}
                 placeholder="Search your links"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                enterKeyHint="search"
+                aria-label="Search your links"
+                data-1p-ignore
+                data-lpignore="true"
                 onChange={(e) => {
                   const v = e.target.value
                   setQuery(v)
