@@ -24,6 +24,29 @@ import { uniqueSlug } from '@/lib/slug'
 const BULLET_COLS =
   'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, created_at'
 
+// How many bullets to render at once. A power profile holds ~1000 bullets;
+// mounting them all floods the DOM and fires ~1000 image-optimizer requests in
+// one burst. We render a page at a time and grow as the sentinel scrolls into
+// view, so only what's near the viewport ever hits the optimizer.
+const RENDER_PAGE = 48
+
+// Invisible tripwire at the tail of the grid. When it scrolls within 800px of
+// the viewport it calls onReach, which reveals the next RENDER_PAGE of bullets.
+function LoadMoreSentinel({ onReach }: { onReach: () => void }) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) onReach() },
+      { rootMargin: '800px' },
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [onReach])
+  return <div ref={ref} aria-hidden className="col-span-full h-px" />
+}
+
 export default function ProfileClient({
   username,
   initialProfile,
@@ -68,6 +91,14 @@ export default function ProfileClient({
   const [activeListId, setActiveListId] = useState<string | null>(null)
   // Profile view tab — Recent bullets vs the Lists collection grid.
   const [activeTab, setActiveTab] = useState<'recent' | 'lists'>('recent')
+  // How many bullets the grid currently reveals (see renderBulletGrid). Grows as
+  // the scroll sentinel appears; resets to one page whenever the visible set
+  // changes (search, tab switch, entering/leaving a list) so we never render a
+  // huge grid up front.
+  const [visibleCount, setVisibleCount] = useState(RENDER_PAGE)
+  useEffect(() => {
+    setVisibleCount(RENDER_PAGE)
+  }, [query, activeTab, activeListId])
   // Debounce timer for the search — one request per pause, not per keystroke
   // (the embedding API is rate-limited, so per-keystroke calls 429 instantly).
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -100,20 +131,38 @@ export default function ProfileClient({
   // membership cover everything. Non-blocking — the grid is already on screen, so
   // this just extends it with older bullets. We skip updating `filtered` if the
   // user has already started a search, to avoid clobbering their results.
+  //
+  // Deferred to browser idle: this ~1000-row fetch (plus the re-render that
+  // mounts the extra bullets) would otherwise fire during first paint and fight
+  // the visible cards' images for the main thread and network. requestIdleCallback
+  // yields until the critical render + first images are underway, then loads the
+  // rest. The windowed grid only shows one page up front anyway, so nothing the
+  // user can see is waiting on this.
   useEffect(() => {
     if (!mightHaveMore) return
     let cancelled = false
-    ;(async () => {
-      const { data } = await supabase
-        .from('bookmarks')
-        .select(BULLET_COLS)
-        .eq('user_id', initialProfile.id)
-        .order('created_at', { ascending: false })
-      if (cancelled || !data) return
-      setBookmarks(data)
-      setFiltered((prev) => (query.trim() ? prev : data))
-    })()
-    return () => { cancelled = true }
+    const run = () => {
+      ;(async () => {
+        const { data } = await supabase
+          .from('bookmarks')
+          .select(BULLET_COLS)
+          .eq('user_id', initialProfile.id)
+          .order('created_at', { ascending: false })
+        if (cancelled || !data) return
+        setBookmarks(data)
+        setFiltered((prev) => (query.trim() ? prev : data))
+      })()
+    }
+    const ric = (window as any).requestIdleCallback as
+      | ((cb: () => void, opts?: { timeout: number }) => number)
+      | undefined
+    // Cap the idle wait so a busy tab still loads the full set within ~2s.
+    const handle = ric ? ric(run, { timeout: 2000 }) : window.setTimeout(run, 200)
+    return () => {
+      cancelled = true
+      if (ric && (window as any).cancelIdleCallback) (window as any).cancelIdleCallback(handle)
+      else window.clearTimeout(handle)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -385,7 +434,7 @@ export default function ProfileClient({
   // list detail view (it'd be redundant there).
   const renderBulletGrid = (items: any[], excludeListId?: string) => (
     <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
-      {items.map((b) => (
+      {items.slice(0, visibleCount).map((b) => (
         <BookmarkCard
           key={b.id}
           id={b.id}
@@ -406,6 +455,13 @@ export default function ProfileClient({
           onOpen={isOwner ? setSelectedId : undefined}
         />
       ))}
+      {items.length > visibleCount && (
+        <LoadMoreSentinel
+          onReach={() =>
+            setVisibleCount((c) => Math.min(c + RENDER_PAGE, items.length))
+          }
+        />
+      )}
     </div>
   )
 
