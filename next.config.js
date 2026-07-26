@@ -1,11 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    // Optimized thumbnails are stable — a card's screenshot/og image rarely
-    // changes once captured. Default TTL is 60s, which re-optimizes the same
-    // ~1000 images over and over as you scroll (slow + burns Vercel image
-    // transforms). Cache each optimized thumb for 31 days instead.
-    minimumCacheTTL: 60 * 60 * 24 * 31,
+    // Serve card images straight from their source (Supabase Storage CDN /
+    // remote og hosts) instead of routing every one through Vercel's Image
+    // Optimization. Card screenshots are captured once and never change, and
+    // they're pre-shrunk to ~1280px webp at save/backfill time — so on-the-fly
+    // optimization added latency and, once the account hit its optimization
+    // quota, returned 402s that rendered as blank cards. `unoptimized` removes
+    // that dependency entirely: no per-request optimizer, no quota wall.
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: '**' },
       { protocol: 'http', hostname: '**' },
