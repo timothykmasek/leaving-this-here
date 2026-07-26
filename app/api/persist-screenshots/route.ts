@@ -5,7 +5,7 @@ import {
   ensureBucket,
   isPersistedScreenshot,
 } from '@/lib/screenshot'
-import { prefersOgImage } from '@/lib/cardImage'
+import { prefersOgImage, shouldSkipScreenshot } from '@/lib/cardImage'
 
 // Capture screenshots ONCE and persist them to Supabase Storage, then point
 // screenshot_url at the permanent CDN copy. Replaces the old model where cards
@@ -126,6 +126,18 @@ export async function POST(request: NextRequest) {
     // og:image IS the content (cards prefer it; see lib/cardImage.ts). Mark
     // with the sentinel so the row permanently leaves the drain queue.
     if (prefersOgImage(row.url) && row.image_url) {
+      await supabaseAdmin
+        .from('bookmarks')
+        .update({ screenshot_url: '' })
+        .eq('id', row.id)
+      skipped++
+      return
+    }
+
+    // Hosts that only ever hand a bot a login/permission wall (Google Docs,
+    // Drive, auth pages) can't produce a useful screenshot. Sentinel out of the
+    // queue WITHOUT spending a capture — the card falls back to og/plate.
+    if (shouldSkipScreenshot(row.url)) {
       await supabaseAdmin
         .from('bookmarks')
         .update({ screenshot_url: '' })

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { pickCardImage } from '@/lib/cardImage'
 import { formatCardTitle } from '@/lib/cardTitle'
+import type { CardType } from '@/lib/cardType'
 
 interface BookmarkCardProps {
   id: string
@@ -16,17 +17,7 @@ interface BookmarkCardProps {
   rawMetadata?: any
   note?: string | null
   isOwner: boolean
-  cardType?:
-    | 'composite'
-    | 'fullbleed'
-    | 'screenshot'
-    | 'profile'
-    | 'product'
-    | 'article'
-    | 'book'
-    | 'tweet'
-    | 'lth'
-    | null
+  cardType?: CardType | null
   onDelete?: (id: string) => void
   onNoteUpdate?: (id: string, note: string | null) => void
   // When set (owner view), clicking the card opens the bullet detail modal
@@ -59,7 +50,7 @@ function Rivet({ className }: { className: string }) {
 // original URL), with the owner's edit button layered above it — so no
 // <a>-in-<a> / button-in-<a> nesting.
 export function BookmarkCard({
-  id, title, description, url, imageUrl, screenshotUrl, rawMetadata, cardType, isOwner, onOpen,
+  id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata, cardType, isOwner, onOpen,
 }: BookmarkCardProps) {
   const [imgError, setImgError] = useState(false)
 
@@ -81,12 +72,12 @@ export function BookmarkCard({
       <Rivet className="bottom-[7.4%] left-[7.4%]" />
       <Rivet className="bottom-[7.4%] right-[7.4%]" />
 
-      {/* thumbnail — 67.6% wide, 184:118, at (16.2%, 21.9%); domain fallback */}
+      {/* thumbnail — 67.6% wide, 184:118, at (16.2%, 21.9%) */}
       <div className="absolute left-[16.2%] top-[21.9%] aspect-[184/118] w-[67.6%] overflow-hidden rounded-[10px] bg-black/[0.06]">
         {hasImage ? (
           // next/image: optimizer resizes the source down to thumbnail width and
           // lazy-loads off-screen cards. `fill` works because the wrapper above is
-          // positioned. onError falls back to the domain plate.
+          // positioned. onError falls back to the branded plate below.
           <Image
             src={image!}
             alt=""
@@ -96,7 +87,18 @@ export function BookmarkCard({
             onError={() => setImgError(true)}
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center px-3">
+          // Dignified fallback: favicon over the domain, so a no-image card reads
+          // as an intentional branded plate instead of an empty grey box.
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 px-3">
+            {faviconUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={faviconUrl}
+                alt=""
+                className="h-6 w-6 rounded-[5px] opacity-70"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+              />
+            ) : null}
             <span className="label text-center text-black/30">{domain}</span>
           </div>
         )}

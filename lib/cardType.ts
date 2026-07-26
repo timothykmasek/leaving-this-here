@@ -48,6 +48,45 @@ const ARTICLE_URL_SIGNALS = [
   'newsfromthestates.com',
 ]
 
+// Page titles that mean the fetch landed on a block / challenge / error /
+// parked / login page rather than real content — nothing worth screenshotting.
+// Kept conservative: full-phrase signals only (no bare 'login'/'404'/'cart',
+// which appear inside legitimate titles). Lives here (the runtime-dep-free
+// module) so both classifyCardType and server code can share it.
+export const BAD_PAGE_TITLE_SIGNALS = [
+  'you have been blocked',
+  'attention required!',
+  'just a moment',
+  'access denied',
+  'access to this page has been denied',
+  '403 forbidden',
+  'are you a robot',
+  'security check',
+  'verifying you are human',
+  'welcome to nginx',
+  'apache2 ubuntu default page',
+  'index of /',
+  'account suspended',
+  'this domain is for sale',
+  'domain for sale',
+  'buy this domain',
+  'sign in to continue',
+  // 404s — full phrases only (bare "404" appears in legit titles like street
+  // addresses / route numbers, so it's deliberately excluded).
+  'page not found',
+  'page could not be found',
+  "page doesn't exist",
+  'page cannot be found',
+  '404 not found',
+]
+
+/** True when a page title looks like a block/challenge/parked/login interstitial. */
+export function looksLikeBadPageTitle(title: string | null | undefined): boolean {
+  if (!title) return false
+  const lower = title.toLowerCase()
+  return BAD_PAGE_TITLE_SIGNALS.some((s) => lower.includes(s))
+}
+
 /** True if a URL strongly looks like a logo / wordmark / brand asset. */
 export function looksLikeLogoUrl(urlStr: string | null | undefined): boolean {
   if (!urlStr) return false
@@ -72,6 +111,18 @@ export function classifyCardType(url: string, meta: MetadataResult): CardType {
     const hostname = new URL(url).hostname.replace('www.', '')
     const pathname = new URL(url).pathname
     const imageIsLogo = looksLikeLogoUrl(meta.image)
+
+    // ── Block / challenge / parked / error page → nothing to screenshot.
+    // Detected from the fetched title (raw htmlTitle survives even when
+    // pickBestTitle nulls it out). Returns lth so no screenshot is attempted
+    // and the card renders the clean plate instead of a "you've been blocked"
+    // interstitial. Content signals below (book/product) still win if present.
+    if (
+      !meta.image && !meta.book && !meta.product &&
+      (looksLikeBadPageTitle(meta.title) || looksLikeBadPageTitle(meta.raw?.htmlTitle))
+    ) {
+      return 'lth'
+    }
 
     // ── Books — highest specificity, JSON-LD or domain heuristic ─────
     if (meta.book && meta.book.title) {

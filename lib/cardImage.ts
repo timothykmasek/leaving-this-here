@@ -31,6 +31,41 @@ export function prefersOgImage(url: string): boolean {
   }
 }
 
+// Hosts that reliably serve a datacenter screenshot bot a login/permission
+// wall instead of content (private docs, drives, auth pages). Screenshotting
+// these only ever captures a "Sign in" / "access denied" page, so we skip the
+// capture entirely — saving the ScreenshotOne credit — and let the card fall
+// back to og:image or the plate.
+const SKIP_SCREENSHOT_HOSTS = [
+  'docs.google.com',
+  'drive.google.com',
+  'accounts.google.com',
+  'sheets.google.com',
+  'slides.google.com',
+  'forms.gle',
+  'login.microsoftonline.com',
+]
+
+// Transactional / auth URL paths whose screenshot is a checkout form, cart, or
+// login box — never the content the saver meant. Anchored to a path SEGMENT
+// (leading `/`, trailing `/` or end) so `/blog/login-tips` or `/cart-guide`
+// don't match — only the actual `/login`, `/cart`, `/checkout`, `/signin`,
+// `/signup` endpoints do.
+const SKIP_SCREENSHOT_PATHS =
+  /(^|\/)(checkout|cart|login|signin|sign-in|signup|sign-up|account\/login)(\/|$)/i
+
+/** True when `url` only ever yields a login-wall / checkout / cart page to a bot. */
+export function shouldSkipScreenshot(url: string): boolean {
+  try {
+    const u = new URL(url)
+    const host = u.hostname.replace(/^www\./, '')
+    if (SKIP_SCREENSHOT_HOSTS.some((d) => host === d || host.endsWith(`.${d}`))) return true
+    return SKIP_SCREENSHOT_PATHS.test(u.pathname)
+  } catch {
+    return false
+  }
+}
+
 // card_type drives image choice when known (it's classified at save time).
 // These types HAVE a designed, content-bearing image (product shot, article
 // hero, social OG, repo social-card) → the og:image beats a screenshot.

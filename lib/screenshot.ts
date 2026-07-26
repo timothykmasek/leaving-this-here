@@ -48,6 +48,9 @@ export function screenshotApiUrl(url: string, opts: { fresh?: boolean } = {}): s
     block_ads: 'true',
     block_cookie_banners: 'true',
     block_chats: 'true',
+    // Broader heuristic pass that also catches marketing/newsletter/exit-intent
+    // modals (the email-capture popup class) that block_cookie_banners misses.
+    block_banners_by_heuristics: 'true',
     // Freeze animations/carousels so we never capture a mid-transition frame,
     // and wait for the network to settle so lazy-loaded hero images have
     // painted before the shot — both raise capture reliability on heavy
@@ -56,11 +59,14 @@ export function screenshotApiUrl(url: string, opts: { fresh?: boolean } = {}): s
     wait_until: 'networkidle2',
     delay: '2',
     cache: opts.fresh ? 'false' : 'true',
-    cache_ttl: '2592000',
     // Many live sites bot-block or return non-2xx to the crawler but still
     // render fine — capture them anyway instead of failing.
     ignore_host_errors: 'true',
   })
+  // cache_ttl is only valid when cache is on — ScreenshotOne rejects the whole
+  // request ("cache_ttl cannot be used when cache is false") otherwise, which
+  // was silently breaking every `fresh: true` re-capture.
+  if (!opts.fresh) params.set('cache_ttl', '2592000')
   return `${SCREENSHOTONE_BASE}?${params.toString()}`
 }
 
