@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import Image from 'next/image'
-import { pickCardImage } from '@/lib/cardImage'
+import { cardImageCandidates } from '@/lib/cardImage'
+import { CardThumb } from '@/components/CardThumb'
+import { FaviconPlate } from '@/components/FaviconPlate'
 import { formatCardTitle } from '@/lib/cardTitle'
 import type { CardType } from '@/lib/cardType'
 
@@ -52,8 +52,6 @@ function Rivet({ className }: { className: string }) {
 export function BookmarkCard({
   id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata, cardType, isOwner, onOpen,
 }: BookmarkCardProps) {
-  const [imgError, setImgError] = useState(false)
-
   const domain = getDomain(url)
   const cleanTitle = formatCardTitle({
     title,
@@ -61,8 +59,7 @@ export function BookmarkCard({
     url,
     siteName: rawMetadata?.og?.site_name ?? null,
   })
-  const image = pickCardImage(url, imageUrl, screenshotUrl, cardType)
-  const hasImage = !!image && !imgError
+  const candidates = cardImageCandidates(url, imageUrl, screenshotUrl, cardType)
 
   return (
     <div className="group relative aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]">
@@ -74,34 +71,12 @@ export function BookmarkCard({
 
       {/* thumbnail — 67.6% wide, 184:118, at (16.2%, 21.9%) */}
       <div className="absolute left-[16.2%] top-[21.9%] aspect-[184/118] w-[67.6%] overflow-hidden rounded-[10px] bg-black/[0.06]">
-        {hasImage ? (
-          // next/image: optimizer resizes the source down to thumbnail width and
-          // lazy-loads off-screen cards. `fill` works because the wrapper above is
-          // positioned. onError falls back to the branded plate below.
-          <Image
-            src={image!}
-            alt=""
-            fill
-            sizes="(min-width: 1024px) 184px, 25vw"
-            className="object-cover"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          // Dignified fallback: favicon over the domain, so a no-image card reads
-          // as an intentional branded plate instead of an empty grey box.
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 px-3">
-            {faviconUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={faviconUrl}
-                alt=""
-                className="h-6 w-6 rounded-[5px] opacity-70"
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-              />
-            ) : null}
-            <span className="label text-center text-black/30">{domain}</span>
-          </div>
-        )}
+        <CardThumb
+          candidates={candidates}
+          // og first; on a broken/404 og we fall to the captured screenshot,
+          // and only then to the dignified favicon+domain plate.
+          fallback={<FaviconPlate faviconUrl={faviconUrl} domain={domain} />}
+        />
       </div>
 
       {/* title — Cardo bold 12px, left-aligned, 2 lines */}

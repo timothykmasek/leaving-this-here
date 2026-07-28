@@ -2,14 +2,14 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { LinkCard } from '@/components/LinkCard'
 import { BulletinHeader } from '@/components/BulletinHeader'
-import { pickCardImage } from '@/lib/cardImage'
+import { cardImageCandidates } from '@/lib/cardImage'
 import { FEATURED_URLS } from '@/lib/featured'
 
 const SHOWCASE_COUNT = 16
 
-// Only the columns the showcase cards render (LinkCard + pickCardImage + the
-// membership map). Avoids pulling raw_metadata and other unused blobs.
-const SHOWCASE_COLS = 'id, url, title, image_url, screenshot_url, card_type'
+// Only the columns the showcase cards render (LinkCard + cardImageCandidates +
+// the membership map). Avoids pulling raw_metadata and other unused blobs.
+const SHOWCASE_COLS = 'id, url, title, image_url, screenshot_url, card_type, favicon_url'
 
 function domainOf(url: string): string {
   try {
@@ -101,15 +101,20 @@ export default async function Home({
       {/* Showcase — Bulletin card grid of community bullets */}
       <section className="px-4 pb-28 sm:px-6 lg:px-10">
         <div className="mx-auto grid w-[1184px] max-w-full grid-cols-2 gap-x-4 gap-y-6 [perspective:2400px] sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
-          {bullets.map((b, i) => (
-            <LinkCard
-              key={b.id}
-              url={b.url}
-              title={cleanTitle(b.title, b.url)}
-              image={pickCardImage(b.url, b.image_url, b.screenshot_url, b.card_type)}
-              priority={i < 4}
-            />
-          ))}
+          {bullets.map((b, i) => {
+            const [primary, fallback] = cardImageCandidates(b.url, b.image_url, b.screenshot_url, b.card_type)
+            return (
+              <LinkCard
+                key={b.id}
+                url={b.url}
+                title={cleanTitle(b.title, b.url)}
+                image={primary ?? null}
+                fallbackImage={fallback ?? null}
+                faviconUrl={b.favicon_url}
+                priority={i < 4}
+              />
+            )
+          })}
         </div>
       </section>
 

@@ -1,5 +1,6 @@
 import { GemGlyph } from '@/components/GemGlyph'
-import { pickCardImage } from '@/lib/cardImage'
+import { CardThumb } from '@/components/CardThumb'
+import { cardImageCandidates } from '@/lib/cardImage'
 
 // Fixed-size card for the homepage carousel — uniform 4:3 image (object-cover)
 // + a fixed-height title/domain footer, so every card is identical regardless
@@ -16,7 +17,7 @@ function domainOf(url: string): string {
 export function CarouselCard({ b }: { b: any }) {
   const domain = domainOf(b.url)
   const title = b.title?.trim() || domain
-  const img = pickCardImage(b.url, b.image_url, b.screenshot_url, b.card_type)
+  const candidates = cardImageCandidates(b.url, b.image_url, b.screenshot_url, b.card_type)
 
   return (
     <a
@@ -26,14 +27,14 @@ export function CarouselCard({ b }: { b: any }) {
       className="block rounded-none border border-[#26221c]/30 bg-stone-50 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-colors hover:border-[#26221c]/60"
     >
       <div className="aspect-[4/3] overflow-hidden bg-[#ece6d8]">
-        {img ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={img} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <GemGlyph className="h-8 w-8 text-ink/20" />
-          </div>
-        )}
+        <CardThumb
+          candidates={candidates}
+          fallback={
+            <div className="flex h-full w-full items-center justify-center">
+              <GemGlyph className="h-8 w-8 text-ink/20" />
+            </div>
+          }
+        />
       </div>
       <div className="px-4 pb-3.5 pt-3">
         <h3 className="line-clamp-2 min-h-[2.6em] font-serif text-[15px] leading-snug tracking-tight text-ink">

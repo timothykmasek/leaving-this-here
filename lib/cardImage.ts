@@ -1,9 +1,11 @@
-// Screenshot-first card visuals.
+// OG-first card visuals.
 //
-// Screenshots give every card the same "window onto the actual site" look, so
-// they win by default. The exception is content platforms, where the og:image
-// IS the content (video thumbnail, episode art, tweet media) — a screenshot of
-// a watch/player page (chrome, sidebars, consent walls) is strictly worse.
+// A content-bearing og:image — product hero, article art, social media, branded
+// cover — is what a well-made link *wants* to show: it's curated by the site and
+// framed to look good at a glance. It beats a datacenter screenshot of the page,
+// which catches nav chrome, cookie/consent walls, half-loaded heroes, and the
+// wrong crop. So the og:image wins whenever it's usable; the screenshot is the
+// fallback for sites that only offer a bare logo (or nothing).
 
 import { looksLikeLogoUrl } from '@/lib/cardType'
 
@@ -66,32 +68,49 @@ export function shouldSkipScreenshot(url: string): boolean {
   }
 }
 
-// card_type drives image choice when known (it's classified at save time).
-// These types HAVE a designed, content-bearing image (product shot, article
-// hero, social OG, repo social-card) → the og:image beats a screenshot.
-const OG_FIRST_CARD_TYPES = new Set([
-  'product', 'book', 'article', 'composite', 'fullbleed',
-  // tweet: the captured media image IS the content; screenshot of the page
-  // (chrome, replies, login nags) is strictly worse.
-  'tweet',
-])
-// These are landing pages / profiles / no-good-image → a screenshot (the
-// "window onto the site") beats the og:image (usually a bare logo).
-const SCREENSHOT_FIRST_CARD_TYPES = new Set([
-  'screenshot', 'profile', 'lth',
-])
-
 /**
- * Pick the card image.
+ * Ordered list of card-image candidates, best first, ready to try in sequence.
  *
- * When `cardType` is known (set at save time by classifyCardType), it decides:
- * content-type cards prefer their og:image, landing/profile cards prefer the
- * screenshot. When it's absent (older rows not yet classified), fall back to the
- * domain heuristic: screenshot-first everywhere, og-first on content platforms.
+ * A content-bearing og:image always leads; the screenshot follows as the
+ * fallback for logo-only / imageless sites AND for the case where the og is
+ * present but *broken* — a dead/404 og (thequantuminsider) should drop to the
+ * screenshot we already captured rather than the domain plate. The card walks
+ * this list on each <img> error (see components/CardThumb).
  *
- * Either way we fall back to whichever source the first choice lacks.
+ * This is deterministic at render time (no backfill needed) and covers every row
+ * regardless of its stored card_type — a homepage classified `screenshot` at
+ * save time still shows its rich og:image here.
+ *
+ * `cardType` is retained on the signature for callers and future per-type
+ * layouts; it no longer influences which image *source* is chosen.
  * `screenshot_url` can be '' (sentinel: no screenshot needed/possible) — treated
  * as absent.
+ */
+export function cardImageCandidates(
+  url: string,
+  imageUrl: string | null | undefined,
+  screenshotUrl: string | null | undefined,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  cardType?: string | null,
+): string[] {
+  const ss = screenshotUrl || null
+  // A bare logo/wordmark og:image renders as garbage when cropped to fill the
+  // card (a zoomed-in slice of the mark). When a screenshot exists to fall back
+  // on, drop the logo so the screenshot wins instead. Content platforms
+  // (prefersOgImage) are exempt: their "logo" is often the actual thumbnail.
+  const og =
+    imageUrl && ss && looksLikeLogoUrl(imageUrl) && !prefersOgImage(url)
+      ? null
+      : imageUrl || null
+  // og first, screenshot as fallback; de-duped (og === ss can happen for
+  // content platforms sentinel'd to the same source) and null-stripped.
+  return [...new Set([og, ss].filter((s): s is string => !!s))]
+}
+
+/**
+ * The single best card image (candidates[0]). Retained for callers that render
+ * one static <img> with no fallback chain (previews, the eval harness). Cards
+ * that can fall back on error should use {@link cardImageCandidates} instead.
  */
 export function pickCardImage(
   url: string,
@@ -99,20 +118,5 @@ export function pickCardImage(
   screenshotUrl: string | null | undefined,
   cardType?: string | null,
 ): string | null {
-  const ss = screenshotUrl || null
-  // A bare logo/wordmark og:image renders as garbage when cropped to fill the
-  // card (a zoomed-in slice of the mark). It's never the right choice when a
-  // screenshot exists — so drop it here, before any card-type routing. This
-  // catches rows classified before logo detection landed in classifyCardType,
-  // deterministically at render time (no backfill needed). Content platforms
-  // (prefersOgImage) are exempt: their "logo" is often the actual thumbnail.
-  const og =
-    imageUrl && ss && looksLikeLogoUrl(imageUrl) && !prefersOgImage(url)
-      ? null
-      : imageUrl || null
-  if (cardType) {
-    if (OG_FIRST_CARD_TYPES.has(cardType)) return og || ss
-    if (SCREENSHOT_FIRST_CARD_TYPES.has(cardType)) return ss || og
-  }
-  return prefersOgImage(url) ? og || ss : ss || og
+  return cardImageCandidates(url, imageUrl, screenshotUrl, cardType)[0] ?? null
 }
