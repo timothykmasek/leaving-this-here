@@ -91,22 +91,72 @@ async function saveActiveTab(tab) {
   // the og image; the server's pickCardImage picks per card_type — landing/
   // profile pages show the screenshot, articles/products keep their og, so the
   // shot is stored-but-unused there. Viewport/hero only — preview-grade.
-  const clientShot = await captureTab(tab?.windowId)
+  const clientShot = await captureTab(tab)
   await saveFlow(tab, { url: tab?.url, title: tab?.title, clientMeta, clientShot })
 }
 
-// Screenshot the visible area of the active tab. Needs activeTab (granted on the
-// icon click) — no new permission. Returns a JPEG data URL, or null on
-// chrome://, the Web Store, PDF viewers, or if the gesture didn't grant access.
-async function captureTab(windowId) {
+// Screenshot the HERO of the active tab. captureVisibleTab only grabs what's on
+// screen, so if the user has scrolled down we'd store a mid-page frame — the old
+// bad-crop cause. Jump to the top first (only when actually scrolled), take the
+// shot, then restore their scroll position so the save doesn't yank their place.
+// When already at the top (the common case) nothing moves. Uses activeTab +
+// scripting (both already granted) — no new permission. Returns a JPEG data URL,
+// or null on chrome://, the Web Store, PDF viewers, or if the gesture didn't
+// grant access.
+async function captureTab(tab) {
+  const tabId = tab?.id
+  let restoreY = null
+
+  // Scroll to top if the page is scrolled, so the shot is the hero. Best-effort:
+  // a page that blocks scripting just gets a plain viewport capture below.
+  if (tabId != null) {
+    try {
+      const [{ result } = {}] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => {
+          const y = window.scrollY || document.documentElement.scrollTop || 0
+          if (y > 100) {
+            window.scrollTo(0, 0)
+            return y
+          }
+          return 0
+        },
+      })
+      if (result) {
+        restoreY = result
+        // Let the jump repaint + any top-anchored lazy media settle before the shot.
+        await new Promise((r) => setTimeout(r, 350))
+      }
+    } catch {
+      /* scripting blocked (chrome://, Web Store, …) — capture the plain viewport */
+    }
+  }
+
+  let shot = null
   try {
     const opts = { format: 'jpeg', quality: 80 }
-    return windowId != null
-      ? await chrome.tabs.captureVisibleTab(windowId, opts)
-      : await chrome.tabs.captureVisibleTab(opts)
+    shot =
+      tab?.windowId != null
+        ? await chrome.tabs.captureVisibleTab(tab.windowId, opts)
+        : await chrome.tabs.captureVisibleTab(opts)
   } catch {
-    return null
+    shot = null
   }
+
+  // Restore the user's scroll position — the save shouldn't move their page.
+  if (restoreY != null && tabId != null) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (y) => window.scrollTo(0, y),
+        args: [restoreY],
+      })
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  return shot
 }
 
 // Read og/meta tags from the active tab's LIVE DOM — i.e. from the user's own
@@ -311,11 +361,22 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const clientMeta = await readPageMeta(tab?.id)
   let payload
   if (info.menuItemId === MENU.IMAGE) {
+    // Explicit image save — the src IS the picture; no page screenshot wanted.
     payload = { url: info.pageUrl || tab?.url, title: tab?.title, image_url: info.srcUrl, clientMeta }
   } else if (info.menuItemId === MENU.SELECTION) {
-    payload = { url: info.pageUrl || tab?.url, title: tab?.title, note: info.selectionText, clientMeta }
+    // Selection is always on the current, visible page → hero shot is valid.
+    payload = { url: info.pageUrl || tab?.url, title: tab?.title, note: info.selectionText, clientMeta, clientShot: await captureTab(tab) }
   } else {
-    payload = { url: info.linkUrl || info.pageUrl || tab?.url, title: tab?.title, clientMeta }
+    // MENU.PAGE fires on both a page and a right-clicked link. Only capture the
+    // visible tab when we're saving THIS page — for a link save (info.linkUrl),
+    // the target isn't what's on screen, so a shot would be the wrong page.
+    const savingCurrentPage = !info.linkUrl
+    payload = {
+      url: info.linkUrl || info.pageUrl || tab?.url,
+      title: tab?.title,
+      clientMeta,
+      ...(savingCurrentPage ? { clientShot: await captureTab(tab) } : {}),
+    }
   }
   await saveFlow(tab, payload)
 })
