@@ -22,11 +22,20 @@ const TRACKING_PARAMS = new Set([
   '_hsenc', '_hsmi', 'vero_id', 'vero_conv', 'oly_enc_id', 'oly_anon_id',
   'ck_subscriber_id', 'mkt_tok', 'twclid', 'ttclid', 'li_fat_id',
   '_ga', '_gl', 'oly_anon_id', 'srsltid', 'si',
+  // Twitter/X embed tracking — ride along on the share/embed URL but never
+  // change which tweet you land on. Safe to strip everywhere.
+  'ref_src', 'ref_url',
 ])
 
-function isTrackingParam(key: string): boolean {
+// Twitter's `s` and `t` share tokens are tracking, but those single letters are
+// legitimate params on other sites — only treat them as tracking on x/twitter.
+const TWITTER_HOSTS = /(^|\.)(x\.com|twitter\.com)$/
+const TWITTER_ONLY_PARAMS = new Set(['s', 't'])
+
+function isTrackingParam(key: string, host: string): boolean {
   const k = key.toLowerCase()
   if (TRACKING_PARAMS.has(k)) return true
+  if (TWITTER_HOSTS.test(host) && TWITTER_ONLY_PARAMS.has(k)) return true
   return TRACKING_PARAM_PREFIXES.some((p) => k.startsWith(p))
 }
 
@@ -63,7 +72,7 @@ export function normalizeUrl(input: string): string {
   const params = new URLSearchParams(u.search)
   const kept: [string, string][] = []
   for (const [k, v] of params) {
-    if (!isTrackingParam(k)) kept.push([k, v])
+    if (!isTrackingParam(k, host)) kept.push([k, v])
   }
   kept.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : 1))
   const search = kept.length

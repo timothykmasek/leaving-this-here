@@ -36,10 +36,14 @@ const TRACKING_PARAMS = new Set([
   '_hsenc', '_hsmi', 'vero_id', 'vero_conv', 'oly_enc_id', 'oly_anon_id',
   'ck_subscriber_id', 'mkt_tok', 'twclid', 'ttclid', 'li_fat_id',
   '_ga', '_gl', 'srsltid', 'si',
+  'ref_src', 'ref_url',
 ])
-const isTrackingParam = (key) => {
+const TWITTER_HOSTS = /(^|\.)(x\.com|twitter\.com)$/
+const TWITTER_ONLY_PARAMS = new Set(['s', 't'])
+const isTrackingParam = (key, host) => {
   const k = key.toLowerCase()
   if (TRACKING_PARAMS.has(k)) return true
+  if (TWITTER_HOSTS.test(host) && TWITTER_ONLY_PARAMS.has(k)) return true
   return TRACKING_PARAM_PREFIXES.some((p) => k.startsWith(p))
 }
 function normalizeUrl(input) {
@@ -53,7 +57,7 @@ function normalizeUrl(input) {
   if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1)
   const params = new URLSearchParams(u.search)
   const kept = []
-  for (const [k, v] of params) if (!isTrackingParam(k)) kept.push([k, v])
+  for (const [k, v] of params) if (!isTrackingParam(k, host)) kept.push([k, v])
   kept.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : 1))
   const search = kept.length
     ? '?' + kept.map(([k, v]) => (v === '' ? k : `${k}=${v}`)).join('&')
@@ -66,6 +70,10 @@ const protocolHttps = () => 'https:'
 // --- end mirror ---
 
 const apply = process.argv.includes('--apply')
+// --recompute: also rewrite rows whose stored url_key no longer matches what
+// normalizeUrl now produces (e.g. after adding tracking params to strip), not
+// just the NULL ones.
+const recompute = process.argv.includes('--recompute')
 
 async function main() {
   let all = []
@@ -82,8 +90,13 @@ async function main() {
     from += 1000
   }
 
-  const toFill = all.filter((b) => !b.url_key)
-  console.log(`${all.length} bookmarks, ${toFill.length} missing url_key`)
+  const toFill = all.filter((b) => {
+    const key = normalizeUrl(b.url)
+    return recompute ? b.url_key !== key : !b.url_key
+  })
+  console.log(
+    `${all.length} bookmarks, ${toFill.length} ${recompute ? 'with stale/missing' : 'missing'} url_key`,
+  )
 
   let written = 0
   for (const b of toFill) {
