@@ -38,12 +38,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'bad url' }, { status: 400 })
   }
 
-  // createBookmarkFromUrl never throws; null means duplicate (unique
-  // user_id+url) or an insert failure — either way the row isn't there twice,
-  // so the client reports it as skipped and moves on.
+  // createBookmarkFromUrl never throws. It returns the row id on success, a
+  // duplicate skip, or a real error — kept distinct so the client stops
+  // reporting genuine failures as "already there".
   const result = await createBookmarkFromUrl(supabase, user.id, url, {
     origin: request.nextUrl.origin,
   })
-  if (!result) return NextResponse.json({ skipped: true })
-  return NextResponse.json({ saved: true, id: result.id })
+  if ('id' in result) return NextResponse.json({ saved: true, id: result.id })
+  if ('skipped' in result) return NextResponse.json({ skipped: true })
+  return NextResponse.json({ failed: true, error: result.error }, { status: 502 })
 }

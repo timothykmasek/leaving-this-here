@@ -47,15 +47,14 @@ export async function createBookmarkFromUrl(
     title?: string | null
     screenshotUrl?: string | null
   } = { origin: '' }
-): Promise<{ id: string } | null> {
+): Promise<{ id: string } | { skipped: 'duplicate' } | { error: string }> {
   try {
     const url_key = normalizeUrl(url)
 
     // Near-dupe guard: if this user already saved a URL that normalizes to the
     // same key (www/trailing-slash/tracking-param variants), don't insert a
     // twin. When we're seeding into a list, attach the existing row to it and
-    // hand back its id; otherwise report a skip (null) — the same contract the
-    // exact-url unique index gave callers like /api/import.
+    // hand back its id; otherwise report a duplicate skip.
     const { data: dupe } = await supabase
       .from('bookmarks')
       .select('id')
@@ -70,7 +69,7 @@ export async function createBookmarkFromUrl(
           .insert({ list_id: opts.listId, bookmark_id: dupe.id })
         return { id: dupe.id }
       }
-      return null
+      return { skipped: 'duplicate' }
     }
 
     const meta = await extractMetadata(url)
@@ -78,7 +77,7 @@ export async function createBookmarkFromUrl(
     // titlecased domain root, never the raw URL.
     const title = opts.title || meta.title || titlecaseDomain(url)
 
-    const { data: inserted } = await supabase
+    const { data: inserted, error: insertErr } = await supabase
       .from('bookmarks')
       .insert({
         user_id: userId,
@@ -94,7 +93,19 @@ export async function createBookmarkFromUrl(
       })
       .select('id')
       .single()
-    if (!inserted) return null
+    if (!inserted) {
+      // Previously this error was silently discarded, so a genuine insert
+      // failure was indistinguishable from a duplicate skip — the import UI
+      // reported both as "already there". Surface it.
+      console.error('[createBookmarkFromUrl] insert failed', {
+        url,
+        code: (insertErr as any)?.code,
+        message: insertErr?.message,
+        details: (insertErr as any)?.details,
+      })
+      const code = (insertErr as any)?.code
+      return { error: `${code ? code + ': ' : ''}${insertErr?.message || 'insert failed'}` }
+    }
 
     if (opts.listId) {
       await supabase
@@ -130,7 +141,8 @@ export async function createBookmarkFromUrl(
     }
 
     return { id: inserted.id }
-  } catch {
-    return null
+  } catch (e) {
+    console.error('[createBookmarkFromUrl] threw', { url, error: String(e) })
+    return { error: String(e) }
   }
 }
