@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { LinkCard } from '@/components/LinkCard'
 import { BulletinHeader } from '@/components/BulletinHeader'
 import { cardImageCandidates } from '@/lib/cardImage'
-import { FEATURED_URLS } from '@/lib/featured'
+import { FEATURED_URLS, FEATURED_IMAGES } from '@/lib/featured'
 
 const SHOWCASE_COUNT = 16
 
@@ -102,7 +102,13 @@ export default async function Home({
       <section className="px-4 pb-28 sm:px-6 lg:px-10">
         <div className="mx-auto grid w-[1184px] max-w-full grid-cols-2 gap-x-4 gap-y-6 [perspective:2400px] sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
           {bullets.map((b, i) => {
-            const [primary, fallback] = cardImageCandidates(b.url, b.image_url, b.screenshot_url, b.card_type)
+            // A frozen homepage image (lib/featured) wins over the render-time
+            // selection so the shopfront never drifts; the DB's best candidate is
+            // kept as the on-error fallback in case a pinned URL ever 404s.
+            const [dbPrimary, dbFallback] = cardImageCandidates(b.url, b.image_url, b.screenshot_url, b.card_type)
+            const frozen = FEATURED_IMAGES[b.url]
+            const primary = frozen ?? dbPrimary
+            const fallback = frozen ? dbPrimary ?? null : dbFallback
             return (
               <LinkCard
                 key={b.id}

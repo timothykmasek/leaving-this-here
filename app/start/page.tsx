@@ -90,6 +90,13 @@ export default function StartPage() {
     })()
   }, [supabase, router])
 
+  // Each step swaps in place on the same page, so scroll position is shared.
+  // Reset to the top on every step change so a step can never inherit a
+  // scrolled-down position (header off-screen) from the previous one.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [step])
+
   // Mirror to localStorage for refresh-resilience (not load-bearing).
   useEffect(() => {
     if (booting) return
@@ -324,6 +331,17 @@ function Username({
   const [status, setStatus] = useState<'idle' | 'checking' | 'ok' | 'no' | 'short'>('idle')
   const [reason, setReason] = useState<string>('')
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Focus the field so it's ready to type — but NOT with the `autoFocus`
+  // attribute. On mobile Safari, autofocusing on mount scrolls the input into
+  // view, which pushes the BULLETIN header off the top of the screen (and, since
+  // /start swaps steps in place without resetting scroll, that scrolled position
+  // then carries into every later step). `preventScroll` focuses without moving
+  // the page, so the logo stays put.
+  useEffect(() => {
+    inputRef.current?.focus({ preventScroll: true })
+  }, [])
 
   const onInput = (raw: string) => {
     const v = raw.toLowerCase().replace(/[^a-z0-9-]/g, '')
@@ -374,7 +392,7 @@ function Username({
           yourbulletin.com/
         </span>
         <input
-          autoFocus
+          ref={inputRef}
           value={value}
           onChange={(e) => onInput(e.target.value)}
           placeholder="yourname"

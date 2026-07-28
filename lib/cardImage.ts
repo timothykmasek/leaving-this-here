@@ -56,6 +56,39 @@ const SKIP_SCREENSHOT_HOSTS = [
 const SKIP_SCREENSHOT_PATHS =
   /(^|\/)(checkout|cart|login|signin|sign-in|signup|sign-up|account\/login)(\/|$)/i
 
+// Live third-party screenshot services whose URLs some legacy seeding wrote
+// straight into image_url/screenshot_url. They render their OWN branded loading
+// spinner (and a wrong, cropped capture) on every view — never our content — so
+// we treat any such URL as unusable and let the card fall back to a real
+// og:image / stored screenshot / plate instead. thum.io is the one that leaked
+// onto featured rows; the list guards against the whole class.
+const LIVE_SCREENSHOT_SERVICE_HOSTS = ['thum.io', 'image.thum.io', 's.wordpress.com', 'mini.s-shot.ru']
+
+function isLiveScreenshotServiceUrl(u: string | null | undefined): boolean {
+  if (!u) return false
+  try {
+    const host = new URL(u).hostname.replace(/^www\./, '')
+    return LIVE_SCREENSHOT_SERVICE_HOSTS.some((d) => host === d || host.endsWith(`.${d}`))
+  } catch {
+    return false
+  }
+}
+
+// Author-avatar URLs that WordPress/blog meta scrapers hand back as the og:image
+// — a Gravatar face (or its generated `d=mm/identicon/retro` "mystery man"
+// placeholder). At card size these render as a tiny centered blob, never the
+// page's content (Terrenus Energy showed a blue `d=mm` gravatar for exactly this
+// reason). Treated like a logo: demoted below a screenshot when one exists.
+function looksLikeAvatarUrl(u: string | null | undefined): boolean {
+  if (!u) return false
+  try {
+    const host = new URL(u).hostname.replace(/^www\./, '')
+    return host === 'gravatar.com' || host.endsWith('.gravatar.com')
+  } catch {
+    return false
+  }
+}
+
 /** True when `url` only ever yields a login-wall / checkout / cart page to a bot. */
 export function shouldSkipScreenshot(url: string): boolean {
   try {
@@ -93,15 +126,22 @@ export function cardImageCandidates(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   cardType?: string | null,
 ): string[] {
-  const ss = screenshotUrl || null
+  // Strip any live third-party screenshot-service URL (e.g. thum.io) from both
+  // slots first — those never resolve to our content, so they must not be picked
+  // even as a fallback.
+  const cleanImage = isLiveScreenshotServiceUrl(imageUrl) ? null : imageUrl
+  const ss = isLiveScreenshotServiceUrl(screenshotUrl) ? null : screenshotUrl || null
   // A bare logo/wordmark og:image renders as garbage when cropped to fill the
   // card (a zoomed-in slice of the mark). When a screenshot exists to fall back
   // on, drop the logo so the screenshot wins instead. Content platforms
   // (prefersOgImage) are exempt: their "logo" is often the actual thumbnail.
   const og =
-    imageUrl && ss && looksLikeLogoUrl(imageUrl) && !prefersOgImage(url)
+    cleanImage &&
+    ss &&
+    (looksLikeLogoUrl(cleanImage) || looksLikeAvatarUrl(cleanImage)) &&
+    !prefersOgImage(url)
       ? null
-      : imageUrl || null
+      : cleanImage || null
   // og first, screenshot as fallback; de-duped (og === ss can happen for
   // content platforms sentinel'd to the same source) and null-stripped.
   return [...new Set([og, ss].filter((s): s is string => !!s))]

@@ -27,17 +27,14 @@ export const SiteFooter = forwardRef<
           : 'border-t border-black/[0.06] px-6 py-10'
       }
     >
-      {/* Reveal bar stays a single slim row even on mobile; the static footer
-          stacks © above the links on small screens like before. */}
-      <div
-        className={`mx-auto flex max-w-[1208px] items-center ${
-          reveal ? 'flex-row justify-between' : 'flex-col gap-4 sm:flex-row sm:justify-between'
-        }`}
-      >
+      {/* Both modes render one slim justified row, on mobile too, so the static
+          footer (list pages) reads identically to the reveal bar (profile feed)
+          — no stacked-© variant that looked inconsistent across screens. */}
+      <div className="mx-auto flex max-w-[1208px] flex-row items-center justify-between">
         <span className="label whitespace-nowrap text-black/35">© 2026</span>
-        {/* Tighter gap in the reveal bar so all three links + © fit one slim row
-            on a 375px phone without any item wrapping onto a second line. */}
-        <nav className={`flex items-center ${reveal ? 'gap-5 sm:gap-8' : 'gap-8'}`}>
+        {/* Tight gap so © + all three links fit one row on a 375px phone without
+            any item wrapping onto a second line. */}
+        <nav className="flex items-center gap-5 sm:gap-8">
           <a href="/import" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Import</a>
           <a href="/privacy" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Privacy</a>
           <a

@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useMemo } from 'react'
+import { Suspense, useState, useEffect, useMemo, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
@@ -43,6 +43,19 @@ function SetupInner() {
   const [firstSaveUrl, setFirstSaveUrl] = useState('')
   const [firstSaveBusy, setFirstSaveBusy] = useState(false)
   const [firstSaveError, setFirstSaveError] = useState<string | null>(null)
+
+  const handleInputRef = useRef<HTMLInputElement>(null)
+  const firstSaveInputRef = useRef<HTMLInputElement>(null)
+
+  // Steps swap in place on one page. Reset scroll to the top on each change so
+  // the header is never left scrolled off-screen, and focus the active step's
+  // field WITHOUT the iOS autofocus scroll-jack (preventScroll) that pushed the
+  // BULLETIN logo out of view. Same fix as /start.
+  useEffect(() => {
+    window.scrollTo(0, 0)
+    if (step === 'handle') handleInputRef.current?.focus({ preventScroll: true })
+    else if (step === 'first-save') firstSaveInputRef.current?.focus({ preventScroll: true })
+  }, [step])
 
   // Auth guard + fast-path for existing profiles
   useEffect(() => {
@@ -176,11 +189,11 @@ function SetupInner() {
                     yourbulletin.com/
                   </span>
                   <input
+                    ref={handleInputRef}
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
                     placeholder="yourname"
-                    autoFocus
                     autoComplete="off"
                     className="flex-1 py-3 pr-4 text-sm bg-transparent focus:outline-none"
                   />
@@ -265,11 +278,11 @@ function SetupInner() {
             </p>
             <form onSubmit={saveFirstLink} className="space-y-4">
               <input
+                ref={firstSaveInputRef}
                 type="url"
                 value={firstSaveUrl}
                 onChange={(e) => setFirstSaveUrl(e.target.value)}
                 placeholder="https://..."
-                autoFocus
                 disabled={firstSaveBusy}
                 className="w-full px-5 py-3 border border-black/15 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-black/30 disabled:opacity-60"
               />
