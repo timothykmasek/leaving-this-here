@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { BulletinHeader } from '@/components/BulletinHeader'
+import { normalizeUrl } from '@/lib/normalizeUrl'
 
 // 4-step onboarding wizard. The first three load the user into the product;
 // the fourth is just a congratulatory pause before redirecting to their folio.
@@ -120,6 +121,7 @@ function SetupInner() {
       const { data: inserted, error } = await supabase.from('bookmarks').insert({
         user_id: profileId,
         url,
+        url_key: normalizeUrl(url),
         title: meta.title || url,
         description: meta.description,
         image_url: meta.image || null,
