@@ -3,6 +3,7 @@ import type { createSupabaseServer } from '@/lib/supabase/server'
 import { extractMetadata } from '@/lib/metadata'
 import { classifyCardType } from '@/lib/cardType'
 import { embed, bookmarkToEmbedText } from '@/lib/embed'
+import { normalizeUrl } from '@/lib/normalizeUrl'
 
 type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServer>>
 
@@ -48,6 +49,30 @@ export async function createBookmarkFromUrl(
   } = { origin: '' }
 ): Promise<{ id: string } | null> {
   try {
+    const url_key = normalizeUrl(url)
+
+    // Near-dupe guard: if this user already saved a URL that normalizes to the
+    // same key (www/trailing-slash/tracking-param variants), don't insert a
+    // twin. When we're seeding into a list, attach the existing row to it and
+    // hand back its id; otherwise report a skip (null) — the same contract the
+    // exact-url unique index gave callers like /api/import.
+    const { data: dupe } = await supabase
+      .from('bookmarks')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('url_key', url_key)
+      .limit(1)
+      .maybeSingle()
+    if (dupe) {
+      if (opts.listId) {
+        await supabase
+          .from('list_bookmarks')
+          .insert({ list_id: opts.listId, bookmark_id: dupe.id })
+        return { id: dupe.id }
+      }
+      return null
+    }
+
     const meta = await extractMetadata(url)
     // Blocked/empty fetches happen (Cloudflare etc.) — fall back to a
     // titlecased domain root, never the raw URL.
@@ -58,6 +83,7 @@ export async function createBookmarkFromUrl(
       .insert({
         user_id: userId,
         url,
+        url_key,
         title,
         description: meta.description,
         image_url: meta.image,

@@ -4,6 +4,7 @@ import { waitUntil } from '@vercel/functions'
 import { extractMetadata } from '@/lib/metadata'
 import { classifyCardType } from '@/lib/cardType'
 import { embed, bookmarkToEmbedText } from '@/lib/embed'
+import { normalizeUrl } from '@/lib/normalizeUrl'
 import {
   ensureBucket,
   storeImageBytes,
@@ -179,6 +180,64 @@ export async function POST(request: NextRequest) {
   // (og-first) instead of falling to the lth/screenshot fallback.
   const card_type = classifyCardType(url, { ...meta, image: image_url, title })
 
+  // Normalized dedupe key (www/trailing-slash/tracking-param variants collapse
+  // to one). The stored `url` stays exactly what the user saved.
+  const url_key = normalizeUrl(url)
+
+  // Refresh an existing bullet in place — the user's "re-save = refresh this
+  // card" gesture: overwrite metadata, re-embed, re-capture, while preserving
+  // note, list membership, and created_at. Deliberately overwrites a
+  // hand-edited title: an explicit re-save says "take the page as it is now".
+  // Used for both exact re-saves and near-dupes (same url_key, different url).
+  const refreshExisting = async (existingId: string) => {
+    const { data: refreshed, error: refreshErr } = await supabase
+      .from('bookmarks')
+      .update({ title, description, image_url, favicon_url, card_type, raw_metadata: meta.raw, url_key })
+      .eq('id', existingId)
+      .select('id, title, image_url, favicon_url')
+      .single()
+    if (refreshErr || !refreshed) {
+      return json({ error: 'already saved', alreadySaved: true }, 409)
+    }
+    // Text changed → the old embedding is stale. Re-embed out-of-band,
+    // mirroring the insert path; the nightly backfill only covers NULLs, so
+    // clear it first — a frozen instance then heals instead of drifting.
+    const refreshEmbedText = bookmarkToEmbedText({ title, description, url })
+    if (refreshEmbedText.trim()) {
+      await supabase.from('bookmarks').update({ embedding: null as any }).eq('id', refreshed.id)
+      void (async () => {
+        try {
+          const [vector] = await embed([refreshEmbedText], 'document')
+          const vectorLiteral = `[${vector.join(',')}]`
+          await supabase
+            .from('bookmarks')
+            .update({ embedding: vectorLiteral as any })
+            .eq('id', refreshed.id)
+        } catch {
+          // nightly backfill sweeps embedding IS NULL
+        }
+      })()
+    }
+    const dupShot =
+      typeof body.clientShot === 'string' && body.clientShot.startsWith('data:image/')
+        ? body.clientShot
+        : null
+    if (dupShot) waitUntil(persistClientShot(refreshed.id, dupShot, card_type))
+    persistRotProneImage(refreshed.id, image_url)
+    return json({ bookmark: refreshed, refreshed: true })
+  }
+
+  // Near-dupe / exact re-save guard: if this user already has a bullet whose
+  // url normalizes to the same key, refresh it instead of spawning a twin card.
+  const { data: preExisting } = await supabase
+    .from('bookmarks')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('url_key', url_key)
+    .limit(1)
+    .maybeSingle()
+  if (preExisting) return refreshExisting(preExisting.id)
+
   // 5. Insert (tags removed — bullets are organized into lists and found via
   //    semantic search, no auto-tagging step)
   const { data: inserted, error: insertErr } = await supabase
@@ -186,6 +245,7 @@ export async function POST(request: NextRequest) {
     .insert({
       user_id: user.id,
       url,
+      url_key,
       title,
       description,
       image_url,
@@ -198,57 +258,19 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (insertErr) {
-    // Unique violation on (user_id, url) — already saved. Re-saving is the
-    // user's "refresh this card" gesture: update the metadata in place (the
-    // page may render better now — SPA-stale og fixed, richer client capture)
-    // while preserving note, list membership, and created_at. Deliberately
-    // overwrites a hand-edited title: an explicit re-save says "take the page
-    // as it is now".
+    // Backstop for a race: the exact-url unique index (migration 011) still
+    // fires 23505 if two saves land at once between the pre-check and insert.
     if ((insertErr as any).code === '23505') {
       const { data: existing } = await supabase
         .from('bookmarks')
         .select('id')
         .eq('user_id', user.id)
         .eq('url', url)
-        .single()
+        .maybeSingle()
       if (!existing) {
         return json({ error: 'already saved', alreadySaved: true }, 409)
       }
-      const { data: refreshed, error: refreshErr } = await supabase
-        .from('bookmarks')
-        .update({ title, description, image_url, favicon_url, card_type, raw_metadata: meta.raw })
-        .eq('id', existing.id)
-        .select('id, title, image_url, favicon_url')
-        .single()
-      if (refreshErr || !refreshed) {
-        return json({ error: 'already saved', alreadySaved: true }, 409)
-      }
-      // Text changed → the old embedding is stale. Re-embed out-of-band,
-      // mirroring the insert path; the nightly backfill only covers NULLs, so
-      // clear it first — a frozen instance then heals instead of drifting.
-      const refreshEmbedText = bookmarkToEmbedText({ title, description, url })
-      if (refreshEmbedText.trim()) {
-        await supabase.from('bookmarks').update({ embedding: null as any }).eq('id', refreshed.id)
-        void (async () => {
-          try {
-            const [vector] = await embed([refreshEmbedText], 'document')
-            const vectorLiteral = `[${vector.join(',')}]`
-            await supabase
-              .from('bookmarks')
-              .update({ embedding: vectorLiteral as any })
-              .eq('id', refreshed.id)
-          } catch {
-            // nightly backfill sweeps embedding IS NULL
-          }
-        })()
-      }
-      const dupShot =
-        typeof body.clientShot === 'string' && body.clientShot.startsWith('data:image/')
-          ? body.clientShot
-          : null
-      if (dupShot) waitUntil(persistClientShot(refreshed.id, dupShot, card_type))
-      persistRotProneImage(refreshed.id, image_url)
-      return json({ bookmark: refreshed, refreshed: true })
+      return refreshExisting(existing.id)
     }
     return json({ error: insertErr.message }, 400)
   }
