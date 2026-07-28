@@ -101,29 +101,46 @@ export function shouldSkipScreenshot(url: string): boolean {
   }
 }
 
+// Card types where the rendered page IS the draw — a homepage / landing / brand
+// site — so the hero SCREENSHOT leads and the og/logo is the fallback. Every
+// other type is content whose og leads. See cardImageCandidates for the why.
+const SCREENSHOT_FIRST_CARD_TYPES = new Set(['screenshot', 'lth', 'profile'])
+
 /**
- * Ordered list of card-image candidates, best first, ready to try in sequence.
+ * Ordered list of card-image candidates, best first, tried in sequence by
+ * CardThumb (it walks to the next candidate on each <img> error).
  *
- * A content-bearing og:image always leads; the screenshot follows as the
- * fallback for logo-only / imageless sites AND for the case where the og is
- * present but *broken* — a dead/404 og (thequantuminsider) should drop to the
- * screenshot we already captured rather than the domain plate. The card walks
- * this list on each <img> error (see components/CardThumb).
+ * SOURCE ORDER IS CARD-TYPE-AWARE, modelled on mymind (validated across two
+ * independent link batches — see the note below):
+ *   • Content pages (article, product, book, tweet, social composite, …) → OG
+ *     FIRST. The og IS the content: article hero, product shot, book cover,
+ *     tweet media. A screenshot of the page (nav chrome, paywalls, consent
+ *     walls) is strictly worse.
+ *   • Homepages / landing / brand sites (screenshot, lth, profile) → SCREENSHOT
+ *     FIRST. Here the *rendered page itself* is the beautiful thing; mymind shows
+ *     the site's hero, not its og share-card (it chose the screenshot over the og
+ *     for Plannotator, Ploy, OSSCAR, War on the Rocks, Andy Stumpf, …). The og
+ *     is the fallback for when the screenshot is missing/blank — a Vollebak-style
+ *     capture failure drops to the og/brand mark automatically via the chain.
  *
- * This is deterministic at render time (no backfill needed) and covers every row
- * regardless of its stored card_type — a homepage classified `screenshot` at
- * save time still shows its rich og:image here.
+ * Either way the OTHER source is the fallback, so a broken/404 og (thequantum-
+ * insider) — or a blank screenshot — drops to the other before the domain plate.
+ * Logo/avatar ogs are dropped when a screenshot exists (a cropped wordmark
+ * renders as garbage).
  *
- * `cardType` is retained on the signature for callers and future per-type
- * layouts; it no longer influences which image *source* is chosen.
- * `screenshot_url` can be '' (sentinel: no screenshot needed/possible) — treated
- * as absent.
+ * NOT a richness/colorfulness/entropy metric. We built and tested those against
+ * mymind and they did NOT reproduce its picks (a vivid flat share-card scores
+ * "rich"; a desaturated photo scores "flat"). mymind's homepage rule is simply
+ * "show the site," with the rare designed-og exception (Ribbon's gradient, Triple
+ * Aught's logo) left to a manual per-card override — not a heuristic.
+ *
+ * Deterministic at render time — no backfill. `screenshot_url` may be ''
+ * (sentinel: none) and is treated as absent.
  */
 export function cardImageCandidates(
   url: string,
   imageUrl: string | null | undefined,
   screenshotUrl: string | null | undefined,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   cardType?: string | null,
 ): string[] {
   // Strip any live third-party screenshot-service URL (e.g. thum.io) from both
@@ -142,9 +159,13 @@ export function cardImageCandidates(
     !prefersOgImage(url)
       ? null
       : cleanImage || null
-  // og first, screenshot as fallback; de-duped (og === ss can happen for
-  // content platforms sentinel'd to the same source) and null-stripped.
-  return [...new Set([og, ss].filter((s): s is string => !!s))]
+  // Homepages / landing / brand sites lead with the rendered hero screenshot;
+  // content leads with its og. The other source is the fallback either way.
+  // De-duped (og === ss can happen for content platforms sentinel'd to the same
+  // source) and null-stripped.
+  const ordered =
+    cardType && SCREENSHOT_FIRST_CARD_TYPES.has(cardType) ? [ss, og] : [og, ss]
+  return [...new Set(ordered.filter((s): s is string => !!s))]
 }
 
 /**
