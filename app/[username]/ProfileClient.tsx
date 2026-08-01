@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -189,21 +189,26 @@ export default function ProfileClient({
     return Array.from(out)
   }
 
-  const haystackFor = (b: any) => {
-    let host = ''
-    try { host = new URL(b.url).hostname.replace(/^www\./, '') } catch {}
-    return [b.title, b.description, b.url, host]
-      .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-  }
+  // Precompute each bullet's lowercased search haystack ONCE per bookmark-set
+  // change. The `new URL()` parse is the expensive part; doing it here (keyed on
+  // bookmarks) instead of inside tokenSearch keeps ~1000 URL parses off every
+  // keystroke — the parse now runs once when the collection loads, not per query.
+  const haystackById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const b of bookmarks) {
+      let host = ''
+      try { host = new URL(b.url).hostname.replace(/^www\./, '') } catch {}
+      m.set(b.id, [b.title, b.description, b.url, host].filter(Boolean).join(' ').toLowerCase())
+    }
+    return m
+  }, [bookmarks])
 
   const tokenSearch = (query: string) => {
     const tokens = tokenize(query)
     if (tokens.length === 0) return bookmarks
     const expanded = expandTokens(tokens)
     return bookmarks.filter((b) => {
-      const hay = haystackFor(b)
+      const hay = haystackById.get(b.id) || ''
       return expanded.some((t) => hay.includes(t))
     })
   }
@@ -393,8 +398,9 @@ export default function ProfileClient({
   // Lists render biggest-first — the fullest lists are the ones worth surfacing.
   // Ties fall back to newest (state is already ordered created_at desc). Sort a
   // copy so we don't mutate the lists state array in place.
-  const sortedLists = [...lists].sort(
-    (a, b) => b.bookmark_ids.length - a.bookmark_ids.length
+  const sortedLists = useMemo(
+    () => [...lists].sort((a, b) => b.bookmark_ids.length - a.bookmark_ids.length),
+    [lists]
   )
 
   const activeList = activeListId ? lists.find((l) => l.id === activeListId) : null
@@ -402,22 +408,9 @@ export default function ProfileClient({
     ? bookmarks.filter((b) => activeList.bookmark_ids.includes(b.id))
     : []
 
-  // bookmark id → the lists it belongs to (for the card chips).
-  const listsByBookmark = (() => {
-    const m = new Map<string, { id: string; name: string; slug: string | null }[]>()
-    for (const l of lists) {
-      for (const bid of l.bookmark_ids) {
-        const arr = m.get(bid) || []
-        arr.push({ id: l.id, name: l.name, slug: l.slug ?? null })
-        m.set(bid, arr)
-      }
-    }
-    return m
-  })()
-
   // Up to 4 preview thumbnails for a list card, newest link first (so a small
   // list's single preview shows the latest saved link).
-  const bookmarkById = new Map(bookmarks.map((b) => [b.id, b]))
+  const bookmarkById = useMemo(() => new Map(bookmarks.map((b) => [b.id, b])), [bookmarks])
   const listThumbs = (l: any): string[] =>
     (l.bookmark_ids as string[])
       .map((id) => bookmarkById.get(id))
@@ -430,11 +423,13 @@ export default function ProfileClient({
       .filter(Boolean)
       .slice(0, 4)
 
-  // `excludeListId` drops the current list's own chip when rendering inside a
-  // list detail view (it'd be redundant there).
-  const renderBulletGrid = (items: any[], excludeListId?: string) => (
+  const renderBulletGrid = (items: any[]) => (
     <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
       {items.slice(0, visibleCount).map((b) => (
+        // Pass ONLY stable, actually-rendered props so React.memo on BookmarkCard
+        // holds across search keystrokes — the card ignores note / inLists /
+        // onDelete / onNoteUpdate / ownerUsername (see its interface), and those
+        // were the props whose identity changed every render.
         <BookmarkCard
           key={b.id}
           id={b.id}
@@ -445,13 +440,8 @@ export default function ProfileClient({
           screenshotUrl={b.screenshot_url}
           faviconUrl={b.favicon_url}
           rawMetadata={b.raw_metadata}
-          note={b.note}
           isOwner={isOwner}
           cardType={b.card_type}
-          inLists={(listsByBookmark.get(b.id) || []).filter((l) => l.id !== excludeListId)}
-          ownerUsername={profile.username}
-          onDelete={handleDelete}
-          onNoteUpdate={handleNoteUpdate}
           onOpen={isOwner ? setSelectedId : undefined}
         />
       ))}
@@ -994,7 +984,7 @@ export default function ProfileClient({
               </div>
             </div>
             {listBullets.length > 0 ? (
-              renderBulletGrid(listBullets, activeList.id)
+              renderBulletGrid(listBullets)
             ) : (
               <div className="text-center py-16">
                 <p className="text-gray-500 text-sm">

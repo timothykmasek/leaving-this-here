@@ -76,6 +76,22 @@ export function isPersistedScreenshot(screenshotUrl: string | null | undefined):
   return screenshotUrl.includes(`/storage/v1/object/public/${SCREENSHOT_BUCKET}/`)
 }
 
+// Card images are captured once and keyed by an immutable bookmarkId, so cache
+// them hard at both the browser and Supabase's CDN. Previously uploads omitted
+// cacheControl and Storage defaulted to max-age=3600 — every repeat visit
+// re-fetched the whole grid after an hour.
+const IMAGE_CACHE_CONTROL = '31536000, immutable'
+
+// Because we cache immutably AND the re-capture path overwrites the same storage
+// path (upsert), the base public URL never changes — so a manual re-capture would
+// otherwise be invisible behind the cached copy. Stamping a capture-time version
+// makes each (re)capture yield a distinct URL that busts the cache. The suffix is
+// query-string only: isPersistedScreenshot() matches on the path and cardImage's
+// host checks parse the hostname, so neither is affected.
+function versioned(url: string): string {
+  return `${url}?v=${Date.now()}`
+}
+
 /** Create the storage bucket if it doesn't already exist (idempotent). */
 export async function ensureBucket(supabase: SupabaseClient): Promise<void> {
   const { error } = await supabase.storage.createBucket(SCREENSHOT_BUCKET, {
@@ -152,10 +168,10 @@ export async function persistCardImage(
   }
   const { error } = await supabase.storage
     .from(SCREENSHOT_BUCKET)
-    .upload(path, bytes, { contentType, upsert: true })
+    .upload(path, bytes, { contentType, upsert: true, cacheControl: IMAGE_CACHE_CONTROL })
   if (error) return { publicUrl: null, error: `upload failed: ${error.message}` }
   const { data } = supabase.storage.from(SCREENSHOT_BUCKET).getPublicUrl(path)
-  return { publicUrl: data.publicUrl, error: null }
+  return { publicUrl: versioned(data.publicUrl), error: null }
 }
 
 /**
@@ -175,10 +191,10 @@ export async function storeImageBytes(
   const path = `${bookmarkId}.${ext}`
   const { error } = await supabase.storage
     .from(SCREENSHOT_BUCKET)
-    .upload(path, bytes, { contentType, upsert: true })
+    .upload(path, bytes, { contentType, upsert: true, cacheControl: IMAGE_CACHE_CONTROL })
   if (error) return { publicUrl: null, error: `upload failed: ${error.message}` }
   const { data } = supabase.storage.from(SCREENSHOT_BUCKET).getPublicUrl(path)
-  return { publicUrl: data.publicUrl, error: null }
+  return { publicUrl: versioned(data.publicUrl), error: null }
 }
 
 /**
@@ -238,12 +254,12 @@ export async function captureAndStore(
 
   const { error: uploadError } = await supabase.storage
     .from(SCREENSHOT_BUCKET)
-    .upload(path, bytes, { contentType: 'image/webp', upsert: true })
+    .upload(path, bytes, { contentType: 'image/webp', upsert: true, cacheControl: IMAGE_CACHE_CONTROL })
 
   if (uploadError) {
     return { publicUrl: null, error: `upload failed: ${uploadError.message}` }
   }
 
   const { data } = supabase.storage.from(SCREENSHOT_BUCKET).getPublicUrl(path)
-  return { publicUrl: data.publicUrl, error: null }
+  return { publicUrl: versioned(data.publicUrl), error: null }
 }

@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { createSupabaseServer } from '@/lib/supabase/server'
+import { getProfileByUsername, getListBySlug } from '@/lib/queries'
+import { timed } from '@/lib/timing'
 import { BookmarkCard } from '@/components/BookmarkCard'
 import { PublicHeader } from '@/components/PublicHeader'
 import { ProfileIdentity } from '@/components/ProfileIdentity'
@@ -38,33 +40,46 @@ export default async function ListPage({
   const { username, listSlug } = params
   const supabase = await createSupabaseServer()
 
-  const { data: { user } } = await supabase.auth.getUser()
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, username, display_name, bio, links')
-    .eq('username', username)
-    .single()
+  // Stage 1 — auth + profile are independent; the profile lookup is shared with
+  // this route's generateMetadata via a per-request cache() so it fires once.
+  // Identity via getSession() (local decode) not getUser() (network) — middleware
+  // already validated the token; here it only toggles the owner management view.
+  const [{ data: { session } }, profile] = await timed('list:auth+profile', () =>
+    Promise.all([supabase.auth.getSession(), getProfileByUsername(username)])
+  )
+  const user = session?.user ?? null
   if (!profile) return notFound(username)
 
   const isOwner = !!user && user.id === profile.id
 
-  const { data: list, error } = await supabase
-    .from('lists')
-    .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
-    .eq('user_id', profile.id)
-    .eq('slug', listSlug)
-    .single()
+  // Stage 2 — the requested list (also shared with generateMetadata) and, for the
+  // owner, their full list set for the management sidebar. Independent → parallel.
+  const [listRes, allListsRes] = await timed('list:list+allLists', () =>
+    Promise.all([
+      getListBySlug(profile.id, listSlug),
+      isOwner
+        ? supabase
+            .from('lists')
+            .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
+            .eq('user_id', profile.id)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: null }),
+    ])
+  )
+  const { data: list, error } = listRes
   if (error || !list) return notFound(username)
 
+  // Stage 3 — the member bullets (needs the list's ids, so it follows stage 2).
   const ids = ((list as any).list_bookmarks || []).map((x: any) => x.bookmark_id)
   let bullets: any[] = []
   if (ids.length) {
-    const { data: bmarks } = await supabase
-      .from('bookmarks')
-      .select(BULLET_COLS)
-      .in('id', ids)
-      .order('created_at', { ascending: false })
+    const { data: bmarks } = await timed('list:bullets', () =>
+      supabase
+        .from('bookmarks')
+        .select(BULLET_COLS)
+        .in('id', ids)
+        .order('created_at', { ascending: false })
+    )
     bullets = bmarks || []
   }
 
@@ -74,13 +89,8 @@ export default async function ListPage({
   // controls (rename / delete / description + per-bullet management) onto the
   // list's own URL. Visitors keep the read-only server render below.
   if (isOwner) {
-    const { data: allLists } = await supabase
-      .from('lists')
-      .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false })
-
-    const shapedLists = (allLists || []).map((l: any) => ({
+    // allLists was fetched in parallel back in stage 2.
+    const shapedLists = (((allListsRes as any).data as any[]) || []).map((l: any) => ({
       id: l.id,
       name: l.name,
       slug: l.slug ?? null,

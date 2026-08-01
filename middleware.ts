@@ -6,6 +6,23 @@ export async function middleware(request: NextRequest) {
     request: { headers: request.headers },
   })
 
+  // Next fires <Link> prefetches (on hover / viewport entry) through middleware
+  // too. A prefetch never needs a fresh session-cookie write and never renders a
+  // protected redirect, so skip the getUser() network validation for it: this
+  // avoids 2-4x'ing Supabase Auth traffic for pages the user never opens, and
+  // stops concurrent prefetches from racing to rotate the single-use refresh
+  // token (itself a silent-logout risk). Only genuine prefetches carry the
+  // `next-router-prefetch` header — ordinary client navigations send RSC/_rsc but
+  // NOT this header, so they still hit the validation + cookie-refresh path below.
+  // Genuine prefetches carry `next-router-prefetch` (Next's canonical middleware
+  // signal on Vercel) or `purpose: prefetch`. Ordinary client navigations carry
+  // neither — they send RSC/next-url instead — so this never skips auth on a real
+  // navigation; worst case a prefetch isn't recognized and just pays the old cost.
+  const isPrefetch =
+    request.headers.has('next-router-prefetch') ||
+    request.headers.get('purpose') === 'prefetch'
+  if (isPrefetch) return response
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

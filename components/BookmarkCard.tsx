@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import { cardImageCandidates } from '@/lib/cardImage'
 import { CardThumb } from '@/components/CardThumb'
 import { FaviconPlate } from '@/components/FaviconPlate'
@@ -49,7 +50,11 @@ function Rivet({ className }: { className: string }) {
 // Uses a stretched-link pattern: the whole card is one click target (the
 // original URL), with the owner's edit button layered above it — so no
 // <a>-in-<a> / button-in-<a> nesting.
-export function BookmarkCard({
+// Memoized: on a large profile, every search keystroke re-renders ProfileClient,
+// which would otherwise re-render every visible card. With memo + only stable
+// props passed (see the grid call site), a card re-renders only when its own
+// bullet data changes — so typing stays smooth as the collection grows.
+export const BookmarkCard = memo(function BookmarkCard({
   id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata, cardType, isOwner, onOpen,
 }: BookmarkCardProps) {
   const domain = getDomain(url)
@@ -124,4 +129,4 @@ export function BookmarkCard({
       )}
     </div>
   )
-}
+})

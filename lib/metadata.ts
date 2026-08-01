@@ -103,11 +103,46 @@ export async function fetchHtml(url: string): Promise<FetchHtmlResult> {
     // PDFs are binary — decode as latin1 (1 byte → 1 char) so the ASCII info
     // dict (/Title …) survives intact; UTF-8 decoding mangles the binary and
     // drops the title.
+    // PDF metadata can live at the very end (xref/trailer), so read those in full.
     const looksPdf =
       /application\/pdf/i.test(contentType) || /\.pdf($|[?#])/i.test(finalUrl)
-    const buf = await response.arrayBuffer()
-    const html = new TextDecoder(looksPdf ? 'latin1' : 'utf-8').decode(buf)
-    return { html, finalUrl, contentType }
+    if (looksPdf) {
+      const buf = await response.arrayBuffer()
+      return { html: new TextDecoder('latin1').decode(buf), finalUrl, contentType }
+    }
+
+    // HTML/other: everything we parse (og tags, JSON-LD, <title>) lives in the
+    // <head> at the top of the document — so stream and stop after a cap instead
+    // of downloading and decoding multi-MB article/asset bodies we never read.
+    // This is a large chunk of extractMetadata's latency on heavy pages, and it
+    // runs on every save/import.
+    const MAX_HTML_BYTES = 512 * 1024
+    const reader = response.body?.getReader()
+    if (!reader) {
+      const buf = await response.arrayBuffer()
+      const capped = new Uint8Array(buf).subarray(0, MAX_HTML_BYTES)
+      return { html: new TextDecoder('utf-8').decode(capped), finalUrl, contentType }
+    }
+    const chunks: Uint8Array[] = []
+    let total = 0
+    while (total < MAX_HTML_BYTES) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        chunks.push(value)
+        total += value.length
+      }
+    }
+    try {
+      await reader.cancel()
+    } catch {}
+    const merged = new Uint8Array(total)
+    let offset = 0
+    for (const c of chunks) {
+      merged.set(c, offset)
+      offset += c.length
+    }
+    return { html: new TextDecoder('utf-8').decode(merged), finalUrl, contentType }
   } catch {
     return { html: '', finalUrl: url, contentType: '' }
   } finally {

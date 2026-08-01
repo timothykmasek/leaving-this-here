@@ -119,19 +119,28 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Seed bookmarks: only the last pick attaches to the list ─────────────
+  // Insert all picks concurrently and off the metadata critical path. Each row
+  // lands immediately from the curated seed (hand-written title + baked
+  // screenshot) via deferEnrichment, and the live fetch + embedding run in the
+  // background. This turns what was a 3–6s (up to ~45s on a hung origin) serial
+  // wall of external fetches into parallel, sub-second inserts — collapsing the
+  // "Building your bulletin" wait the user actually sits through.
   const origin = new URL(request.url).origin
-  for (const pick of picks) {
-    const inList = pick === listPick
-    await createBookmarkFromUrl(supabase, user.id, pick.url, {
-      origin,
-      listId: inList ? listId : null,
-      // Curated seed data beats whatever a live fetch returns for these
-      // domains — the library title is hand-written, and the baked screenshot
-      // is the same production capture the picker already shows.
-      title: pick.title,
-      screenshotUrl: await bakedSeedScreenshot(pick),
-    })
-  }
+  await Promise.all(
+    picks.map(async (pick) => {
+      const inList = pick === listPick
+      await createBookmarkFromUrl(supabase, user.id, pick.url, {
+        origin,
+        listId: inList ? listId : null,
+        // Curated seed data beats whatever a live fetch returns for these
+        // domains — the library title is hand-written, and the baked screenshot
+        // is the same production capture the picker already shows.
+        title: pick.title,
+        screenshotUrl: await bakedSeedScreenshot(pick),
+        deferEnrichment: true,
+      })
+    }),
+  )
 
   return NextResponse.json({ ok: true, username: handle })
 }

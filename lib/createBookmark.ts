@@ -46,6 +46,12 @@ export async function createBookmarkFromUrl(
     listId?: string | null
     title?: string | null
     screenshotUrl?: string | null
+    // Insert immediately from the caller's known-good data (title + optional
+    // baked screenshot) and move the live metadata fetch + embedding into the
+    // background. For callers that already have a good title — the onboarding
+    // seed library — this keeps the user-facing request off the extractMetadata
+    // critical path (which can be seconds, up to 15s on a slow/blocked origin).
+    deferEnrichment?: boolean
   } = { origin: '' }
 ): Promise<{ id: string } | { skipped: 'duplicate' } | { error: string }> {
   try {
@@ -70,6 +76,77 @@ export async function createBookmarkFromUrl(
         return { id: dupe.id }
       }
       return { skipped: 'duplicate' }
+    }
+
+    // ── Fast path: caller has a good title already (onboarding seed) ────────
+    // Insert now from what we know; fetch metadata + embed in the background.
+    // card_type starts URL-only and is refined once the fetch lands (a second
+    // or two later) — the card shows instantly with its baked screenshot + title
+    // meanwhile, instead of the whole request blocking on a live fetch per link.
+    if (opts.deferEnrichment && opts.title) {
+      const { data: inserted, error: insertErr } = await supabase
+        .from('bookmarks')
+        .insert({
+          user_id: userId,
+          url,
+          url_key,
+          title: opts.title,
+          screenshot_url: opts.screenshotUrl || null,
+          card_type: classifyCardType(url, {} as any),
+        })
+        .select('id')
+        .single()
+      if (!inserted) {
+        console.error('[createBookmarkFromUrl] deferred insert failed', {
+          url,
+          code: (insertErr as any)?.code,
+          message: insertErr?.message,
+        })
+        return { error: `${insertErr?.message || 'insert failed'}` }
+      }
+      if (opts.listId) {
+        await supabase
+          .from('list_bookmarks')
+          .insert({ list_id: opts.listId, bookmark_id: inserted.id })
+      }
+      // Enrich out-of-band. waitUntil keeps the instance alive until it finishes,
+      // so a frozen serverless function can't drop the backfill.
+      waitUntil(
+        (async () => {
+          try {
+            const meta = await extractMetadata(url)
+            const title = opts.title || meta.title || titlecaseDomain(url)
+            await supabase
+              .from('bookmarks')
+              .update({
+                title,
+                description: meta.description,
+                image_url: meta.image,
+                favicon_url: meta.favicon,
+                card_type: classifyCardType(url, meta),
+                raw_metadata: meta.raw,
+              })
+              .eq('id', inserted.id)
+            const embedText = bookmarkToEmbedText({ title, description: meta.description, url })
+            if (embedText.trim()) {
+              const [vector] = await embed([embedText], 'document')
+              await supabase
+                .from('bookmarks')
+                .update({ embedding: `[${vector.join(',')}]` as any })
+                .eq('id', inserted.id)
+            }
+            // Only capture a screenshot if the caller didn't hand us a baked one.
+            if (opts.origin && !opts.screenshotUrl) {
+              await fetch(`${opts.origin}/api/persist-screenshots`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: inserted.id }),
+              }).catch(() => {})
+            }
+          } catch {}
+        })(),
+      )
+      return { id: inserted.id }
     }
 
     const meta = await extractMetadata(url)

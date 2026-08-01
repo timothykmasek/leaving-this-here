@@ -1,4 +1,6 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
+import { getProfileByUsername } from '@/lib/queries'
+import { timed } from '@/lib/timing'
 import ProfileClient from './ProfileClient'
 
 // Columns the profile grid + detail modal actually render. Deliberately excludes
@@ -53,14 +55,17 @@ export default async function ProfilePage({
   const supabase = await createSupabaseServer()
   const username = params.username
 
-  // Auth and the profile lookup are independent — fire them together.
-  const [
-    { data: { user } },
-    { data: profile },
-  ] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase.from('profiles').select('*').eq('username', username).single(),
-  ])
+  // Auth and the profile lookup are independent — fire them together. The profile
+  // goes through a per-request cache() so this route's generateMetadata reuses it
+  // instead of issuing its own duplicate query. Identity comes from getSession()
+  // (local JWT decode) rather than getUser() (a network round-trip to Supabase
+  // Auth): the middleware already validated + refreshed this token on the real
+  // navigation, and it's only used here to toggle owner-only UI — every actual
+  // write is still guarded by RLS.
+  const [{ data: { session } }, profile] = await timed('profile:auth+profile', () =>
+    Promise.all([supabase.auth.getSession(), getProfileByUsername(username)])
+  )
+  const user = session?.user ?? null
 
   if (!profile) {
     return (
@@ -74,15 +79,17 @@ export default async function ProfilePage({
 
   // Bookmarks and lists both key off the profile id but not off each other —
   // fetch them in parallel rather than serially.
-  const [{ data: bookmarks }, lists] = await Promise.all([
-    supabase
-      .from('bookmarks')
-      .select(BULLET_COLS)
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false })
-      .limit(INITIAL_BULLETS),
-    fetchLists(supabase, profile.id),
-  ])
+  const [{ data: bookmarks }, lists] = await timed('profile:bookmarks+lists', () =>
+    Promise.all([
+      supabase
+        .from('bookmarks')
+        .select(BULLET_COLS)
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(INITIAL_BULLETS),
+      fetchLists(supabase, profile.id),
+    ])
+  )
 
   // If we got a full page, there are probably more — tell the client to
   // background-load the rest so search/lists cover the whole collection.

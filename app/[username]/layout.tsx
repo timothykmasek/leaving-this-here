@@ -1,21 +1,18 @@
 import type { Metadata } from 'next'
-import { createSupabaseServer } from '@/lib/supabase/server'
+import { getProfileByUsername } from '@/lib/queries'
 
 // Dynamic metadata for each folio. The accompanying opengraph-image.tsx
 // handles the share-card image; this file sets title, description, and
-// canonical url so /username pages feel like their own publications.
+// canonical url so /username pages feel like their own publications. The
+// profile lookup is cache()d so the page component reuses it (no duplicate
+// query per navigation).
 
 export async function generateMetadata({
   params,
 }: {
   params: { username: string }
 }): Promise<Metadata> {
-  const supabase = await createSupabaseServer()
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('username, display_name, bio')
-    .eq('username', params.username)
-    .single()
+  const profile = await getProfileByUsername(params.username)
 
   const name = profile?.display_name || profile?.username || params.username
   const description = profile?.bio || `${name}'s collection on Bulletin — a public reading list of links worth keeping.`

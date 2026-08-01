@@ -1,30 +1,21 @@
 import type { Metadata } from 'next'
-import { createSupabaseServer } from '@/lib/supabase/server'
+import { getProfileByUsername, getListBySlug } from '@/lib/queries'
 
 // Dynamic share metadata for a published list at /username/<slug>. Mirrors the
-// profile layout so a shared list URL gets its own title + description.
+// profile layout so a shared list URL gets its own title + description. The
+// profile + list lookups go through cache()d fetchers so the page component
+// (which needs the same rows) reuses them instead of re-querying.
 
 export async function generateMetadata({
   params,
 }: {
   params: { username: string; listSlug: string }
 }): Promise<Metadata> {
-  const supabase = await createSupabaseServer()
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, username, display_name')
-    .eq('username', params.username)
-    .single()
+  const profile = await getProfileByUsername(params.username)
 
   let listName: string | null = null
   if (profile) {
-    const { data: list } = await supabase
-      .from('lists')
-      .select('name')
-      .eq('user_id', profile.id)
-      .eq('slug', params.listSlug)
-      .single()
+    const { data: list } = await getListBySlug(profile.id, params.listSlug)
     listName = list?.name || null
   }
 
