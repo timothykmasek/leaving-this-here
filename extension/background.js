@@ -95,40 +95,199 @@ async function saveActiveTab(tab) {
   await saveFlow(tab, { url: tab?.url, title: tab?.title, clientMeta, clientShot })
 }
 
+// Known cookie-consent / newsletter-popup containers, by their STABLE vendor
+// identifiers (OneTrust doesn't rename #onetrust-banner-sdk across its customers)
+// — so ~40 selectors cover the concentrated head of the CMP + email-capture
+// market. This is the precise half of the stripper: near-zero false positives,
+// low maintenance. The fuzzy half (the backdrop heuristic in stripOverlaysInPage)
+// handles the custom modals these don't name. Reference for upkeep: Consent-O-Matic
+// (github, structured CMP rules) + AdGuard Annoyances lists — hand-picked, not
+// copied, so nothing carries their filter-list license.
+const POPUP_SELECTORS = [
+  // ── Consent management platforms ──
+  '#onetrust-consent-sdk', '#onetrust-banner-sdk',              // OneTrust
+  '#CybotCookiebotDialog', '#CybotCookiebotDialogBodyUnderlay', // Cookiebot
+  '#usercentrics-root', '[data-testid="uc-container"]',         // Usercentrics (shadow host)
+  '#didomi-host', '.didomi-popup-open',                         // Didomi
+  '.qc-cmp2-container', '.qc-cmp-cleanslate',                   // Quantcast
+  '#truste-consent-track', '.truste_overlay', '.truste_box_overlay', // TrustArc
+  '.osano-cm-window', '.osano-cm-dialog',                       // Osano
+  '#cookie-law-info-bar',                                       // CookieYes / GDPR Cookie Consent
+  '.cc-window', '.cc-banner',                                   // cookieconsent (Insites/Osano)
+  '#hs-eu-cookie-confirmation',                                 // HubSpot
+  '#gdpr-cookie-message',
+  '#termly-code-snippet-support', '[id^="sp_message_container"]', '.sp_veil', // Termly, Sourcepoint
+  '#shopify-pc__banner',                                        // Shopify consent
+  '.termsfeed-com---nb', '.termsfeed-com---palette-dark',       // TermsFeed
+  // ── Newsletter / discount capture ──
+  '[class^="klaviyo-form-"]', '.kl-private-reset-css-Xuajs1',   // Klaviyo
+  '#privy-container', '[id^="privy-"]',                         // Privy
+  '.om-holder', '.omapp-campaign',                             // OptinMonster
+  '[id^="sumome-"]', '[id^="sumo-"]',                           // Sumo
+  '#juEmbed', '.junoOverlay', '[id^="justuno"]',               // Justuno
+  '.mc-modal',                                                 // Mailchimp popup
+  '.wisepops-popup', '[id^="wisepops"]',                       // Wisepops
+  '[class*="sleeknote"]',                                       // Sleeknote
+  '#attentive_creative', '[id^="attentive"]',                  // Attentive
+]
+// Backdrop must cover at least this fraction of the viewport to count. Kept HIGH
+// on purpose: a real dimming layer is ~full-screen, so a high bar is exactly what
+// gives the heuristic its precision. Lowering it toward ~0.2 starts matching
+// fixed heroes, sticky navs, sidebars — legit chrome we must NOT strip.
+const MIN_BACKDROP_COVERAGE = 0.5
+// When a backdrop (or scroll-lock) is present, also strip the modal panel riding
+// above it — any fixed/absolute element at/above this z-index. Guarded by the
+// backdrop so lone chat bubbles / sticky bars (which have no backdrop) survive.
+const MODAL_Z_FLOOR = 100
+
+// Injected into the page (isolated world — shares the DOM, not the page's JS) to
+// hide cookie/newsletter overlays just before the capture, then reversed by
+// unstripPage afterwards. Also scrolls to the hero. Returns {restoreY, changed,
+// polluted}: `polluted` means a dimming overlay SURVIVED our pass (closed shadow
+// DOM / cross-origin iframe we can't reach) — the shot is still dirty and the
+// caller drops it so the og:image leads instead. Self-contained (executeScript
+// serializes it) — everything it needs comes through `opts`.
+function stripOverlaysInPage(opts) {
+  const { selectors, minCoverage, zFloor } = opts
+  const STYLE_ID = '__bulletin_strip_style'
+  const MARK = 'data-bulletin-stripped'
+  const vw = window.innerWidth, vh = window.innerHeight
+  const vArea = Math.max(1, vw * vh)
+
+  const restoreY = window.scrollY || document.documentElement.scrollTop || 0
+  if (restoreY > 100) window.scrollTo(0, 0)
+
+  // A background with alpha in (0.03, 0.97) is a dim VEIL — not an opaque hero
+  // (alpha ~1, excluded) and not a transparent click-catcher (alpha ~0, which
+  // doesn't pollute the image anyway, so we don't care about it).
+  const isVeil = (bg) => {
+    const m = /rgba?\(([^)]+)\)/.exec(bg || '')
+    if (!m) return false
+    const p = m[1].split(',').map((s) => s.trim())
+    if (p.length < 4) return false
+    const a = parseFloat(p[3])
+    return a > 0.03 && a < 0.97
+  }
+  const coverage = (el) => {
+    const r = el.getBoundingClientRect()
+    const w = Math.min(r.right, vw) - Math.max(r.left, 0)
+    const h = Math.min(r.bottom, vh) - Math.max(r.top, 0)
+    return w <= 0 || h <= 0 ? 0 : (w * h) / vArea
+  }
+  const zOf = (cs) => { const z = parseInt(cs.zIndex, 10); return Number.isFinite(z) ? z : 0 }
+  const visible = (cs) => cs.display !== 'none' && cs.visibility !== 'hidden' && parseFloat(cs.opacity) !== 0
+  const positioned = (cs) => cs.position === 'fixed' || cs.position === 'absolute'
+
+  const all = Array.from(document.querySelectorAll('body *'))
+  const mark = (el) => el.setAttribute(MARK, '1')
+
+  // 1) Dimming backdrops: fixed/absolute + near-full-screen + semi-transparent.
+  let backdropZ = null
+  for (const el of all) {
+    if (el.hasAttribute(MARK)) continue
+    const cs = getComputedStyle(el)
+    if (!visible(cs) || !positioned(cs)) continue
+    if (coverage(el) < minCoverage || !isVeil(cs.backgroundColor)) continue
+    mark(el) // display:none also hides a modal nested inside the backdrop
+    backdropZ = backdropZ == null ? zOf(cs) : Math.max(backdropZ, zOf(cs))
+  }
+
+  // 2) Modal panels riding on a backdrop / scroll-lock (a sibling, not nested).
+  const locked =
+    getComputedStyle(document.documentElement).overflow === 'hidden' ||
+    getComputedStyle(document.body).overflow === 'hidden'
+  if (backdropZ != null || locked) {
+    // At least 1, so a backdrop with z-index:auto (→0) can't drag the floor to 0
+    // and sweep in every positioned element on the page.
+    const floor = Math.max(1, backdropZ != null ? backdropZ : zFloor)
+    for (const el of all) {
+      if (el.hasAttribute(MARK)) continue
+      const cs = getComputedStyle(el)
+      if (!visible(cs) || !positioned(cs) || zOf(cs) < floor) continue
+      const cov = coverage(el)
+      if (cov < 0.02 || cov > 0.95) continue // skip micro-decor and full-page wrappers
+      mark(el)
+    }
+  }
+
+  // 3) One <style> node hides the vendor list + everything we marked + releases
+  //    the scroll lock. Each vendor selector is its own rule so a single bad one
+  //    can't drop the whole sheet. Removing this node fully reverts the page.
+  const style = document.createElement('style')
+  style.id = STYLE_ID
+  style.textContent =
+    selectors.map((s) => `${s}{display:none !important}`).join('\n') +
+    `\n[${MARK}]{display:none !important}\nhtml,body{overflow:auto !important}`
+  document.head.appendChild(style)
+
+  // Did we actually change anything? (Skip the settle-wait if the page was clean.)
+  let selectorHit = false
+  for (const s of selectors) { try { if (document.querySelector(s)) { selectorHit = true; break } } catch {} }
+  const changed = backdropZ != null || locked || selectorHit || restoreY > 100
+
+  // 4) Residual check — a veil we neither marked nor selector-hid is still up
+  //    (closed shadow DOM / cross-origin overlay iframe). The shot stays dirty.
+  let polluted = false
+  for (const el of Array.from(document.querySelectorAll('body *'))) {
+    if (el.hasAttribute(MARK)) continue
+    const cs = getComputedStyle(el)
+    if (!visible(cs) || !positioned(cs)) continue
+    if (coverage(el) >= minCoverage && isVeil(cs.backgroundColor)) { polluted = true; break }
+  }
+  if (!polluted) {
+    for (const f of Array.from(document.querySelectorAll('iframe'))) {
+      const cs = getComputedStyle(f)
+      if (visible(cs) && positioned(cs) && coverage(f) >= minCoverage && zOf(cs) >= zFloor) {
+        polluted = true; break
+      }
+    }
+  }
+
+  return { restoreY, changed, polluted }
+}
+
+// Reverse stripOverlaysInPage: drop the injected stylesheet + our markers and
+// restore the user's scroll. The save must never leave the page altered.
+function unstripPage(restoreY) {
+  const s = document.getElementById('__bulletin_strip_style')
+  if (s) s.remove()
+  for (const el of document.querySelectorAll('[data-bulletin-stripped]')) {
+    el.removeAttribute('data-bulletin-stripped')
+  }
+  if (restoreY != null) window.scrollTo(0, restoreY)
+}
+
 // Screenshot the HERO of the active tab. captureVisibleTab only grabs what's on
-// screen, so if the user has scrolled down we'd store a mid-page frame — the old
-// bad-crop cause. Jump to the top first (only when actually scrolled), take the
-// shot, then restore their scroll position so the save doesn't yank their place.
-// When already at the top (the common case) nothing moves. Uses activeTab +
-// scripting (both already granted) — no new permission. Returns a JPEG data URL,
-// or null on chrome://, the Web Store, PDF viewers, or if the gesture didn't
-// grant access.
+// screen, so we first jump to the top (old bad-crop cause) AND strip the cookie /
+// newsletter overlays that otherwise dominate a cold-visit capture — then shoot,
+// then reverse both so the user's page is untouched. Uses activeTab + scripting
+// (both already granted) — no new permission. Returns a JPEG data URL, or null on
+// chrome:// / Web Store / PDF viewers, or when a dimming overlay survived the
+// strip (a popup-covered shot is worse than none — null makes the card fall back
+// to the og:image via cardImageCandidates).
 async function captureTab(tab) {
   const tabId = tab?.id
-  let restoreY = null
+  let restoreY = 0
+  let changed = false
+  let polluted = false
 
-  // Scroll to top if the page is scrolled, so the shot is the hero. Best-effort:
-  // a page that blocks scripting just gets a plain viewport capture below.
   if (tabId != null) {
     try {
       const [{ result } = {}] = await chrome.scripting.executeScript({
         target: { tabId },
-        func: () => {
-          const y = window.scrollY || document.documentElement.scrollTop || 0
-          if (y > 100) {
-            window.scrollTo(0, 0)
-            return y
-          }
-          return 0
-        },
+        func: stripOverlaysInPage,
+        args: [{ selectors: POPUP_SELECTORS, minCoverage: MIN_BACKDROP_COVERAGE, zFloor: MODAL_Z_FLOOR }],
       })
       if (result) {
-        restoreY = result
-        // Let the jump repaint + any top-anchored lazy media settle before the shot.
-        await new Promise((r) => setTimeout(r, 350))
+        restoreY = result.restoreY || 0
+        changed = !!result.changed
+        polluted = !!result.polluted
       }
+      // Let the removed overlays + scroll jump repaint before the shot — only
+      // when we actually moved something (a clean page adds no latency).
+      if (changed) await new Promise((r) => setTimeout(r, 320))
     } catch {
-      /* scripting blocked (chrome://, Web Store, …) — capture the plain viewport */
+      /* scripting blocked (chrome://, Web Store, PDF viewer) — plain capture below */
     }
   }
 
@@ -143,20 +302,18 @@ async function captureTab(tab) {
     shot = null
   }
 
-  // Restore the user's scroll position — the save shouldn't move their page.
-  if (restoreY != null && tabId != null) {
+  // Undo the strip + scroll so the save never alters the user's live page.
+  if (tabId != null && (changed || restoreY)) {
     try {
-      await chrome.scripting.executeScript({
-        target: { tabId },
-        func: (y) => window.scrollTo(0, y),
-        args: [restoreY],
-      })
+      await chrome.scripting.executeScript({ target: { tabId }, func: unstripPage, args: [restoreY] })
     } catch {
       /* best-effort */
     }
   }
 
-  return shot
+  // A shot we couldn't de-clutter is dropped: no screenshot stored → the og:image
+  // leads instead of a popup-covered capture. See cardImageCandidates.
+  return polluted ? null : shot
 }
 
 // Read og/meta tags from the active tab's LIVE DOM — i.e. from the user's own
