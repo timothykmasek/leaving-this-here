@@ -35,7 +35,7 @@ function Dot({ className }: { className: string }) {
 
 export function BulletinHeader({
   action = { label: 'Sign up', href: '#' },
-  logoClassName = 'h-[34px]',
+  logoClassName = 'h-[44px]',
 }: {
   // Pass `action={null}` for a logo-only header (e.g. auth pages).
   action?: { label: string; href?: string; onClick?: () => void } | null

@@ -48,7 +48,7 @@ export default function HomePreview() {
 
   return (
     <div className="min-h-screen bg-paper">
-      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[44px]" />
+      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[56px]" />
 
       {/* Hero */}
       <section className="relative px-6 pb-20 pt-10 text-center">
@@ -97,7 +97,7 @@ export default function HomePreview() {
         <div className="mx-auto flex w-[1184px] max-w-full flex-col items-center gap-6 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/bulletin-logo.png" alt="Bulletin" className="h-[20px] w-auto opacity-80" />
+            <img src="/bulletin-logo.png" alt="Bulletin" className="h-[24px] w-auto opacity-80" />
             <span className="label text-black/35">© 2026</span>
           </div>
           <nav className="flex items-center gap-8">

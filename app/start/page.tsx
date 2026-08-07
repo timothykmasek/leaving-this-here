@@ -112,7 +112,7 @@ export default function StartPage() {
 
   return (
     <main className="min-h-screen bg-paper text-ink">
-      <BulletinHeader action={null} logoClassName="h-[26px] sm:h-[30px]" />
+      <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[40px]" />
 
       <div className={`mx-auto px-6 pb-24 pt-8 ${wide ? 'max-w-[1232px]' : 'max-w-md'}`}>
         {showBack && (

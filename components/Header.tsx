@@ -60,7 +60,7 @@ export function Header() {
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/bulletin-logo.png" alt="Bulletin" className="h-[22px] w-auto" />
+            <img src="/bulletin-logo.png" alt="Bulletin" className="h-[28px] w-auto" />
           </Link>
 
           <div className="flex items-center gap-6">

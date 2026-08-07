@@ -113,7 +113,7 @@ export default function ImportClient({ username }: { username: string }) {
     <main className="min-h-screen bg-paper">
       <BulletinHeader
         action={{ label: 'Log out', onClick: handleSignOut }}
-        logoClassName="h-[26px] sm:h-[34px]"
+        logoClassName="h-[32px] sm:h-[44px]"
       />
       <div className="mx-auto max-w-2xl px-6 pb-20 pt-8 sm:px-8">
         <Link

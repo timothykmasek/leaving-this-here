@@ -101,7 +101,7 @@ export default async function ListPage({
 
     return (
       <main className="min-h-screen bg-paper">
-        <PublicHeader loggedIn logoClassName="h-[26px] sm:h-[34px]" />
+        <PublicHeader loggedIn logoClassName="h-[32px] sm:h-[44px]" />
         <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
           <div className="mb-9">
             <ProfileIdentity name={owner} bio={profile.bio} links={profile.links} />
@@ -130,7 +130,7 @@ export default async function ListPage({
 
   return (
     <main className="min-h-screen bg-paper">
-      <PublicHeader loggedIn={!!user} logoClassName="h-[26px] sm:h-[34px]" />
+      <PublicHeader loggedIn={!!user} logoClassName="h-[32px] sm:h-[44px]" />
       <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
         {/* Author identity strip — keeps profile context when landing here directly. */}
         <div className="mb-9">

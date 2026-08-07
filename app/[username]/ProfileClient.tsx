@@ -473,7 +473,7 @@ export default function ProfileClient({
     <main className="min-h-screen bg-paper">
       <BulletinHeader
         action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
-        logoClassName="h-[26px] sm:h-[34px]"
+        logoClassName="h-[32px] sm:h-[44px]"
       />
       {/* width = exactly a 4-col grid (4×272 + 3×24 gap = 1160) + px-6, so the
           strip's right edge (tabs) lines up with the rightmost card column. */}

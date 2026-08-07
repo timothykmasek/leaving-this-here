@@ -91,7 +91,7 @@ function LoginPageInner() {
   if (signedUp) {
     return (
       <main className="flex min-h-screen flex-col bg-paper">
-        <BulletinHeader action={null} logoClassName="h-[26px] sm:h-[34px]" />
+        <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
         <div className="flex flex-1 items-center justify-center px-4 pb-20">
           <div className="w-full max-w-md text-center">
             <h1 className="font-serif text-[24px] font-bold text-ink">Check your email</h1>
@@ -115,7 +115,7 @@ function LoginPageInner() {
 
   return (
     <main className="flex min-h-screen flex-col bg-paper">
-      <BulletinHeader action={null} logoClassName="h-[26px] sm:h-[34px]" />
+      <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
       <div className="flex flex-1 items-center justify-center px-4 pb-20 pt-6">
         <div className="w-full max-w-md">
           <h1 className="mb-8 text-center font-serif text-[24px] font-bold text-ink">

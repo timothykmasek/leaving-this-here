@@ -75,7 +75,7 @@ export default async function Home({
 
   return (
     <div className="min-h-screen bg-paper">
-      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[26px] sm:h-[34px]" />
+      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[32px] sm:h-[44px]" />
 
       {/* Hero */}
       <section className="px-6 pb-20 pt-10 text-center">
@@ -129,7 +129,7 @@ export default async function Home({
         <div className="mx-auto flex w-[1184px] max-w-full flex-col items-center gap-6 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-4">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/bulletin-logo.png" alt="Bulletin" className="h-[20px] w-auto opacity-80" />
+            <img src="/bulletin-logo.png" alt="Bulletin" className="h-[24px] w-auto opacity-80" />
             <span className="label text-black/35">© 2026</span>
           </div>
           {/* flex-wrap + whitespace-nowrap so on a narrow screen the LINKS wrap as
