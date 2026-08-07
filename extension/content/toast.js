@@ -138,6 +138,12 @@
         font-size:8px; letter-spacing:1px; color:#9a9a9a;
         border:1px solid #dcdcdc; border-radius:4px; padding:2px 5px;
       }
+      /* One-way expander that opens the rest of Your lists in place. */
+      .lmore { display:flex; align-items:center; gap:10px; padding:8px 17px 4px; cursor:pointer; color:#a4a49c; }
+      .lmore:hover { background:#faf7f4; }
+      .lmore[hidden] { display:none; }
+      .lmore .plus { font-size:16px; color:#a4a49c; }
+      .lmore .lmore-label { font-size:13px; }
 
       /* ── create row: a button that swaps into an inline input ── */
       .create { background:#faf8f6; }
@@ -170,14 +176,15 @@
       </div>
 
       <div class="card lists" id="lists" hidden>
-        <div class="group" id="group-suggested" hidden>
-          <div class="label">Suggested new lists</div>
-          <div id="rows-suggested"></div>
-          <div class="divider"></div>
-        </div>
         <div class="group" id="group-yours" hidden>
           <div class="label">Your lists</div>
           <div id="rows-yours"></div>
+          <div class="lmore" id="yours-more" hidden><span class="plus">+</span><span class="lmore-label"></span></div>
+        </div>
+        <div class="group" id="group-suggested" hidden>
+          <div class="divider"></div>
+          <div class="label">Suggested new list</div>
+          <div id="rows-suggested"></div>
         </div>
         <div class="divider" id="div-create" hidden></div>
         <div class="create">
@@ -218,6 +225,20 @@
   let creating = false
   // Ids for optimistic rows that exist on screen before they exist server-side.
   let pendingSeq = 0
+  // Your-lists starts collapsed to the top N (ranked); "+ N more" opens the rest
+  // once, in place — no collapse back.
+  let expanded = false
+  const YOURS_COLLAPSED = 3
+  // Reveal coordination: keep "Saving…" up until the ranked list AND the one
+  // suggestion are both ready, then flip to "Saved" and show the finished card in
+  // one motion — no unranked flash, no reshuffle, no "Saved" over a spinner. A
+  // timeout guards against a slow suggestion so we never hang on "Saving…".
+  let revealed = false
+  let rankedReady = false
+  let suggestReady = false
+  let revealTimer = null
+  let revealMsg = 'Saved to your Bulletin'
+  const REVEAL_TIMEOUT_MS = 2500
 
   document.documentElement.appendChild(host)
   requestAnimationFrame(() => { wrap.style.opacity = '1' })
@@ -298,11 +319,37 @@
   }
 
   function render() {
-    // Suggested — proposals for this page. A suggestion the user has acted on
-    // keeps its row but drops the NEW tag.
+    // Your lists — ranked, best on top. Show the top few; "+ N more" opens the
+    // rest in place. Renders once, already ranked, so it never reshuffles.
+    const yRows = el('rows-yours')
+    yRows.innerHTML = ''
+    const shown = expanded ? lists : lists.slice(0, YOURS_COLLAPSED)
+    for (const l of shown) {
+      yRows.appendChild(
+        row({
+          name: l.name,
+          checked: memberOf.has(l.id),
+          isNew: false,
+          onClick: () => toggleListMembership(l),
+        })
+      )
+    }
+    const more = lists.length - shown.length
+    const moreEl = el('yours-more')
+    if (!expanded && more > 0) {
+      moreEl.querySelector('.lmore-label').textContent = `${more} more list${more === 1 ? '' : 's'}`
+      moreEl.hidden = false
+    } else {
+      moreEl.hidden = true
+    }
+    el('group-yours').hidden = lists.length === 0
+
+    // Suggested new list — always exactly one (the top proposal), never a wall.
+    // A suggestion the user has acted on keeps its row but drops the NEW tag.
     const sRows = el('rows-suggested')
     sRows.innerHTML = ''
-    for (const s of suggested) {
+    const one = suggested.slice(0, 1)
+    for (const s of one) {
       sRows.appendChild(
         row({
           name: s.name,
@@ -313,25 +360,10 @@
         })
       )
     }
-    el('group-suggested').hidden = suggested.length === 0
-
-    // Your lists — what already exists.
-    const yRows = el('rows-yours')
-    yRows.innerHTML = ''
-    for (const l of lists) {
-      yRows.appendChild(
-        row({
-          name: l.name,
-          checked: memberOf.has(l.id),
-          isNew: false,
-          onClick: () => toggleListMembership(l),
-        })
-      )
-    }
-    el('group-yours').hidden = lists.length === 0
+    el('group-suggested').hidden = one.length === 0
 
     // Only rule off the create row when there's something above it to separate.
-    el('div-create').hidden = suggested.length === 0 && lists.length === 0
+    el('div-create').hidden = one.length === 0 && lists.length === 0
     el('create-btn').hidden = creating
     el('create-row').hidden = !creating
     el('ckey').classList.toggle('armed', createInput.value.trim().length > 0)
@@ -342,6 +374,15 @@
     creating = true
     render()
     createInput.focus()
+  })
+
+  // "+ N more lists" — open the rest of Your lists in place, once. The user is
+  // still working, so keep the toast open.
+  el('yours-more').addEventListener('click', (e) => {
+    e.stopPropagation()
+    expanded = true
+    armBar()
+    render()
   })
   createInput.addEventListener('focus', () => { inputFocused = true; updateBarPause() })
   createInput.addEventListener('blur', () => { inputFocused = false; armBar() })
@@ -487,6 +528,8 @@
         const own = new Set(lists.map((l) => l.name.toLowerCase()))
         suggested = suggested.filter((s) => s.listId || !own.has(s.name.toLowerCase()))
         render()
+        // The id-based call is the ranked one — that's what the reveal waits for.
+        if (forId && forId === bookmarkId) { rankedReady = true; maybeReveal() }
       }
     })
   }
@@ -499,35 +542,61 @@
     chrome.runtime.sendMessage({ type: 'ig-suggest-lists', bookmarkId }, (resp) => {
       // A second save may have landed while Haiku was thinking.
       if (forId !== bookmarkId) return
-      if (!resp || !resp.ok || !Array.isArray(resp.names)) return
-      const own = new Set(lists.map((l) => l.name.toLowerCase()))
-      suggested = resp.names
-        .filter((n) => n && !own.has(n.toLowerCase()))
-        .map((name) => ({ name, listId: null, pending: false }))
+      if (resp && resp.ok && Array.isArray(resp.names)) {
+        const own = new Set(lists.map((l) => l.name.toLowerCase()))
+        suggested = resp.names
+          .filter((n) => n && !own.has(n.toLowerCase()))
+          .slice(0, 1) // always exactly one
+          .map((name) => ({ name, listId: null, pending: false }))
+      }
+      // Mark ready even on an empty/failed result so the reveal never hangs on it.
+      suggestReady = true
       render()
-      armBar() // new rows appeared — give them time to be read
+      if (revealed && suggested.length) armBar() // a row appeared post-reveal — give time to read
+      maybeReveal()
     })
   }
 
   // ── saved: reveal the list card ────────────────────────────────────
   function showSaved(msg, data) {
-    setConfState('saved')
-    setMsg(msg)
-    setSub('')
+    revealMsg = msg
     bookmarkId = (data && data.id) || null
-    if (bookmarkId) {
-      el('lists').hidden = false
-      memberOf = new Set()
-      render()
-      // Re-ask now that we have an id. A brand-new bullet is in no lists and
-      // this changes nothing, but a re-save ("Already in your Bulletin") gets
-      // its existing checkmarks back.
-      loadLists(bookmarkId)
-      loadSuggestions()
-    } else {
+    if (!bookmarkId) {
+      // Nothing to file into — just confirm and stop.
+      setConfState('saved')
+      setMsg(msg)
+      setSub('')
       el('lists').hidden = true
+      armBar()
+      return
     }
+    // Keep "Saving…" up (the sweep bar is still running); fetch the ranked lists
+    // and the one suggestion, then reveal the finished card in one motion — or on
+    // a timeout, so a slow suggestion can't leave us stuck on "Saving…".
+    memberOf = new Set()
+    revealed = false
+    rankedReady = false
+    suggestReady = false
+    if (revealTimer) clearTimeout(revealTimer)
+    revealTimer = setTimeout(doReveal, REVEAL_TIMEOUT_MS)
+    loadLists(bookmarkId)
+    loadSuggestions()
+  }
+
+  // Flip "Saving…" → "Saved" and show the finished list card, once.
+  function doReveal() {
+    if (revealed) return
+    revealed = true
+    if (revealTimer) { clearTimeout(revealTimer); revealTimer = null }
+    setConfState('saved')
+    setMsg(revealMsg)
+    setSub('')
+    el('lists').hidden = false
+    render()
     armBar()
+  }
+  function maybeReveal() {
+    if (!revealed && rankedReady && suggestReady) doReveal()
   }
 
   function showWarn(msg, sub) {
@@ -546,6 +615,11 @@
     memberOf = new Set()
     suggested = []
     creating = false
+    expanded = false
+    revealed = false
+    rankedReady = false
+    suggestReady = false
+    if (revealTimer) { clearTimeout(revealTimer); revealTimer = null }
     createInput.value = ''
     el('lists').hidden = true
     setSub('')
