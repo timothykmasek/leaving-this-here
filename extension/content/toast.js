@@ -238,7 +238,11 @@
   let suggestReady = false
   let revealTimer = null
   let revealMsg = 'Saved to your Bulletin'
-  const REVEAL_TIMEOUT_MS = 2500
+  // Backstop only. The reveal normally waits for the ranked list AND the
+  // suggestion (maybeReveal); this just guarantees we never hang on "Saving…"
+  // if one of them is pathologically slow. On-demand embedding makes the ranked
+  // call ~1–2s, so give it real room.
+  const REVEAL_TIMEOUT_MS = 5000
 
   document.documentElement.appendChild(host)
   requestAnimationFrame(() => { wrap.style.opacity = '1' })
@@ -626,9 +630,9 @@
     setConfState('saving')
     setMsg('Saving to your Bulletin…')
     render()
-    // Prefetch lists in parallel with the save round-trip so the card is ready
-    // the instant the bullet lands.
-    loadLists()
+    // No prefetch: lists are only worth showing once they're RANKED, and ranking
+    // needs the saved id (below). A prefetch here would just be an unranked list
+    // waiting to be shown out of order.
   }
 
   window.__igToast = {
@@ -649,10 +653,10 @@
     },
   }
 
-  // First injection in a tab doesn't go through reset(): start the saving sweep
-  // and kick off the list prefetch so it overlaps the in-flight save.
+  // First injection in a tab doesn't go through reset(): start the saving sweep.
+  // Lists are fetched and ranked only once we have the saved id (showSaved), so
+  // there's nothing to prefetch here.
   sweepBar()
-  loadLists()
 
   chrome.runtime.onMessage.addListener((m) => {
     if (m && m.type === 'ig-toast' && window.__igToast) {
