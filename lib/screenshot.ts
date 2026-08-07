@@ -111,9 +111,16 @@ export interface CaptureResult {
 
 // Hosts whose image URLs carry expiring signatures — hotlinked cards silently
 // rot when the signature lapses (Instagram/Facebook CDN: weeks; LinkedIn
-// media: days). Images from these hosts get copied into our bucket at save
-// time. Stable public CDNs (pbs.twimg.com, ytimg, …) stay hotlinked.
-const ROT_PRONE_IMAGE_HOSTS = ['cdninstagram.com', 'fbcdn.net', 'licdn.com']
+// media: days; TikTok oEmbed thumbnails: ~2 days, an x-expires + x-signature
+// query pair). Images from these hosts get copied into our bucket at save time.
+// Stable public CDNs (pbs.twimg.com, i.ytimg.com, i.scdn.co, …) stay hotlinked.
+const ROT_PRONE_IMAGE_HOSTS = [
+  'cdninstagram.com',
+  'fbcdn.net',
+  'licdn.com',
+  'tiktokcdn.com',
+  'tiktokcdn-us.com',
+]
 
 /** True when `imageUrl` is served with an expiring signature and must be persisted. */
 export function isRotProneImageUrl(imageUrl: string | null | undefined): boolean {
