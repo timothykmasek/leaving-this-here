@@ -155,6 +155,11 @@ async function unfiledCluster(
   // Target vector: stored embedding if present (re-saves, backfilled), else embed
   // the text on demand — embed-on-save is fire-and-forget, so a fresh bullet's
   // column is usually still null at this point.
+  // The library scan below doesn't need the target vector, so start it now and
+  // let it run concurrently with the on-demand embed — the two slow I/O ops
+  // overlap instead of running back-to-back.
+  const poolP = fetchLibrary(supabase, userId)
+
   let target: Vec | null = parseVec(bm.embedding)
   if (!target) {
     const text = bookmarkToEmbedText({
@@ -162,28 +167,13 @@ async function unfiledCluster(
       description: bm.description,
       url: bm.url,
     })
-    if (!text.trim()) return []
+    if (!text.trim()) { await poolP.catch(() => {}); return [] }
     const [v] = await embed([text], 'document')
     target = v
   }
-  if (!target || !target.length) return []
+  if (!target || !target.length) { await poolP.catch(() => {}); return [] }
 
-  // The user's embedded library (their own saves only). Paginate — PostgREST
-  // caps at 1000 rows/req. Fine at current scale (hundreds–low thousands); the
-  // list-page ambient shelf does the same JS scan.
-  type Row = { id: string; title: string | null; url: string | null; embedding: unknown }
-  let pool: Row[] = []
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase
-      .from('bookmarks')
-      .select('id, title, url, embedding')
-      .eq('user_id', userId)
-      .not('embedding', 'is', null)
-      .range(from, from + 999)
-    if (error) throw error
-    pool = pool.concat((data as Row[]) || [])
-    if (!data || data.length < 1000) break
-  }
+  const pool = await poolP
 
   // Rank neighbours; keep the tight ones (above the naming floor), excluding the
   // bullet itself.
@@ -209,6 +199,26 @@ async function unfiledCluster(
   return tight
     .filter((o) => !filedSet.has(o.r.id))
     .map((o) => ({ title: o.r.title, url: o.r.url }))
+}
+
+// All of the user's embedded saves, paginated (PostgREST caps at 1000/req).
+// Independent of the target vector, so it runs concurrently with the on-demand
+// embed rather than after it.
+type LibRow = { id: string; title: string | null; url: string | null; embedding: unknown }
+async function fetchLibrary(supabase: SupabaseClient, userId: string): Promise<LibRow[]> {
+  let pool: LibRow[] = []
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from('bookmarks')
+      .select('id, title, url, embedding')
+      .eq('user_id', userId)
+      .not('embedding', 'is', null)
+      .range(from, from + 999)
+    if (error) throw error
+    pool = pool.concat((data as LibRow[]) || [])
+    if (!data || data.length < 1000) break
+  }
+  return pool
 }
 
 // Is there enough on this page to name a list from it at all? A real description

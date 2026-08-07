@@ -126,6 +126,12 @@ async function rankListsForBookmark(
     .single()
   if (!bm) return lists
 
+  // The member-vector scan doesn't need the target vector, so kick it off now and
+  // let it run concurrently with the on-demand embed below (the slow part). Both
+  // are awaited together, shaving the query time off the critical path.
+  const listIds = lists.map((l) => l.id)
+  const vecsByListP = fetchMemberVecs(supabase, listIds)
+
   let target: Vec | null = parseVec(bm.embedding)
   if (!target) {
     const text = bookmarkToEmbedText({
@@ -133,15 +139,38 @@ async function rankListsForBookmark(
       description: bm.description,
       url: bm.url,
     })
-    if (!text.trim()) return lists
+    if (!text.trim()) { await vecsByListP.catch(() => {}); return lists }
     const [v] = await embed([text], 'document')
     target = v
   }
-  if (!target || !target.length) return lists
+  if (!target || !target.length) { await vecsByListP.catch(() => {}); return lists }
 
-  // All member embeddings for these lists, one query, grouped into per-list
-  // vector bags. Paginate — PostgREST caps at 1000 rows/req.
-  const listIds = lists.map((l) => l.id)
+  const vecsByList = await vecsByListP
+
+  // Score each list by cosine(bullet, list centroid). No embedded members → no
+  // score; those fall through to DB order behind everything ranked.
+  const scored: { list: ListRow; score: number }[] = []
+  const unscored: ListRow[] = []
+  for (const l of lists) {
+    const c = centroid(vecsByList.get(l.id) || [])
+    if (!c) {
+      unscored.push(l)
+      continue
+    }
+    scored.push({ list: l, score: cosine(target, c) })
+  }
+  scored.sort((x, y) => y.score - x.score)
+
+  return [...scored.map((s) => s.list), ...unscored]
+}
+
+// All member embeddings for these lists, grouped into per-list vector bags.
+// Paginate — PostgREST caps at 1000 rows/req. Independent of the target vector,
+// so it runs concurrently with the on-demand embed rather than after it.
+async function fetchMemberVecs(
+  supabase: SupabaseClient,
+  listIds: string[]
+): Promise<Map<string, Vec[]>> {
   const vecsByList = new Map<string, Vec[]>()
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase
@@ -159,22 +188,7 @@ async function rankListsForBookmark(
     }
     if (!data || data.length < 1000) break
   }
-
-  // Score each list by cosine(bullet, list centroid). No embedded members → no
-  // score; those fall through to DB order behind everything ranked.
-  const scored: { list: ListRow; score: number }[] = []
-  const unscored: ListRow[] = []
-  for (const l of lists) {
-    const c = centroid(vecsByList.get(l.id) || [])
-    if (!c) {
-      unscored.push(l)
-      continue
-    }
-    scored.push({ list: l, score: cosine(target, c) })
-  }
-  scored.sort((x, y) => y.score - x.score)
-
-  return [...scored.map((s) => s.list), ...unscored]
+  return vecsByList
 }
 
 export async function POST(request: NextRequest) {
