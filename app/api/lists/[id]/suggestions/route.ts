@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { embed } from '@/lib/embed'
+import { type Vec, parseVec, normalize, cosine } from '@/lib/vec'
 
 // GET /api/lists/[id]/suggestions
 //
@@ -25,45 +26,8 @@ import { embed } from '@/lib/embed'
 
 export const dynamic = 'force-dynamic'
 
-type Vec = number[]
-
-function parseVec(e: unknown): Vec | null {
-  if (Array.isArray(e)) return e as Vec
-  if (typeof e === 'string') {
-    try {
-      const v = JSON.parse(e)
-      return Array.isArray(v) ? v : null
-    } catch {
-      return null
-    }
-  }
-  return null
-}
-
-function normalize(v: Vec): Vec {
-  let n = 0
-  for (const x of v) n += x * x
-  n = Math.sqrt(n) || 1
-  return v.map((x) => x / n)
-}
-
-function dot(a: Vec, b: Vec): number {
-  let s = 0
-  const n = Math.min(a.length, b.length)
-  for (let i = 0; i < n; i++) s += a[i] * b[i]
-  return s
-}
-
-// Cosine similarity. `target` is already unit-norm, but divide by |b| so raw
-// candidate embeddings compare fairly. Mismatched/empty vectors → 0 (skipped).
-function cosine(a: Vec, b: Vec): number {
-  if (!a.length || !b.length) return 0
-  let nb = 0
-  for (const x of b) nb += x * x
-  nb = Math.sqrt(nb)
-  if (nb === 0) return 0
-  return dot(a, b) / nb / (Math.sqrt(dot(a, a)) || 1)
-}
+// Vector math (parseVec / normalize / dot / cosine) lives in lib/vec.ts, shared
+// with the extension's list ranker so the two can't drift on how they score.
 
 const clamp = (n: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, n))

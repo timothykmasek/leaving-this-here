@@ -171,7 +171,7 @@
 
       <div class="card lists" id="lists" hidden>
         <div class="group" id="group-suggested" hidden>
-          <div class="label">Suggested for this page</div>
+          <div class="label">Suggested new lists</div>
           <div id="rows-suggested"></div>
           <div class="divider"></div>
         </div>
