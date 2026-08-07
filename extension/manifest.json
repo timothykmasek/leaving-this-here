@@ -1,9 +1,16 @@
 {
   "manifest_version": 3,
-  "name": "Bulletin — save anything",
-  "version": "0.4.1",
+  "name": "Bulletin \u2014 save anything",
+  "version": "0.4.2",
   "description": "Save any page, image, or quote to Bulletin in one click.",
-  "permissions": ["identity", "storage", "contextMenus", "activeTab", "scripting", "notifications"],
+  "permissions": [
+    "identity",
+    "storage",
+    "contextMenus",
+    "activeTab",
+    "scripting",
+    "notifications"
+  ],
   "host_permissions": [
     "http://localhost:3000/*",
     "https://www.yourbulletin.com/*",
@@ -26,7 +33,9 @@
         "https://www.according-to.com/*",
         "https://according-to.com/*"
       ],
-      "js": ["content/detect.js"],
+      "js": [
+        "content/detect.js"
+      ],
       "run_at": "document_start"
     }
   ],
@@ -46,8 +55,13 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["fonts/*.woff2", "icons/bulletin-logo.png"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "fonts/*.woff2",
+        "icons/bulletin-logo.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }
