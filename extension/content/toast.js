@@ -239,10 +239,10 @@
   let revealTimer = null
   let revealMsg = 'Saved to your Bulletin'
   // Backstop only. The reveal normally waits for the ranked list AND the
-  // suggestion (maybeReveal); this just guarantees we never hang on "Saving…"
-  // if one of them is pathologically slow. On-demand embedding makes the ranked
-  // call ~1–2s, so give it real room.
-  const REVEAL_TIMEOUT_MS = 5000
+  // suggestion (maybeReveal); this just guarantees we never hang on "Saving…" if
+  // one of them truly stalls. Set high so it never clips the suggestion in normal
+  // operation — if it fires, something is actually wrong.
+  const REVEAL_TIMEOUT_MS = 8000
 
   document.documentElement.appendChild(host)
   requestAnimationFrame(() => { wrap.style.opacity = '1' })
@@ -600,6 +600,11 @@
     armBar()
   }
   function maybeReveal() {
+    // Reveal only when BOTH the ranked list and the one suggestion are in hand,
+    // so doReveal paints them together in a SINGLE render — no "lists appear,
+    // then a beat later the suggestion pops in" fast-follow. They finish at
+    // nearly the same time (both wait on the on-demand embed), so this costs
+    // almost nothing; the timeout below is a pure safety net for a real hang.
     if (!revealed && rankedReady && suggestReady) doReveal()
   }
 
