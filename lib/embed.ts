@@ -70,13 +70,17 @@ export async function embed(
 }
 
 // Build the string we embed for a bookmark. Kept in one place so backfill
-// and save-path produce identical text. Tags were removed as a signal — search
-// now rides on title + description + domain alone. `tags` stays in the param
-// type (ignored) so existing callers keep compiling.
+// and save-path produce identical text. Search rides on title + description +
+// domain, plus `keywords`: an embed-only line of English search terms Haiku
+// generates at save time (see lib/enrichKeywords.ts). Keywords are what let a
+// query like "hat" reach a French "chapeau" bookmark — the raw text alone
+// scores too low to clear the similarity gate. `tags` stays in the param type
+// (ignored — retired as a signal) so existing callers keep compiling.
 export function bookmarkToEmbedText(b: {
   title?: string | null
   description?: string | null
   url?: string | null
+  keywords?: string | null
   tags?: string[] | null
 }): string {
   let host = ''
@@ -85,6 +89,7 @@ export function bookmarkToEmbedText(b: {
     b.title || '',
     b.description || '',
     host,
+    b.keywords || '',
   ]
     .filter(Boolean)
     .join(' — ')

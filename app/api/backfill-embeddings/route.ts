@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     while (batches < maxBatches) {
       const { data: rows, error } = await supabase
         .from('bookmarks')
-        .select('id, title, description, url, tags')
+        .select('id, title, description, url, keywords, tags')
         .eq('user_id', user.id)
         .is('embedding', null)
         .limit(batchSize)

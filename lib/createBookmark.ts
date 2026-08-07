@@ -3,6 +3,7 @@ import type { createSupabaseServer } from '@/lib/supabase/server'
 import { extractMetadata } from '@/lib/metadata'
 import { classifyCardType } from '@/lib/cardType'
 import { embed, bookmarkToEmbedText } from '@/lib/embed'
+import { enrichKeywords } from '@/lib/enrichKeywords'
 import { normalizeUrl } from '@/lib/normalizeUrl'
 
 type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServer>>
@@ -127,12 +128,15 @@ export async function createBookmarkFromUrl(
                 raw_metadata: meta.raw,
               })
               .eq('id', inserted.id)
-            const embedText = bookmarkToEmbedText({ title, description: meta.description, url })
+            // English search keywords (embed-only) so cross-language / synonym
+            // queries can reach this row; folded into the embedded text.
+            const keywords = await enrichKeywords({ title, description: meta.description, url })
+            const embedText = bookmarkToEmbedText({ title, description: meta.description, url, keywords })
             if (embedText.trim()) {
               const [vector] = await embed([embedText], 'document')
               await supabase
                 .from('bookmarks')
-                .update({ embedding: `[${vector.join(',')}]` as any })
+                .update({ keywords, embedding: `[${vector.join(',')}]` as any })
                 .eq('id', inserted.id)
             }
             // Only capture a screenshot if the caller didn't hand us a baked one.
@@ -190,19 +194,21 @@ export async function createBookmarkFromUrl(
         .insert({ list_id: opts.listId, bookmark_id: inserted.id })
     }
 
-    // Out-of-band enrichment, identical to the other save paths.
-    const embedText = bookmarkToEmbedText({ title, description: meta.description, url })
-    if (embedText.trim()) {
-      void (async () => {
-        try {
-          const [vector] = await embed([embedText], 'document')
-          await supabase
-            .from('bookmarks')
-            .update({ embedding: `[${vector.join(',')}]` as any })
-            .eq('id', inserted.id)
-        } catch {}
-      })()
-    }
+    // Out-of-band enrichment, identical to the other save paths: generate
+    // embed-only English keywords, fold them into the embedded text, and store
+    // both so search recall isn't gated on the raw (possibly foreign) title.
+    void (async () => {
+      try {
+        const keywords = await enrichKeywords({ title, description: meta.description, url })
+        const embedText = bookmarkToEmbedText({ title, description: meta.description, url, keywords })
+        if (!embedText.trim()) return
+        const [vector] = await embed([embedText], 'document')
+        await supabase
+          .from('bookmarks')
+          .update({ keywords, embedding: `[${vector.join(',')}]` as any })
+          .eq('id', inserted.id)
+      } catch {}
+    })()
     if (opts.origin && !opts.screenshotUrl) {
       // waitUntil keeps the serverless instance alive until this request is
       // actually sent — a bare fire-and-forget can be dropped when the function

@@ -4,6 +4,7 @@ import { waitUntil } from '@vercel/functions'
 import { extractMetadata } from '@/lib/metadata'
 import { classifyCardType } from '@/lib/cardType'
 import { embed, bookmarkToEmbedText } from '@/lib/embed'
+import { enrichKeywords } from '@/lib/enrichKeywords'
 import { normalizeUrl } from '@/lib/normalizeUrl'
 import {
   ensureBucket,
@@ -45,9 +46,9 @@ async function persistClientShot(bookmarkId: string, dataUrl: string, cardType: 
   }
 }
 
-// Copy a rot-prone hotlinked image (signed IG/FB/LinkedIn CDN URL) into our
-// bucket and repoint the row — the signature is fresh at save time, so this is
-// the one moment the bytes are reliably fetchable. Best-effort, post-response.
+// Copy a rot-prone hotlinked image (signed IG/FB/LinkedIn/TikTok CDN URL) into
+// our bucket and repoint the row — the signature is fresh at save time, so this
+// is the one moment the bytes are reliably fetchable. Best-effort, post-response.
 function persistRotProneImage(bookmarkId: string, imageUrl: string | null | undefined) {
   if (!imageUrl || !isRotProneImageUrl(imageUrl)) return
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return
@@ -202,22 +203,25 @@ export async function POST(request: NextRequest) {
     // Text changed → the old embedding is stale. Re-embed out-of-band,
     // mirroring the insert path; the nightly backfill only covers NULLs, so
     // clear it first — a frozen instance then heals instead of drifting.
-    const refreshEmbedText = bookmarkToEmbedText({ title, description, url })
-    if (refreshEmbedText.trim()) {
-      await supabase.from('bookmarks').update({ embedding: null as any }).eq('id', refreshed.id)
-      void (async () => {
-        try {
-          const [vector] = await embed([refreshEmbedText], 'document')
-          const vectorLiteral = `[${vector.join(',')}]`
-          await supabase
-            .from('bookmarks')
-            .update({ embedding: vectorLiteral as any })
-            .eq('id', refreshed.id)
-        } catch {
-          // nightly backfill sweeps embedding IS NULL
-        }
-      })()
-    }
+    // Text changed → both the old embedding and the old keywords are stale.
+    // Clear the embedding first (a frozen instance then heals via the nightly
+    // backfill), then regenerate keywords + re-embed out-of-band.
+    await supabase.from('bookmarks').update({ embedding: null as any }).eq('id', refreshed.id)
+    void (async () => {
+      try {
+        const keywords = await enrichKeywords({ title, description, url })
+        const refreshEmbedText = bookmarkToEmbedText({ title, description, url, keywords })
+        if (!refreshEmbedText.trim()) return
+        const [vector] = await embed([refreshEmbedText], 'document')
+        const vectorLiteral = `[${vector.join(',')}]`
+        await supabase
+          .from('bookmarks')
+          .update({ keywords, embedding: vectorLiteral as any })
+          .eq('id', refreshed.id)
+      } catch {
+        // nightly backfill sweeps embedding IS NULL
+      }
+    })()
     const dupShot =
       typeof body.clientShot === 'string' && body.clientShot.startsWith('data:image/')
         ? body.clientShot
@@ -280,22 +284,24 @@ export async function POST(request: NextRequest) {
   //    a full Voyage round-trip the user doesn't need to see. Best-effort and
   //    non-fatal: if this serverless instance is frozen after responding, the
   //    embedding is simply absent until /api/backfill-embeddings fills it in.
-  const embedText = bookmarkToEmbedText({ title, description, url })
-  if (embedText.trim()) {
-    void (async () => {
-      try {
-        const [vector] = await embed([embedText], 'document')
-        // pgvector expects the string-literal format `[0.1, 0.2, ...]`.
-        const vectorLiteral = `[${vector.join(',')}]`
-        await supabase
-          .from('bookmarks')
-          .update({ embedding: vectorLiteral as any })
-          .eq('id', inserted.id)
-      } catch {
-        // embedding can be backfilled later; don't fail the save
-      }
-    })()
-  }
+  void (async () => {
+    try {
+      // Embed-only English keywords so cross-language / synonym queries reach
+      // this row; folded into the embedded text and stored alongside it.
+      const keywords = await enrichKeywords({ title, description, url })
+      const embedText = bookmarkToEmbedText({ title, description, url, keywords })
+      if (!embedText.trim()) return
+      const [vector] = await embed([embedText], 'document')
+      // pgvector expects the string-literal format `[0.1, 0.2, ...]`.
+      const vectorLiteral = `[${vector.join(',')}]`
+      await supabase
+        .from('bookmarks')
+        .update({ keywords, embedding: vectorLiteral as any })
+        .eq('id', inserted.id)
+    } catch {
+      // embedding can be backfilled later; don't fail the save
+    }
+  })()
 
   // Screenshot. If the extension captured the user's own tab (clientShot), store
   // that — it bypasses the datacenter-IP block that defeats server screenshots

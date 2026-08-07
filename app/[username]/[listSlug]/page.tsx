@@ -17,7 +17,7 @@ import { SiteFooter } from '@/components/SiteFooter'
 
 // Only the columns the cards render (raw_metadata is passed but never read).
 const BULLET_COLS =
-  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, created_at'
+  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, created_at, keywords'
 
 function notFound(username: string) {
   return (

@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     // Fetch the bookmark — RLS will scope this to the current user
     const { data: bookmark, error: fetchErr } = await supabase
       .from('bookmarks')
-      .select('id, title, description, url, tags, user_id')
+      .select('id, title, description, url, keywords, tags, user_id')
       .eq('id', id)
       .single()
 

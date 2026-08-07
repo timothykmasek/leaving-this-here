@@ -46,7 +46,7 @@ export async function GET(req: Request) {
   while (batches < MAX_BATCHES) {
     const { data: rows, error } = await supabase
       .from('bookmarks')
-      .select('id, title, description, url, tags')
+      .select('id, title, description, url, keywords, tags')
       .is('embedding', null)
       .limit(BATCH)
 
