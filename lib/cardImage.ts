@@ -142,29 +142,40 @@ export function cardImageCandidates(
   imageUrl: string | null | undefined,
   screenshotUrl: string | null | undefined,
   cardType?: string | null,
+  imagePref?: string | null,
 ): string[] {
   // Strip any live third-party screenshot-service URL (e.g. thum.io) from both
   // slots first — those never resolve to our content, so they must not be picked
-  // even as a fallback.
+  // even as a fallback. (Applies even when the judge picked 'og'.)
   const cleanImage = isLiveScreenshotServiceUrl(imageUrl) ? null : imageUrl
   const ss = isLiveScreenshotServiceUrl(screenshotUrl) ? null : screenshotUrl || null
   // A bare logo/wordmark og:image renders as garbage when cropped to fill the
   // card (a zoomed-in slice of the mark). When a screenshot exists to fall back
   // on, drop the logo so the screenshot wins instead. Content platforms
   // (prefersOgImage) are exempt: their "logo" is often the actual thumbnail.
+  // Also exempt: an explicit judge decision of 'og' — the vision judge looked at
+  // the whole image and chose it, so a clean brand logo IS the intended card.
+  const demoteLogo = imagePref !== 'og'
   const og =
+    demoteLogo &&
     cleanImage &&
     ss &&
     (looksLikeLogoUrl(cleanImage) || looksLikeAvatarUrl(cleanImage)) &&
     !prefersOgImage(url)
       ? null
       : cleanImage || null
-  // Homepages / landing / brand sites lead with the rendered hero screenshot;
-  // content leads with its og. The other source is the fallback either way.
-  // De-duped (og === ss can happen for content platforms sentinel'd to the same
-  // source) and null-stripped.
-  const ordered =
-    cardType && SCREENSHOT_FIRST_CARD_TYPES.has(cardType) ? [ss, og] : [og, ss]
+  // An explicit per-card decision (image_pref, set by the vision judge for
+  // contested bare links) wins over the card_type default. Otherwise homepages /
+  // landing / brand sites lead with the rendered screenshot and content leads
+  // with its og. The other source is the fallback either way. De-duped
+  // (og === ss can happen for content platforms) and null-stripped.
+  const screenshotFirst =
+    imagePref === 'screenshot'
+      ? true
+      : imagePref === 'og'
+        ? false
+        : !!(cardType && SCREENSHOT_FIRST_CARD_TYPES.has(cardType))
+  const ordered = screenshotFirst ? [ss, og] : [og, ss]
   return [...new Set(ordered.filter((s): s is string => !!s))]
 }
 
@@ -178,6 +189,7 @@ export function pickCardImage(
   imageUrl: string | null | undefined,
   screenshotUrl: string | null | undefined,
   cardType?: string | null,
+  imagePref?: string | null,
 ): string | null {
-  return cardImageCandidates(url, imageUrl, screenshotUrl, cardType)[0] ?? null
+  return cardImageCandidates(url, imageUrl, screenshotUrl, cardType, imagePref)[0] ?? null
 }

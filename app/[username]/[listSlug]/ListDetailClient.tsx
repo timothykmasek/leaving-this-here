@@ -365,6 +365,7 @@ export function ListDetailClient({
               note={b.note}
               isOwner
               cardType={b.card_type}
+              imagePref={b.image_pref}
               inLists={(listsByBookmark.get(b.id) || []).filter((l) => l.id !== list.id)}
               ownerUsername={username}
               onDelete={handleDelete}

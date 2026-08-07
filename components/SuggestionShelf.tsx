@@ -28,6 +28,7 @@ export type Suggestion = {
   screenshot_url: string | null
   favicon_url: string | null
   card_type: any
+  image_pref: string | null
   similarity: number
 }
 
@@ -185,6 +186,7 @@ export function SuggestionShelf({
                 faviconUrl={s.favicon_url}
                 isOwner={false}
                 cardType={s.card_type}
+                imagePref={s.image_pref}
               />
               {/* Dismiss — same overlay treatment as the card's edit pencil:
                   hover-revealed where hover exists, always visible on touch.

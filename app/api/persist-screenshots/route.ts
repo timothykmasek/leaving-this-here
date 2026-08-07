@@ -6,6 +6,7 @@ import {
   isPersistedScreenshot,
 } from '@/lib/screenshot'
 import { prefersOgImage, shouldSkipScreenshot } from '@/lib/cardImage'
+import { maybeStoreImagePref } from '@/lib/cardImageJudge'
 
 // Capture screenshots ONCE and persist them to Supabase Storage, then point
 // screenshot_url at the permanent CDN copy. Replaces the old model where cards
@@ -110,6 +111,9 @@ export async function POST(request: NextRequest) {
   let rateLimited = 0
   let marked = 0
   const failures: Array<{ url: string; error: string }> = []
+  // Contested bare links (screenshot card_type + an og) whose screenshot just
+  // landed — the vision judge decides og-vs-screenshot for these after the drain.
+  const toJudge: string[] = []
 
   const processRow = async (row: any) => {
     // Normally a row that already points at a persisted Storage copy is done and
@@ -199,6 +203,10 @@ export async function POST(request: NextRequest) {
       failures.push({ url: row.url, error: updateError.message })
     } else {
       persisted++
+      // Now has both a screenshot and (maybe) an og. If it's a bare-link card
+      // with an og, queue the vision judge to decide which image it shows.
+      const finalType = update.card_type || row.card_type
+      if (finalType === 'screenshot' && row.image_url) toJudge.push(row.id)
     }
   }
 
@@ -211,6 +219,13 @@ export async function POST(request: NextRequest) {
     }
   })
   await Promise.all(workers)
+
+  // Decide og-vs-screenshot for the contested bare links whose screenshot just
+  // landed. Runs after the capture drain so it never slows it; best-effort and
+  // idempotent (maybeStoreImagePref no-ops rows that don't qualify or are decided).
+  if (toJudge.length) {
+    await Promise.all(toJudge.map((id) => maybeStoreImagePref(supabaseAdmin, id)))
+  }
 
   return NextResponse.json({
     total: rows.length,

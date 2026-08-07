@@ -17,7 +17,7 @@ function domainOf(url: string): string {
 export function CarouselCard({ b }: { b: any }) {
   const domain = domainOf(b.url)
   const title = b.title?.trim() || domain
-  const candidates = cardImageCandidates(b.url, b.image_url, b.screenshot_url, b.card_type)
+  const candidates = cardImageCandidates(b.url, b.image_url, b.screenshot_url, b.card_type, b.image_pref)
 
   return (
     <a

@@ -9,7 +9,7 @@ const SHOWCASE_COUNT = 16
 
 // Only the columns the showcase cards render (LinkCard + cardImageCandidates +
 // the membership map). Avoids pulling raw_metadata and other unused blobs.
-const SHOWCASE_COLS = 'id, url, title, image_url, screenshot_url, card_type, favicon_url'
+const SHOWCASE_COLS = 'id, url, title, image_url, screenshot_url, card_type, image_pref, favicon_url'
 
 function domainOf(url: string): string {
   try {
@@ -105,7 +105,7 @@ export default async function Home({
             // A frozen homepage image (lib/featured) wins over the render-time
             // selection so the shopfront never drifts; the DB's best candidate is
             // kept as the on-error fallback in case a pinned URL ever 404s.
-            const [dbPrimary, dbFallback] = cardImageCandidates(b.url, b.image_url, b.screenshot_url, b.card_type)
+            const [dbPrimary, dbFallback] = cardImageCandidates(b.url, b.image_url, b.screenshot_url, b.card_type, b.image_pref)
             const frozen = FEATURED_IMAGES[b.url]
             const primary = frozen ?? dbPrimary
             const fallback = frozen ? dbPrimary ?? null : dbFallback

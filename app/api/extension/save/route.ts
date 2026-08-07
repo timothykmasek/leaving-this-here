@@ -12,6 +12,7 @@ import {
   isRotProneImageUrl,
   persistCardImage,
 } from '@/lib/screenshot'
+import { maybeStoreImagePref } from '@/lib/cardImageJudge'
 
 // Persist a client-side screenshot (data URL from the extension's
 // captureVisibleTab) to storage and point the row at it. Runs with the service
@@ -41,6 +42,9 @@ async function persistClientShot(bookmarkId: string, dataUrl: string, cardType: 
     const update: Record<string, any> = { screenshot_url: publicUrl }
     if (cardType === 'lth') update.card_type = 'screenshot'
     await admin.from('bookmarks').update(update).eq('id', bookmarkId)
+    // Now has a client screenshot + (maybe) an og. Let the vision judge decide
+    // og-vs-screenshot for a contested bare link. Best-effort; no-ops otherwise.
+    await maybeStoreImagePref(admin, bookmarkId)
   } catch {
     // best-effort; the server screenshotone path can still backfill later
   }

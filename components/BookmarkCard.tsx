@@ -19,6 +19,9 @@ interface BookmarkCardProps {
   note?: string | null
   isOwner: boolean
   cardType?: CardType | null
+  // Vision-judge decision for contested bare links ('og' | 'screenshot'); wins
+  // over the card_type default in cardImageCandidates. Usually null.
+  imagePref?: string | null
   onDelete?: (id: string) => void
   onNoteUpdate?: (id: string, note: string | null) => void
   // When set (owner view), clicking the card opens the bullet detail modal
@@ -55,7 +58,7 @@ function Rivet({ className }: { className: string }) {
 // props passed (see the grid call site), a card re-renders only when its own
 // bullet data changes — so typing stays smooth as the collection grows.
 export const BookmarkCard = memo(function BookmarkCard({
-  id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata, cardType, isOwner, onOpen,
+  id, title, description, url, imageUrl, screenshotUrl, faviconUrl, rawMetadata, cardType, imagePref, isOwner, onOpen,
 }: BookmarkCardProps) {
   const domain = getDomain(url)
   const cleanTitle = formatCardTitle({
@@ -64,7 +67,7 @@ export const BookmarkCard = memo(function BookmarkCard({
     url,
     siteName: rawMetadata?.og?.site_name ?? null,
   })
-  const candidates = cardImageCandidates(url, imageUrl, screenshotUrl, cardType)
+  const candidates = cardImageCandidates(url, imageUrl, screenshotUrl, cardType, imagePref)
 
   return (
     <div className="group relative aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]">
