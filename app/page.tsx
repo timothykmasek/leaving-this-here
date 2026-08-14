@@ -74,7 +74,7 @@ export default async function Home({
   bullets = bullets.slice(0, SHOWCASE_COUNT)
 
   return (
-    <div className="min-h-screen bg-paper">
+    <div className="min-h-screen">
       <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[32px] sm:h-[44px]" />
 
       {/* Hero */}

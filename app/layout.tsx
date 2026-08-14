@@ -20,7 +20,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${display.variable} ${serif.variable} ${label.variable}`}>
-      <body className="bg-paper text-ink">
+      <body className="dot-ground text-ink">
         <Header />
         {children}
       </body>

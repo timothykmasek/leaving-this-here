@@ -2,6 +2,30 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design-system neutrals (Bulletin DS). Kept as CSS vars so the dot-grid
+   ground and any future chrome reference one source. Mirrors tailwind.config
+   `paper`; `--rivet` is the near-invisible dot/pin grey. */
+:root {
+  --paper: #ffffff;
+  --rivet: #d9d9d9;   /* dot-grid / corner-pin grey */
+  --dot-pitch: 32px;  /* dot grid spacing (2px dot on a 32px pitch) */
+
+  /* Layout constants (Bulletin DS spacing tokens) — the real measurements the
+     grid and cards are built on, not an abstract scale. Later ships (masonry
+     feed, tall PrimaryCard, stacked identity block) reference these so the
+     numbers live in one place. */
+  --content-max: 1184px;    /* card grid + footer width */
+  --header-max: 1208px;     /* masthead inner box (overhangs the grid) */
+  --gutter: 24px;           /* page gutter (px-6); 16px on mobile */
+  --gutter-mobile: 16px;
+  --grid-gap-x: 24px;       /* feed/list column gap (profile grid) */
+  --grid-gap-y: 48px;       /* feed/list row gap */
+  --masonry-gap: 12px;      /* mixed-height feed (Ship 02) */
+  --identity-gap: 9px;      /* rows in the profile identity strip */
+  --card-w: 295px;          /* tall PrimaryCard (Ship 02) */
+  --card-h: 439.198px;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -13,6 +37,19 @@ body {
   background-color: #ffffff; /* paper — editorial white */
   color: #2b2b2b;            /* ink */
   line-height: 1.6;
+}
+
+/* Dot-grid ground — the redesign's surface plane (Bulletin DS, Ship 01, Figma
+   node 886:16573 "Circle Grid"). One tiled radial-gradient, NOT 15k DOM dots:
+   a 2px #d9d9d9 circle on a 32px pitch from origin 0 0. Intentionally near-
+   invisible on white — texture, not pattern; don't darken it to "make it show".
+   Origin stays 0 0 so the grid is continuous — never nest this on an inner
+   wrapper or the phase resets and the seam shows. */
+.dot-ground {
+  background-color: var(--paper);
+  background-image: radial-gradient(circle, var(--rivet) 1px, transparent 1px);
+  background-size: var(--dot-pitch) var(--dot-pitch);
+  background-position: 0 0;
 }
 
 /* UI label — the Routed Gothic Wide spec straight from Figma (node 695:881 et al.):

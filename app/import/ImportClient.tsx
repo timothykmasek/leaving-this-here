@@ -110,7 +110,7 @@ export default function ImportClient({ username }: { username: string }) {
   const pct = urls.length ? Math.round((progress.done / urls.length) * 100) : 0
 
   return (
-    <main className="min-h-screen bg-paper">
+    <main className="min-h-screen">
       <BulletinHeader
         action={{ label: 'Log out', onClick: handleSignOut }}
         logoClassName="h-[32px] sm:h-[44px]"

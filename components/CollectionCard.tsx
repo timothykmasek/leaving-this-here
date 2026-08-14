@@ -5,10 +5,6 @@
 
 import Link from 'next/link'
 
-function Rivet({ className }: { className: string }) {
-  return <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-[#d9d9d9] ${className}`} />
-}
-
 export function CollectionCard({
   name,
   count,
@@ -33,11 +29,6 @@ export function CollectionCard({
   const single = count <= 3
   const inner = (
     <>
-      <Rivet className="left-[7.4%] top-[7.4%]" />
-      <Rivet className="right-[7.4%] top-[7.4%]" />
-      <Rivet className="bottom-[7.4%] left-[7.4%]" />
-      <Rivet className="bottom-[7.4%] right-[7.4%]" />
-
       {/* preview — 67.6% wide @ (16.2%, 21.9%). One big thumb for small lists,
           a 4-up collage once there are enough members to fill it. */}
       {single ? (

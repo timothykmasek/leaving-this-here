@@ -42,13 +42,10 @@ function getDomain(url: string): string {
   }
 }
 
-// Corner rivet (the bulletin-board "pin" dots) — ~8px, inset ~7.4%.
-function Rivet({ className }: { className: string }) {
-  return <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-[#d9d9d9] ${className}`} />
-}
-
-// Bulletin "Link card" — uniform 272×270 plate: #f1f1f1 panel w/ corner rivets,
-// inset rounded thumbnail, Cardo-bold title. Spec: Figma node 695:840.
+// Bulletin "Link card" — uniform 272×270 plate: #f1f1f1 panel with an inset
+// rounded thumbnail and Cardo-bold title. Spec: Figma node 695:840. (Corner
+// "pin" rivets were removed once the page-wide dot-grid ground shipped — four
+// dots per card read as a second, misaligned grid against the 32px pitch.)
 //
 // Uses a stretched-link pattern: the whole card is one click target (the
 // original URL), with the owner's edit button layered above it — so no
@@ -71,12 +68,6 @@ export const BookmarkCard = memo(function BookmarkCard({
 
   return (
     <div className="group relative aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]">
-      {/* corner rivets */}
-      <Rivet className="left-[7.4%] top-[7.4%]" />
-      <Rivet className="right-[7.4%] top-[7.4%]" />
-      <Rivet className="bottom-[7.4%] left-[7.4%]" />
-      <Rivet className="bottom-[7.4%] right-[7.4%]" />
-
       {/* thumbnail — 67.6% wide, 184:118, at (16.2%, 21.9%) */}
       <div className="absolute left-[16.2%] top-[21.9%] aspect-[184/118] w-[67.6%] overflow-hidden rounded-[10px] bg-black/[0.06]">
         <CardThumb

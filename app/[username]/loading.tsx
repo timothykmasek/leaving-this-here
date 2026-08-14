@@ -5,7 +5,7 @@ import { BulletinHeader } from '@/components/BulletinHeader'
 // profiles feels immediate instead of stalling on a blank frame.
 export default function Loading() {
   return (
-    <main className="min-h-screen bg-paper">
+    <main className="min-h-screen">
       {/* Logo-only during load — auth state is unknown here, so don't flash
           "Sign in" at a signed-in owner viewing their own profile. */}
       <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />

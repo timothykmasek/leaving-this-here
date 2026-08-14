@@ -25,7 +25,7 @@ export default function BookmarkletPage() {
   }
 
   return (
-    <main className="min-h-screen bg-paper">
+    <main className="min-h-screen">
       <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
       <div className="mx-auto max-w-2xl px-4 pb-16 pt-4 sm:px-6">
         <div className="mb-8">

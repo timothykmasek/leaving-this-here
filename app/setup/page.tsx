@@ -168,7 +168,7 @@ function SetupInner() {
   }
 
   return (
-    <main className="min-h-screen bg-paper">
+    <main className="min-h-screen">
       <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
       <div className="mx-auto max-w-md px-6 pb-20 pt-6">
         {/* Step indicator */}

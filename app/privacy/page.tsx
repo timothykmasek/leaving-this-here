@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 // update this page whenever data handling actually changes.
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen bg-paper">
+    <main className="min-h-screen">
       <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
       <div className="mx-auto max-w-2xl px-6 pb-20 pt-8 sm:px-8">
         <h1 className="mb-2 font-serif text-3xl font-bold tracking-tight text-ink">

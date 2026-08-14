@@ -493,21 +493,11 @@ export default function ProfileClient({
   )
 
   if (!profile) {
-    return <main className="min-h-screen bg-paper"><div className="mx-auto max-w-6xl px-4 py-12 text-center"><p className="text-gray-500">user not found</p></div></main>
+    return <main className="min-h-screen"><div className="mx-auto max-w-6xl px-4 py-12 text-center"><p className="text-gray-500">user not found</p></div></main>
   }
 
-  // 4 corner rivets — matches the bulletin card chrome.
-  const rivets = (
-    <>
-      <span aria-hidden className="absolute left-[7.4%] top-[7.4%] h-[7px] w-[7px] rounded-full bg-[#d9d9d9]" />
-      <span aria-hidden className="absolute right-[7.4%] top-[7.4%] h-[7px] w-[7px] rounded-full bg-[#d9d9d9]" />
-      <span aria-hidden className="absolute bottom-[7.4%] left-[7.4%] h-[7px] w-[7px] rounded-full bg-[#d9d9d9]" />
-      <span aria-hidden className="absolute bottom-[7.4%] right-[7.4%] h-[7px] w-[7px] rounded-full bg-[#d9d9d9]" />
-    </>
-  )
-
   return (
-    <main className="min-h-screen bg-paper">
+    <main className="min-h-screen">
       <BulletinHeader
         action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
         logoClassName="h-[32px] sm:h-[44px]"
@@ -819,7 +809,6 @@ export default function ProfileClient({
                 {isOwner && (
                   creatingList ? (
                     <div className="relative flex aspect-[272/270] w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-[20px] bg-card px-6 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03]">
-                      {rivets}
                       <input
                         autoFocus
                         value={newListName}
@@ -860,7 +849,6 @@ export default function ProfileClient({
                       onClick={() => setCreatingList(true)}
                       className="relative flex aspect-[272/270] w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-[20px] bg-card text-black/40 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:text-ink hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]"
                     >
-                      {rivets}
                       <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current text-xl">+</span>
                       <span className="label">New list</span>
                     </button>

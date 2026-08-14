@@ -4,7 +4,7 @@ import { BulletinHeader } from '@/components/BulletinHeader'
 // list page chrome so a shared link feels immediate instead of blank.
 export default function Loading() {
   return (
-    <main className="min-h-screen bg-paper">
+    <main className="min-h-screen">
       {/* Logo-only during load — auth state is unknown here, so don't guess
           "Sign in" and flash the wrong action at a signed-in owner. */}
       <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />

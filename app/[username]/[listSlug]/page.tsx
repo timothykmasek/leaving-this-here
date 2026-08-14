@@ -21,7 +21,7 @@ const BULLET_COLS =
 
 function notFound(username: string) {
   return (
-    <main className="min-h-screen bg-paper">
+    <main className="min-h-screen">
       <div className="mx-auto max-w-6xl px-4 py-12 text-center">
         <p className="text-gray-500">list not found</p>
         <Link href={`/${username}`} className="mt-3 inline-block text-sm text-stone-400 hover:text-ink">
@@ -100,7 +100,7 @@ export default async function ListPage({
     }))
 
     return (
-      <main className="min-h-screen bg-paper">
+      <main className="min-h-screen">
         <PublicHeader loggedIn logoClassName="h-[32px] sm:h-[44px]" />
         <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
           <div className="mb-9">
@@ -129,7 +129,7 @@ export default async function ListPage({
   }
 
   return (
-    <main className="min-h-screen bg-paper">
+    <main className="min-h-screen">
       <PublicHeader loggedIn={!!user} logoClassName="h-[32px] sm:h-[44px]" />
       <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
         {/* Author identity strip — keeps profile context when landing here directly. */}

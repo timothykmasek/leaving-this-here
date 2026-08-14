@@ -8,7 +8,7 @@ import { BulletinHeader } from '@/components/BulletinHeader'
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<main className="min-h-screen bg-paper" />}>
+    <Suspense fallback={<main className="min-h-screen" />}>
       <LoginPageInner />
     </Suspense>
   )
@@ -90,7 +90,7 @@ function LoginPageInner() {
   // Confirmation screen after sign up
   if (signedUp) {
     return (
-      <main className="flex min-h-screen flex-col bg-paper">
+      <main className="flex min-h-screen flex-col">
         <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
         <div className="flex flex-1 items-center justify-center px-4 pb-20">
           <div className="w-full max-w-md text-center">
@@ -114,7 +114,7 @@ function LoginPageInner() {
   }
 
   return (
-    <main className="flex min-h-screen flex-col bg-paper">
+    <main className="flex min-h-screen flex-col">
       <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
       <div className="flex flex-1 items-center justify-center px-4 pb-20 pt-6">
         <div className="w-full max-w-md">

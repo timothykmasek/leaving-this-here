@@ -69,7 +69,7 @@ export default async function ProfilePage({
 
   if (!profile) {
     return (
-      <main className="min-h-screen bg-paper">
+      <main className="min-h-screen">
         <div className="mx-auto max-w-6xl px-4 py-12 text-center">
           <p className="text-gray-500">user not found</p>
         </div>

@@ -111,7 +111,7 @@ export default function StartPage() {
   const wide = step === 'picks'
 
   return (
-    <main className="min-h-screen bg-paper text-ink">
+    <main className="min-h-screen text-ink">
       <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[40px]" />
 
       <div className={`mx-auto px-6 pb-24 pt-8 ${wide ? 'max-w-[1232px]' : 'max-w-md'}`}>
@@ -588,12 +588,6 @@ function Picks({
                 sel ? 'ring-2 ring-ink' : 'ring-1 ring-black/[0.03]'
               }`}
             >
-              {/* corner rivets */}
-              <Rivet className="left-[7.4%] top-[7.4%]" />
-              <Rivet className="right-[7.4%] top-[7.4%]" />
-              <Rivet className="bottom-[7.4%] left-[7.4%]" />
-              <Rivet className="bottom-[7.4%] right-[7.4%]" />
-
               {/* selection number */}
               <span
                 className={`absolute right-2.5 top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-colors ${
@@ -824,8 +818,4 @@ function Extension({ onDone }: { onDone: () => void }) {
       </button>
     </div>
   )
-}
-
-function Rivet({ className }: { className: string }) {
-  return <span aria-hidden className={`absolute h-[7px] w-[7px] rounded-full bg-[#d9d9d9] ${className}`} />
 }
