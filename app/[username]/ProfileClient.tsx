@@ -680,7 +680,7 @@ export default function ProfileClient({
                   if (v.trim()) searchTimer.current = setTimeout(() => handleSearch(v), 250)
                 }}
                 // font-size ≥16px so iOS Safari doesn't auto-zoom on focus.
-                className="w-full max-w-[300px] border-b border-black/15 bg-transparent pb-1.5 font-sans text-[16px] text-ink placeholder:text-black/35 transition-colors focus:border-black/45 focus:outline-none"
+                className="w-full max-w-[300px] border-b border-ink bg-transparent pb-1.5 font-sans text-[16px] text-ink placeholder:text-ink focus:outline-none"
               />
             ) : (
               <span />
