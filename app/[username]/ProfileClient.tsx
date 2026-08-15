@@ -657,11 +657,11 @@ export default function ProfileClient({
 
         </div>
 
-        {/* Controls — main feed only; hidden inside a list. Owner: search left,
-            tabs right (justify-between). Visitor: no search, so the tabs centre
-            to match the centred identity rather than floating right. */}
+        {/* Controls — main feed only; hidden inside a list. Tabs sit on the
+            right in both views (consistent position). Owner also gets the search
+            on the left (justify-between); visitor has tabs alone (justify-end). */}
         {!activeList && (
-          <div className={`mb-6 flex items-center gap-4 sm:mb-8 ${isOwner ? 'justify-between' : 'justify-center'}`}>
+          <div className={`mb-6 flex items-center gap-4 sm:mb-8 ${isOwner ? 'justify-between' : 'justify-end'}`}>
             {isOwner && (
               <input
                 type="search"
