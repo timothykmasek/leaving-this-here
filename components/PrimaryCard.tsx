@@ -101,6 +101,7 @@ function useAdaptiveLabelDark(src: string | undefined): boolean {
 }
 
 interface PrimaryCardProps {
+  id?: string
   url: string
   title: string | null
   description?: string | null
@@ -116,11 +117,14 @@ interface PrimaryCardProps {
   category?: string
   categoryColor?: string
   showLabel?: boolean
+  // Owner view: clicking opens the bullet-detail modal instead of navigating to
+  // the URL (mirrors BookmarkCard). Requires `id`.
+  onOpen?: (id: string) => void
 }
 
 export const PrimaryCard = memo(function PrimaryCard({
-  url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  cardType, imagePref, listName, category, categoryColor, showLabel = true,
+  id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
+  cardType, imagePref, listName, category, categoryColor, showLabel = true, onOpen,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const fmt = resolveCategory(url, cardType)
@@ -132,13 +136,8 @@ export const PrimaryCard = memo(function PrimaryCard({
   const labelDark = useAdaptiveLabelDark(candidates[0])
   const labelColor = categoryColor ?? (labelDark ? '#2b2b2b' : '#ffffff')
 
-  return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="group block w-full"
-    >
+  const body = (
+    <>
       {/* The plate — the image at natural aspect, rounded + clipped. */}
       <div className="relative w-full overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow group-hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
         <CardThumb
@@ -189,6 +188,17 @@ export const PrimaryCard = memo(function PrimaryCard({
           <span className="truncate">{listName}</span>
         </p>
       )}
+    </>
+  )
+
+  // Owner view opens the detail modal; everyone else navigates to the URL.
+  return onOpen && id ? (
+    <button type="button" onClick={() => onOpen(id)} className="group block w-full text-left">
+      {body}
+    </button>
+  ) : (
+    <a href={url} target="_blank" rel="noopener noreferrer" className="group block w-full">
+      {body}
     </a>
   )
 })

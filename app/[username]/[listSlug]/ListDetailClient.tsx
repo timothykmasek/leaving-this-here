@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BookmarkCard } from '@/components/BookmarkCard'
+import { PrimaryCard } from '@/components/PrimaryCard'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SuggestionShelf, type Suggestion } from '@/components/SuggestionShelf'
 import { uniqueSlug } from '@/lib/slug'
@@ -64,19 +64,6 @@ export function ListDetailClient({
   const bullets = memberIds
     .map((id) => bulletsById.get(id))
     .filter(Boolean) as any[]
-
-  // bookmark id → the lists it belongs to (for the card chips).
-  const listsByBookmark = (() => {
-    const m = new Map<string, { id: string; name: string; slug: string | null }[]>()
-    for (const l of lists) {
-      for (const bid of l.bookmark_ids) {
-        const arr = m.get(bid) || []
-        arr.push({ id: l.id, name: l.name, slug: l.slug ?? null })
-        m.set(bid, arr)
-      }
-    }
-    return m
-  })()
 
   const handleDelete = async (id: string) => {
     await supabase.from('bookmarks').delete().eq('id', id)
@@ -351,27 +338,23 @@ export function ListDetailClient({
       </div>
 
       {bullets.length > 0 ? (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
+        <div className="columns-2 [column-gap:16px] sm:columns-3 sm:[column-gap:20px] lg:columns-4">
           {bullets.map((b) => (
-            <BookmarkCard
-              key={b.id}
-              id={b.id}
-              title={b.title}
-              description={b.description}
-              url={b.url}
-              imageUrl={b.image_url}
-              screenshotUrl={b.screenshot_url}
-              faviconUrl={b.favicon_url}
-              note={b.note}
-              isOwner
-              cardType={b.card_type}
-              imagePref={b.image_pref}
-              inLists={(listsByBookmark.get(b.id) || []).filter((l) => l.id !== list.id)}
-              ownerUsername={username}
-              onDelete={handleDelete}
-              onNoteUpdate={handleNoteUpdate}
-              onOpen={setSelectedId}
-            />
+            // Every card is already in THIS list, so no list line.
+            <div key={b.id} className="mb-4 break-inside-avoid sm:mb-6">
+              <PrimaryCard
+                id={b.id}
+                url={b.url}
+                title={b.title}
+                description={b.description}
+                imageUrl={b.image_url}
+                screenshotUrl={b.screenshot_url}
+                faviconUrl={b.favicon_url}
+                cardType={b.card_type}
+                imagePref={b.image_pref}
+                onOpen={setSelectedId}
+              />
+            </div>
           ))}
         </div>
       ) : (

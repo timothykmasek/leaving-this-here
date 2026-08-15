@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { getProfileByUsername, getListBySlug } from '@/lib/queries'
 import { timed } from '@/lib/timing'
-import { BookmarkCard } from '@/components/BookmarkCard'
+import { PrimaryCard } from '@/components/PrimaryCard'
 import { PublicHeader } from '@/components/PublicHeader'
 import { ProfileIdentity } from '@/components/ProfileIdentity'
 import { ListDetailClient } from './ListDetailClient'
@@ -161,22 +161,21 @@ export default async function ListPage({
         </div>
 
         {bullets.length > 0 ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
+          <div className="columns-2 [column-gap:16px] sm:columns-3 sm:[column-gap:20px] lg:columns-4">
             {bullets.map((b) => (
-              <BookmarkCard
-                key={b.id}
-                id={b.id}
-                title={b.title}
-                description={b.description}
-                url={b.url}
-                imageUrl={b.image_url}
-                screenshotUrl={b.screenshot_url}
-                faviconUrl={b.favicon_url}
-                note={b.note}
-                isOwner={false}
-                cardType={b.card_type}
-                imagePref={b.image_pref}
-              />
+              // On a list page every card is already in THIS list, so no list line.
+              <div key={b.id} className="mb-4 break-inside-avoid sm:mb-6">
+                <PrimaryCard
+                  url={b.url}
+                  title={b.title}
+                  description={b.description}
+                  imageUrl={b.image_url}
+                  screenshotUrl={b.screenshot_url}
+                  faviconUrl={b.favicon_url}
+                  cardType={b.card_type}
+                  imagePref={b.image_pref}
+                />
+              </div>
             ))}
           </div>
         ) : (
