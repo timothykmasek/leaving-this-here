@@ -178,7 +178,7 @@ function SetupInner() {
 
         {step === 'handle' && (
           <div>
-            <h1 className="font-serif text-3xl font-bold text-ink mb-2">Claim your collection.</h1>
+            <h1 className="font-sans text-3xl font-bold text-ink mb-2">Claim your collection.</h1>
             <p className="text-sm text-black/45 mb-8">
               A public URL for the bullets you don&rsquo;t want to lose.
             </p>
@@ -229,7 +229,7 @@ function SetupInner() {
 
         {step === 'tool' && (
           <div>
-            <h1 className="font-serif text-3xl font-bold text-ink mb-2">Install the save tool.</h1>
+            <h1 className="font-sans text-3xl font-bold text-ink mb-2">Install the save tool.</h1>
             <p className="text-sm text-black/45 mb-8">
               This is how you save links while browsing — one click from any page.
             </p>
@@ -271,7 +271,7 @@ function SetupInner() {
 
         {step === 'first-save' && (
           <div>
-            <h1 className="font-serif text-3xl font-bold text-ink mb-2">Your first bullet.</h1>
+            <h1 className="font-sans text-3xl font-bold text-ink mb-2">Your first bullet.</h1>
             <p className="text-sm text-black/45 mb-8">
               Paste a URL you&apos;ve been meaning to read. It&apos;ll appear on your public
               collection page.
@@ -310,7 +310,7 @@ function SetupInner() {
 
         {step === 'done' && (
           <div className="text-center pt-4">
-            <h1 className="font-serif text-3xl font-bold text-ink mb-3">You&apos;re live.</h1>
+            <h1 className="font-sans text-3xl font-bold text-ink mb-3">You&apos;re live.</h1>
             <p className="text-sm text-black/45 mb-8 leading-relaxed">
               <span className="font-mono text-black/70">yourbulletin.com/{username}</span>
               <br />

@@ -80,10 +80,10 @@ export default async function Home({
       {/* Hero */}
       <section className="px-6 pb-20 pt-10 text-center">
         {/* Two understated bold Cardo lines (matches the Figma treatment). */}
-        <h1 className="font-serif text-[26px] font-bold leading-[1.2] text-ink">
+        <h1 className="font-sans text-[26px] font-bold leading-[1.2] text-ink">
           A home for your links
         </h1>
-        <p className="mx-auto mt-3 max-w-[34rem] font-serif text-[20px] font-bold leading-snug text-ink">
+        <p className="mx-auto mt-3 max-w-[34rem] font-sans text-[20px] font-bold leading-snug text-ink">
           Collect, organize, and share the links worth keeping.
         </p>
 

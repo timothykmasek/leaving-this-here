@@ -33,7 +33,7 @@
 }
 
 body {
-  font-family: var(--font-serif), Georgia, Cambria, serif; /* Cardo — reading serif */
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif; /* Mier A — interface default */
   background-color: #ffffff; /* paper — editorial white */
   color: #2b2b2b;            /* ink */
   line-height: 1.6;
@@ -52,10 +52,11 @@ body {
   background-position: 0 0;
 }
 
-/* UI label — the Routed Gothic Wide spec straight from Figma (node 695:881 et al.):
-   uppercase, 10px, 1.5px tracking. The workhorse for metadata, nav, tags. */
+/* UI label — uppercase, 10px, 1.5px tracking. The workhorse for metadata, nav,
+   tags. Font swapped Routed Gothic → Mier A (2026-08-15) when the type system
+   consolidated; the uppercase-tracked treatment stays, per Tim. */
 .label {
-  font-family: var(--font-label), ui-monospace, monospace;
+  font-family: var(--font-sans), system-ui, sans-serif;
   font-size: 10px;
   line-height: 12px;
   letter-spacing: 1.5px;

@@ -7,14 +7,10 @@ module.exports = {
   theme: {
     extend: {
       fontFamily: {
-        // MOCA Black — wordmark / hero display (license-pending; see app/fonts.ts)
-        display: ['var(--font-display)', 'Georgia', 'serif'],
-        // Cardo — item titles + reading serif (default body)
-        serif: ['var(--font-serif)', 'Georgia', 'Cambria', 'serif'],
-        // Routed Gothic Wide — UI labels (use the `.label` utility for the full spec)
-        label: ['var(--font-label)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
-        // Mier A — neo-grotesque interface sans (card labels + titles)
+        // Mier A — interface workhorse: headlines (DemiBold), body (Book), labels
         sans: ['var(--font-sans)', 'system-ui', '-apple-system', 'sans-serif'],
+        // Cardo — Editorial only: bios, taglines, quotes, list titles, list line
+        serif: ['var(--font-serif)', 'Georgia', 'Cambria', 'serif'],
       },
       colors: {
         // ── Editorial rebrand palette (Figma ProjectX 695:856) ──

@@ -1,17 +1,30 @@
 import localFont from 'next/font/local'
 
-// ── Brand type system (rebrand) ────────────────────────────────────────────
-// Spec pulled from Figma "ProjectX" (node 695:856). Three families, three jobs.
+// ── Brand type system (Figma "ProjectX" Text Styles) ────────────────────────
+// Two type families do all the work (the "Bulletin" wordmark is an image, not a
+// font). MOCA (display serif) and Routed Gothic (labels) were retired 2026-08-15
+// when the type system consolidated onto Mier A.
+//   • Mier A  → Headline (DemiBold) + Body (Book) + all UI labels
+//   • Cardo   → Editorial only (bios, taglines, quotes, the card list line)
 
-// MOCA Black — high-contrast display serif (EDITO). Wordmark + hero headlines.
-// Licensed: EDITO web font (EULA-EDITO-2026, on file). Self-hosted woff2.
-export const display = localFont({
-  src: [{ path: './fonts/Moca-Black.woff2', weight: '900', style: 'normal' }],
+// Mier A — neo-grotesque (licensed; provided by Tim, self-hosted woff2). The
+// interface workhorse. Numeric weights map to the family's named cuts so
+// `font-weight` selects the file: Book 400, Regular 500, DemiBold 600 (Headline),
+// Bold 700 (font-bold headings), Black 900 (emphasis / former labels).
+export const sans = localFont({
+  src: [
+    { path: './fonts/MierA-Book.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/MierA-Regular.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/MierA-DemiBold.woff2', weight: '600', style: 'normal' },
+    { path: './fonts/MierA-Bold.woff2', weight: '700', style: 'normal' },
+    { path: './fonts/MierA-Black.woff2', weight: '900', style: 'normal' },
+  ],
   display: 'swap',
-  variable: '--font-display',
+  variable: '--font-sans',
 })
 
-// Cardo — scholarly book serif (OFL, ship-safe). Item titles + reading body.
+// Cardo — scholarly book serif (OFL, ship-safe). Editorial role only: bios,
+// taglines, pull quotes, list titles, the card list line.
 export const serif = localFont({
   src: [
     { path: './fonts/Cardo-Regular.woff2', weight: '400', style: 'normal' },
@@ -20,30 +33,4 @@ export const serif = localFont({
   ],
   display: 'swap',
   variable: '--font-serif',
-})
-
-// Routed Gothic Wide — technical engineering-stencil (public domain, ship-safe).
-// Every UI label: uppercase, 10px, 1.5px tracking. See the `.label` utility.
-export const label = localFont({
-  src: [
-    { path: './fonts/RoutedGothicWide-Regular.woff2', weight: '400', style: 'normal' },
-    { path: './fonts/RoutedGothicWide-Italic.woff2', weight: '400', style: 'italic' },
-  ],
-  display: 'swap',
-  variable: '--font-label',
-})
-
-// Mier A — neo-grotesque sans (licensed; provided by Tim, self-hosted woff2).
-// The redesign's UI/interface sans: card category labels (Black) and card
-// titles (Book), per Figma "ProjectX" (Body/Large + Headline/Small). Numeric
-// weights map to the family's named cuts so `font-weight` selects the file.
-export const sans = localFont({
-  src: [
-    { path: './fonts/MierA-Book.woff2', weight: '400', style: 'normal' },
-    { path: './fonts/MierA-Regular.woff2', weight: '500', style: 'normal' },
-    { path: './fonts/MierA-DemiBold.woff2', weight: '600', style: 'normal' },
-    { path: './fonts/MierA-Black.woff2', weight: '900', style: 'normal' },
-  ],
-  display: 'swap',
-  variable: '--font-sans',
 })

@@ -195,7 +195,7 @@ function Ring() {
 
 function Headline({ children }: { children: React.ReactNode }) {
   return (
-    <h1 className="font-serif text-[28px] font-bold leading-[1.12] text-ink sm:text-[32px]">
+    <h1 className="font-sans text-[28px] font-bold leading-[1.12] text-ink sm:text-[32px]">
       {children}
     </h1>
   )
@@ -624,7 +624,7 @@ function Picks({
               </div>
 
               {/* title — Cardo bold */}
-              <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-serif text-[12px] font-bold leading-[13px] text-ink">
+              <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-sans text-[12px] font-bold leading-[13px] text-ink">
                 {L.title}
               </h3>
             </button>
@@ -759,7 +759,7 @@ function Building({
   return (
     <div className="flex flex-col items-center pt-12 text-center">
       <Ring />
-      <h1 className="mt-6 font-serif text-2xl font-bold text-ink">Building your bulletin…</h1>
+      <h1 className="mt-6 font-sans text-2xl font-bold text-ink">Building your bulletin…</h1>
       <div className="mt-2 h-4 text-sm text-black/40">{log}</div>
     </div>
   )
