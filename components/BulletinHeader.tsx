@@ -24,15 +24,6 @@ export function BracketLabel({
   )
 }
 
-// Corner dot for the SIGN UP registration mark (4px). Hidden on mobile — at
-// phone size the label's wide padding leaves the dots floating as stray specks;
-// the mark only reads as intentional on the roomier desktop masthead.
-function Dot({ className }: { className: string }) {
-  return (
-    <span aria-hidden className={`absolute hidden h-[4px] w-[4px] rounded-full bg-black/[0.35] sm:block ${className}`} />
-  )
-}
-
 export function BulletinHeader({
   action = { label: 'Sign up', href: '#' },
   logoClassName = 'h-[44px]',
@@ -45,13 +36,11 @@ export function BulletinHeader({
   // present the logo sits left instead of centred.
   tagline?: React.ReactNode
 } = {}) {
+  // Plain Mier Book text, 70% ink, slight tracking (Figma node 912:25144) — no
+  // uppercase, no registration-mark dots.
   const actionInner = action ? (
-    <span className="relative inline-block px-[20px] py-[11px]">
-      <span className="label text-black/60 transition-colors group-hover:text-ink">{action.label}</span>
-      <Dot className="left-0 top-0" />
-      <Dot className="right-0 top-0" />
-      <Dot className="bottom-0 left-0" />
-      <Dot className="bottom-0 right-0" />
+    <span className="font-sans text-[14px] font-[500] tracking-[0.5px] text-black/70 transition-colors group-hover:text-ink">
+      {action.label}
     </span>
   ) : null
   return (

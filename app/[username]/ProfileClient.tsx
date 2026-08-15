@@ -686,17 +686,19 @@ export default function ProfileClient({
               <span />
             )}
 
-            {/* View tabs — segmented pill. Hidden while searching. */}
+            {/* View tabs (Figma 912:23524). Asymmetric: the active view is plain
+                black DemiBold text; the other view is a #f3f3f3 rounded button.
+                Hidden while searching. */}
             {!query.trim() && (
-              <div className="flex shrink-0 items-center gap-1 rounded-full bg-black/[0.05] p-1">
+              <div className="flex shrink-0 items-center gap-3">
                 {([['recent', 'All Bullets'], ['lists', 'Lists']] as const).map(([tab, label]) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
-                    className={`rounded-full px-4 py-1.5 font-sans text-[13px] font-[500] transition-colors ${
+                    className={`px-4 py-2 font-sans text-[14px] font-[600] transition-colors ${
                       activeTab === tab
-                        ? 'bg-white text-ink shadow-[0_1px_3px_rgba(0,0,0,0.08)]'
-                        : 'text-black/40 hover:text-black/65'
+                        ? 'text-ink'
+                        : 'rounded-[3px] bg-[#f3f3f3] text-black/30 shadow-[0px_-4px_64px_0px_rgba(0,0,0,0.05)] hover:text-black/50'
                     }`}
                   >
                     {label}
