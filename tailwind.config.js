@@ -13,6 +13,8 @@ module.exports = {
         serif: ['var(--font-serif)', 'Georgia', 'Cambria', 'serif'],
         // Routed Gothic Wide — UI labels (use the `.label` utility for the full spec)
         label: ['var(--font-label)', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        // Mier A — neo-grotesque interface sans (card labels + titles)
+        sans: ['var(--font-sans)', 'system-ui', '-apple-system', 'sans-serif'],
       },
       colors: {
         // ── Editorial rebrand palette (Figma ProjectX 695:856) ──

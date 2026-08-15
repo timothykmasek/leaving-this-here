@@ -69,14 +69,28 @@ Grounds which templates actually earn their keep. Run:
   ⚠️ **Production follow-up:** move the lightness calc server-side (compute once at
   save/backfill, store a flag) so it's robust on every host + free at render. The
   client probe is the /preview stand-in.
-- **Fit mode → per type** (2026-08-15). **cover** for article / screenshot /
-  composite / profile / lth; **contain-on-white ("padded catalog")** for product /
-  fullbleed / book. Fixes the Graphpaper wordmark crop. Field: `CardFormat.fit`.
+- **Image fit → NATURAL ASPECT** (2026-08-15, supersedes the earlier cover/contain
+  split — Tim reversed it: *"don't like the white thing… screenshots get cropped"*).
+  Cards render the image at its own aspect ratio — no forced crop, no white
+  letterbox. The feed is a true masonry; each card is the shape of its image.
+  `CardFormat.fit` removed; `aspect` now only shapes the imageless favicon plate.
+- **Copy / caption** (2026-08-15, Figma nodes 886:1823 title, 886:10138 list line):
+  - **Title** — Mier A Book 14px, wide tracking, **ONE line, ellipsis** (`truncate`).
+  - **List line** — Cardo 14px, tight tracking, with a thin vertical tick prefix;
+    renders **only if the bullet is in a list**. No list → no line → shorter card.
+  - **Category label** — Mier A **Black** 14px (was Cardo; the bundle substituted).
+- **Font: Mier A** self-hosted (2026-08-15). Tim supplied the family; woff2 for
+  Book/Regular/DemiBold/Black in `app/fonts/`, wired as `--font-sans` / Tailwind
+  `font-sans`. The redesign's interface grotesque (labels + titles).
+  ⚠️ **Licensing:** Mier A is commercial and the repo is public — the woff2 are
+  web-fetchable either way (as on any site), but confirm the Mier EULA permits
+  self-hosting before this merges to `main`.
 
 ### Open (need Tim)
 1. **Taxonomy / label names.** `Site` (screenshot), `Post` (composite), `Link` (lth)
    are placeholders (Tim: "placeholders", revisit later). Also: does the kit's
    Video-vs-Watch split survive, and what does `Buy`/`Product` collapse to?
+2. **Mier EULA check** for public-repo self-hosting (see above).
 
 ## Not in scope for Ship 02
 - Tweet / Profile / TikTok templates (need extension DOM data / re-hosted frames).

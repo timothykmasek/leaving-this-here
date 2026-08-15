@@ -9,34 +9,28 @@ import { cardFormat } from '@/lib/cardFormat'
 import type { CardType } from '@/lib/cardType'
 
 // ── Bulletin DS "Primary Card" (Figma symbol 886:3378) ──────────────────────
-// The redesign's saved-page card, rebuilt as ONE flexible primitive. Structure
-// mirrors the Figma layer tree:
-//   Mask group   → oversized image clipped by a rounded rect (aspect = the knob)
-//   label        → category text overlaid top-left
-//   Gradients    → soft foot-fade to paper at the bottom
-//   (title)      → sits BELOW the plate, muted
-// Every per-type template in the DS sheet is this card with a different `aspect`
-// + affordance — so the mask aspect is a prop, defaulting to the type's format.
-//
-// Reuses the existing CardThumb fallback chain (og → screenshot → favicon plate)
-// so a broken image degrades exactly like today's card.
+// The redesign's saved-page card, one flexible primitive:
+//   plate  → the image at its NATURAL aspect, clipped by a rounded rect. No
+//            forced crop, no white letterbox — each card is the shape of its
+//            image, so the feed reads as a true masonry.
+//   label  → category text overlaid top-left, colour adapts to the image
+//   caption→ below the plate: a ONE-LINE title (Mier), and — only if the bullet
+//            is in a list — a second Cardo line naming that list (tick + name).
+//            No list → no second line → the card is shorter.
+// Reuses the CardThumb fallback chain (og → screenshot → favicon plate).
 
 function getDomain(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, '') } catch { return url }
 }
 
 // Adaptive label colour. The label sits top-left over the image; pick dark ink
-// on a light corner, white on a dark one, so it never disappears. We sample the
+// on a light corner, white on a dark one, so it never disappears. Sample the
 // top-left region via a probe <img> with crossOrigin — works when the host
-// sends CORS (Supabase screenshots do); on a tainted/failed probe we keep the
-// white default (+ shadow). `contain` cards sit on a white plate, so their
-// top-left is white → always dark ink, no sampling needed.
-// NOTE: the robust production version computes this once at save time server-
-// side; this client probe is for the /preview iteration.
-function useAdaptiveLabelDark(src: string | undefined, isContain: boolean): boolean {
-  const [dark, setDark] = useState(isContain)
+// sends CORS (Supabase screenshots do); on a tainted/failed probe keep the
+// white default (+ shadow). Prod follow-up: compute once server-side at save.
+function useAdaptiveLabelDark(src: string | undefined): boolean {
+  const [dark, setDark] = useState(false)
   useEffect(() => {
-    if (isContain) { setDark(true); return }
     if (!src) { setDark(false); return }
     let cancelled = false
     const probe = new Image()
@@ -48,7 +42,7 @@ function useAdaptiveLabelDark(src: string | undefined, isContain: boolean): bool
         c.width = 20; c.height = 20
         const ctx = c.getContext('2d')
         if (!ctx) return
-        // Draw the image's top-left ~35%×25% into the sample canvas.
+        // Sample the image's top-left ~35%×25% (where the label sits).
         ctx.drawImage(probe, 0, 0, probe.naturalWidth * 0.35, probe.naturalHeight * 0.25, 0, 0, 20, 20)
         const { data } = ctx.getImageData(0, 0, 20, 20)
         let sum = 0
@@ -61,7 +55,7 @@ function useAdaptiveLabelDark(src: string | undefined, isContain: boolean): bool
     }
     probe.src = src
     return () => { cancelled = true }
-  }, [src, isContain])
+  }, [src])
   return dark
 }
 
@@ -75,17 +69,17 @@ interface PrimaryCardProps {
   rawMetadata?: any
   cardType?: CardType | null
   imagePref?: string | null
-  // Overrides (default to the card_type's format from cardFormat()).
-  aspect?: string
+  // The list this bullet belongs to (if any). Present → the second caption line
+  // renders and the card is taller; absent → no line, shorter card.
+  listName?: string | null
   category?: string
   categoryColor?: string
-  // Show the category label overlay. Off for a bare image card.
   showLabel?: boolean
 }
 
 export const PrimaryCard = memo(function PrimaryCard({
   url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  cardType, imagePref, aspect, category, categoryColor, showLabel = true,
+  cardType, imagePref, listName, category, categoryColor, showLabel = true,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const fmt = cardFormat(cardType)
@@ -94,8 +88,7 @@ export const PrimaryCard = memo(function PrimaryCard({
   })
   const candidates = cardImageCandidates(url, imageUrl, screenshotUrl, cardType, imagePref)
   const label = category ?? fmt.label
-  const isContain = fmt.fit === 'contain'
-  const labelDark = useAdaptiveLabelDark(candidates[0], isContain)
+  const labelDark = useAdaptiveLabelDark(candidates[0])
   const labelColor = categoryColor ?? (labelDark ? '#2b2b2b' : '#ffffff')
 
   return (
@@ -105,40 +98,30 @@ export const PrimaryCard = memo(function PrimaryCard({
       rel="noopener noreferrer"
       className="group block w-full"
     >
-      {/* The plate — rounded mask holding the image. Contain cards sit on a
-          white catalog plate; cover cards on the grey placeholder while loading. */}
-      <div
-        className={`relative w-full overflow-hidden rounded-[20px] shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow group-hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)] ${
-          isContain ? 'bg-white' : 'bg-card'
-        }`}
-        style={{ aspectRatio: aspect ?? fmt.aspect }}
-      >
-        {/* Mask group: cover fills+crops; contain pads the whole image on white. */}
+      {/* The plate — the image at natural aspect, rounded + clipped. */}
+      <div className="relative w-full overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow group-hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
         <CardThumb
           candidates={candidates}
-          className={
-            isContain
-              ? 'absolute inset-0 h-full w-full object-contain p-[9%]'
-              : 'absolute inset-0 h-full w-full object-cover'
+          className="block w-full h-auto"
+          // No image → the favicon plate, given the type's fallback shape.
+          fallback={
+            <div className="w-full" style={{ aspectRatio: fmt.aspect }}>
+              <FaviconPlate faviconUrl={faviconUrl} domain={domain} />
+            </div>
           }
-          fallback={<FaviconPlate faviconUrl={faviconUrl} domain={domain} />}
         />
 
-        {/* Gradients: soft foot-fade to paper — only for cover cards (a contain
-            plate is already white, nothing to fade). */}
-        {!isContain && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-[22%] bg-gradient-to-b from-transparent to-paper/80"
-          />
-        )}
+        {/* Soft foot-fade to paper — matches the DS plate. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-[18%] bg-gradient-to-b from-transparent to-paper/70"
+        />
 
-        {/* Category label — Cardo bold 14px, top-left. Colour adapts to the
-            corner's lightness (dark ink on light, white on dark); the drop
-            shadow only rides the white variant, to lift it off busy imagery. */}
+        {/* Category label — Mier A Black 14px, top-left; colour adapts to the
+            corner, shadow only on the white variant to lift it off imagery. */}
         {showLabel && (
           <span
-            className="absolute left-5 top-[18px] font-serif text-[14px] font-bold leading-[12px]"
+            className="absolute left-5 top-[18px] font-sans text-[14px] font-[900] leading-none"
             style={{
               color: labelColor,
               textShadow: labelDark ? 'none' : '0 1px 3px rgba(0,0,0,0.35)',
@@ -149,10 +132,17 @@ export const PrimaryCard = memo(function PrimaryCard({
         )}
       </div>
 
-      {/* Title — below the plate, muted (DS: ink-70 @ .8). */}
+      {/* Caption. Title: Mier A Book 14px, ONE line, ellipsis. */}
       {cleanTitle && (
-        <p className="mt-3 font-serif text-[13px] leading-snug text-ink/70">
+        <p className="mt-3 truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.03em] text-ink">
           {cleanTitle}
+        </p>
+      )}
+      {/* List line — Cardo 14px with a thin vertical tick; only if in a list. */}
+      {listName && (
+        <p className="mt-1.5 flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/55">
+          <span aria-hidden className="inline-block h-[10px] w-[1.5px] shrink-0 bg-ink/30" />
+          <span className="truncate">{listName}</span>
         </p>
       )}
     </a>
