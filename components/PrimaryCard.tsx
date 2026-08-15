@@ -1,6 +1,6 @@
 'use client'
 
-import { memo, useEffect, useState } from 'react'
+import { memo } from 'react'
 import { cardImageCandidates } from '@/lib/cardImage'
 import { CardThumb } from '@/components/CardThumb'
 import { FaviconPlate } from '@/components/FaviconPlate'
@@ -64,42 +64,6 @@ function Affordance({ kind, faviconUrl }: { kind: Affordance; faviconUrl?: strin
   return null
 }
 
-// Adaptive label colour. The label sits top-left over the image; pick dark ink
-// on a light corner, white on a dark one, so it never disappears. Sample the
-// top-left region via a probe <img> with crossOrigin — works when the host
-// sends CORS (Supabase screenshots do); on a tainted/failed probe keep the
-// white default (+ shadow). Prod follow-up: compute once server-side at save.
-function useAdaptiveLabelDark(src: string | undefined): boolean {
-  const [dark, setDark] = useState(false)
-  useEffect(() => {
-    if (!src) { setDark(false); return }
-    let cancelled = false
-    const probe = new Image()
-    probe.crossOrigin = 'anonymous'
-    probe.onload = () => {
-      if (cancelled) return
-      try {
-        const c = document.createElement('canvas')
-        c.width = 20; c.height = 20
-        const ctx = c.getContext('2d')
-        if (!ctx) return
-        // Sample the image's top-left ~35%×25% (where the label sits).
-        ctx.drawImage(probe, 0, 0, probe.naturalWidth * 0.35, probe.naturalHeight * 0.25, 0, 0, 20, 20)
-        const { data } = ctx.getImageData(0, 0, 20, 20)
-        let sum = 0
-        for (let i = 0; i < data.length; i += 4) {
-          sum += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2]
-        }
-        const lum = sum / (data.length / 4) / 255
-        if (!cancelled) setDark(lum > 0.6)
-      } catch { /* tainted (no CORS) — keep the white default */ }
-    }
-    probe.src = src
-    return () => { cancelled = true }
-  }, [src])
-  return dark
-}
-
 interface PrimaryCardProps {
   id?: string
   url: string
@@ -114,9 +78,6 @@ interface PrimaryCardProps {
   // The list this bullet belongs to (if any). Present → the second caption line
   // renders and the card is taller; absent → no line, shorter card.
   listName?: string | null
-  category?: string
-  categoryColor?: string
-  showLabel?: boolean
   // Owner view: clicking opens the bullet-detail modal instead of navigating to
   // the URL (mirrors BookmarkCard). Requires `id`.
   onOpen?: (id: string) => void
@@ -124,7 +85,7 @@ interface PrimaryCardProps {
 
 export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  cardType, imagePref, listName, category, categoryColor, showLabel = true, onOpen,
+  cardType, imagePref, listName, onOpen,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const fmt = resolveCategory(url, cardType)
@@ -132,9 +93,6 @@ export const PrimaryCard = memo(function PrimaryCard({
     title, description, url, siteName: rawMetadata?.og?.site_name ?? null,
   })
   const candidates = cardImageCandidates(url, imageUrl, screenshotUrl, cardType, imagePref)
-  const label = category ?? fmt.label
-  const labelDark = useAdaptiveLabelDark(candidates[0])
-  const labelColor = categoryColor ?? (labelDark ? '#2b2b2b' : '#ffffff')
 
   const body = (
     <>
@@ -159,20 +117,6 @@ export const PrimaryCard = memo(function PrimaryCard({
 
         {/* Per-type affordance (play / disc / mic / source favicon). */}
         <Affordance kind={fmt.affordance} faviconUrl={faviconUrl} />
-
-        {/* Category label — Mier A Black 14px, top-left; colour adapts to the
-            corner, shadow only on the white variant to lift it off imagery. */}
-        {showLabel && (
-          <span
-            className="absolute left-5 top-[18px] font-sans text-[14px] font-[900] leading-none"
-            style={{
-              color: labelColor,
-              textShadow: labelDark ? 'none' : '0 1px 3px rgba(0,0,0,0.35)',
-            }}
-          >
-            {label}
-          </span>
-        )}
       </div>
 
       {/* Caption. Title: Mier A Book 14px, ONE line, ellipsis. */}
