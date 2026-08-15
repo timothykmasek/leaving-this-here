@@ -48,7 +48,7 @@ export function ProfileIdentity({
   ).filter((e) => e[2])
 
   return (
-    <div className="flex flex-col items-center gap-2 text-center">
+    <div className="group flex flex-col items-center gap-2 text-center">
       {/* Name — Mier Headline/Large */}
       <h1 className="font-sans text-[20px] font-[600] leading-[24px] text-ink">{name}</h1>
 

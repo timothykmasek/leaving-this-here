@@ -537,7 +537,9 @@ export default function ProfileClient({
                   onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
                   aria-label="Edit profile"
                   title="Edit profile"
-                  className="mt-1 text-black/35 transition-colors hover:text-ink"
+                  // Hover-reveal on desktop (keeps the identity block clean);
+                  // always visible on touch (no hover) and on keyboard focus.
+                  className="mt-1 text-black/35 opacity-100 transition-all hover:text-ink sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                 >
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
                     <path d="M12 20h9" />
