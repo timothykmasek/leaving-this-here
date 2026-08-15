@@ -24,10 +24,11 @@ export function Masonry({ children }: { children: ReactNode }) {
   const columns: ReactNode[][] = Array.from({ length: cols }, () => [])
   items.forEach((child, i) => columns[i % cols].push(child))
 
+  // Gaps: 30px between columns (horizontal), 40px between cards (vertical).
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-x-[30px]">
       {columns.map((col, i) => (
-        <div key={i} className="flex min-w-0 flex-1 flex-col gap-3">
+        <div key={i} className="flex min-w-0 flex-1 flex-col gap-y-[40px]">
           {col}
         </div>
       ))}
