@@ -774,7 +774,10 @@ export default function ProfileClient({
             )
           ) : (
             (isOwner || lists.length > 0) ? (
-              <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
+              // Equal columns that fill the width at every breakpoint — a fixed-
+              // width auto-fill grid left-packed the cards and left a big empty
+              // gap on the right at mid-wide viewports.
+              <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-8 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-10">
                 {/* owner: a card-shaped "New list" affordance (also the empty state) */}
                 {isOwner && (
                   creatingList ? (
