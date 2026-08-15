@@ -686,24 +686,35 @@ export default function ProfileClient({
               <span />
             )}
 
-            {/* View tabs (Figma 912:23524). Asymmetric: the active view is plain
-                black DemiBold text; the other view is a #f3f3f3 rounded button.
-                Hidden while searching. */}
+            {/* View tabs (Figma 912:23527/23524). Both segments are #f3f3f3
+                rounded-2px blocks; the SELECTED one gets black text + four black
+                corner registration dots, the other grey text. Hidden while
+                searching. */}
             {!query.trim() && (
-              <div className="flex shrink-0 items-center gap-3">
-                {([['recent', 'All Bullets'], ['lists', 'Lists']] as const).map(([tab, label]) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2 font-sans text-[14px] font-[600] transition-colors ${
-                      activeTab === tab
-                        ? 'text-ink'
-                        : 'rounded-[3px] bg-[#f3f3f3] text-black/30 shadow-[0px_-4px_64px_0px_rgba(0,0,0,0.05)] hover:text-black/50'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div className="flex shrink-0 items-center gap-2">
+                {([['recent', 'Recent Bullets'], ['lists', 'Lists']] as const).map(([tab, label]) => {
+                  const on = activeTab === tab
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`relative rounded-[2px] bg-[#f3f3f3] px-7 py-2.5 text-center font-sans text-[14px] font-[600] shadow-[0px_-4px_64px_0px_rgba(0,0,0,0.05)] transition-colors ${
+                        on ? 'text-ink' : 'text-black/30 hover:text-black/50'
+                      }`}
+                    >
+                      {/* selected-state registration dots at the four corners */}
+                      {on && (
+                        <>
+                          <span aria-hidden className="absolute left-0 top-0 h-[4px] w-[4px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink" />
+                          <span aria-hidden className="absolute right-0 top-0 h-[4px] w-[4px] translate-x-1/2 -translate-y-1/2 rounded-full bg-ink" />
+                          <span aria-hidden className="absolute bottom-0 left-0 h-[4px] w-[4px] -translate-x-1/2 translate-y-1/2 rounded-full bg-ink" />
+                          <span aria-hidden className="absolute bottom-0 right-0 h-[4px] w-[4px] translate-x-1/2 translate-y-1/2 rounded-full bg-ink" />
+                        </>
+                      )}
+                      {label}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
