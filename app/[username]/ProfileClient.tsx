@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
-import { BulletinHeader, BracketLabel } from '@/components/BulletinHeader'
+import { BulletinHeader } from '@/components/BulletinHeader'
 import { CollectionCard } from '@/components/CollectionCard'
 import { ProfileIdentity } from '@/components/ProfileIdentity'
 import { BulletDetail } from '@/components/BulletDetail'
@@ -513,6 +513,9 @@ export default function ProfileClient({
       <BulletinHeader
         action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
         logoClassName="h-[32px] sm:h-[44px]"
+        tagline={
+          <>A home for <span className="text-ink underline decoration-black/20 underline-offset-2">{(profile.display_name || profile.username).split(' ')[0]}&apos;s</span> links</>
+        }
       />
       {/* width = exactly a 4-col grid (4×272 + 3×24 gap = 1160) + px-6, so the
           strip's right edge (tabs) lines up with the rightmost card column. */}
@@ -522,71 +525,30 @@ export default function ProfileClient({
       <div className="mx-auto max-w-[1208px] px-4 pb-40 pt-6 sm:px-6 sm:pt-16">
         {isOwner && <WelcomeBanner />}
 
-        {/* Hero — bracket strip + view tabs. `group` enables hover-reveal edit. */}
-        <div className="group mb-6 sm:mb-9">
-          <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
-            {/* bracket strip — name, then bio · link icons · edit, all on one line */}
-            <ProfileIdentity
-              name={profile.display_name || profile.username}
-              bio={profile.bio}
-              links={profile.links}
-              trailing={
-                isOwner && !editingProfile ? (
-                  <button
-                    onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
-                    aria-label="Edit profile"
-                    title="Edit profile"
-                    // Hover-reveal on desktop to keep the identity strip clean;
-                    // stays visible on touch (no hover) and on keyboard focus.
-                    className="text-black/35 transition-all hover:text-ink opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
-                  >
-                    <BracketLabel>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="inline-block align-[-1px]">
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
-                      </svg>
-                    </BracketLabel>
-                  </button>
-                ) : null
-              }
-            />
-
-            {/* right: + Save a bullet + view tabs — all in the bracket-label style */}
-            {!activeList && !query.trim() && (
-              <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-3">
-                {/* Once the extension is installed, saving happens by clicking
-                    the toolbar icon — so drop the "+ Save a bullet" how-to nudge.
-                    (extInstalled is undefined while detecting; only hide on a
-                    confirmed install so we don't flicker it away mid-check.) */}
-                {/* Desktop only: saving runs through the Chrome extension, which
-                    doesn't exist on mobile — so the how-to nudge is dead weight
-                    there and just crowds the top. */}
-                {isOwner && !editingProfile && extInstalled !== true && (
-                  <button
-                    onClick={() => setSaveOpen((v) => !v)}
-                    className="hidden text-black/40 transition-colors hover:text-ink sm:inline-block"
-                  >
-                    <BracketLabel>+ Save a bullet</BracketLabel>
-                  </button>
-                )}
-                {/* Active tab = full ink, inactive = clearly lighter grey. Two
-                    shades carry the selected state — the gap is wide enough
-                    (ink vs black/25) to read without an underline. */}
+        {/* Hero — centered identity block (name · bio · links · edit). */}
+        <div className="mb-8 sm:mb-10">
+          <ProfileIdentity
+            name={profile.display_name || profile.username}
+            bio={profile.bio}
+            links={profile.links}
+            trailing={
+              isOwner && !editingProfile ? (
                 <button
-                  onClick={() => setActiveTab('recent')}
-                  className={activeTab === 'recent' ? 'text-ink' : 'text-black/25 transition-colors hover:text-black/55'}
+                  onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
+                  aria-label="Edit profile"
+                  title="Edit profile"
+                  // Hover-reveal on desktop (keeps the identity block clean);
+                  // always visible on touch (no hover) and on keyboard focus.
+                  className="mt-1 text-black/35 opacity-100 transition-all hover:text-ink sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                 >
-                  <BracketLabel>Recent bullets</BracketLabel>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
+                  </svg>
                 </button>
-                <button
-                  onClick={() => setActiveTab('lists')}
-                  className={activeTab === 'lists' ? 'text-ink' : 'text-black/25 transition-colors hover:text-black/55'}
-                >
-                  <BracketLabel>Lists</BracketLabel>
-                </button>
-              </div>
-            )}
-          </div>
+              ) : null
+            }
+          />
 
           {/* Edit profile form */}
           {editingProfile && (
@@ -693,8 +655,76 @@ export default function ProfileClient({
             </div>
           )}
 
-          {/* Quiet meta row */}
         </div>
+
+        {/* Controls — main feed only; hidden inside a list. Tabs sit on the
+            right in both views (consistent position). Owner also gets the search
+            on the left (justify-between); visitor has tabs alone (justify-end). */}
+        {!activeList && (
+          <div className={`mb-6 flex items-center gap-4 sm:mb-8 ${isOwner ? 'justify-between' : 'justify-end'}`}>
+            {isOwner && (
+              <input
+                type="search"
+                value={query}
+                placeholder="Search"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                enterKeyHint="search"
+                aria-label="Search your links"
+                data-1p-ignore
+                data-lpignore="true"
+                onChange={(e) => {
+                  const v = e.target.value
+                  setQuery(v)
+                  if (v.trim()) setActiveListId(null)
+                  // Any input change supersedes in-flight semantic requests (incl.
+                  // clearing — a late response must not repopulate a cleared box).
+                  searchSeq.current++
+                  // Instant local filter on the keystroke; semantic re-rank lands after.
+                  setFiltered(v.trim() ? tokenSearch(v) : bookmarks)
+                  if (searchTimer.current) clearTimeout(searchTimer.current)
+                  if (v.trim()) searchTimer.current = setTimeout(() => handleSearch(v), 250)
+                }}
+                // font-size ≥16px so iOS Safari doesn't auto-zoom on focus.
+                className="w-full max-w-[300px] border-b border-ink bg-transparent pb-1.5 font-sans text-[16px] text-ink placeholder:text-ink focus:outline-none"
+              />
+            )}
+
+            {/* View tabs (Figma 912:23527/23524). Both segments are #f3f3f3
+                rounded-2px blocks; the SELECTED one gets black text + four black
+                corner registration dots, the other grey text. Hidden while
+                searching. */}
+            {!query.trim() && (
+              <div className="flex shrink-0 items-center gap-2">
+                {([['recent', 'Recent Bullets'], ['lists', 'Lists']] as const).map(([tab, label]) => {
+                  const on = activeTab === tab
+                  return (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`relative rounded-[2px] bg-[#f3f3f3] px-7 py-2.5 text-center font-sans text-[14px] font-[600] shadow-[0px_-4px_64px_0px_rgba(0,0,0,0.05)] transition-colors ${
+                        on ? 'text-ink' : 'text-black/30 hover:text-black/50'
+                      }`}
+                    >
+                      {/* selected-state registration dots at the four corners */}
+                      {on && (
+                        <>
+                          <span aria-hidden className="absolute left-0 top-0 h-[4px] w-[4px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink" />
+                          <span aria-hidden className="absolute right-0 top-0 h-[4px] w-[4px] translate-x-1/2 -translate-y-1/2 rounded-full bg-ink" />
+                          <span aria-hidden className="absolute bottom-0 left-0 h-[4px] w-[4px] -translate-x-1/2 translate-y-1/2 rounded-full bg-ink" />
+                          <span aria-hidden className="absolute bottom-0 right-0 h-[4px] w-[4px] translate-x-1/2 translate-y-1/2 rounded-full bg-ink" />
+                        </>
+                      )}
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Owner-only save panel — collapsible. Empty state gets larger
             messaging (onboarding); populated state is more compact. */}
@@ -725,72 +755,6 @@ export default function ProfileClient({
           </div>
         )}
 
-        {/* Search — owner only: a floating white pill with a magnifier glyph and
-            a serif "Search your links" placeholder, sitting bottom-centre over the
-            grid. Lifts when the reveal footer slides in so the two never overlap
-            (matching the footer's 340ms ease). Input font stays 16px so iOS
-            Safari doesn't auto-zoom on focus. */}
-        {isOwner && !activeList && !selectedId && (
-          <div
-            className={`fixed left-1/2 z-40 w-[340px] max-w-[86vw] -translate-x-1/2 transition-all duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
-              footerRevealed ? 'bottom-[94px]' : 'bottom-8'
-            }`}
-          >
-            <div className="group flex items-center gap-2.5 rounded-full bg-white px-5 py-3 ring-1 ring-black/[0.04] shadow-[0_12px_36px_-12px_rgba(35,30,20,0.35),0_3px_10px_-6px_rgba(35,30,20,0.22)] transition-shadow focus-within:shadow-[0_16px_44px_-12px_rgba(35,30,20,0.42),0_4px_12px_-6px_rgba(35,30,20,0.26)]">
-              {/* magnifier — thin, greys up on focus */}
-              <svg
-                aria-hidden
-                width="17"
-                height="17"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="shrink-0 text-black/30 transition-colors group-focus-within:text-black/55"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.4-3.4" />
-              </svg>
-              {/* font-size stays >=16px: iOS Safari auto-zooms the page when an
-                  input is smaller than that on focus. */}
-              <input
-                type="search"
-                value={query}
-                placeholder="Search your links"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                enterKeyHint="search"
-                aria-label="Search your links"
-                data-1p-ignore
-                data-lpignore="true"
-                onChange={(e) => {
-                  const v = e.target.value
-                  setQuery(v)
-                  if (v.trim()) setActiveListId(null)
-                  // Any input change supersedes in-flight semantic requests —
-                  // including clearing the box (a late response must not
-                  // repopulate a cleared search).
-                  searchSeq.current++
-                  // Instant local filter: links update on the keystroke itself
-                  // (mymind-style). The semantic pass below re-ranks when it lands.
-                  setFiltered(v.trim() ? tokenSearch(v) : bookmarks)
-                  // Debounce only the network (embedding) search — one request
-                  // per pause, not per keystroke; embed() retries on 429.
-                  if (searchTimer.current) clearTimeout(searchTimer.current)
-                  if (v.trim()) {
-                    searchTimer.current = setTimeout(() => handleSearch(v), 250)
-                  }
-                }}
-                className="w-full bg-transparent font-serif text-[16px] text-ink placeholder:text-black/40 focus:outline-none"
-              />
-            </div>
-          </div>
-        )}
-
         {/* ── Search results (flat grid) ── */}
         {!activeList && query.trim() && (
           <>
@@ -816,7 +780,10 @@ export default function ProfileClient({
             )
           ) : (
             (isOwner || lists.length > 0) ? (
-              <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
+              // Equal columns that fill the width at every breakpoint — a fixed-
+              // width auto-fill grid left-packed the cards and left a big empty
+              // gap on the right at mid-wide viewports.
+              <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-8 lg:grid-cols-4 lg:gap-x-6 lg:gap-y-10">
                 {/* owner: a card-shaped "New list" affordance (also the empty state) */}
                 {isOwner && (
                   creatingList ? (
