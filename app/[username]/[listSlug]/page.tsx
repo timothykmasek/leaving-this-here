@@ -3,6 +3,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 import { getProfileByUsername, getListBySlug } from '@/lib/queries'
 import { timed } from '@/lib/timing'
 import { PrimaryCard } from '@/components/PrimaryCard'
+import { Masonry } from '@/components/Masonry'
 import { PublicHeader } from '@/components/PublicHeader'
 import { ProfileIdentity } from '@/components/ProfileIdentity'
 import { ListDetailClient } from './ListDetailClient'
@@ -161,23 +162,22 @@ export default async function ListPage({
         </div>
 
         {bullets.length > 0 ? (
-          <div className="columns-2 [column-gap:16px] sm:columns-3 sm:[column-gap:20px] lg:columns-4">
+          <Masonry>
             {bullets.map((b) => (
               // On a list page every card is already in THIS list, so no list line.
-              <div key={b.id} className="mb-4 break-inside-avoid sm:mb-6">
-                <PrimaryCard
-                  url={b.url}
-                  title={b.title}
-                  description={b.description}
-                  imageUrl={b.image_url}
-                  screenshotUrl={b.screenshot_url}
-                  faviconUrl={b.favicon_url}
-                  cardType={b.card_type}
-                  imagePref={b.image_pref}
-                />
-              </div>
+              <PrimaryCard
+                key={b.id}
+                url={b.url}
+                title={b.title}
+                description={b.description}
+                imageUrl={b.image_url}
+                screenshotUrl={b.screenshot_url}
+                faviconUrl={b.favicon_url}
+                cardType={b.card_type}
+                imagePref={b.image_pref}
+              />
             ))}
-          </div>
+          </Masonry>
         ) : (
           <div className="text-center py-16">
             <p className="text-gray-500 text-sm">empty list</p>

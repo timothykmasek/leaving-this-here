@@ -13,22 +13,24 @@ import type { CardType } from '@/lib/cardType'
 //   plate  → the image at its NATURAL aspect, clipped by a rounded rect. No
 //            forced crop, no white letterbox — each card is the shape of its
 //            image, so the feed reads as a true masonry.
-//   label  → category text overlaid top-left, colour adapts to the image
+//   overlay→ a small per-type affordance (play / disc / mic / source favicon)
 //   caption→ below the plate: a ONE-LINE title (Mier), and — only if the bullet
 //            is in a list — a second Cardo line naming that list (tick + name).
 //            No list → no second line → the card is shorter.
-// Reuses the CardThumb fallback chain (og → screenshot → favicon plate).
+// Reuses the CardThumb fallback chain (og → screenshot → favicon plate). No
+// category label overlay — categories live off-card (removed 2026-08-15).
 
 function getDomain(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, '') } catch { return url }
 }
 
-// Per-type affordance overlay — the visual cue that says what KIND of thing this
-// is beyond the label. `play` (Video) is the big centred one; `disc`/`mic`
-// (Music/Podcast) are small corner badges; `favicon` (Article) tucks the source
-// mark bottom-left. `price`/`avatar` need data we don't reliably have yet, so
-// they render nothing for now.
-function Affordance({ kind, faviconUrl }: { kind: Affordance; faviconUrl?: string | null }) {
+// Per-type affordance overlay — the visual cue for what KIND of thing this is.
+// `play` (Video) is the big centred one; `disc`/`mic` (Music/Podcast) are small
+// corner badges; `favicon` (Article) tucks the source mark bottom-left — but only
+// over real imagery (`hasImage`), since an imageless card already shows the
+// favicon centred in its FaviconPlate. `price`/`avatar` need data we don't have
+// yet, so they render nothing for now.
+function AffordanceOverlay({ kind, faviconUrl, hasImage }: { kind: Affordance; faviconUrl?: string | null; hasImage: boolean }) {
   if (kind === 'play') {
     return (
       <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -49,7 +51,7 @@ function Affordance({ kind, faviconUrl }: { kind: Affordance; faviconUrl?: strin
       </span>
     )
   }
-  if (kind === 'favicon' && faviconUrl) {
+  if (kind === 'favicon' && faviconUrl && hasImage) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -116,7 +118,7 @@ export const PrimaryCard = memo(function PrimaryCard({
         />
 
         {/* Per-type affordance (play / disc / mic / source favicon). */}
-        <Affordance kind={fmt.affordance} faviconUrl={faviconUrl} />
+        <AffordanceOverlay kind={fmt.affordance} faviconUrl={faviconUrl} hasImage={candidates.length > 0} />
       </div>
 
       {/* Caption. Title: Mier A Book 14px, ONE line, ellipsis. */}

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PrimaryCard } from '@/components/PrimaryCard'
+import { Masonry } from '@/components/Masonry'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SuggestionShelf, type Suggestion } from '@/components/SuggestionShelf'
 import { uniqueSlug } from '@/lib/slug'
@@ -338,25 +339,24 @@ export function ListDetailClient({
       </div>
 
       {bullets.length > 0 ? (
-        <div className="columns-2 [column-gap:16px] sm:columns-3 sm:[column-gap:20px] lg:columns-4">
+        <Masonry>
           {bullets.map((b) => (
             // Every card is already in THIS list, so no list line.
-            <div key={b.id} className="mb-4 break-inside-avoid sm:mb-6">
-              <PrimaryCard
-                id={b.id}
-                url={b.url}
-                title={b.title}
-                description={b.description}
-                imageUrl={b.image_url}
-                screenshotUrl={b.screenshot_url}
-                faviconUrl={b.favicon_url}
-                cardType={b.card_type}
-                imagePref={b.image_pref}
-                onOpen={setSelectedId}
-              />
-            </div>
+            <PrimaryCard
+              key={b.id}
+              id={b.id}
+              url={b.url}
+              title={b.title}
+              description={b.description}
+              imageUrl={b.image_url}
+              screenshotUrl={b.screenshot_url}
+              faviconUrl={b.favicon_url}
+              cardType={b.card_type}
+              imagePref={b.image_pref}
+              onOpen={setSelectedId}
+            />
           ))}
-        </div>
+        </Masonry>
       ) : (
         <div className="text-center py-16">
           <p className="text-gray-500 text-sm">

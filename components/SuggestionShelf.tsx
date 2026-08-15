@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PrimaryCard } from '@/components/PrimaryCard'
+import { Masonry } from '@/components/Masonry'
 
 // "Ambient shelf" — a quiet panel under a list's bullets that surfaces OTHER
 // links the owner already saved that fit this list, for one-tap filing. Design
@@ -171,9 +172,9 @@ export function SuggestionShelf({
         </p>
       ) : (
         // Same masonry as the bullets above, so the shelf reads as one system.
-        <div className="columns-2 [column-gap:16px] sm:columns-3 sm:[column-gap:20px] lg:columns-4">
+        <Masonry>
           {visible.map((s) => (
-            <div key={s.id} className="group relative mb-4 break-inside-avoid sm:mb-6">
+            <div key={s.id} className="group relative">
               <PrimaryCard
                 url={s.url}
                 title={s.title}
@@ -214,7 +215,7 @@ export function SuggestionShelf({
               </button>
             </div>
           ))}
-        </div>
+        </Masonry>
       )}
 
       {addedCount > 0 && (

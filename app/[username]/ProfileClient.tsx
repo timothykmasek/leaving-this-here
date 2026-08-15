@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PrimaryCard } from '@/components/PrimaryCard'
+import { Masonry } from '@/components/Masonry'
 import { BulletinHeader, BracketLabel } from '@/components/BulletinHeader'
 import { CollectionCard } from '@/components/CollectionCard'
 import { ProfileIdentity } from '@/components/ProfileIdentity'
@@ -467,33 +468,32 @@ export default function ProfileClient({
       .filter(Boolean)
       .slice(0, 4)
 
-  // Masonry — cards vary in height (natural image aspect), so a CSS-columns
-  // flow, not a fixed grid. break-inside-avoid keeps a card whole in its column.
+  // Order-preserving masonry (round-robin across columns) — a plain CSS-columns
+  // flow would fill column-major and scramble the created_at-desc order.
   // Pass ONLY stable, actually-rendered props so React.memo on PrimaryCard holds
   // across search keystrokes (setSelectedId is a stable setter; listName is a
   // stable string), keeping typing smooth as the collection grows.
   const renderBulletGrid = (items: any[]) => (
     <>
-      <div className="columns-2 [column-gap:16px] sm:columns-3 sm:[column-gap:20px] lg:columns-4">
+      <Masonry>
         {items.slice(0, visibleCount).map((b) => (
-          <div key={b.id} className="mb-4 break-inside-avoid sm:mb-6">
-            <PrimaryCard
-              id={b.id}
-              url={b.url}
-              title={b.title}
-              description={b.description}
-              imageUrl={b.image_url}
-              screenshotUrl={b.screenshot_url}
-              faviconUrl={b.favicon_url}
-              rawMetadata={b.raw_metadata}
-              cardType={b.card_type}
-              imagePref={b.image_pref}
-              listName={listNameByBookmark.get(b.id) ?? null}
-              onOpen={isOwner ? setSelectedId : undefined}
-            />
-          </div>
+          <PrimaryCard
+            key={b.id}
+            id={b.id}
+            url={b.url}
+            title={b.title}
+            description={b.description}
+            imageUrl={b.image_url}
+            screenshotUrl={b.screenshot_url}
+            faviconUrl={b.favicon_url}
+            rawMetadata={b.raw_metadata}
+            cardType={b.card_type}
+            imagePref={b.image_pref}
+            listName={listNameByBookmark.get(b.id) ?? null}
+            onOpen={isOwner ? setSelectedId : undefined}
+          />
         ))}
-      </div>
+      </Masonry>
       {items.length > visibleCount && (
         <LoadMoreSentinel
           onReach={() =>
