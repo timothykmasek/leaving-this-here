@@ -32,3 +32,18 @@ export const label = localFont({
   display: 'swap',
   variable: '--font-label',
 })
+
+// Mier A — neo-grotesque sans (licensed; provided by Tim, self-hosted woff2).
+// The redesign's UI/interface sans: card category labels (Black) and card
+// titles (Book), per Figma "ProjectX" (Body/Large + Headline/Small). Numeric
+// weights map to the family's named cuts so `font-weight` selects the file.
+export const sans = localFont({
+  src: [
+    { path: './fonts/MierA-Book.woff2', weight: '400', style: 'normal' },
+    { path: './fonts/MierA-Regular.woff2', weight: '500', style: 'normal' },
+    { path: './fonts/MierA-DemiBold.woff2', weight: '600', style: 'normal' },
+    { path: './fonts/MierA-Black.woff2', weight: '900', style: 'normal' },
+  ],
+  display: 'swap',
+  variable: '--font-sans',
+})

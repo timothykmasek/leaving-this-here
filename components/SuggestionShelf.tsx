@@ -2,18 +2,17 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { BookmarkCard } from '@/components/BookmarkCard'
+import { PrimaryCard } from '@/components/PrimaryCard'
+import { Masonry } from '@/components/Masonry'
 
 // "Ambient shelf" — a quiet panel under a list's bullets that surfaces OTHER
 // links the owner already saved that fit this list, for one-tap filing. Design
 // intent (handoff option 1c): a peripheral offer, not the main event — it
 // renders nothing until it has confident suggestions, so it's fully ignorable.
 //
-// Visual language is the app's, not the prototype's: each suggestion is a real
-// <BookmarkCard> (same 272×270 plate, rivets, Cardo title, inset thumb as the
-// bullets above) laid out in the same card grid, with a `+ ADD` action beneath.
-// Reusing the card keeps the shelf pixel-identical to the rest of the app and in
-// sync with any future card changes.
+// Each suggestion is a real <PrimaryCard> in the same masonry as the bullets
+// above, with a `+ ADD` action beneath. Reusing the card keeps the shelf in sync
+// with any card changes.
 
 // How many cards the row shows before "see all" — matches the ~4-up the main
 // grid lands on at desktop width.
@@ -172,19 +171,17 @@ export function SuggestionShelf({
           Nothing left to suggest.
         </p>
       ) : (
-        // Same grid as the bullets above, so the shelf reads as one system.
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-8 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6">
+        // Same masonry as the bullets above, so the shelf reads as one system.
+        <Masonry>
           {visible.map((s) => (
-            <div key={s.id} className="group relative w-full">
-              <BookmarkCard
-                id={s.id}
+            <div key={s.id} className="group relative">
+              <PrimaryCard
+                url={s.url}
                 title={s.title}
                 description={s.description}
-                url={s.url}
                 imageUrl={s.image_url}
                 screenshotUrl={s.screenshot_url}
                 faviconUrl={s.favicon_url}
-                isOwner={false}
                 cardType={s.card_type}
                 imagePref={s.image_pref}
               />
@@ -218,7 +215,7 @@ export function SuggestionShelf({
               </button>
             </div>
           ))}
-        </div>
+        </Masonry>
       )}
 
       {addedCount > 0 && (

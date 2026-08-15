@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { display, serif, label } from './fonts'
+import { display, serif, label, sans } from './fonts'
 import { Header } from '@/components/Header'
 import './globals.css'
 
@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${display.variable} ${serif.variable} ${label.variable}`}>
+    <html lang="en" className={`${display.variable} ${serif.variable} ${label.variable} ${sans.variable}`}>
       <body className="dot-ground text-ink">
         <Header />
         {children}

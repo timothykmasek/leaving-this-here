@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BookmarkCard } from '@/components/BookmarkCard'
+import { PrimaryCard } from '@/components/PrimaryCard'
+import { Masonry } from '@/components/Masonry'
 import { BulletinHeader, BracketLabel } from '@/components/BulletinHeader'
 import { CollectionCard } from '@/components/CollectionCard'
 import { ProfileIdentity } from '@/components/ProfileIdentity'
@@ -447,6 +448,14 @@ export default function ProfileClient({
   // Up to 4 preview thumbnails for a list card, newest link first (so a small
   // list's single preview shows the latest saved link).
   const bookmarkById = useMemo(() => new Map(bookmarks.map((b) => [b.id, b])), [bookmarks])
+
+  // Which list each bullet belongs to (fullest list wins) → the card's list line.
+  const listNameByBookmark = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const l of sortedLists)
+      for (const bid of l.bookmark_ids as string[]) if (!m.has(bid)) m.set(bid, l.name)
+    return m
+  }, [sortedLists])
   const listThumbs = (l: any): string[] =>
     (l.bookmark_ids as string[])
       .map((id) => bookmarkById.get(id))
@@ -459,29 +468,32 @@ export default function ProfileClient({
       .filter(Boolean)
       .slice(0, 4)
 
+  // Order-preserving masonry (round-robin across columns) — a plain CSS-columns
+  // flow would fill column-major and scramble the created_at-desc order.
+  // Pass ONLY stable, actually-rendered props so React.memo on PrimaryCard holds
+  // across search keystrokes (setSelectedId is a stable setter; listName is a
+  // stable string), keeping typing smooth as the collection grows.
   const renderBulletGrid = (items: any[]) => (
-    <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
-      {items.slice(0, visibleCount).map((b) => (
-        // Pass ONLY stable, actually-rendered props so React.memo on BookmarkCard
-        // holds across search keystrokes — the card ignores note / inLists /
-        // onDelete / onNoteUpdate / ownerUsername (see its interface), and those
-        // were the props whose identity changed every render.
-        <BookmarkCard
-          key={b.id}
-          id={b.id}
-          title={b.title}
-          description={b.description}
-          url={b.url}
-          imageUrl={b.image_url}
-          screenshotUrl={b.screenshot_url}
-          faviconUrl={b.favicon_url}
-          rawMetadata={b.raw_metadata}
-          isOwner={isOwner}
-          cardType={b.card_type}
-          imagePref={b.image_pref}
-          onOpen={isOwner ? setSelectedId : undefined}
-        />
-      ))}
+    <>
+      <Masonry>
+        {items.slice(0, visibleCount).map((b) => (
+          <PrimaryCard
+            key={b.id}
+            id={b.id}
+            url={b.url}
+            title={b.title}
+            description={b.description}
+            imageUrl={b.image_url}
+            screenshotUrl={b.screenshot_url}
+            faviconUrl={b.favicon_url}
+            rawMetadata={b.raw_metadata}
+            cardType={b.card_type}
+            imagePref={b.image_pref}
+            listName={listNameByBookmark.get(b.id) ?? null}
+            onOpen={isOwner ? setSelectedId : undefined}
+          />
+        ))}
+      </Masonry>
       {items.length > visibleCount && (
         <LoadMoreSentinel
           onReach={() =>
@@ -489,7 +501,7 @@ export default function ProfileClient({
           }
         />
       )}
-    </div>
+    </>
   )
 
   if (!profile) {

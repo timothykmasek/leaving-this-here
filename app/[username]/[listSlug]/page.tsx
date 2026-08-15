@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { getProfileByUsername, getListBySlug } from '@/lib/queries'
 import { timed } from '@/lib/timing'
-import { BookmarkCard } from '@/components/BookmarkCard'
+import { PrimaryCard } from '@/components/PrimaryCard'
+import { Masonry } from '@/components/Masonry'
 import { PublicHeader } from '@/components/PublicHeader'
 import { ProfileIdentity } from '@/components/ProfileIdentity'
 import { ListDetailClient } from './ListDetailClient'
@@ -161,24 +162,22 @@ export default async function ListPage({
         </div>
 
         {bullets.length > 0 ? (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-[repeat(auto-fill,272px)] lg:justify-start lg:gap-x-6 lg:gap-y-12">
+          <Masonry>
             {bullets.map((b) => (
-              <BookmarkCard
+              // On a list page every card is already in THIS list, so no list line.
+              <PrimaryCard
                 key={b.id}
-                id={b.id}
+                url={b.url}
                 title={b.title}
                 description={b.description}
-                url={b.url}
                 imageUrl={b.image_url}
                 screenshotUrl={b.screenshot_url}
                 faviconUrl={b.favicon_url}
-                note={b.note}
-                isOwner={false}
                 cardType={b.card_type}
                 imagePref={b.image_pref}
               />
             ))}
-          </div>
+          </Masonry>
         ) : (
           <div className="text-center py-16">
             <p className="text-gray-500 text-sm">empty list</p>
