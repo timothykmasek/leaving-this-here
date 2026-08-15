@@ -657,11 +657,12 @@ export default function ProfileClient({
 
         </div>
 
-        {/* Controls — inline underlined search (owner, left) + view-tab pill
-            (right). Main feed only; hidden inside a list. */}
+        {/* Controls — main feed only; hidden inside a list. Owner: search left,
+            tabs right (justify-between). Visitor: no search, so the tabs centre
+            to match the centred identity rather than floating right. */}
         {!activeList && (
-          <div className="mb-6 flex items-center justify-between gap-4 sm:mb-8">
-            {isOwner ? (
+          <div className={`mb-6 flex items-center gap-4 sm:mb-8 ${isOwner ? 'justify-between' : 'justify-center'}`}>
+            {isOwner && (
               <input
                 type="search"
                 value={query}
@@ -689,8 +690,6 @@ export default function ProfileClient({
                 // font-size ≥16px so iOS Safari doesn't auto-zoom on focus.
                 className="w-full max-w-[300px] border-b border-ink bg-transparent pb-1.5 font-sans text-[16px] text-ink placeholder:text-ink focus:outline-none"
               />
-            ) : (
-              <span />
             )}
 
             {/* View tabs (Figma 912:23527/23524). Both segments are #f3f3f3
