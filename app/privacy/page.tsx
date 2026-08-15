@@ -14,7 +14,7 @@ export default function PrivacyPage() {
     <main className="min-h-screen">
       <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
       <div className="mx-auto max-w-2xl px-6 pb-20 pt-8 sm:px-8">
-        <h1 className="mb-2 font-serif text-3xl font-bold tracking-tight text-ink">
+        <h1 className="mb-2 font-sans text-3xl font-bold tracking-tight text-ink">
           Privacy
         </h1>
         <p className="mb-10 text-sm text-black/40">
@@ -24,7 +24,7 @@ export default function PrivacyPage() {
 
         <div className="space-y-8 text-[15px] leading-relaxed text-black/70">
           <section>
-            <h2 className="font-serif text-lg text-ink mb-2">the short version</h2>
+            <h2 className="font-sans font-[600] text-lg text-ink mb-2">the short version</h2>
             <p>
               Bulletin is a place to save and publicly share links. We
               collect what&rsquo;s needed to run that — your account, the things
@@ -34,7 +34,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-lg text-ink mb-2">what we collect</h2>
+            <h2 className="font-sans font-[600] text-lg text-ink mb-2">what we collect</h2>
             <ul className="list-disc pl-5 space-y-2">
               <li>
                 <strong className="text-ink">Account info.</strong> When you sign
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-lg text-ink mb-2">what&rsquo;s public</h2>
+            <h2 className="font-sans font-[600] text-lg text-ink mb-2">what&rsquo;s public</h2>
             <p>
               Bulletin is public by design: everything you save appears on
               your public page (yourbulletin.com/yourhandle), unless it&rsquo;s in
@@ -71,7 +71,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-lg text-ink mb-2">services we rely on</h2>
+            <h2 className="font-sans font-[600] text-lg text-ink mb-2">services we rely on</h2>
             <p>
               Your data is processed by a small set of infrastructure providers,
               strictly to run the product: Supabase (database, authentication),
@@ -84,7 +84,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-lg text-ink mb-2">what we don&rsquo;t do</h2>
+            <h2 className="font-sans font-[600] text-lg text-ink mb-2">what we don&rsquo;t do</h2>
             <ul className="list-disc pl-5 space-y-2">
               <li>No selling or renting your data, ever.</li>
               <li>No advertising, no third-party trackers.</li>
@@ -93,7 +93,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-lg text-ink mb-2">deleting your stuff</h2>
+            <h2 className="font-sans font-[600] text-lg text-ink mb-2">deleting your stuff</h2>
             <p>
               You can delete any save from your page at any time, and deleting is
               permanent. To delete your whole account and everything in it, email
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
           </section>
 
           <section>
-            <h2 className="font-serif text-lg text-ink mb-2">contact</h2>
+            <h2 className="font-sans font-[600] text-lg text-ink mb-2">contact</h2>
             <p>
               Questions about any of this:{' '}
               <a

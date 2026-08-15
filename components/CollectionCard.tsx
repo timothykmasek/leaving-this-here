@@ -57,7 +57,7 @@ export function CollectionCard({
           lowercase, e.g. "ai"/"technology") while leaving the stored name — the
           source of the frozen slug — untouched. Already-uppercase words like an
           acronym stay as-is (capitalize only touches each word's first letter). */}
-      <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-serif text-[12px] font-bold capitalize leading-[13px] text-ink">
+      <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-sans text-[12px] font-bold capitalize leading-[13px] text-ink">
         {name}
       </h3>
 

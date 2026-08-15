@@ -138,7 +138,7 @@ export function BulletDetail({
 
         {/* Right — meta */}
         <div className="flex w-full flex-col overflow-y-auto p-6 md:w-[42%]">
-          <h2 className="font-serif text-xl font-normal leading-snug tracking-tight text-ink">
+          <h2 className="font-sans text-xl font-normal leading-snug tracking-tight text-ink">
             {bullet.title || domain}
           </h2>
           <p className="mt-1.5 text-xs uppercase tracking-[0.13em] text-black/45">

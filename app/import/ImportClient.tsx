@@ -122,7 +122,7 @@ export default function ImportClient({ username }: { username: string }) {
         >
           ← back
         </Link>
-        <h1 className="mb-2 font-serif text-3xl font-bold tracking-tight text-ink">
+        <h1 className="mb-2 font-sans text-3xl font-bold tracking-tight text-ink">
           Import links
         </h1>
         <p className="mb-8 text-[15px] leading-relaxed text-black/60">

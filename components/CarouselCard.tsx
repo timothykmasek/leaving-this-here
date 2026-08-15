@@ -37,10 +37,10 @@ export function CarouselCard({ b }: { b: any }) {
         />
       </div>
       <div className="px-4 pb-3.5 pt-3">
-        <h3 className="line-clamp-2 min-h-[2.6em] font-serif text-[15px] leading-snug tracking-tight text-ink">
+        <h3 className="line-clamp-2 min-h-[2.6em] font-sans text-[15px] leading-snug tracking-tight text-ink">
           {title}
         </h3>
-        <p className="mt-1.5 font-serif text-[10px] uppercase tracking-[0.13em] text-stone-500">{domain}</p>
+        <p className="mt-1.5 font-sans text-[10px] uppercase tracking-[0.13em] text-stone-500">{domain}</p>
       </div>
     </a>
   )

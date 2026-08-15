@@ -46,7 +46,7 @@ export function LinkCard({ url, title, image, fallbackImage, faviconUrl, priorit
       </div>
 
       {/* title — Cardo bold, left-aligned to the thumbnail, 2 lines */}
-      <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-serif text-[12px] font-bold leading-[13px] text-ink">
+      <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-sans text-[12px] font-bold leading-[13px] text-ink">
         {title}
       </h3>
     </a>
