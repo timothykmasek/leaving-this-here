@@ -60,17 +60,23 @@ Grounds which templates actually earn their keep. Run:
   different mask aspect/fit/affordance — mirrors the Figma Mask group.
 - **Title sits BELOW the plate** (muted), not inside the image. Per DS.
 - **Ground-first already shipped** (Ship 01: dot grid, rivets gone).
+- **Label legibility → adaptive colour** (2026-08-15). Sample the image's top-left
+  lightness, dark ink on light / white on dark. Implemented client-side in
+  `PrimaryCard` (`useAdaptiveLabelDark`) via a crossOrigin probe + canvas luminance.
+  Works where the host sends CORS — **Supabase screenshots (the 82% bucket) do**;
+  external og hosts that taint fall back to white+shadow. `contain` cards are on a
+  white plate → always dark ink, no sampling.
+  ⚠️ **Production follow-up:** move the lightness calc server-side (compute once at
+  save/backfill, store a flag) so it's robust on every host + free at render. The
+  client probe is the /preview stand-in.
+- **Fit mode → per type** (2026-08-15). **cover** for article / screenshot /
+  composite / profile / lth; **contain-on-white ("padded catalog")** for product /
+  fullbleed / book. Fixes the Graphpaper wordmark crop. Field: `CardFormat.fit`.
 
 ### Open (need Tim)
-1. **Label legibility.** White label vanishes on light imagery (Valarian, white-bg
-   Graphpaper). Options: (a) adaptive black/white by image lightness, or (b) a small
-   dark scrim chip behind the label. Leaning (b) — always works, simpler.
-2. **Fit mode per type.** Confirm: **cover** for article / screenshot / composite;
-   **contain-on-white ("padded catalog")** for product / book. Currently everything
-   is cover, which crops landscape product logos badly.
-3. **Taxonomy / label names.** `Site` (screenshot), `Post` (composite), `Link` (lth)
-   are placeholders. Also: does the kit's Video-vs-Watch split survive, and what does
-   `Buy`/`Product` collapse to?
+1. **Taxonomy / label names.** `Site` (screenshot), `Post` (composite), `Link` (lth)
+   are placeholders (Tim: "placeholders", revisit later). Also: does the kit's
+   Video-vs-Watch split survive, and what does `Buy`/`Product` collapse to?
 
 ## Not in scope for Ship 02
 - Tweet / Profile / TikTok templates (need extension DOM data / re-hosted frames).
