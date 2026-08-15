@@ -28,14 +28,18 @@ const LINK_ICONS: Record<string, ReactNode> = {
 export function ProfileIdentity({
   name,
   bio,
+  latestBullet,
   links,
   trailing,
 }: {
   name: string
+  // Bio — up to two short lines, stored newline-separated.
   bio?: string | null
+  // "Latest Bullet: …" line (owner's most recent save, in the viewer's local
+  // time). Rendered as the bottom editorial line under the bio.
+  latestBullet?: string | null
   links?: Record<string, string> | null
-  // Optional owner control rendered on its own line beneath the links
-  // (e.g. the edit-profile link on your own profile).
+  // Optional owner control rendered beneath the links (edit-profile pencil).
   trailing?: ReactNode
 }) {
   const l = links || {}
@@ -48,18 +52,20 @@ export function ProfileIdentity({
   ).filter((e) => e[2])
 
   return (
-    <div className="group flex flex-col items-center gap-2 text-center">
+    <div className="group flex flex-col items-center gap-3 text-center">
       {/* Name — Mier Headline/Large */}
       <h1 className="font-sans text-[20px] font-[600] leading-[24px] text-ink">{name}</h1>
 
-      {/* Bio — Cardo Editorial, honours line breaks, centred */}
-      {bio && (
-        <p className="max-w-md whitespace-pre-line font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/55">
-          {bio}
-        </p>
+      {/* Bio (up to 2 lines) + the auto "Latest Bullet" line, as one tight
+          editorial block — Cardo, centred. */}
+      {(bio || latestBullet) && (
+        <div className="flex max-w-md flex-col items-center font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60">
+          {bio && <p className="whitespace-pre-line">{bio}</p>}
+          {latestBullet && <p>{latestBullet}</p>}
+        </div>
       )}
 
-      {/* Social links */}
+      {/* Social links — below the identity lines */}
       {entries.length > 0 && (
         <div className="mt-1 flex items-center gap-4 text-black/40">
           {entries.map((e) => (

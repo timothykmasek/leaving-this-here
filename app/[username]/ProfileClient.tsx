@@ -77,6 +77,10 @@ export default function ProfileClient({
   const [saveOpen, setSaveOpen] = useState(isOwner && initialBookmarks.length === 0)
   const [editingProfile, setEditingProfile] = useState(false)
   const [editBio, setEditBio] = useState('')
+  const [editBio2, setEditBio2] = useState('')
+  // "Latest Bullet: …" line — formatted in the viewer's LOCAL time, so computed
+  // client-side (in the effect below) to avoid an SSR/client hydration mismatch.
+  const [latestBulletLabel, setLatestBulletLabel] = useState<string | null>(null)
   const [editLinks, setEditLinks] = useState<any>({})
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
@@ -126,6 +130,22 @@ export default function ProfileClient({
 
   // Leaving / switching a list closes any in-progress rename.
   useEffect(() => { setRenaming(false) }, [activeListId])
+
+  // Compute the "Latest Bullet" line from the newest bullet's timestamp
+  // (bookmarks are ordered created_at desc, so [0] is the latest), in the
+  // viewer's local time. e.g. "Latest Bullet: 6:00 PM EST, 08.08.26".
+  useEffect(() => {
+    const ts = bookmarks[0]?.created_at
+    if (!ts) { setLatestBulletLabel(null); return }
+    const d = new Date(ts)
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    const tz = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
+      .formatToParts(d).find((p) => p.type === 'timeZoneName')?.value || ''
+    const date = d
+      .toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })
+      .replace(/\//g, '.')
+    setLatestBulletLabel(`Latest Bullet: ${time}${tz ? ` ${tz}` : ''}, ${date}`)
+  }, [bookmarks])
 
   // Background full-load: the server only SSRs the newest page of bullets for a
   // fast first paint. Once hydrated, pull the complete set so search and list
@@ -530,11 +550,17 @@ export default function ProfileClient({
           <ProfileIdentity
             name={profile.display_name || profile.username}
             bio={profile.bio}
+            latestBullet={latestBulletLabel}
             links={profile.links}
             trailing={
               isOwner && !editingProfile ? (
                 <button
-                  onClick={() => { setEditingProfile(true); setEditBio(profile.bio || ''); setEditLinks(profile.links || {}) }}
+                  onClick={() => {
+                    setEditingProfile(true)
+                    const [l1 = '', l2 = ''] = (profile.bio || '').split('\n')
+                    setEditBio(l1); setEditBio2(l2)
+                    setEditLinks(profile.links || {})
+                  }}
                   aria-label="Edit profile"
                   title="Edit profile"
                   // Hover-reveal on desktop (keeps the identity block clean);
@@ -553,16 +579,29 @@ export default function ProfileClient({
           {/* Edit profile form */}
           {editingProfile && (
             <div className="bg-gray-50 rounded-lg border border-gray-100 p-6 mb-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">tagline</label>
-                <input
-                  type="text"
-                  value={editBio}
-                  onChange={(e) => setEditBio(e.target.value)}
-                  placeholder="Tools, essays, and rabbit holes for people who make things."
-                  maxLength={160}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">line 1</label>
+                  <input
+                    type="text"
+                    value={editBio}
+                    onChange={(e) => setEditBio(e.target.value)}
+                    placeholder="Venture Designer @ Founders Factory"
+                    maxLength={80}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">line 2</label>
+                  <input
+                    type="text"
+                    value={editBio2}
+                    onChange={(e) => setEditBio2(e.target.value)}
+                    placeholder="Exited Founder of 1-800-D2C"
+                    maxLength={80}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                  />
+                </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -611,6 +650,8 @@ export default function ProfileClient({
                   onClick={async () => {
                     setSavingProfile(true)
                     setProfileSaveError(null)
+                    // Two bio lines → one newline-separated string (drops blanks).
+                    const joinedBio = [editBio.trim(), editBio2.trim()].filter(Boolean).join('\n') || null
                     const cleanLinks: any = {}
                     if (editLinks.twitter?.trim()) cleanLinks.twitter = editLinks.twitter.trim()
                     if (editLinks.linkedin?.trim()) cleanLinks.linkedin = editLinks.linkedin.trim()
@@ -619,7 +660,7 @@ export default function ProfileClient({
                     let { error } = await supabase
                       .from('profiles')
                       .update({
-                        bio: editBio.trim() || null,
+                        bio: joinedBio,
                         links: cleanLinks,
                       })
                       .eq('id', profile.id)
@@ -627,7 +668,7 @@ export default function ProfileClient({
                     if (error && /links/i.test(error.message || '')) {
                       const retry = await supabase
                         .from('profiles')
-                        .update({ bio: editBio.trim() || null })
+                        .update({ bio: joinedBio })
                         .eq('id', profile.id)
                       error = retry.error
                       if (!error) {
@@ -643,7 +684,7 @@ export default function ProfileClient({
                       return
                     }
 
-                    setProfile({ ...profile, bio: editBio.trim() || null, links: cleanLinks })
+                    setProfile({ ...profile, bio: joinedBio, links: cleanLinks })
                     setEditingProfile(false)
                     setSavingProfile(false)
                   }}
