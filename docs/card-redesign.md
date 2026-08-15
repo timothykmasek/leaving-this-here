@@ -116,7 +116,16 @@ current classifier is also noisy (YouTube→article, Reddit→blocked screenshot
 Natural-aspect plate · adaptive Mier-Black label · one-line Mier-Book title ·
 optional Cardo list line · 8-category resolution (display layer) · affordances
 (play/disc/mic/source-favicon). `price` + `avatar` affordances render nothing yet
-(need price extraction / avatar data). Next: the live-grid port.
+(need price extraction / avatar data).
+
+## Live-grid port — DONE (2026-08-15)
+`BookmarkCard` → `PrimaryCard` across the profile feed, public list page, and owner
+list detail; CSS-columns masonry (2/3/4 cols) replaces the fixed 272×270 grid.
+PrimaryCard gained `onOpen` (owner click → detail modal). Profile feed feeds each
+card its list membership; list pages omit the list line. Windowing preserved.
+**Scope was cards-only** — identity strip / tabs / header unchanged (later ships).
+Remaining: the ambient `SuggestionShelf` still renders the old `BookmarkCard`
+(small follow-up); Mier EULA gate + `/code-review` before merge to `main`.
 
 ## Follow-ups (deferred, separate from the card layout)
 - **Tall screenshot capture for Website cards.** mymind's site cards are portrait
