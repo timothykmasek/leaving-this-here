@@ -1,5 +1,6 @@
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { BracketLabel } from '@/components/BulletinHeader'
+import { resolveCategory } from '@/lib/cardFormat'
 
 // Ship 02 scratchpad — the shared DS "Primary Card" primitive rendered against
 // REAL Bulletin bullets (fetched 2026-08-14, one/two per live card_type). This
@@ -16,6 +17,12 @@ const SAMPLES: any[] = [
   { card_type: 'fullbleed', url: 'https://thesleepcode.com/products/serotonin-bath-soak-salt', title: 'Serotonin Bath Soak Salt', image_url: 'http://thesleepcode.com/cdn/shop/files/Serotonin_Bath_Soak_Salt.png?crop=center&height=1200&v=1784575222&width=1200', screenshot_url: null, favicon_url: null, list: 'The Fit Check' },
   { card_type: 'screenshot', url: 'https://www.valarian.com/', title: 'Valarian | Sovereign Intelligence', image_url: 'https://www.valarian.com/assets/og/sharecard-4.png', screenshot_url: 'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/7337077b-252b-43c1-983e-2527dee99c9b.webp', favicon_url: null, list: null },
   { card_type: 'screenshot', url: 'https://www.withcoverage.com/', title: 'WithCoverage - The Risk Management Solution For Ambitious Businesses', image_url: 'https://www.withcoverage.com/images/og/withcoverage-social.png', screenshot_url: 'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/thumb/14327ffa-073c-4fe2-9bfd-67f6c627bdc0.webp', favicon_url: null, list: 'AI Finance' },
+  // Domain-resolved categories (Video/Music/Podcast/Social) — show the new
+  // affordances. card_type is deliberately "wrong" (article/screenshot) to prove
+  // the URL signal overrides the noisy classifier.
+  { card_type: 'article', url: 'https://www.youtube.com/watch?v=PHe0bXAIuk0', title: 'How The Economic Machine Works by Ray Dalio', image_url: 'https://i.ytimg.com/vi/PHe0bXAIuk0/maxresdefault.jpg', screenshot_url: null, favicon_url: null, list: null },
+  { card_type: 'screenshot', url: 'https://open.spotify.com/episode/4rOoJ6Egrf8K2IrywzwOMk', title: 'The Tim Ferriss Show — Naval Ravikant', image_url: null, screenshot_url: null, favicon_url: 'https://open.spotifycdn.com/cdn/images/favicon.0f31d2ea.ico', list: 'Deep Listens' },
+  { card_type: 'screenshot', url: 'https://open.spotify.com/album/1ATL5GLyefJaxhQzSPVrLX', title: 'Random Access Memories — Daft Punk', image_url: null, screenshot_url: null, favicon_url: null, list: null },
 ]
 
 export default function CardsPreview() {
@@ -36,7 +43,7 @@ export default function CardsPreview() {
         <div className="[column-gap:24px] columns-2 sm:columns-3 lg:columns-4">
           {SAMPLES.map((b, i) => (
             <div key={i} className="mb-8 break-inside-avoid">
-              <div className="mb-1"><BracketLabel>{b.card_type}</BracketLabel></div>
+              <div className="mb-1"><BracketLabel>{b.card_type} → {resolveCategory(b.url, b.card_type).category}</BracketLabel></div>
               <PrimaryCard
                 url={b.url}
                 title={b.title}

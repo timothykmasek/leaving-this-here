@@ -5,7 +5,7 @@ import { cardImageCandidates } from '@/lib/cardImage'
 import { CardThumb } from '@/components/CardThumb'
 import { FaviconPlate } from '@/components/FaviconPlate'
 import { formatCardTitle } from '@/lib/cardTitle'
-import { cardFormat } from '@/lib/cardFormat'
+import { resolveCategory, type Affordance } from '@/lib/cardFormat'
 import type { CardType } from '@/lib/cardType'
 
 // ── Bulletin DS "Primary Card" (Figma symbol 886:3378) ──────────────────────
@@ -21,6 +21,47 @@ import type { CardType } from '@/lib/cardType'
 
 function getDomain(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, '') } catch { return url }
+}
+
+// Per-type affordance overlay — the visual cue that says what KIND of thing this
+// is beyond the label. `play` (Video) is the big centred one; `disc`/`mic`
+// (Music/Podcast) are small corner badges; `favicon` (Article) tucks the source
+// mark bottom-left. `price`/`avatar` need data we don't reliably have yet, so
+// they render nothing for now.
+function Affordance({ kind, faviconUrl }: { kind: Affordance; faviconUrl?: string | null }) {
+  if (kind === 'play') {
+    return (
+      <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <span className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-black/45 backdrop-blur-[2px] ring-1 ring-white/25">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+        </span>
+      </span>
+    )
+  }
+  if (kind === 'disc' || kind === 'mic') {
+    return (
+      <span aria-hidden className="pointer-events-none absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/45 backdrop-blur-[2px] ring-1 ring-white/25">
+        {kind === 'disc' ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" aria-hidden><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="1.6" fill="#fff" /></svg>
+        ) : (
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" aria-hidden><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v4" /></svg>
+        )}
+      </span>
+    )
+  }
+  if (kind === 'favicon' && faviconUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={faviconUrl}
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute bottom-3 left-3 h-6 w-6 rounded-[6px] bg-white/90 p-[3px] shadow-[0_1px_4px_rgba(0,0,0,0.25)]"
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+      />
+    )
+  }
+  return null
 }
 
 // Adaptive label colour. The label sits top-left over the image; pick dark ink
@@ -82,7 +123,7 @@ export const PrimaryCard = memo(function PrimaryCard({
   cardType, imagePref, listName, category, categoryColor, showLabel = true,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
-  const fmt = cardFormat(cardType)
+  const fmt = resolveCategory(url, cardType)
   const cleanTitle = formatCardTitle({
     title, description, url, siteName: rawMetadata?.og?.site_name ?? null,
   })
@@ -116,6 +157,9 @@ export const PrimaryCard = memo(function PrimaryCard({
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 h-[18%] bg-gradient-to-b from-transparent to-paper/70"
         />
+
+        {/* Per-type affordance (play / disc / mic / source favicon). */}
+        <Affordance kind={fmt.affordance} faviconUrl={faviconUrl} />
 
         {/* Category label — Mier A Black 14px, top-left; colour adapts to the
             corner, shadow only on the white variant to lift it off imagery. */}

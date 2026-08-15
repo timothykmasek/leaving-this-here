@@ -46,10 +46,14 @@ Grounds which templates actually earn their keep. Run:
 
 ## Component map
 
-- [`lib/cardFormat.ts`](../lib/cardFormat.ts) — **PROVISIONAL** per-type format map
-  (label · aspect · affordance). The taxonomy is not final (see open decisions).
+- [`lib/cardFormat.ts`](../lib/cardFormat.ts) — `resolveCategory(url, card_type)`:
+  resolves a bullet to one of the 8 categories at RENDER time. Strong URL/domain
+  signals win first (a youtube link is Video even if card_type says 'article'),
+  else the stored card_type, else Website. No DB migration, fully reversible.
+  Each category → { aspect (imageless-plate shape), affordance }.
 - [`components/PrimaryCard.tsx`](../components/PrimaryCard.tsx) — the shared primitive.
   Reuses `CardThumb` (og→screenshot→favicon fallback chain) + `FaviconPlate`.
+  Renders the affordance overlay (play / disc / mic / source-favicon).
 - [`app/preview/cards/page.tsx`](../app/preview/cards/page.tsx) — real-data preview.
   Not linked anywhere; delete when Ship 02 lands.
 
@@ -86,11 +90,44 @@ Grounds which templates actually earn their keep. Run:
   web-fetchable either way (as on any site), but confirm the Mier EULA permits
   self-hosting before this merges to `main`.
 
+### Settled — taxonomy (2026-08-15)
+Eight categories (Tim's call, grounded in the 30-link slot audit — see below):
+**Website · Product · Article · Music · Podcast · Video · Social · Book.**
+Consolidations vs mymind's 9: "Website" absorbs Web-Page + Business (kills the
+ambiguous split); "Video" absorbs YouTube + TikTok; "Social" absorbs Reddit + X +
+LinkedIn. Rationale: entity categories that fragment (Reddit=1, X=2, YT=2 links)
+aren't worth splitting at Bulletin's volumes.
+
+Mapping to current `card_type` (classifier work, tracked separately from layout):
+- Website ← screenshot, lth, generic composite  · Product ← product, fullbleed
+- Article ← article  · Social ← composite(social), tweet, profile  · Book ← book
+- **Video / Music / Podcast** ← NEW domain detection (youtube/vimeo/tiktok;
+  spotify-album/apple-music/bandcamp; spotify-episode/apple-podcasts).
+
+**Slot-audit reality (1,126 links, 2026-08-15):** ~80% are company/product
+homepages → **"Website" is the workhorse** (4 of 5 cards). Video/Music/Podcast/Book
+are <1% each today — real templates, but a forward bet, not current volume. The
+current classifier is also noisy (YouTube→article, Reddit→blocked screenshot).
+
 ### Open (need Tim)
-1. **Taxonomy / label names.** `Site` (screenshot), `Post` (composite), `Link` (lth)
-   are placeholders (Tim: "placeholders", revisit later). Also: does the kit's
-   Video-vs-Watch split survive, and what does `Buy`/`Product` collapse to?
-2. **Mier EULA check** for public-repo self-hosting (see above).
+1. **Mier EULA check** for public-repo self-hosting (see above) — gate before merge.
+
+## Card layout — DONE (2026-08-15)
+Natural-aspect plate · adaptive Mier-Black label · one-line Mier-Book title ·
+optional Cardo list line · 8-category resolution (display layer) · affordances
+(play/disc/mic/source-favicon). `price` + `avatar` affordances render nothing yet
+(need price extraction / avatar data). Next: the live-grid port.
+
+## Follow-ups (deferred, separate from the card layout)
+- **Tall screenshot capture for Website cards.** mymind's site cards are portrait
+  (tall slice of the page); ours are landscape browser-viewport captures
+  (~1280×900), so uncropped they read short/wide. Matching mymind = capturing a
+  taller slice — an **extension + backfill** change to the capture pipeline, not a
+  card change. Website is 80% of the feed, so worth doing — later.
+- **Real DB classification** (persist the 8 categories; fix classifier misfires).
+  Not needed for rendering — `resolveCategory` handles it at display time — but
+  cleaner long-term + unlocks search/filter by category.
+- **`price` + `avatar` affordances** — need price extraction / social avatar data.
 
 ## Not in scope for Ship 02
 - Tweet / Profile / TikTok templates (need extension DOM data / re-hosted frames).
