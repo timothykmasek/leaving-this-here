@@ -469,13 +469,16 @@ export default function ProfileClient({
   // list's single preview shows the latest saved link).
   const bookmarkById = useMemo(() => new Map(bookmarks.map((b) => [b.id, b])), [bookmarks])
 
-  // Which list each bullet belongs to (fullest list wins) → the card's list line.
-  const listNameByBookmark = useMemo(() => {
-    const m = new Map<string, string>()
+  // Which list each bullet belongs to (fullest list wins) → the card's list
+  // line: its name + a link to the list's public page (when it has a slug).
+  const listByBookmark = useMemo(() => {
+    const m = new Map<string, { name: string; href: string | null }>()
     for (const l of sortedLists)
-      for (const bid of l.bookmark_ids as string[]) if (!m.has(bid)) m.set(bid, l.name)
+      for (const bid of l.bookmark_ids as string[])
+        if (!m.has(bid))
+          m.set(bid, { name: l.name, href: l.slug ? `/${profile.username}/${l.slug}` : null })
     return m
-  }, [sortedLists])
+  }, [sortedLists, profile.username])
   const listThumbs = (l: any): string[] =>
     (l.bookmark_ids as string[])
       .map((id) => bookmarkById.get(id))
@@ -509,7 +512,8 @@ export default function ProfileClient({
             rawMetadata={b.raw_metadata}
             cardType={b.card_type}
             imagePref={b.image_pref}
-            listName={listNameByBookmark.get(b.id) ?? null}
+            listName={listByBookmark.get(b.id)?.name ?? null}
+            listHref={listByBookmark.get(b.id)?.href ?? null}
             onOpen={isOwner ? setSelectedId : undefined}
           />
         ))}
