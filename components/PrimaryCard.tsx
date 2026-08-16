@@ -80,6 +80,8 @@ interface PrimaryCardProps {
   // The list this bullet belongs to (if any). Present → the second caption line
   // renders and the card is taller; absent → no line, shorter card.
   listName?: string | null
+  // The list's public page — makes the list line a link. Null → plain text.
+  listHref?: string | null
   // Owner view: clicking opens the bullet-detail modal instead of navigating to
   // the URL (mirrors BookmarkCard). Requires `id`.
   onOpen?: (id: string) => void
@@ -87,7 +89,7 @@ interface PrimaryCardProps {
 
 export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  cardType, imagePref, listName, onOpen,
+  cardType, imagePref, listName, listHref, onOpen,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const fmt = resolveCategory(url, cardType)
@@ -96,7 +98,9 @@ export const PrimaryCard = memo(function PrimaryCard({
   })
   const candidates = cardImageCandidates(url, imageUrl, screenshotUrl, cardType, imagePref)
 
-  const body = (
+  // The clickable card (plate + title). The list line lives OUTSIDE this so it
+  // can be its own link (no <a> nested in an <a>).
+  const card = (
     <>
       {/* The plate — the image at natural aspect, rounded + clipped. */}
       <div className="relative w-full overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow group-hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
@@ -121,30 +125,49 @@ export const PrimaryCard = memo(function PrimaryCard({
         <AffordanceOverlay kind={fmt.affordance} faviconUrl={faviconUrl} hasImage={candidates.length > 0} />
       </div>
 
-      {/* Caption. Title: Mier A Book 14px, ONE line, ellipsis. */}
+      {/* Title — Mier A Book 14px, one line. Overflow FADES to transparent at the
+          right edge (mask gradient) rather than a hard "…" ellipsis. */}
       {cleanTitle && (
-        <p className="mt-3 truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.03em] text-ink">
+        <p className="mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.03em] text-ink [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
           {cleanTitle}
-        </p>
-      )}
-      {/* List line — Cardo 14px with a thin vertical tick; only if in a list. */}
-      {listName && (
-        <p className="mt-1.5 flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/55">
-          <span aria-hidden className="inline-block h-[10px] w-[1.5px] shrink-0 bg-ink/30" />
-          <span className="truncate">{listName}</span>
         </p>
       )}
     </>
   )
 
-  // Owner view opens the detail modal; everyone else navigates to the URL.
-  return onOpen && id ? (
-    <button type="button" onClick={() => onOpen(id)} className="group block w-full text-left">
-      {body}
-    </button>
-  ) : (
-    <a href={url} target="_blank" rel="noopener noreferrer" className="group block w-full">
-      {body}
-    </a>
+  return (
+    <div className="w-full">
+      {/* Owner view opens the detail modal; everyone else navigates to the URL. */}
+      {onOpen && id ? (
+        <button type="button" onClick={() => onOpen(id)} className="group block w-full text-left">
+          {card}
+        </button>
+      ) : (
+        <a href={url} target="_blank" rel="noopener noreferrer" className="group block w-full">
+          {card}
+        </a>
+      )}
+
+      {/* List line — Cardo 14px with a three-dot (⋮) tick; links to the list's
+          page when it has one. Only rendered when the bullet is in a list. */}
+      {listName && (() => {
+        const inner = (
+          <>
+            <span aria-hidden className="flex shrink-0 flex-col items-center justify-center gap-[2px] opacity-60">
+              <span className="h-[2px] w-[2px] rounded-full bg-current" />
+              <span className="h-[2px] w-[2px] rounded-full bg-current" />
+              <span className="h-[2px] w-[2px] rounded-full bg-current" />
+            </span>
+            <span className="truncate">{listName}</span>
+          </>
+        )
+        const cls = 'mt-1.5 flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/55'
+        return listHref ? (
+          <a href={listHref} className={`${cls} transition-colors hover:text-ink`}>{inner}</a>
+        ) : (
+          <p className={cls}>{inner}</p>
+        )
+      })()}
+    </div>
   )
 })
