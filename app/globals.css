@@ -44,9 +44,24 @@ body {
    a 2px #d9d9d9 circle on a 32px pitch from origin 0 0. Intentionally near-
    invisible on white — texture, not pattern; don't darken it to "make it show".
    Origin stays 0 0 so the grid is continuous — never nest this on an inner
-   wrapper or the phase resets and the seam shows. */
+   wrapper or the phase resets and the seam shows.
+
+   The grid is PINNED TO THE VIEWPORT — the page scrolls over a still ground.
+   Done with a fixed pseudo-element rather than `background-attachment: fixed`,
+   which iOS Safari ignores (it falls back to scrolling) and which forces a
+   repaint of the whole tile on every scroll frame. z-index -1 puts the layer
+   above body's own paper fill but below all content. */
 .dot-ground {
+  position: relative;
   background-color: var(--paper);
+}
+
+.dot-ground::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
   background-image: radial-gradient(circle, var(--rivet) 1px, transparent 1px);
   background-size: var(--dot-pitch) var(--dot-pitch);
   background-position: 0 0;
