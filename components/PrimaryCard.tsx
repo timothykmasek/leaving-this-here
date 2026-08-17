@@ -82,8 +82,8 @@ interface PrimaryCardProps {
   listName?: string | null
   // The list's public page — makes the list line a link. Null → plain text.
   listHref?: string | null
-  // Owner view: clicking opens the bullet-detail modal instead of navigating to
-  // the URL (mirrors BookmarkCard). Requires `id`.
+  // Owner view: adds a hover pencil that opens the bullet-detail modal. The card
+  // itself always goes to the link (mirrors BookmarkCard). Requires `id`.
   onOpen?: (id: string) => void
 }
 
@@ -137,16 +137,42 @@ export const PrimaryCard = memo(function PrimaryCard({
 
   return (
     <div className="w-full">
-      {/* Owner view opens the detail modal; everyone else navigates to the URL. */}
-      {onOpen && id ? (
-        <button type="button" onClick={() => onOpen(id)} className="group block w-full text-left">
-          {card}
-        </button>
-      ) : (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="group block w-full">
+      {/* The card always goes to the original link — owner or not. Owners get the
+          detail/edit view from the hover pencil below (a button can't nest inside
+          the anchor, so it's an absolutely-positioned sibling). */}
+      <div className="group relative w-full">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="block w-full">
           {card}
         </a>
-      )}
+
+        {onOpen && id && (
+          <button
+            type="button"
+            onClick={() => onOpen(id)}
+            aria-label="edit bullet"
+            title="edit"
+            // Top-right of the plate — bottom corners belong to the disc/mic
+            // affordances. Desktop only: revealed on hover, hidden outright on
+            // touch (a pencil pinned to every card reads as clutter), so mobile
+            // taps just open the link.
+            className="absolute right-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm backdrop-blur-sm transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:hidden"
+          >
+            <svg
+              aria-hidden
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-3.5 w-3.5"
+            >
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {/* List line — Cardo 14px with a three-dot (⋮) tick; links to the list's
           page when it has one. Only rendered when the bullet is in a list. */}
