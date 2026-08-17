@@ -1,29 +1,19 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { LinkCard } from '@/components/LinkCard'
-import { BulletinHeader } from '@/components/BulletinHeader'
-import { cardImageCandidates } from '@/lib/cardImage'
-import { FEATURED_URLS, FEATURED_IMAGES } from '@/lib/featured'
+import { HeroField } from '@/components/home/HeroField'
+import { HowItWorks } from '@/components/home/HowItWorks'
+import { Featured } from '@/components/home/Featured'
+import { MobileHome } from '@/components/home/MobileHome'
+import { SiteFooter } from '@/components/SiteFooter'
 
-const SHOWCASE_COUNT = 16
-
-// Only the columns the showcase cards render (LinkCard + cardImageCandidates +
-// the membership map). Avoids pulling raw_metadata and other unused blobs.
-const SHOWCASE_COLS = 'id, url, title, image_url, screenshot_url, card_type, image_pref, favicon_url'
-
-function domainOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '')
-  } catch {
-    return url
-  }
-}
-
-function cleanTitle(title: string | null, url: string): string {
-  const t = (title || '').trim()
-  if (!t || t.startsWith('http')) return domainOf(url)
-  return t
-}
+// The public marketing homepage (design handoff "Bulletin home v3"). Four bands:
+// the drifting hero field, a section title, how-it-works, and the featured
+// tables over the footer. It fetches nothing — every link, caption and count is
+// fixed in lib/homeContent.
+//
+// Two screens, not one responsive layout: the desktop hero is a fixed 1330px
+// canvas of absolutely-placed cards, and the mobile design deliberately drops
+// the physics and the staged module (see MobileHome). They swap at `lg`.
 
 export default async function Home({
   searchParams,
@@ -56,93 +46,30 @@ export default async function Home({
     }
   }
 
-  // Showcase examples: curated picks (FEATURED_URLS) in their given order, else
-  // fall back to recent image-bearing bullets.
-  let bullets: any[] = []
-  if (FEATURED_URLS.length > 0) {
-    const { data } = await supabase.from('bookmarks').select(SHOWCASE_COLS).in('url', FEATURED_URLS)
-    bullets = FEATURED_URLS.map((u) => (data || []).find((b) => b.url === u)).filter(Boolean)
-  } else {
-    const { data } = await supabase
-      .from('bookmarks')
-      .select(SHOWCASE_COLS)
-      .or('image_url.not.is.null,screenshot_url.not.is.null')
-      .order('created_at', { ascending: false })
-      .limit(SHOWCASE_COUNT)
-    bullets = data || []
-  }
-  bullets = bullets.slice(0, SHOWCASE_COUNT)
-
   return (
-    <div className="min-h-screen">
-      <BulletinHeader action={{ label: 'Sign in', href: '/login' }} logoClassName="h-[32px] sm:h-[44px]" />
+    <div className="min-h-screen overflow-x-hidden">
+      {/* ── Desktop ── */}
+      <div className="hidden lg:block">
+        <HeroField />
 
-      {/* Hero */}
-      <section className="px-6 pb-20 pt-10 text-center">
-        {/* Two understated bold Cardo lines (matches the Figma treatment). */}
-        <h1 className="font-sans text-[26px] font-bold leading-[1.2] text-ink">
-          A home for your links
-        </h1>
-        <p className="mx-auto mt-3 max-w-[34rem] font-sans text-[20px] font-bold leading-snug text-ink">
-          Collect, organize, and share the links worth keeping.
-        </p>
+        <section className="mx-auto flex w-[1184px] max-w-full justify-center px-6 pb-11 xl:px-0">
+          <h2 className="mb-[70px] text-center text-[40px] leading-[46px] text-black">
+            Connect the dots, one bullet at a time.
+          </h2>
+        </section>
 
-        {/* Single primary action. */}
-        <div className="mt-9 flex justify-center">
-          <a
-            href="/start"
-            className="label rounded-full bg-ink px-7 py-3 text-paper transition-colors hover:bg-black"
-          >
-            Sign up — it’s free
-          </a>
-        </div>
-      </section>
+        <HowItWorks />
+        <Featured />
+        <div className="h-[72px]" />
+      </div>
 
-      {/* Showcase — Bulletin card grid of community bullets */}
-      <section className="px-4 pb-28 sm:px-6 lg:px-10">
-        <div className="mx-auto grid w-[1184px] max-w-full grid-cols-2 gap-x-4 gap-y-6 [perspective:2400px] sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
-          {bullets.map((b, i) => {
-            // A frozen homepage image (lib/featured) wins over the render-time
-            // selection so the shopfront never drifts; the DB's best candidate is
-            // kept as the on-error fallback in case a pinned URL ever 404s.
-            const [dbPrimary, dbFallback] = cardImageCandidates(b.url, b.image_url, b.screenshot_url, b.card_type, b.image_pref)
-            const frozen = FEATURED_IMAGES[b.url]
-            const primary = frozen ?? dbPrimary
-            const fallback = frozen ? dbPrimary ?? null : dbFallback
-            return (
-              <LinkCard
-                key={b.id}
-                url={b.url}
-                title={cleanTitle(b.title, b.url)}
-                image={primary ?? null}
-                fallbackImage={fallback ?? null}
-                faviconUrl={b.favicon_url}
-                priority={i < 4}
-              />
-            )
-          })}
-        </div>
-      </section>
+      {/* ── Mobile ── */}
+      <div className="lg:hidden">
+        <MobileHome />
+        <div className="h-10" />
+      </div>
 
-      {/* Footer */}
-      <footer className="border-t border-black/[0.06] px-6 py-12 sm:px-10">
-        <div className="mx-auto flex w-[1184px] max-w-full flex-col items-center gap-6 sm:flex-row sm:justify-between">
-          <div className="flex items-center gap-4">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/bulletin-logo.png" alt="Bulletin" className="h-[24px] w-auto opacity-80" />
-            <span className="label text-black/35">© 2026</span>
-          </div>
-          {/* flex-wrap + whitespace-nowrap so on a narrow screen the LINKS wrap as
-              whole units (centred), instead of each two-word link breaking
-              mid-label ("SIGN" / "UP"). */}
-          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2.5 sm:justify-end sm:gap-8">
-            <a href="/login?mode=signup" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Sign up</a>
-            <a href="/login" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Sign in</a>
-            <a href="/privacy" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Privacy</a>
-            <a href="https://chromewebstore.google.com/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc" target="_blank" rel="noopener noreferrer" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Extension</a>
-          </nav>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   )
 }

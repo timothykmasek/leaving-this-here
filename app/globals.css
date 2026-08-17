@@ -67,6 +67,7 @@ body {
   background-position: 0 0;
 }
 
+
 /* UI label — uppercase, 10px, 1.5px tracking. The workhorse for metadata, nav,
    tags. Font swapped Routed Gothic → Mier A (2026-08-15) when the type system
    consolidated; the uppercase-tracked treatment stays, per Tim. */
