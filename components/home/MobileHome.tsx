@@ -220,6 +220,40 @@ export function MobileHome() {
     return () => cancelAnimationFrame(raf)
   }, [])
 
+  // How-it-works reveal. `revealed` is how many steps have arrived; it only
+  // ever grows, so scrolling back up doesn't un-light what you've already read.
+  const stepRefs = useRef<(HTMLDivElement | null)[]>([])
+  const [revealed, setRevealed] = useState(0)
+
+  useEffect(() => {
+    // Reduced motion (or no IntersectionObserver): show every step lit.
+    if (
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      typeof IntersectionObserver === 'undefined'
+    ) {
+      setRevealed(STEPS.length)
+      return
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue
+          const n = Number((e.target as HTMLElement).dataset.step)
+          // Light this step and everything above it, never fewer.
+          setRevealed((cur) => Math.max(cur, n + 1))
+          io.unobserve(e.target)
+        }
+      },
+      // Only the top 55% of the screen counts as "arrived". Steps sit 280–390px
+      // apart, so a wider band lights two or three at once on a tall phone and
+      // the cadence disappears; this lights them roughly one at a time while
+      // still firing before the step is being read.
+      { rootMargin: '0px 0px -45% 0px', threshold: 0 },
+    )
+    stepRefs.current.forEach((el) => el && io.observe(el))
+    return () => io.disconnect()
+  }, [])
+
   // Each slot trades its card for one that is NOT on screen, round-robin, so
   // the hero is never always the same four. The live slot contents are mirrored
   // into a ref: picking the next card is a side effect, and doing that inside a
@@ -276,9 +310,13 @@ export function MobileHome() {
         </a>
 
         <div className="relative mt-[34px]">
+          {/* The foot-fade lives INSIDE the moving element, not beside it. Left
+              outside, it holds its page position while the negative margin
+              pulls the next section up underneath it — which washed out the
+              section title and the first step. */}
+          <div ref={collageRef} className="relative will-change-[transform,opacity]">
           <div
-            ref={collageRef}
-            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3 will-change-[transform,opacity]"
+            className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-start gap-3"
           >
             <div className="flex flex-col gap-[26px]">
               <div className={slotClass(0)}><Slot index={slots[0]} height={SLOT_HEIGHTS[0]} /></div>
@@ -305,6 +343,7 @@ export function MobileHome() {
               background: 'linear-gradient(0deg, #ffffff 22%, rgba(255,255,255,0.82) 62%, rgba(255,255,255,0) 100%)',
             }}
           />
+          </div>
         </div>
       </section>
 
@@ -315,26 +354,52 @@ export function MobileHome() {
       </h2>
 
       {/* All four steps open — nothing is hidden, so no active state. */}
+      {/* Nothing is hidden here — every step is open. The reveal just lights
+          each one as it arrives: the dot fills, its thread draws down to the
+          next, and the copy comes up to full strength. Same states as the
+          desktop step list, driven by arrival instead of by a stage. */}
       <section className="px-6 pt-10">
-        {STEPS.map((s, n) => (
-          <div key={s.key} className="pb-11">
-            <div className="flex gap-4">
-              <span aria-hidden className="relative w-[9px] flex-none">
-                <span className="absolute left-0 top-[7px] h-[9px] w-[9px] rounded-full bg-black shadow-[inset_0_0_0_1px_#000]" />
-                {n < STEPS.length - 1 && (
-                  <span className="absolute bottom-[-44px] left-1 top-[22px] w-px bg-black/[0.28]" />
-                )}
-              </span>
-              <div className="flex flex-1 flex-col gap-2">
-                <span className="text-[18px] leading-6 text-black">{s.title}</span>
-                <span className="text-[12px] leading-4 tracking-[0.05em] text-black/50">{s.body}</span>
-                <div className="pt-4">
-                  <MobileVignette step={n} />
+        {STEPS.map((s, n) => {
+          const lit = revealed > n
+          return (
+            <div
+              key={s.key}
+              ref={(el) => { stepRefs.current[n] = el }}
+              data-step={n}
+              className="pb-11"
+            >
+              <div className="flex gap-4">
+                <span aria-hidden className="relative w-[9px] flex-none">
+                  <span
+                    className="absolute left-0 top-[7px] h-[9px] w-[9px] rounded-full transition-[background-color,box-shadow] duration-[220ms]"
+                    style={{
+                      background: lit ? '#000' : 'transparent',
+                      boxShadow: `inset 0 0 0 1px ${lit ? '#000' : 'rgba(0,0,0,0.18)'}`,
+                    }}
+                  />
+                  {n < STEPS.length - 1 && (
+                    // Draws downward from the dot rather than fading in, so the
+                    // thread reads as the connection being made.
+                    <span
+                      className="absolute bottom-[-44px] left-1 top-[22px] w-px origin-top bg-black/[0.28] transition-transform duration-[420ms] ease-out"
+                      style={{ transform: `scaleY(${lit ? 1 : 0})` }}
+                    />
+                  )}
+                </span>
+                <div
+                  className="flex flex-1 flex-col gap-2 transition-opacity duration-[420ms] ease-out"
+                  style={{ opacity: lit ? 1 : 0.28 }}
+                >
+                  <span className="text-[18px] leading-6 text-black">{s.title}</span>
+                  <span className="text-[12px] leading-4 tracking-[0.05em] text-black/50">{s.body}</span>
+                  <div className="pt-4">
+                    <MobileVignette step={n} />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </section>
 
       <Featured compact />
