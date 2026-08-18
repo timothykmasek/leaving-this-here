@@ -224,47 +224,75 @@ export default function ProfileClient({
     return Array.from(out)
   }
 
+  // Shortest query term we'll prefix-match. At 1 char "b" matches roughly every
+  // bullet, which is noise, not narrowing; from 2 the result set is meaningful.
+  const MIN_PREFIX = 2
+
   // Precompute each bullet's stemmed word sets ONCE per bookmark-set change.
   // `strong` = title + Haiku search keywords (the high-signal fields — a keyword
   // hit here is what surfaces the French "chapeau" bullet for the query "hat");
   // `weak` = description + url + domain. Building sets here (not per keystroke)
   // keeps the tokenizing/URL-parse work off every keystroke.
+  //
+  // The arrays mirror the sets: Sets give O(1) exact lookup, but prefix matching
+  // has to scan, and re-deriving an array per keystroke per bullet would allocate
+  // ~1k arrays on every character typed.
   const wordsById = useMemo(() => {
-    const m = new Map<string, { strong: Set<string>; weak: Set<string> }>()
+    const m = new Map<
+      string,
+      { strong: Set<string>; weak: Set<string>; strongArr: string[]; weakArr: string[] }
+    >()
     for (const b of bookmarks) {
       let host = ''
       try { host = new URL(b.url).hostname.replace(/^www\./, '') } catch {}
-      m.set(b.id, {
-        strong: wordSet([b.title, b.keywords].filter(Boolean).join(' ')),
-        weak: wordSet([b.description, b.url, host].filter(Boolean).join(' ')),
-      })
+      const strong = wordSet([b.title, b.keywords].filter(Boolean).join(' '))
+      const weak = wordSet([b.description, b.url, host].filter(Boolean).join(' '))
+      m.set(b.id, { strong, weak, strongArr: [...strong], weakArr: [...weak] })
     }
     return m
   }, [bookmarks])
 
-  // Whole-word keyword search over the stemmed sets, ranked: title/keyword hits
-  // ('strong') first, description/url hits ('weak') second, original order within
-  // each tier. Query terms are expanded through SYNONYMS and split the same way
-  // the docs are (so a multi-word synonym like "x.com" contributes "x"/"com").
+  // Keyword search over the stemmed sets, ranked in four tiers: exact hits in
+  // title/keywords, then PREFIX hits there, then the same two over description/
+  // url. Original order within each tier.
+  //
+  // Prefix matching is what makes typing feel live — "bio" finds "biom", "fazi"
+  // finds "fazit". Note prefix is NOT the substring search this replaced: "hat"
+  // as a prefix matches "hats"/"hatch" but never "w[hat]"/"t[hat]"/"c[hat]",
+  // which is what made the old substring haystack return ~210 junk rows. Exact
+  // outranks prefix so a fully-typed word still wins.
   const tokenSearch = (query: string) => {
     const tokens = tokenize(query)
     if (tokens.length === 0) return bookmarks
     const terms = new Set<string>()
     for (const t of expandTokens(tokens)) for (const w of wordSet(t)) terms.add(w)
     if (terms.size === 0) return bookmarks
-    const hasTerm = (set: Set<string>) => {
+
+    const hasExact = (set: Set<string>) => {
       for (const t of terms) if (set.has(t)) return true
       return false
     }
-    const strong: any[] = []
-    const weak: any[] = []
+    const hasPrefix = (arr: string[]) => {
+      for (const t of terms) {
+        if (t.length < MIN_PREFIX) continue
+        for (const w of arr) if (w !== t && w.startsWith(t)) return true
+      }
+      return false
+    }
+
+    const strongExact: any[] = []
+    const strongPrefix: any[] = []
+    const weakExact: any[] = []
+    const weakPrefix: any[] = []
     for (const b of bookmarks) {
       const w = wordsById.get(b.id)
       if (!w) continue
-      if (hasTerm(w.strong)) strong.push(b)
-      else if (hasTerm(w.weak)) weak.push(b)
+      if (hasExact(w.strong)) strongExact.push(b)
+      else if (hasPrefix(w.strongArr)) strongPrefix.push(b)
+      else if (hasExact(w.weak)) weakExact.push(b)
+      else if (hasPrefix(w.weakArr)) weakPrefix.push(b)
     }
-    return [...strong, ...weak]
+    return [...strongExact, ...strongPrefix, ...weakExact, ...weakPrefix]
   }
 
   // Monotonic id per semantic request. A slow response for an older query must
