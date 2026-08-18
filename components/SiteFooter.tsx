@@ -38,7 +38,7 @@ export const SiteFooter = forwardRef<
           <a href="/import" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Import</a>
           <a href="/privacy" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Privacy</a>
           <a
-            href="https://chromewebstore.google.com/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc"
+            href="https://chromewebstore.google.com/detail/dgpigmcmbffpoigjalnbgfmpgidoabgc"
             target="_blank"
             rel="noopener noreferrer"
             className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink"

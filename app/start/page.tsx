@@ -24,7 +24,7 @@ import { SEED_LIBRARY, seedImageUrl, CATEGORY, INTERESTS, INTEREST_LABEL, type I
 
 const STORE_KEY = 'bulletin-onboarding'
 const WEB_STORE_URL =
-  'https://chrome.google.com/webstore/detail/according-to-save-anything/dgpigmcmbffpoigjalnbgfmpgidoabgc'
+  'https://chromewebstore.google.com/detail/dgpigmcmbffpoigjalnbgfmpgidoabgc'
 
 type Step = 'account' | 'username' | 'about' | 'interests' | 'picks' | 'building' | 'check-email' | 'ext'
 
