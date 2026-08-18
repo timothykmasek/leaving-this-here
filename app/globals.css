@@ -81,24 +81,30 @@ body {
 
 /* ── Card lift ───────────────────────────────────────────────────────────
    The card surface for the whole 272×270 family (Figma ProjectX 695:840):
-   near-flat at rest, tilting toward the reader on hover. Adopted everywhere
-   2026-08-18 — the v3 homepage shipped this treatment while the profile grid,
-   collections and the /start picker kept an older `0 4px 18px` lift, so the
-   same card looked like two different cards depending on the page.
+   near-flat at rest, deepening on hover. Adopted everywhere 2026-08-18 — the v3
+   homepage shipped this resting shadow while the profile grid, collections and
+   the /start picker kept an older `0 4px 18px` lift, so the same card looked
+   like two different cards depending on the page.
 
    It lives here rather than as a Tailwind chain because that chain is ~500
    characters and was already copy-pasted into five components — which is how
    they drifted apart in the first place. One class, one source of truth.
 
+   NO TRANSFORM HERE, deliberately. The original v3 treatment tilted the card
+   (`rotateX(-4deg)` + `will-change: transform`), which promoted the plate to
+   its own compositing layer and made PrimaryCard's hover-revealed edit pencil —
+   an absolutely-positioned SIBLING of the plate — flash in and vanish. Dropping
+   the pencil's backdrop-filter didn't fix it; the transform is the cause. The
+   tilt only ever rendered on LinkCard (`/preview/*` pages), so removing it costs
+   nothing users had. If you want it back, the pencil has to move inside the
+   transformed element first — which means restructuring PrimaryCard so the <a>
+   is a stretched overlay rather than the plate's parent.
+
    Applies on the element itself OR on a `.group` ancestor, since PrimaryCard
-   hovers the whole card (plate + title) rather than just the plate. Pairs with
-   `relative` for the z-index to bite. */
+   hovers the whole card (plate + title) rather than just the plate. */
 .card-lift {
   box-shadow: 0 1px 2px rgba(40, 40, 30, 0.06);
-  transition:
-    transform 180ms cubic-bezier(0.22, 0.61, 0.36, 1),
-    box-shadow 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
-  will-change: transform;
+  transition: box-shadow 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .card-lift:hover,
@@ -106,8 +112,6 @@ body {
 .card-lift:focus-within,
 .group:hover .card-lift,
 .group:focus-within .card-lift {
-  z-index: 10;
-  transform: rotateX(-4deg);
   box-shadow:
     0 20px 32px -26px rgba(35, 30, 20, 0.5),
     0 6px 13px -14px rgba(35, 30, 20, 0.35);
@@ -116,13 +120,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .card-lift {
     transition: none;
-  }
-  .card-lift:hover,
-  .card-lift:focus-visible,
-  .card-lift:focus-within,
-  .group:hover .card-lift,
-  .group:focus-within .card-lift {
-    transform: none;
   }
 }
 
