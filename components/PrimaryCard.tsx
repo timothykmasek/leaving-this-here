@@ -155,7 +155,12 @@ export const PrimaryCard = memo(function PrimaryCard({
             // affordances. Desktop only: revealed on hover, hidden outright on
             // touch (a pencil pinned to every card reads as clutter), so mobile
             // taps just open the link.
-            className="absolute right-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm backdrop-blur-sm transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:hidden"
+            // No backdrop-blur here: the plate next to it is promoted to its own
+            // compositing layer by .card-lift's transform, and a backdrop-filter
+            // sampling across that boundary renders the chip invisible once the
+            // transform settles — the pencil appeared only mid-transition, then
+            // vanished. bg-white/90 over a photo reads fine without the blur.
+            className="absolute right-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:hidden"
           >
             <svg
               aria-hidden

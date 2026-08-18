@@ -193,7 +193,11 @@ export function SuggestionShelf({
                 onClick={() => handleDismiss(s)}
                 aria-label="dismiss suggestion"
                 title="not for this list"
-                className="absolute right-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-500 shadow-sm backdrop-blur-sm transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
+                // No backdrop-blur — see the matching chip in PrimaryCard: it
+                // sits beside a .card-lift plate that gets its own compositing
+                // layer, and the filter renders the chip invisible once the
+                // transform settles.
+                className="absolute right-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-500 shadow-sm transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
               >
                 <svg
                   aria-hidden
