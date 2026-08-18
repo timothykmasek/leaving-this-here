@@ -195,7 +195,7 @@ function Ring() {
 
 function Headline({ children }: { children: React.ReactNode }) {
   return (
-    <h1 className="font-sans text-[28px] font-bold leading-[1.12] text-ink sm:text-[32px]">
+    <h1 className="font-sans text-[28px] font-normal leading-[1.12] text-ink sm:text-[32px]">
       {children}
     </h1>
   )
@@ -441,7 +441,7 @@ function About({
   return (
     <div>
       <Headline>Introduce yourself.</Headline>
-      <Sub>A name and one line — this sits at the top of your page.</Sub>
+      <Sub>A name and a line or two — this sits at the top of your page.</Sub>
 
       <div className="mt-6">
         <label className={fieldLabel}>display name</label>
