@@ -94,7 +94,7 @@ function LoginPageInner() {
         <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
         <div className="flex flex-1 items-center justify-center px-4 pb-20">
           <div className="w-full max-w-md text-center">
-            <h1 className="font-sans text-[24px] font-bold text-ink">Check your email</h1>
+            <h1 className="font-sans text-[24px] font-normal text-ink">Check your email</h1>
             <p className="mt-4 text-sm leading-relaxed text-black/55">
               We sent a confirmation link to <strong className="text-ink">{email}</strong>.
             </p>
@@ -118,7 +118,7 @@ function LoginPageInner() {
       <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
       <div className="flex flex-1 items-center justify-center px-4 pb-20 pt-6">
         <div className="w-full max-w-md">
-          <h1 className="mb-8 text-center font-sans text-[24px] font-bold text-ink">
+          <h1 className="mb-8 text-center font-sans text-[24px] font-normal text-ink">
             {isSignUp ? 'Create an account' : 'Welcome back'}
           </h1>
 

@@ -4,12 +4,18 @@ import localFont from 'next/font/local'
 // Two type families do all the work (the "Bulletin" wordmark is an image, not a
 // font). MOCA (display serif) and Routed Gothic (labels) were retired 2026-08-15
 // when the type system consolidated onto Mier A.
-//   • Mier A  → Headline (DemiBold) + Body (Book) + all UI labels
+//   • Mier A  → Headline (Book) + Body (Book) + all UI labels
 //   • Cardo   → Editorial only (bios, taglines, quotes, the card list line)
+//
+// Headlines are Book 400, NOT DemiBold — corrected 2026-08-18. The v3 homepage
+// hero (app/page.tsx) is 400 at 40px and sets the direction; /start was left on
+// font-bold 700 from before the Aug-15 consolidation and read far too heavy next
+// to it. If a headline here looks "too light", that's the intended editorial
+// voice — don't quietly bump it back to 600/700.
 
 // Mier A — neo-grotesque (licensed; provided by Tim, self-hosted woff2). The
 // interface workhorse. Numeric weights map to the family's named cuts so
-// `font-weight` selects the file: Book 400, Regular 500, DemiBold 600 (Headline),
+// `font-weight` selects the file: Book 400 (headlines + body), Regular 500, DemiBold 600,
 // Bold 700 (font-bold headings), Black 900 (emphasis / former labels).
 export const sans = localFont({
   src: [
