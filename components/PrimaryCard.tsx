@@ -83,7 +83,7 @@ interface PrimaryCardProps {
   // The list's public page — makes the list line a link. Null → plain text.
   listHref?: string | null
   // Owner view: adds a hover pencil that opens the bullet-detail modal. The card
-  // itself always goes to the link (mirrors BookmarkCard). Requires `id`.
+  // itself always goes to the link. Requires `id`.
   onOpen?: (id: string) => void
 }
 
@@ -103,7 +103,7 @@ export const PrimaryCard = memo(function PrimaryCard({
   const card = (
     <>
       {/* The plate — the image at natural aspect, rounded + clipped. */}
-      <div className="relative w-full overflow-hidden rounded-[20px] bg-card shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow group-hover:shadow-[0_10px_30px_rgba(0,0,0,0.12)]">
+      <div className="relative w-full overflow-hidden rounded-[20px] bg-card ring-1 ring-black/[0.03] card-lift">
         <CardThumb
           candidates={candidates}
           className="block w-full h-auto"

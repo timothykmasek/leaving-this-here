@@ -4,7 +4,7 @@ import { timed } from '@/lib/timing'
 import ProfileClient from './ProfileClient'
 
 // Columns the profile grid + detail modal actually render. Deliberately excludes
-// `raw_metadata` (a large JSON blob that's passed to BookmarkCard but never read)
+// `raw_metadata` (a large JSON blob that's passed to PrimaryCard but never read)
 // so we don't drag it over the wire for every bullet.
 const BULLET_COLS =
   'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords'

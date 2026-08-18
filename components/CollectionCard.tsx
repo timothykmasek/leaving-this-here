@@ -23,7 +23,7 @@ export function CollectionCard({
   href?: string
 }) {
   const className =
-    'relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card text-left shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]'
+    'relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card text-left ring-1 ring-black/[0.03] card-lift'
   // Small lists (≤3 links) show a single big preview of the latest link rather
   // than a sparse 2×2 grid; the collage only earns its keep at 4+ members.
   const single = count <= 3

@@ -8,7 +8,7 @@ import type { EmbedInfo } from '@/lib/rich-embed'
 // embed is small and click-interactive by design.
 //
 // All variants live inside a `rounded-xl` card so they sit in the folio
-// grid the same way static BookmarkCard variants do.
+// grid the same way static PrimaryCard variants do.
 
 function PlayIcon() {
   return (

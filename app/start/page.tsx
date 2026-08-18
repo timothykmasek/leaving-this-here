@@ -584,7 +584,7 @@ function Picks({
             <button
               key={L.url}
               onClick={() => toggle(L.url)}
-              className={`relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card text-left shadow-[0_4px_18px_rgba(0,0,0,0.06)] transition-shadow hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)] ${
+              className={`relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card text-left card-lift ${
                 sel ? 'ring-2 ring-ink' : 'ring-1 ring-black/[0.03]'
               }`}
             >
@@ -623,7 +623,7 @@ function Picks({
                 />
               </div>
 
-              {/* title — Cardo bold */}
+              {/* title — Mier A bold */}
               <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-sans text-[12px] font-bold leading-[13px] text-ink">
                 {L.title}
               </h3>
