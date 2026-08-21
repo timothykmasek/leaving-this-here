@@ -23,6 +23,13 @@ import { uniqueSlug } from '@/lib/slug'
 // present in the server HTML — no client-side data waterfall, no blank "loading…".
 // Same trimmed column set the server renders with — kept in sync so the
 // background full-load doesn't reshape rows.
+// The profile grid: fluid, with the page margin EQUAL to the column gutter (40),
+// so the rhythm runs edge-to-edge instead of a fixed slab centred in dead space.
+// At 1530 this gives 4 x 332.5 columns — the design's proportions. Capped at
+// 1720 so cards stop growing past ~380 on very wide monitors.
+// Header, grid and footer all read this, or they drift apart.
+const PROFILE_GRID = 'max-w-[1720px] px-4 sm:px-10'
+
 const BULLET_COLS =
   'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place'
 
@@ -567,6 +574,7 @@ export default function ProfileClient({
       <BulletinHeader
         action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
         logoClassName="h-[32px] sm:h-[44px]"
+        widthClassName={PROFILE_GRID}
         tagline={
           <CopyTagline path={`/${profile.username}`}>
             A home for <span className="text-ink underline decoration-black/20 underline-offset-2">{(profile.display_name || profile.username).split(' ')[0]}&apos;s</span> links
@@ -578,7 +586,7 @@ export default function ProfileClient({
       {/* pb-40 clears the revealed footer bar + lifted search pill at the true
           end of the feed. (The old min-h-screen push-the-footer-past-the-fold
           hack is gone — the footer is out of flow now.) */}
-      <div className="mx-auto max-w-[1208px] px-4 pb-40 pt-6 sm:px-6 sm:pt-16">
+      <div className={`mx-auto ${PROFILE_GRID} pb-40 pt-6 sm:pt-16`}>
         {isOwner && <WelcomeBanner />}
 
         {/* Hero — centered identity block (name · bio · links · edit). */}
@@ -1098,7 +1106,7 @@ export default function ProfileClient({
           endless, so instead of a bottom-anchored footer this is a fixed glassy
           bar that slides in when the user scrolls up (or hits the true end) and
           tucks away while browsing down. */}
-      {isOwner && <SiteFooter reveal revealed={footerRevealed} />}
+      {isOwner && <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />}
     </main>
   )
 }

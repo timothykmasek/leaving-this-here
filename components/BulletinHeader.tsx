@@ -28,6 +28,7 @@ export function BulletinHeader({
   action = { label: 'Sign up', href: '#' },
   logoClassName = 'h-[44px]',
   tagline,
+  widthClassName = 'max-w-[1208px] px-4 sm:px-6',
 }: {
   // Pass `action={null}` for a logo-only header (e.g. auth pages).
   action?: { label: string; href?: string; onClick?: () => void } | null
@@ -35,6 +36,10 @@ export function BulletinHeader({
   // Optional centred tagline (e.g. "A home for Tim's links" on a profile). When
   // present the logo sits left instead of centred.
   tagline?: React.ReactNode
+  // The header's inner box. Must match whatever the page's content uses, or the
+  // wordmark and the action mark stop lining up with the columns below them.
+  // Defaults to the 1208 grid every other page still uses.
+  widthClassName?: string
 } = {}) {
   // Plain Mier Book text, 70% ink, slight tracking (Figma node 912:25144) — no
   // uppercase, no registration-mark dots.
@@ -49,7 +54,7 @@ export function BulletinHeader({
           mark lines up with the right card column, and the logo centers over it. */}
       {/* Mobile: logo sits on the SAME left gutter as the bio/nav below it, so the
           whole page shares one left edge. Desktop: centered masthead. */}
-      <div className={`relative mx-auto flex max-w-[1208px] items-center px-4 sm:px-6 ${tagline ? 'justify-start' : 'justify-start sm:justify-center'}`}>
+      <div className={`relative mx-auto flex items-center ${widthClassName} ${tagline ? 'justify-start' : 'justify-start sm:justify-center'}`}>
         {/* wordmark — always links to "/". Logged-out visitors land on the
             homepage; logged-in users are server-redirected to their own profile
             (see app/page.tsx), so the logo is a universal "home". Centred by
@@ -66,13 +71,16 @@ export function BulletinHeader({
           </span>
         )}
 
-        {/* dot-cornered registration mark — aligned to the content's right edge */}
+        {/* dot-cornered registration mark — sits on the content's right edge via
+            ml-auto, so it tracks the container's padding at any width (it used
+            to be absolutely pinned to right-4/sm:right-6, which only matched
+            one of them). */}
         {action && (action.onClick ? (
-          <button onClick={action.onClick} className="group absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
+          <button onClick={action.onClick} className="group ml-auto shrink-0">
             {actionInner}
           </button>
         ) : (
-          <a href={action.href} className="group absolute right-4 top-1/2 -translate-y-1/2 sm:right-6">
+          <a href={action.href} className="group ml-auto shrink-0">
             {actionInner}
           </a>
         ))}
