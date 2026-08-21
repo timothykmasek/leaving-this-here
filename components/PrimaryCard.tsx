@@ -7,6 +7,7 @@ import { FaviconPlate } from '@/components/FaviconPlate'
 import { formatCardTitle } from '@/lib/cardTitle'
 import { resolveCategory, type Affordance } from '@/lib/cardFormat'
 import type { CardType } from '@/lib/cardType'
+import type { PlaceMeta } from '@/lib/placeLink'
 
 // ── Bulletin DS "Primary Card" (Figma symbol 886:3378) ──────────────────────
 // The redesign's saved-page card, one flexible primitive:
@@ -66,6 +67,49 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage }: { kind: Affordance; f
   return null
 }
 
+// The Place card's in-plate facts — name, category, price, rating, address.
+// A deliberate exception to "categories live off-card" (removed 2026-08-15):
+// for a place the attributes ARE the content, which is not true of the link
+// taxonomy that rule was written about. Signed off by Tim 2026-08-21.
+//
+// Type styles are the DS ones, not new ones: the name uses the same chain as
+// the caption title below, and the category line uses `.label` — the 10px/1.5px
+// metadata workhorse from globals.css.
+//
+// Opening hours are deliberately absent: they're perishable, and this is stored.
+function PlaceFacts({ place }: { place: PlaceMeta }) {
+  const meta = [place.kind, place.price].filter(Boolean).join(' · ')
+  const counts = [
+    place.rating ? `★ ${place.rating}` : null,
+    place.reviews ? `${place.reviews} reviews` : null,
+  ].filter(Boolean)
+  return (
+    <div className="px-5 pb-5 pt-4">
+      {place.name && (
+        <p className="truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.03em] text-ink">
+          {place.name}
+        </p>
+      )}
+      {meta && <p className="label mt-2 text-ink/45">{meta}</p>}
+      {counts.length > 0 && (
+        <p className="mt-2.5 flex items-center gap-2 font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/55">
+          {counts.map((c, i) => (
+            <span key={c} className={i === 0 ? 'text-ink/70' : undefined}>
+              {i > 0 && <span aria-hidden className="mr-2 text-ink/25">·</span>}
+              {c}
+            </span>
+          ))}
+        </p>
+      )}
+      {place.address && (
+        <p className="mt-1 truncate font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/45">
+          {place.address}
+        </p>
+      )}
+    </div>
+  )
+}
+
 interface PrimaryCardProps {
   id?: string
   url: string
@@ -77,6 +121,11 @@ interface PrimaryCardProps {
   rawMetadata?: any
   cardType?: CardType | null
   imagePref?: string | null
+  // Place facts, for Maps bullets. Selected narrowly as `place:raw_metadata->place`
+  // rather than by pulling the whole raw_metadata blob for every card in a
+  // 1000-bullet grid. Falls back to rawMetadata.place for callers that do pass
+  // the full blob.
+  place?: PlaceMeta | null
   // The list this bullet belongs to (if any). Present → the second caption line
   // renders and the card is taller; absent → no line, shorter card.
   listName?: string | null
@@ -89,7 +138,7 @@ interface PrimaryCardProps {
 
 export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  cardType, imagePref, listName, listHref, onOpen,
+  cardType, imagePref, place: placeProp, listName, listHref, onOpen,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const fmt = resolveCategory(url, cardType)
@@ -97,6 +146,11 @@ export const PrimaryCard = memo(function PrimaryCard({
     title, description, url, siteName: rawMetadata?.og?.site_name ?? null,
   })
   const candidates = cardImageCandidates(url, imageUrl, screenshotUrl, cardType, imagePref)
+  // Place bullets carry their facts in raw_metadata.place (written by
+  // scripts/enrich-places.js). Absent → the card renders as any other.
+  const placeMeta = placeProp ?? rawMetadata?.place ?? null
+  const place: PlaceMeta | null =
+    fmt.category === 'Place' && placeMeta?.name ? placeMeta : null
 
   // The clickable card (plate + title). The list line lives OUTSIDE this so it
   // can be its own link (no <a> nested in an <a>).
@@ -104,25 +158,34 @@ export const PrimaryCard = memo(function PrimaryCard({
     <>
       {/* The plate — the image at natural aspect, rounded + clipped. */}
       <div className="relative w-full overflow-hidden rounded-[20px] bg-card ring-1 ring-black/[0.03] card-lift">
-        <CardThumb
-          candidates={candidates}
-          className="block w-full h-auto"
-          // No image → the favicon plate, given the type's fallback shape.
-          fallback={
-            <div className="w-full" style={{ aspectRatio: fmt.aspect }}>
-              <FaviconPlate faviconUrl={faviconUrl} domain={domain} />
-            </div>
-          }
-        />
+        {/* Own stacking context so the affordance pins to the IMAGE, not the
+            plate — a Place card puts a text block below the image. */}
+        <div className="relative">
+          <CardThumb
+            candidates={candidates}
+            className="block w-full h-auto"
+            // No image → the favicon plate, given the type's fallback shape.
+            fallback={
+              <div className="w-full" style={{ aspectRatio: fmt.aspect }}>
+                <FaviconPlate faviconUrl={faviconUrl} domain={domain} />
+              </div>
+            }
+          />
 
-        {/* Soft foot-fade to paper — matches the DS plate. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[18%] bg-gradient-to-b from-transparent to-paper/70"
-        />
+          {/* Soft foot-fade to paper — matches the DS plate. Skipped on a Place
+              card, where the image meets a text block rather than the page. */}
+          {!place && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-[18%] bg-gradient-to-b from-transparent to-paper/70"
+            />
+          )}
 
-        {/* Per-type affordance (play / disc / mic / source favicon). */}
-        <AffordanceOverlay kind={fmt.affordance} faviconUrl={faviconUrl} hasImage={candidates.length > 0} />
+          {/* Per-type affordance (play / disc / mic / source favicon). */}
+          <AffordanceOverlay kind={fmt.affordance} faviconUrl={faviconUrl} hasImage={candidates.length > 0} />
+        </div>
+
+        {place && <PlaceFacts place={place} />}
       </div>
 
       {/* Title — Mier A Book 14px, one line. Overflow FADES to transparent at the

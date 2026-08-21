@@ -353,6 +353,7 @@ export function ListDetailClient({
               faviconUrl={b.favicon_url}
               cardType={b.card_type}
               imagePref={b.image_pref}
+              place={b.place}
               onOpen={setSelectedId}
             />
           ))}
