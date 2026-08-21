@@ -13,8 +13,11 @@ function CopyGlyph({ copied }: { copied: boolean }) {
   return (
     <span
       aria-hidden
+      // Size stays 13px. The weight comes from opacity + stroke: at black/25 the
+      // glyph was lighter than the black/45 text beside it, so it read as a
+      // smudge rather than a control. Parity with the label is the floor.
       className={`inline-flex h-[13px] w-[13px] shrink-0 items-center justify-center transition-colors ${
-        copied ? 'text-ink/60' : 'text-black/25 group-hover:text-black/55'
+        copied ? 'text-ink/70' : 'text-black/[0.45] group-hover:text-black/75'
       }`}
     >
       {copied ? (
@@ -22,7 +25,7 @@ function CopyGlyph({ copied }: { copied: boolean }) {
           <path d="M20 6 9 17l-5-5" />
         </svg>
       ) : (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" className="h-full w-full">
           <rect x="9" y="9" width="11" height="11" rx="2.5" />
           <path d="M6.5 15H5.5A2.5 2.5 0 0 1 3 12.5v-7A2.5 2.5 0 0 1 5.5 3h7A2.5 2.5 0 0 1 15 5.5v1" />
         </svg>

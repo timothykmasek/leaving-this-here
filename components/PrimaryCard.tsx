@@ -35,7 +35,7 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage }: { kind: Affordance; f
   if (kind === 'play') {
     return (
       <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <span className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-black/45 backdrop-blur-[2px] ring-1 ring-white/25">
+        <span className="flex h-[54px] w-[54px] items-center justify-center rounded-full bg-black/[0.45] backdrop-blur-[2px] ring-1 ring-white/25">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" aria-hidden><path d="M8 5v14l11-7z" /></svg>
         </span>
       </span>
@@ -43,7 +43,7 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage }: { kind: Affordance; f
   }
   if (kind === 'disc' || kind === 'mic') {
     return (
-      <span aria-hidden className="pointer-events-none absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/45 backdrop-blur-[2px] ring-1 ring-white/25">
+      <span aria-hidden className="pointer-events-none absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.45] backdrop-blur-[2px] ring-1 ring-white/25">
         {kind === 'disc' ? (
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" aria-hidden><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="1.6" fill="#fff" /></svg>
         ) : (
@@ -120,9 +120,9 @@ function PlaceFacts({ place }: { place: PlaceMeta }) {
           {place.name}
         </p>
       )}
-      {meta && <p className="label mt-2 text-ink/45">{meta}</p>}
+      {meta && <p className="label mt-2 text-ink/[0.45]">{meta}</p>}
       {counts.length > 0 && (
-        <p className="mt-2.5 flex items-center gap-2 font-sans text-[12px] leading-4 tracking-[0.05em] text-ink/55">
+        <p className="mt-2.5 flex items-center gap-2 font-sans text-[12px] leading-4 tracking-[0.05em] text-ink/[0.55]">
           {counts.map((c, i) => (
             <span key={c} className={i === 0 ? 'text-ink/70' : undefined}>
               {i > 0 && <span aria-hidden className="mr-2 text-ink/25">·</span>}
@@ -132,7 +132,7 @@ function PlaceFacts({ place }: { place: PlaceMeta }) {
         </p>
       )}
       {place.address && (
-        <p className="mt-1.5 truncate font-sans text-[12px] leading-4 tracking-[0.05em] text-ink/45">
+        <p className="mt-1.5 truncate font-sans text-[12px] leading-4 tracking-[0.05em] text-ink/[0.45]">
           {place.address}
         </p>
       )}
@@ -315,7 +315,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             <span className="truncate">{listName}</span>
           </>
         )
-        const cls = `${place ? 'mt-3' : 'mt-1.5'} flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/55`
+        const cls = `${place ? 'mt-3' : 'mt-1.5'} flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/[0.55]`
         return listHref ? (
           <a href={listHref} className={`${cls} transition-colors hover:text-ink`}>{inner}</a>
         ) : (
