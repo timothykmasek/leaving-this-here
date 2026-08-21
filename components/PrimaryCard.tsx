@@ -116,7 +116,7 @@ function PlaceFacts({ place }: { place: PlaceMeta }) {
   return (
     <div className="px-5 pb-5 pt-4">
       {place.name && (
-        <p className="truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink">
+        <p className="truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink/80">
           {place.name}
         </p>
       )}
@@ -251,7 +251,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           would say it twice. The LIST line below still renders — that's a
           different fact, and the only one the plate doesn't carry. */}
       {cleanTitle && !place && (
-        <p className="mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
+        <p className="mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink/80 [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
           {cleanTitle}
         </p>
       )}
