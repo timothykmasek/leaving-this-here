@@ -24,9 +24,11 @@ export function Masonry({ children }: { children: ReactNode }) {
   const columns: ReactNode[][] = Array.from({ length: cols }, () => [])
   items.forEach((child, i) => columns[i % cols].push(child))
 
-  // Gaps: 30px between columns (horizontal), 40px between cards (vertical).
+  // Gaps: 40px between columns and 40px between cards — one interval in both
+  // axes, matching the page margin on the profile so the grid reads as evenly
+  // distributed rather than a block with arbitrary inner spacing.
   return (
-    <div className="flex gap-x-[30px]">
+    <div className="flex gap-x-[40px]">
       {columns.map((col, i) => (
         <div key={i} className="flex min-w-0 flex-1 flex-col gap-y-[40px]">
           {col}

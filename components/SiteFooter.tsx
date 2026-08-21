@@ -14,23 +14,28 @@ import { forwardRef } from 'react'
 //   so keyboard users can tab to Privacy/Extension while it's tucked away.
 export const SiteFooter = forwardRef<
   HTMLElement,
-  { reveal?: boolean; revealed?: boolean }
->(function SiteFooter({ reveal = false, revealed = false }, ref) {
+  { reveal?: boolean; revealed?: boolean; widthClassName?: string }
+>(function SiteFooter(
+  // widthClassName must match the page's grid, or the footer row sits inside
+  // (or outside) the column edges above it. Defaults to the 1208 grid.
+  { reveal = false, revealed = false, widthClassName = 'max-w-[1208px] px-6' },
+  ref,
+) {
   return (
     <footer
       ref={ref}
       className={
         reveal
-          ? `fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-paper/90 px-6 pt-[18px] pb-[max(18px,env(safe-area-inset-bottom))] backdrop-blur-md transition-transform duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] focus-within:translate-y-0 ${
+          ? `fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-paper/90 pt-[18px] pb-[max(18px,env(safe-area-inset-bottom))] backdrop-blur-md transition-transform duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] focus-within:translate-y-0 ${
               revealed ? 'translate-y-0' : 'translate-y-[110%]'
             }`
-          : 'border-t border-black/[0.06] px-6 py-10'
+          : 'border-t border-black/[0.06] py-10'
       }
     >
       {/* Both modes render one slim justified row, on mobile too, so the static
           footer (list pages) reads identically to the reveal bar (profile feed)
           — no stacked-© variant that looked inconsistent across screens. */}
-      <div className="mx-auto flex max-w-[1208px] flex-row items-center justify-between">
+      <div className={`mx-auto flex ${widthClassName} flex-row items-center justify-between`}>
         <span className="label whitespace-nowrap text-black/35">© 2026</span>
         {/* Tight gap so © + all three links fit one row on a 375px phone without
             any item wrapping onto a second line. */}
