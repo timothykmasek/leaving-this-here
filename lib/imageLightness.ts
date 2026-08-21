@@ -18,19 +18,30 @@ export const LIGHT_EDGE_THRESHOLD = 0.9
 let canvas: HTMLCanvasElement | null = null
 let ctx: CanvasRenderingContext2D | null = null
 
-/** Hosts we know send `access-control-allow-origin`, so the canvas won't taint.
- *  Restricted deliberately: setting crossOrigin on an image whose host does NOT
- *  support CORS makes the image fail to load outright, which would break the
- *  card to gain a border. Anything else simply goes unsampled. */
+/** Worth attempting at all. Any http(s) URL is: the sample loads its OWN Image
+ *  object, so a host without CORS taints that one and yields null — it cannot
+ *  affect the visible <img>, which is a separate element loaded without
+ *  crossOrigin. (This was originally limited to our own bucket out of a
+ *  misplaced worry about breaking the card; it only cost borders. Webflow,
+ *  Shopify, ytimg and friends all send access-control-allow-origin: *.) */
 function isSampleable(url: string): boolean {
-  try {
-    const u = new URL(url, window.location.href)
-    if (u.origin === window.location.origin) return true
-    return u.hostname.endsWith('.supabase.co')
-  } catch {
-    return false
-  }
+  return /^https?:\/\//i.test(url)
 }
+
+/** Defer to idle so sampling never competes for bandwidth with the images the
+ *  reader is actually looking at. For a cross-origin host the CORS-mode request
+ *  may not reuse the visible image's cache entry, so this can be a second
+ *  fetch — worth having happen late rather than never. */
+function onIdle(fn: () => void): () => void {
+  const ric = (window as any).requestIdleCallback
+  if (typeof ric === 'function') {
+    const id = ric(fn, { timeout: 2000 })
+    return () => (window as any).cancelIdleCallback?.(id)
+  }
+  const id = window.setTimeout(fn, 300)
+  return () => window.clearTimeout(id)
+}
+export { onIdle }
 
 /**
  * Mean luminance (0–1) of the image's outer ring, or null when it can't be
