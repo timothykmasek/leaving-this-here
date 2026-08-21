@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { sampleEdgeLightness, LIGHT_EDGE_THRESHOLD } from '@/lib/imageLightness'
+import { sampleEdgeLightness, onIdle, LIGHT_EDGE_THRESHOLD } from '@/lib/imageLightness'
 
 // The card thumbnail image, with a graceful fallback chain. Given an ordered
 // list of candidate URLs (og first, screenshot next — see cardImageCandidates),
@@ -53,11 +53,13 @@ export function CardThumb({
   useEffect(() => {
     if (!src || !onEdgeLightness) return
     let cancelled = false
-    sampleEdgeLightness(src).then((v) => {
-      if (cancelled) return
-      onEdgeLightness(v === null ? null : v >= LIGHT_EDGE_THRESHOLD)
+    const cancelIdle = onIdle(() => {
+      sampleEdgeLightness(src).then((v) => {
+        if (cancelled) return
+        onEdgeLightness(v === null ? null : v >= LIGHT_EDGE_THRESHOLD)
+      })
     })
-    return () => { cancelled = true }
+    return () => { cancelled = true; cancelIdle() }
   }, [src, onEdgeLightness])
 
   if (!src) return <>{fallback}</>
