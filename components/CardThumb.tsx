@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { sampleEdgeLightness, LIGHT_EDGE_THRESHOLD } from '@/lib/imageLightness'
 
 // The card thumbnail image, with a graceful fallback chain. Given an ordered
 // list of candidate URLs (og first, screenshot next — see cardImageCandidates),
@@ -18,12 +19,17 @@ export function CardThumb({
   className = 'h-full w-full object-cover',
   priority = false,
   fallback = null,
+  onEdgeLightness,
 }: {
   candidates: string[]
   alt?: string
   className?: string
   priority?: boolean
   fallback?: React.ReactNode
+  // Reports whether the image that actually rendered has light edges, so the
+  // card can draw a hairline when it would otherwise bleed into a white page.
+  // null = couldn't measure (non-CORS host, decode failure); treat as "no".
+  onEdgeLightness?: (light: boolean | null) => void
 }) {
   const [idx, setIdx] = useState(0)
   const ref = useRef<HTMLImageElement>(null)
@@ -41,6 +47,18 @@ export function CardThumb({
       setIdx((i) => i + 1)
     }
   }, [src])
+
+  // Measure the src that WON the fallback chain, not candidates[0] — a card
+  // that fell back from a 404 og to its screenshot is showing a different image.
+  useEffect(() => {
+    if (!src || !onEdgeLightness) return
+    let cancelled = false
+    sampleEdgeLightness(src).then((v) => {
+      if (cancelled) return
+      onEdgeLightness(v === null ? null : v >= LIGHT_EDGE_THRESHOLD)
+    })
+    return () => { cancelled = true }
+  }, [src, onEdgeLightness])
 
   if (!src) return <>{fallback}</>
   return (
