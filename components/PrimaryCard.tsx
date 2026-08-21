@@ -97,9 +97,14 @@ function PlacePhoto({ src, box }: { src: string; box: NonNullable<PlaceMeta['pho
 // for a place the attributes ARE the content, which is not true of the link
 // taxonomy that rule was written about. Signed off by Tim 2026-08-21.
 //
-// Type styles are the DS ones, not new ones: the name uses the same chain as
-// the caption title below, and the category line uses `.label` — the 10px/1.5px
-// metadata workhorse from globals.css.
+// Every line maps to an existing DS text style; none are invented here:
+//   name        Mier A Book 14/20/5%  — the card-title style (Figma ProjectX)
+//   category    `.label` 10/12/1.5px  — the uppercase metadata workhorse
+//   facts+addr  Mier A 12/16/5%       — the small-body style used across MobileHome
+// Deliberately NOT Cardo: the palette scopes serif to editorial voice (bios,
+// taglines, quotes, list titles, the list line). A rating and a street address
+// are data. The list line UNDER the card stays Cardo, which is correct and also
+// keeps it visually distinct from the facts inside the plate.
 //
 // Opening hours are deliberately absent: they're perishable, and this is stored.
 function PlaceFacts({ place }: { place: PlaceMeta }) {
@@ -111,13 +116,13 @@ function PlaceFacts({ place }: { place: PlaceMeta }) {
   return (
     <div className="px-5 pb-5 pt-4">
       {place.name && (
-        <p className="truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.03em] text-ink">
+        <p className="truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink">
           {place.name}
         </p>
       )}
       {meta && <p className="label mt-2 text-ink/45">{meta}</p>}
       {counts.length > 0 && (
-        <p className="mt-2.5 flex items-center gap-2 font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/55">
+        <p className="mt-2.5 flex items-center gap-2 font-sans text-[12px] leading-4 tracking-[0.05em] text-ink/55">
           {counts.map((c, i) => (
             <span key={c} className={i === 0 ? 'text-ink/70' : undefined}>
               {i > 0 && <span aria-hidden className="mr-2 text-ink/25">·</span>}
@@ -127,7 +132,7 @@ function PlaceFacts({ place }: { place: PlaceMeta }) {
         </p>
       )}
       {place.address && (
-        <p className="mt-1 truncate font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/45">
+        <p className="mt-1.5 truncate font-sans text-[12px] leading-4 tracking-[0.05em] text-ink/45">
           {place.address}
         </p>
       )}
@@ -189,7 +194,15 @@ export const PrimaryCard = memo(function PrimaryCard({
   const card = (
     <>
       {/* The plate — the image at natural aspect, rounded + clipped. */}
-      <div className="relative w-full overflow-hidden rounded-[20px] bg-card ring-1 ring-black/[0.03] card-lift">
+      {/* Place cards sit on white; every other card keeps the grey plate. Setting
+          it on the PLATE (not just the facts block) so a place with no capture
+          renders one uniform card rather than a grey favicon plate stacked on a
+          white facts block. */}
+      <div
+        className={`relative w-full overflow-hidden rounded-[20px] ring-1 ring-black/[0.03] card-lift ${
+          place ? 'bg-paper' : 'bg-card'
+        }`}
+      >
         {/* Own stacking context so the affordance pins to the IMAGE, not the
             plate — a Place card puts a text block below the image. */}
         <div className="relative">
@@ -227,7 +240,7 @@ export const PrimaryCard = memo(function PrimaryCard({
       {/* Title — Mier A Book 14px, one line. Overflow FADES to transparent at the
           right edge (mask gradient) rather than a hard "…" ellipsis. */}
       {cleanTitle && (
-        <p className="mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.03em] text-ink [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
+        <p className="mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
           {cleanTitle}
         </p>
       )}
