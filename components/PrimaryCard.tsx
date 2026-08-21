@@ -111,7 +111,7 @@ function PlaceFacts({ place }: { place: PlaceMeta }) {
   return (
     <div className="px-5 pb-5 pt-4">
       {place.name && (
-        <p className="truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.03em] text-ink">
+        <p className="truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink">
           {place.name}
         </p>
       )}
@@ -227,7 +227,7 @@ export const PrimaryCard = memo(function PrimaryCard({
       {/* Title — Mier A Book 14px, one line. Overflow FADES to transparent at the
           right edge (mask gradient) rather than a hard "…" ellipsis. */}
       {cleanTitle && (
-        <p className="mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.03em] text-ink [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
+        <p className="mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
           {cleanTitle}
         </p>
       )}
