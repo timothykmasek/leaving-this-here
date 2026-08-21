@@ -198,9 +198,17 @@ export const PrimaryCard = memo(function PrimaryCard({
           it on the PLATE (not just the facts block) so a place with no capture
           renders one uniform card rather than a grey favicon plate stacked on a
           white facts block. */}
+      {/* Place cards sit on white and need a real edge; every other card keeps
+          the grey plate, whose own fill is the edge.
+
+          NOTE the Place hairline is a BORDER, not `ring-1`. Tailwind implements
+          ring as a box-shadow, and `.card-lift` sets box-shadow directly — so it
+          wins the cascade and the ring never paints. (True of the ring-1 on the
+          non-place branch below too: it has never rendered. Left as-is here
+          because removing it is a visual change to every card, not this one.) */}
       <div
-        className={`relative w-full overflow-hidden rounded-[20px] ring-1 ring-black/[0.03] card-lift ${
-          place ? 'bg-paper' : 'bg-card'
+        className={`relative w-full overflow-hidden rounded-[20px] card-lift ${
+          place ? 'border border-black/[0.09] bg-paper' : 'ring-1 ring-black/[0.03] bg-card'
         }`}
       >
         {/* Own stacking context so the affordance pins to the IMAGE, not the
@@ -239,7 +247,10 @@ export const PrimaryCard = memo(function PrimaryCard({
 
       {/* Title — Mier A Book 14px, one line. Overflow FADES to transparent at the
           right edge (mask gradient) rather than a hard "…" ellipsis. */}
-      {cleanTitle && (
+      {/* A Place card states its name inside the plate, so the caption title
+          would say it twice. The LIST line below still renders — that's a
+          different fact, and the only one the plate doesn't carry. */}
+      {cleanTitle && !place && (
         <p className="mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
           {cleanTitle}
         </p>
@@ -304,7 +315,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             <span className="truncate">{listName}</span>
           </>
         )
-        const cls = 'mt-1.5 flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/55'
+        const cls = `${place ? 'mt-3' : 'mt-1.5'} flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/55`
         return listHref ? (
           <a href={listHref} className={`${cls} transition-colors hover:text-ink`}>{inner}</a>
         ) : (
