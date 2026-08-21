@@ -140,61 +140,6 @@ export async function extractPhotoEdges(
 const INSET_X = 0.012
 const INSET_Y = 0.020
 
-/** Intrinsic size of a PNG or JPEG, read from the header. Enough to know the
- *  capture's aspect ratio, which is the one thing a CSS crop can't derive from
- *  fractions alone. Returns null for anything else (caller then skips the
- *  photo and keeps the facts). */
-export function imageSize(bytes: Uint8Array): { width: number; height: number } | null {
-  // PNG: 8-byte signature, then IHDR with width/height as big-endian uint32.
-  if (bytes.length > 24 && bytes[0] === 0x89 && bytes[1] === 0x50) {
-    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-    return { width: dv.getUint32(16), height: dv.getUint32(20) }
-  }
-  // JPEG: walk the marker segments to the start-of-frame, which carries the size.
-  if (bytes.length > 4 && bytes[0] === 0xff && bytes[1] === 0xd8) {
-    let i = 2
-    while (i + 9 < bytes.length) {
-      if (bytes[i] !== 0xff) { i++; continue }
-      const marker = bytes[i + 1]
-      // SOF0-SOF15, excluding the non-frame markers DHT(c4) / JPG(c8) / DAC(cc).
-      if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
-        const height = (bytes[i + 5] << 8) | bytes[i + 6]
-        const width = (bytes[i + 7] << 8) | bytes[i + 8]
-        return width && height ? { width, height } : null
-      }
-      i += 2 + ((bytes[i + 2] << 8) | bytes[i + 3])
-    }
-  }
-  return null
-}
-
-/** The stored crop, as FRACTIONS of the capture, plus the capture's aspect.
- *  Fractions because the card clips with CSS rather than cutting a new file —
- *  no image processing means this runs on Vercel, where ImageMagick doesn't
- *  exist and a sharp dependency would be a lot of weight for one card type. */
-export interface PhotoBox {
-  x: number
-  y: number
-  w: number
-  h: number
-  /** capture width / capture height — the wrapper's aspect needs it. */
-  sourceAspect: number
-}
-
-/** Edges + capture size → the inset fractional box the card will clip to. */
-export function photoBoxFromEdges(
-  e: PhotoEdges,
-  width: number,
-  height: number,
-): PhotoBox | null {
-  const x = e.panelLeft + 0.005
-  const y = e.photoTop + INSET_Y
-  const w = e.panelRight - INSET_X - x
-  const h = e.photoBottom - INSET_X - y
-  if (w <= 0.02 || h <= 0.02) return null
-  return { x, y, w, h, sourceAspect: width / height }
-}
-
 /** Edges + image size → an integer pixel crop box [left, top, right, bottom]. */
 export function cropBoxFromEdges(
   e: PhotoEdges,

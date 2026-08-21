@@ -67,6 +67,31 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage }: { kind: Affordance; f
   return null
 }
 
+// The hero photo as a CSS-clipped window onto the capture. The maths: mapping
+// the box's width to 100% of the frame means scaling the image by 1/w, and the
+// offsets are then the box origin in units of the box itself — so only the
+// FRACTIONS are needed, plus the capture's aspect for the frame.
+function PlacePhoto({ src, box }: { src: string; box: NonNullable<PlaceMeta['photoBox']> }) {
+  return (
+    <div
+      className="relative w-full overflow-hidden"
+      style={{ aspectRatio: `${box.w * box.sourceAspect} / ${box.h}` }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className="absolute max-w-none"
+        style={{
+          width: `${100 / box.w}%`,
+          left: `${(-box.x / box.w) * 100}%`,
+          top: `${(-box.y / box.h) * 100}%`,
+        }}
+      />
+    </div>
+  )
+}
+
 // The Place card's in-plate facts — name, category, price, rating, address.
 // A deliberate exception to "categories live off-card" (removed 2026-08-15):
 // for a place the attributes ARE the content, which is not true of the link
@@ -151,6 +176,13 @@ export const PrimaryCard = memo(function PrimaryCard({
   const placeMeta = placeProp ?? rawMetadata?.place ?? null
   const place: PlaceMeta | null =
     fmt.category === 'Place' && placeMeta?.name ? placeMeta : null
+  // Two ways a place gets its picture: the backfill script cuts a real file, the
+  // save path stores a box to clip out of the capture. A cut file wins — it's a
+  // fraction of the bytes.
+  const placePhoto =
+    place && !place.photo && place.photoBox && screenshotUrl
+      ? { src: screenshotUrl, box: place.photoBox }
+      : null
 
   // The clickable card (plate + title). The list line lives OUTSIDE this so it
   // can be its own link (no <a> nested in an <a>).
@@ -161,6 +193,9 @@ export const PrimaryCard = memo(function PrimaryCard({
         {/* Own stacking context so the affordance pins to the IMAGE, not the
             plate — a Place card puts a text block below the image. */}
         <div className="relative">
+          {placePhoto ? (
+            <PlacePhoto src={placePhoto.src} box={placePhoto.box} />
+          ) : (
           <CardThumb
             candidates={candidates}
             className="block w-full h-auto"
@@ -171,6 +206,7 @@ export const PrimaryCard = memo(function PrimaryCard({
               </div>
             }
           />
+          )}
 
           {/* Soft foot-fade to paper — matches the DS plate. Skipped on a Place
               card, where the image meets a text block rather than the page. */}

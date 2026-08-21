@@ -13,6 +13,7 @@ import {
   persistCardImage,
 } from '@/lib/screenshot'
 import { maybeStoreImagePref } from '@/lib/cardImageJudge'
+import { maybeEnrichPlace } from '@/lib/placeEnrich'
 
 // Persist a client-side screenshot (data URL from the extension's
 // captureVisibleTab) to storage and point the row at it. Runs with the service
@@ -45,6 +46,10 @@ async function persistClientShot(bookmarkId: string, dataUrl: string, cardType: 
     // Now has a client screenshot + (maybe) an og. Let the vision judge decide
     // og-vs-screenshot for a contested bare link. Best-effort; no-ops otherwise.
     await maybeStoreImagePref(admin, bookmarkId)
+    // A Maps link's capture is the only place its details exist — the place page
+    // is bot-gated, so a server fetch only ever sees Google's boilerplate. Read
+    // it here, while the bytes are in hand. No-ops for every other kind of link.
+    await maybeEnrichPlace(admin, bookmarkId, bytes, m[1])
   } catch {
     // best-effort; the server screenshotone path can still backfill later
   }
