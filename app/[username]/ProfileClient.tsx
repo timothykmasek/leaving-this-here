@@ -23,7 +23,7 @@ import { uniqueSlug } from '@/lib/slug'
 // Same trimmed column set the server renders with — kept in sync so the
 // background full-load doesn't reshape rows.
 const BULLET_COLS =
-  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords'
+  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place'
 
 // How many bullets to render at once. A power profile holds ~1000 bullets;
 // mounting them all floods the DOM and fires ~1000 image-optimizer requests in
@@ -538,6 +538,7 @@ export default function ProfileClient({
             screenshotUrl={b.screenshot_url}
             faviconUrl={b.favicon_url}
             rawMetadata={b.raw_metadata}
+            place={b.place}
             cardType={b.card_type}
             imagePref={b.image_pref}
             listName={listByBookmark.get(b.id)?.name ?? null}

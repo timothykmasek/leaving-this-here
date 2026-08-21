@@ -17,6 +17,8 @@ const SEP = /\s*[|•·▪‧・—–]\s*|\s+[-]\s+/
 
 // Second-level "domain-like" labels to skip when deriving a brand from the host,
 // so bbc.co.uk → "Bbc", not "Co".
+import { isPlaceUrl, parsePlaceUrl } from '@/lib/placeLink'
+
 const PUBLIC_SLDS = new Set(['co', 'com', 'org', 'net', 'gov', 'edu', 'ac'])
 
 // Titles that carry no information — fall back to the brand/domain instead.
@@ -28,6 +30,8 @@ const GENERIC = new Set([
   'login', 'log in', 'sign in', 'loading', 'page not found', 'not found',
   'cart', 'your cart', 'shopping cart', 'shopping bag', 'your bag', 'checkout',
   'access denied', 'attention required', 'just a moment', 'error',
+  // Map sites serve one site-level title for every place on them.
+  'google maps', 'maps', 'apple maps', 'openstreetmap',
 ])
 
 function getDomain(url: string): string {
@@ -173,6 +177,30 @@ function xTitle(url: string, title?: string | null): string | null {
   return m ? `X — ${m[1]}` : null
 }
 
+// Google/Apple Maps place links. The fetched title is always the site's own
+// boilerplate ("Google Maps") because the place page is bot-gated, but the place
+// name is sitting in the URL path — so read it from there. Fetch-free and
+// deterministic, same contract as the cases above.
+//
+// Total for map URLs — it returns the final title rather than deferring to the
+// brand logic below, because that logic would lead with "Google", and Google is
+// the HOST of a place link, not the brand of the place. ("Google — dinner spot
+// for Anna" is a category error the generic path can't avoid.)
+function placeTitle(url: string, title?: string | null): string | null {
+  if (!isPlaceUrl(url)) return null
+  const raw = (title || '').replace(TAB_BADGE, '').trim()
+  // A hand-edited title wins outright, unprefixed.
+  if (raw && !GENERIC.has(raw.toLowerCase())) return raw
+  const { name } = parsePlaceUrl(url)
+  if (name) return name
+  // A map VIEW with no place in the path: name the map, don't degrade to the
+  // bare brand token.
+  const d = getDomain(url)
+  if (d.includes('apple')) return 'Apple Maps'
+  if (d.includes('openstreetmap')) return 'OpenStreetMap'
+  return 'Google Maps'
+}
+
 export interface CardTitleInput {
   title?: string | null
   description?: string | null
@@ -185,6 +213,8 @@ export interface CardTitleInput {
  * Falls back to the domain when there's no usable title or brand.
  */
 export function formatCardTitle({ title, description, url, siteName }: CardTitleInput): string {
+  const pl = placeTitle(url, title)
+  if (pl) return pl
   const ig = instagramTitle(url, title, description)
   if (ig) return ig
   const xt = xTitle(url, title)

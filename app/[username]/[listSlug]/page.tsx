@@ -18,7 +18,7 @@ import { SiteFooter } from '@/components/SiteFooter'
 
 // Only the columns the cards render (raw_metadata is passed but never read).
 const BULLET_COLS =
-  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords'
+  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place'
 
 function notFound(username: string) {
   return (
@@ -175,6 +175,7 @@ export default async function ListPage({
                 faviconUrl={b.favicon_url}
                 cardType={b.card_type}
                 imagePref={b.image_pref}
+                place={b.place}
               />
             ))}
           </Masonry>

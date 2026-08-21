@@ -9,7 +9,7 @@ import type { CardType } from '@/lib/cardType'
 
 export type Category =
   | 'Website' | 'Product' | 'Article' | 'Music'
-  | 'Podcast' | 'Video' | 'Social' | 'Book'
+  | 'Podcast' | 'Video' | 'Social' | 'Book' | 'Place'
 
 export type Affordance = 'play' | 'price' | 'favicon' | 'disc' | 'mic' | 'avatar' | null
 
@@ -31,6 +31,10 @@ const SPEC: Record<Category, { aspect: string; affordance: Affordance }> = {
   Video:   { aspect: '16 / 9',   affordance: 'play' },
   Social:  { aspect: '4 / 5',    affordance: 'avatar' },
   Book:    { aspect: '2 / 3',    affordance: null },
+  // A map link has no og:image worth showing, so an imageless Place falls back
+  // to the same 4:3 plate as Website. No affordance: the Place card states its
+  // rating in the facts block, and a badge on the photo would say it twice.
+  Place:   { aspect: '4 / 3',    affordance: null },
 }
 
 function host(url: string): string {
@@ -52,6 +56,11 @@ function categoryFromUrl(url: string): Category | null {
   if (is('music.apple.com', 'bandcamp.com', 'soundcloud.com')) return 'Music'
   if (is('x.com', 'twitter.com', 'reddit.com', 'linkedin.com', 'instagram.com', 'threads.net', 'facebook.com')) return 'Social'
   if (is('goodreads.com', 'bookshop.org') || h.startsWith('books.google')) return 'Book'
+  // Places. Scoped to the /maps path on google.* so an ordinary google.com
+  // link is untouched (and books.google, matched above, is a disjoint host).
+  // Mirrors isPlaceUrl() in lib/placeLink.ts — keep the two in step.
+  if (is('maps.app.goo.gl') || h === 'maps.google.com' || is('maps.apple.com')) return 'Place'
+  if ((h.startsWith('google.') || h.includes('.google.')) && p.startsWith('/maps')) return 'Place'
   return null
 }
 

@@ -7,7 +7,7 @@ import ProfileClient from './ProfileClient'
 // `raw_metadata` (a large JSON blob that's passed to PrimaryCard but never read)
 // so we don't drag it over the wire for every bullet.
 const BULLET_COLS =
-  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords'
+  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place'
 
 // How many of the newest bullets to server-render for instant first paint. A
 // seeded/power profile can have hundreds — SSR-ing all of them bloats the HTML
