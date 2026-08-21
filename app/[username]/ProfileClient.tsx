@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
+import { CopyTagline } from '@/components/CopyTagline'
 import { BulletinHeader } from '@/components/BulletinHeader'
 import { CollectionCard } from '@/components/CollectionCard'
 import { ProfileIdentity } from '@/components/ProfileIdentity'
@@ -567,7 +568,9 @@ export default function ProfileClient({
         action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
         logoClassName="h-[32px] sm:h-[44px]"
         tagline={
-          <>A home for <span className="text-ink underline decoration-black/20 underline-offset-2">{(profile.display_name || profile.username).split(' ')[0]}&apos;s</span> links</>
+          <CopyTagline path={`/${profile.username}`}>
+            A home for <span className="text-ink underline decoration-black/20 underline-offset-2">{(profile.display_name || profile.username).split(' ')[0]}&apos;s</span> links
+          </CopyTagline>
         }
       />
       {/* width = exactly a 4-col grid (4×272 + 3×24 gap = 1160) + px-6, so the
