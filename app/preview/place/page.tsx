@@ -393,7 +393,7 @@ export default async function PlacePreview() {
           {/* ── M · the box path, through the REAL PrimaryCard ───────────── */}
           <Treatment
             tag="M · CSS-clipped box"
-            note="What a NEW save now renders: no cut file, no image processing — the full capture clipped to a stored fractional box. Driven through the live PrimaryCard, so if this matches J's photo the maths is right."
+            note="What a NEW save now renders, through the live PrimaryCard: the capture clipped to a stored box, no caption title (the plate names the place), and the list line kept."
           >
             <PrimaryCard
               url={SAVED_URL}
@@ -402,6 +402,8 @@ export default async function PlacePreview() {
               screenshotUrl={SAVED_SCREENSHOT}
               faviconUrl={null}
               cardType="article"
+              listName="Paris, next trip"
+              listHref="/tim/paris-next-trip"
               place={{
                 name: CAPTURED.name, kind: CAPTURED.kind, price: CAPTURED.price,
                 rating: CAPTURED.rating, reviews: CAPTURED.reviews,
