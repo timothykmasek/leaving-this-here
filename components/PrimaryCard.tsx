@@ -1,6 +1,6 @@
 'use client'
 
-import { memo } from 'react'
+import { memo, useCallback, useState } from 'react'
 import { cardImageCandidates } from '@/lib/cardImage'
 import { CardThumb } from '@/components/CardThumb'
 import { FaviconPlate } from '@/components/FaviconPlate'
@@ -184,6 +184,14 @@ export const PrimaryCard = memo(function PrimaryCard({
   // Two ways a place gets its picture: the backfill script cuts a real file, the
   // save path stores a box to clip out of the capture. A cut file wins — it's a
   // fraction of the bytes.
+  // A card whose image is light at the edges bleeds into the white page, so it
+  // gets the same hairline the Place card uses. Measured from the pixels that
+  // actually rendered — see lib/imageLightness.
+  const [lightEdges, setLightEdges] = useState(false)
+  const handleEdgeLightness = useCallback((light: boolean | null) => {
+    setLightEdges(light === true)
+  }, [])
+
   const placePhoto =
     place && !place.photo && place.photoBox && screenshotUrl
       ? { src: screenshotUrl, box: place.photoBox }
@@ -198,8 +206,11 @@ export const PrimaryCard = memo(function PrimaryCard({
           it on the PLATE (not just the facts block) so a place with no capture
           renders one uniform card rather than a grey favicon plate stacked on a
           white facts block. */}
-      {/* Place cards sit on white and need a real edge; every other card keeps
-          the grey plate, whose own fill is the edge.
+      {/* The hairline (Figma ProjectX: #EBEBEB, 1px, inside, radius 20) goes on
+          a Place card, which is always white, and on any card whose image
+          measured LIGHT at its edges — those bleed into the white page exactly
+          the same way. Darker cards keep the grey plate, whose own fill is the
+          edge, and don't get a rim drawn over the photo.
 
           NOTE the Place hairline is a BORDER, not `ring-1`. Tailwind implements
           ring as a box-shadow, and `.card-lift` sets box-shadow directly — so it
@@ -208,7 +219,9 @@ export const PrimaryCard = memo(function PrimaryCard({
           because removing it is a visual change to every card, not this one.) */}
       <div
         className={`relative w-full overflow-hidden rounded-[20px] card-lift ${
-          place ? 'border border-black/[0.09] bg-paper' : 'ring-1 ring-black/[0.03] bg-card'
+          place ? 'bg-paper' : 'bg-card'
+        } ${
+          place || lightEdges ? 'border border-[#EBEBEB]' : 'ring-1 ring-black/[0.03]'
         }`}
       >
         {/* Own stacking context so the affordance pins to the IMAGE, not the
@@ -219,6 +232,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           ) : (
           <CardThumb
             candidates={candidates}
+            onEdgeLightness={handleEdgeLightness}
             className="block w-full h-auto"
             // No image → the favicon plate, given the type's fallback shape.
             fallback={
