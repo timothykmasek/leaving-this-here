@@ -21,6 +21,23 @@ export interface ParsedPlaceUrl {
   zoom: number | null
 }
 
+/** What a place bullet stores under bookmarks.raw_metadata.place. Written by
+ *  scripts/enrich-places.js; read by PrimaryCard to render the Place card. */
+export interface PlaceMeta {
+  name: string | null
+  kind: string | null
+  price: string | null
+  rating: string | null
+  reviews: string | null
+  address: string | null
+  city: string | null
+  lat: number | null
+  lon: number | null
+  /** Storage URL of the hero photo cropped out of the capture. */
+  photo: string | null
+  source: string
+}
+
 export interface ResolvedPlace {
   name: string
   lat: number
