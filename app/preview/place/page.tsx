@@ -161,10 +161,10 @@ export default async function PlacePreview() {
           <BracketLabel>Scratchpad · Place cards</BracketLabel>
         </div>
         <h1 className="mb-1 font-serif text-2xl text-ink">
-          A Maps link, twelve ways
+          A Maps link, thirteen ways
         </h1>
         <p className="mb-3 max-w-2xl font-serif text-sm text-ink/60">
-          All twelve render the same saved bullet — your Cherry Paris link. Treatment A is
+          All thirteen render the same saved bullet — your Cherry Paris link. Treatment A is
           what&apos;s live today. B–H are key-free: the name is parsed out of the URL path
           (<code>/maps/place/Cherry+Paris</code>), the coordinates and address come from
           OpenStreetMap&apos;s geocoder, and the imagery is open raster tiles. No Google API,
@@ -388,6 +388,32 @@ export default async function PlacePreview() {
             </Plate>
             <Caption title={`${CAPTURED.name} — ${CAPTURED.address}`} sub={null} />
             <ListLine name="Paris, next trip" />
+          </Treatment>
+
+          {/* ── M · the box path, through the REAL PrimaryCard ───────────── */}
+          <Treatment
+            tag="M · CSS-clipped box"
+            note="What a NEW save now renders: no cut file, no image processing — the full capture clipped to a stored fractional box. Driven through the live PrimaryCard, so if this matches J's photo the maths is right."
+          >
+            <PrimaryCard
+              url={SAVED_URL}
+              title="Google Maps"
+              imageUrl={null}
+              screenshotUrl={SAVED_SCREENSHOT}
+              faviconUrl={null}
+              cardType="article"
+              place={{
+                name: CAPTURED.name, kind: CAPTURED.kind, price: CAPTURED.price,
+                rating: CAPTURED.rating, reviews: CAPTURED.reviews,
+                address: CAPTURED.address, city: 'Paris',
+                lat: 48.8531013, lon: 2.3313953,
+                photo: null,
+                // Exactly what photoBoxFromEdges() computes from the verified
+                // edges: x .055 y .100 w .263 h .238 of a 1466x702 capture.
+                photoBox: { x: 0.055, y: 0.100, w: 0.263, h: 0.238, sourceAspect: 1466 / 702 },
+                source: 'capture-vision',
+              }}
+            />
           </Treatment>
         </div>
 

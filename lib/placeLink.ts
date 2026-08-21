@@ -33,8 +33,19 @@ export interface PlaceMeta {
   city: string | null
   lat: number | null
   lon: number | null
-  /** Storage URL of the hero photo cropped out of the capture. */
+  /** Storage URL of a hero photo cut as its own file. Only the backfill script
+   *  produces one (it has ImageMagick); the save path stores a box instead. */
   photo: string | null
+  /** The hero photo as a fractional box within the capture, clipped in CSS.
+   *  Lets save-time enrichment run on Vercel with no image processing. */
+  photoBox: {
+    x: number
+    y: number
+    w: number
+    h: number
+    /** capture width / capture height */
+    sourceAspect: number
+  } | null
   source: string
 }
 
