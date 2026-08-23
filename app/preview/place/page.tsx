@@ -50,7 +50,7 @@ const WARM_PLATE = '#efeae1'
 // Verbatim from PrimaryCard — the live card's caption styles. Kept as consts so
 // the preview can't quietly drift from the component it's proposing a change to.
 const TITLE_CLS =
-  'font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink/80'
+  'font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56]'
 const TITLE_MASK =
   '[-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]'
 const SECONDARY_CLS =
