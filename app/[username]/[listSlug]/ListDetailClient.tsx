@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { ListHero } from '@/components/ListHero'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
 import { BulletDetail } from '@/components/BulletDetail'
@@ -55,9 +55,11 @@ export function ListDetailClient({
   const [memberIds, setMemberIds] = useState<string[]>(initialList.bookmark_ids)
   const [lists, setLists] = useState<List[]>(initialLists)
 
-  const [renaming, setRenaming] = useState(false)
-  const [renameValue, setRenameValue] = useState('')
-  const [editingDesc, setEditingDesc] = useState(false)
+  // Rename and description used to be two independent inline modes (a pencil
+  // by the title, click-the-paragraph for the description). In a centred
+  // masthead those read as clutter, so both live behind one Edit affordance.
+  const [editing, setEditing] = useState(false)
+  const [nameValue, setNameValue] = useState('')
   const [descValue, setDescValue] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -209,134 +211,88 @@ export function ListDetailClient({
 
   return (
     <>
-      <div className="mb-8 border-b border-gray-100 pb-6 sm:mb-10 sm:pb-8">
-        <Link href={`/${username}`} className="text-sm text-stone-400 hover:text-ink">
-          ← back
-        </Link>
-        <div className="mt-2 flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            {renaming ? (
-              <input
-                autoFocus
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onKeyDown={async (e) => {
-                  if (e.key === 'Enter') {
-                    await handleRename(renameValue)
-                    setRenaming(false)
-                  } else if (e.key === 'Escape') {
-                    setRenaming(false)
-                  }
-                }}
-                onBlur={() => setRenaming(false)}
-                className="w-full bg-transparent border-b border-stone-300 pb-1 font-serif text-2xl sm:text-[28px] italic tracking-tight text-ink focus:outline-none focus:border-stone-500"
-              />
-            ) : (
-              <div className="flex items-baseline gap-2 min-w-0">
-                <h1 className="truncate font-serif text-2xl sm:text-[28px] font-normal italic tracking-tight text-ink leading-tight">
-                  {list.name}
-                </h1>
-                <button
-                  onClick={() => { setRenameValue(list.name); setRenaming(true) }}
-                  aria-label="rename list"
-                  title="rename"
-                  className="shrink-0 text-stone-300 hover:text-ink transition-colors"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
-                  </svg>
-                </button>
-              </div>
-            )}
+      {editing ? (
+        // Same metrics as ListHero so nothing jumps between view and edit.
+        <div className="mx-auto max-w-[720px] px-4 pb-10 pt-4 text-center sm:pb-14 sm:pt-8">
+          <p className="font-sans text-[14px] leading-5 text-ink/[0.45]">
+            {bullets.length} {bullets.length === 1 ? 'Bullet' : 'Bullets'}
+          </p>
 
-            {editingDesc ? (
-              <div className="mt-3">
-                <textarea
-                  autoFocus
-                  value={descValue}
-                  onChange={(e) => setDescValue(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      await handleUpdateDescription(descValue)
-                      setEditingDesc(false)
-                    } else if (e.key === 'Escape') {
-                      setEditingDesc(false)
-                    }
-                  }}
-                  className="w-full bg-transparent border-b border-stone-300 pb-1 text-sm text-stone-600 focus:outline-none focus:border-stone-500 resize-none"
-                  rows={2}
-                  placeholder="add a description…"
-                />
-                <div className="mt-2 flex gap-3">
-                  <button
-                    onClick={async () => {
-                      await handleUpdateDescription(descValue)
-                      setEditingDesc(false)
-                    }}
-                    className="text-xs uppercase tracking-wider text-ink hover:underline"
-                  >
-                    save
-                  </button>
-                  <button
-                    onClick={() => setEditingDesc(false)}
-                    className="text-xs uppercase tracking-wider text-stone-400 hover:text-ink transition-colors"
-                  >
-                    cancel
-                  </button>
-                </div>
-              </div>
-            ) : list.description ? (
-              <p
-                onClick={() => { setDescValue(list.description || ''); setEditingDesc(true) }}
-                className="mt-3 text-sm text-stone-600 cursor-pointer hover:text-ink transition-colors"
-              >
-                {list.description}
-              </p>
-            ) : (
-              <button
-                onClick={() => { setDescValue(''); setEditingDesc(true) }}
-                className="mt-3 text-xs text-stone-400 hover:text-stone-600 transition-colors"
-              >
-                + add description
-              </button>
-            )}
+          <input
+            autoFocus
+            value={nameValue}
+            onChange={(e) => setNameValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
+            aria-label="List name"
+            className="mt-2 w-full border-b border-black/15 bg-transparent pb-1 text-center font-sans text-[32px] font-[700] leading-[1.1] tracking-[-0.02em] text-ink focus:border-black/40 focus:outline-none sm:text-[40px]"
+          />
 
-            <div className="mt-3 flex gap-5 text-xs uppercase tracking-wider text-gray-400">
-              <span>
-                <span className="text-gray-900 font-medium">{bullets.length}</span>{' '}
-                <span>{bullets.length === 1 ? 'bullet' : 'bullets'}</span>
-              </span>
-              {list.is_private && <span className="text-stone-400">private</span>}
-            </div>
-          </div>
+          <textarea
+            value={descValue}
+            onChange={(e) => setDescValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
+            rows={2}
+            placeholder="What is this list for?"
+            aria-label="List description"
+            className="mx-auto mt-4 block w-full max-w-[520px] resize-none border-b border-black/15 bg-transparent pb-1 text-center font-serif text-[16px] leading-[1.45] text-ink/[0.55] placeholder:text-ink/[0.35] focus:border-black/40 focus:outline-none"
+          />
 
-          {confirmingDelete ? (
-            <div className="flex shrink-0 items-center gap-2 text-sm">
-              <button
-                onClick={handleDeleteList}
-                className="rounded-full bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
-              >
-                delete
-              </button>
-              <button
-                onClick={() => setConfirmingDelete(false)}
-                className="text-xs text-stone-400 hover:text-ink"
-              >
-                cancel
-              </button>
-            </div>
-          ) : (
+          <div className="mt-6 flex items-center justify-center gap-5">
+            {/* handleRename no-ops on an empty name, so without this the panel
+                would close having silently kept the old one. */}
             <button
-              onClick={() => setConfirmingDelete(true)}
-              className="shrink-0 text-sm text-stone-400 hover:text-red-600"
+              disabled={!nameValue.trim()}
+              onClick={async () => {
+                await handleRename(nameValue)
+                await handleUpdateDescription(descValue)
+                setEditing(false)
+              }}
+              className="label rounded-full bg-ink px-4 py-2 text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-30"
             >
-              delete list
+              Save
             </button>
-          )}
+            <button onClick={() => setEditing(false)} className="label text-ink/[0.45] transition-colors hover:text-ink">
+              Cancel
+            </button>
+            {confirmingDelete ? (
+              <span className="flex items-center gap-3">
+                <button onClick={handleDeleteList} className="label text-red-600 hover:underline">
+                  Delete for good
+                </button>
+                <button onClick={() => setConfirmingDelete(false)} className="label text-ink/[0.45] hover:text-ink">
+                  Keep
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="label text-ink/[0.45] transition-colors hover:text-red-600"
+              >
+                Delete list
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <ListHero
+          count={bullets.length}
+          name={list.name}
+          description={list.description}
+          isPrivate={list.is_private}
+        >
+          <button
+            onClick={() => {
+              setNameValue(list.name)
+              setDescValue(list.description || '')
+              setConfirmingDelete(false)
+              setEditing(true)
+            }}
+            className="label rounded-full border border-black/[0.12] px-4 py-2 text-ink/[0.55] transition-colors hover:border-black/30 hover:text-ink"
+          >
+            Edit
+          </button>
+        </ListHero>
+      )}
 
       {bullets.length > 0 ? (
         <Masonry>
