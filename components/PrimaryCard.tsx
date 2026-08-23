@@ -116,7 +116,7 @@ function PlaceFacts({ place }: { place: PlaceMeta }) {
   return (
     <div className="px-5 pb-5 pt-4">
       {place.name && (
-        <p className="truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink/80">
+        <p className="truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56]">
           {place.name}
         </p>
       )}
@@ -295,13 +295,22 @@ export const PrimaryCard = memo(function PrimaryCard({
       )}
       </div>
 
-      {/* Title — Mier A Book 14px, one line. Overflow FADES to transparent at the
+      {/* Title — Figma ProjectX "Body/Large": Mier A Book, 14/20, 0.05em,
+          color rgba(0,0,0,0.7) with the layer at opacity 0.8. Figma multiplies
+          those, so the rendered alpha is 0.56 — hence text-black/[0.56], not
+          /70 or /80.
+
+          The export reads `font-weight: 500`. Do NOT copy that number here.
+          MierA-Book.woff2 declares usWeightClass 500 internally, but app/fonts.ts
+          registers it at 400 (and MierA-Regular, which is internally 400, at
+          500). So font-[400] IS Book; font-[500] would load Regular and quietly
+          change the cut. Overflow FADES to transparent at the
           right edge (mask gradient) rather than a hard "…" ellipsis. */}
       {/* A Place card states its name inside the plate, so the caption title
           would say it twice. The LIST line below still renders — that's a
           different fact, and the only one the plate doesn't carry. */}
       {cleanTitle && !place && (
-        <p className="relative z-10 mt-5 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink/80 [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
+        <p className="relative z-10 mt-5 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56] [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
           {cleanTitle}
         </p>
       )}
