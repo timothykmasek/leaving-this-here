@@ -107,6 +107,19 @@ body {
   transition: box-shadow 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
+/* A card whose image dissolves into the page cannot also float above it. At
+   0 1px 2px the resting shadow pools along the bottom edge — exactly the edge
+   the foot-fade exists to erase — so it reads as a hairline under a card that
+   is supposed to melt away. Cards carrying the fade opt out of the RESTING
+   shadow only.
+
+   Declared BEFORE the hover rules on purpose: same specificity (0,2,0), so
+   source order decides and hover still wins. A deliberate lift on hover isn't
+   in conflict with anything. */
+.card-lift.card-lift-flat {
+  box-shadow: none;
+}
+
 .card-lift:hover,
 .card-lift:focus-visible,
 .card-lift:focus-within,
