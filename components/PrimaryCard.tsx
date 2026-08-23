@@ -221,6 +221,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           wins the cascade and the ring never paints. (True of the ring-1 on the
           non-place branch below too: it has never rendered. Left as-is here
           because removing it is a visual change to every card, not this one.) */}
+      <div className="relative w-full">
       <div
         className={`relative w-full overflow-hidden rounded-[20px] card-lift ${
           place ? 'bg-paper' : 'bg-card'
@@ -278,13 +279,29 @@ export const PrimaryCard = memo(function PrimaryCard({
         {place && <PlaceFacts place={place} />}
       </div>
 
+      {/* Backdrop scrim — Figma ProjectX "Rectangle 5111": 45px tall, sitting
+          BELOW the card (top 439.2 on a 439.2-tall card), white at the card's
+          edge fading down to transparent.
+          
+          What it's for: the page carries a fixed dot grid (.dot-ground), so a
+          card whose foot-fade ends in white meets dots immediately below it.
+          This softens that band, which is what lets the card melt into the page
+          instead of stopping at one. Only meaningful where there's a fade. */}
+      {hasFade && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-full z-0 h-[45px] bg-[linear-gradient(180deg,#FFFFFF_0%,rgba(255,255,255,0)_100%)]"
+        />
+      )}
+      </div>
+
       {/* Title — Mier A Book 14px, one line. Overflow FADES to transparent at the
           right edge (mask gradient) rather than a hard "…" ellipsis. */}
       {/* A Place card states its name inside the plate, so the caption title
           would say it twice. The LIST line below still renders — that's a
           different fact, and the only one the plate doesn't carry. */}
       {cleanTitle && !place && (
-        <p className="mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink/80 [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
+        <p className="relative z-10 mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink/80 [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
           {cleanTitle}
         </p>
       )}
@@ -348,7 +365,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             <span className="truncate">{listName}</span>
           </>
         )
-        const cls = `${place ? 'mt-3' : 'mt-1.5'} flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/[0.55]`
+        const cls = `relative z-10 ${place ? 'mt-3' : 'mt-1.5'} flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/[0.55]`
         return listHref ? (
           <a href={listHref} className={`${cls} transition-colors hover:text-ink`}>{inner}</a>
         ) : (
