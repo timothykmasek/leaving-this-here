@@ -192,6 +192,10 @@ export const PrimaryCard = memo(function PrimaryCard({
     setLightEdges(light === true)
   }, [])
 
+  // The foot-fade only means anything over a real image; an imageless card
+  // shows the favicon plate and has no photo to dissolve.
+  const hasFade = !place && candidates.length > 0
+
   const placePhoto =
     place && !place.photo && place.photoBox && screenshotUrl
       ? { src: screenshotUrl, box: place.photoBox }
@@ -222,6 +226,11 @@ export const PrimaryCard = memo(function PrimaryCard({
           place ? 'bg-paper' : 'bg-card'
         } ${
           place || lightEdges ? 'border border-[#EBEBEB]' : 'ring-1 ring-black/[0.03]'
+        } ${
+          // Has a foot-fade and no border to define it → let it dissolve
+          // cleanly. A light card keeps its resting shadow because its border
+          // is already a deliberate edge; a Place card has no fade at all.
+          hasFade && !place && !lightEdges ? 'card-lift-flat' : ''
         }`}
       >
         {/* Own stacking context so the affordance pins to the IMAGE, not the
@@ -255,7 +264,7 @@ export const PrimaryCard = memo(function PrimaryCard({
 
               Skipped on a Place card, where the image meets its facts block
               rather than the page. */}
-          {!place && (
+          {hasFade && (
             <div
               aria-hidden
               className="pointer-events-none absolute inset-x-0 bottom-0 h-[19%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,#FFFFFF_100%)]"
