@@ -243,12 +243,22 @@ export const PrimaryCard = memo(function PrimaryCard({
           />
           )}
 
-          {/* Soft foot-fade to paper — matches the DS plate. Skipped on a Place
-              card, where the image meets a text block rather than the page. */}
+          {/* Foot-fade — the image dissolves into the page at its bottom edge.
+              Figma ProjectX: linear-gradient(180deg, rgba(255,255,255,0), #FFFFFF)
+              over a "Gradients" group 93.2px tall on a ~484px image, i.e. the
+              bottom ~19%.
+
+              It previously stopped at 70% white, which is why it read as haze
+              rather than a dissolve: the image stayed visible right to the cut.
+              Written out in full rather than with Tailwind's gradient stop
+              utilities, so the end stop is unambiguously solid white.
+
+              Skipped on a Place card, where the image meets its facts block
+              rather than the page. */}
           {!place && (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-[18%] bg-gradient-to-b from-transparent to-paper/70"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-[19%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,#FFFFFF_100%)]"
             />
           )}
 
