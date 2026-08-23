@@ -790,15 +790,27 @@ export default function ProfileClient({
                 same three-dot tick used on a card's list line. Hidden while
                 searching. */}
             {!query.trim() && (
-              <div className="flex h-[62px] w-full max-w-[371px] shrink items-center rounded-[20px] border border-[#EBEBEB] p-[5px] sm:shrink-0">
+              <div className="relative flex h-[62px] w-full max-w-[371px] shrink items-center rounded-[20px] border border-[#EBEBEB] p-[5px] sm:shrink-0">
+                {/* One pill that slides, rather than a background toggling on
+                    each segment. The strip carries 5px of padding, so a segment
+                    is calc(50% - 5px) — which is also the pill's own width,
+                    hence translateX(100%) lands it exactly on segment two
+                    (verified: 975px, the Lists segment's left edge).
+
+                    Easing matches .card-lift's. */}
+                <span
+                  aria-hidden
+                  className="absolute left-[5px] top-[5px] h-[52px] w-[calc(50%-5px)] rounded-[20px] bg-[#F3F3F3] transition-transform duration-[280ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none"
+                  style={{ transform: activeTab === 'lists' ? 'translateX(100%)' : 'translateX(0)' }}
+                />
                 {([['recent', 'Recent Bullets'], ['lists', 'Lists']] as const).map(([tab, label]) => {
                   const on = activeTab === tab
                   return (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`flex h-[52px] min-w-0 flex-1 items-center justify-center gap-[7px] rounded-[20px] font-sans text-[14px] font-[600] leading-5 transition-colors ${
-                        on ? 'bg-[#F3F3F3] text-ink' : 'text-black/30 hover:text-black/50'
+                      className={`relative z-10 flex h-[52px] min-w-0 flex-1 items-center justify-center gap-[7px] rounded-[20px] font-sans text-[14px] font-[600] leading-5 transition-colors ${
+                        on ? 'text-ink' : 'text-black/30 hover:text-black/50'
                       }`}
                     >
                       {tab === 'recent' ? (
