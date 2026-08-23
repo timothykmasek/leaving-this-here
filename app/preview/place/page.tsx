@@ -59,7 +59,7 @@ const SECONDARY_CLS =
 function Caption({ title, sub }: { title: string; sub?: string | null }) {
   return (
     <>
-      <p className={`mt-3 overflow-hidden whitespace-nowrap ${TITLE_CLS} ${TITLE_MASK}`}>
+      <p className={`mt-5 overflow-hidden whitespace-nowrap ${TITLE_CLS} ${TITLE_MASK}`}>
         {title}
       </p>
       {sub && (
@@ -79,7 +79,7 @@ function Caption({ title, sub }: { title: string; sub?: string | null }) {
 /** The real caption's second line: the LIST this bullet sits in. Not the address. */
 function ListLine({ name }: { name: string }) {
   return (
-    <p className={`mt-3 flex items-center gap-[7px] truncate ${SECONDARY_CLS} text-ink/55`}>
+    <p className={`mt-5 flex items-center gap-[7px] truncate ${SECONDARY_CLS} text-ink/55`}>
       <span aria-hidden className="flex shrink-0 flex-col items-center justify-center gap-[2px] opacity-60">
         <span className="h-[2px] w-[2px] rounded-full bg-current" />
         <span className="h-[2px] w-[2px] rounded-full bg-current" />
