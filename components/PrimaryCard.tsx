@@ -301,7 +301,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           would say it twice. The LIST line below still renders — that's a
           different fact, and the only one the plate doesn't carry. */}
       {cleanTitle && !place && (
-        <p className="relative z-10 mt-3 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink/80 [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
+        <p className="relative z-10 mt-5 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-ink/80 [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
           {cleanTitle}
         </p>
       )}
@@ -365,7 +365,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             <span className="truncate">{listName}</span>
           </>
         )
-        const cls = `relative z-10 ${place ? 'mt-3' : 'mt-1.5'} flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/[0.55]`
+        const cls = `relative z-10 ${place ? 'mt-5' : 'mt-1.5'} flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/[0.55]`
         return listHref ? (
           <a href={listHref} className={`${cls} transition-colors hover:text-ink`}>{inner}</a>
         ) : (
