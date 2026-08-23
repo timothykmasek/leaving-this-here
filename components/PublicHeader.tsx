@@ -11,9 +11,13 @@ import { BulletinHeader } from '@/components/BulletinHeader'
 export function PublicHeader({
   loggedIn,
   logoClassName,
+  tagline,
+  widthClassName,
 }: {
   loggedIn: boolean
   logoClassName?: string
+  tagline?: React.ReactNode
+  widthClassName?: string
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -32,6 +36,8 @@ export function PublicHeader({
           : { label: 'Sign in', href: '/login' }
       }
       logoClassName={logoClassName}
+      tagline={tagline}
+      widthClassName={widthClassName}
     />
   )
 }

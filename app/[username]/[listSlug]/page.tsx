@@ -4,8 +4,8 @@ import { getProfileByUsername, getListBySlug } from '@/lib/queries'
 import { timed } from '@/lib/timing'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
+import { ListHero, ListTagline } from '@/components/ListHero'
 import { PublicHeader } from '@/components/PublicHeader'
-import { ProfileIdentity } from '@/components/ProfileIdentity'
 import { ListDetailClient } from './ListDetailClient'
 import { SiteFooter } from '@/components/SiteFooter'
 
@@ -17,6 +17,9 @@ import { SiteFooter } from '@/components/SiteFooter'
 // previews + first paint) instead of a client-side loading→fetch waterfall.
 
 // Only the columns the cards render (raw_metadata is passed but never read).
+// Same fluid grid as the profile: page margin equals the column gutter.
+const LIST_GRID = 'max-w-[1720px] px-4 sm:px-10'
+
 const BULLET_COLS =
   'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place'
 
@@ -102,11 +105,13 @@ export default async function ListPage({
 
     return (
       <main className="min-h-screen">
-        <PublicHeader loggedIn logoClassName="h-[32px] sm:h-[44px]" />
-        <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
-          <div className="mb-9">
-            <ProfileIdentity name={owner} bio={profile.bio} links={profile.links} />
-          </div>
+        <PublicHeader
+          loggedIn
+          logoClassName="h-[32px] sm:h-[44px]"
+          widthClassName={LIST_GRID}
+          tagline={<ListTagline username={profile.username} ownerName={owner} isOwner />}
+        />
+        <div className={`mx-auto ${LIST_GRID} pb-16 pt-4 sm:pt-8`}>
           <ListDetailClient
             username={profile.username}
             profileId={profile.id}
@@ -131,35 +136,19 @@ export default async function ListPage({
 
   return (
     <main className="min-h-screen">
-      <PublicHeader loggedIn={!!user} logoClassName="h-[32px] sm:h-[44px]" />
-      <div className="mx-auto max-w-[1208px] px-4 pb-16 pt-8 sm:px-6 sm:pt-16">
-        {/* Author identity strip — keeps profile context when landing here directly. */}
-        <div className="mb-9">
-          <ProfileIdentity name={owner} bio={profile.bio} links={profile.links} />
-        </div>
-        <div className="mb-8 border-b border-gray-100 pb-6 sm:mb-10 sm:pb-8">
-          <Link
-            href={`/${username}`}
-            className="text-sm text-stone-400 hover:text-ink"
-          >
-            ← back
-          </Link>
-          <h1 className="mt-2 font-serif text-2xl sm:text-[28px] font-normal italic tracking-tight text-ink leading-tight">
-            {list.name}
-          </h1>
-          {list.description && (
-            <p className="mt-3 text-sm text-stone-600">
-              {list.description}
-            </p>
-          )}
-          <div className="mt-3 flex gap-5 text-xs uppercase tracking-wider text-gray-400">
-            <span>
-              <span className="text-gray-900 font-medium">{bullets.length}</span>{' '}
-              <span>{bullets.length === 1 ? 'bullet' : 'bullets'}</span>
-            </span>
-            {list.is_private && <span className="text-stone-400">private</span>}
-          </div>
-        </div>
+      <PublicHeader
+        loggedIn={!!user}
+        logoClassName="h-[32px] sm:h-[44px]"
+        widthClassName={LIST_GRID}
+        tagline={<ListTagline username={username} ownerName={owner} isOwner={false} />}
+      />
+      <div className={`mx-auto ${LIST_GRID} pb-16 pt-4 sm:pt-8`}>
+        <ListHero
+          count={bullets.length}
+          name={list.name}
+          description={list.description}
+          isPrivate={!!list.is_private}
+        />
 
         {bullets.length > 0 ? (
           <Masonry>
