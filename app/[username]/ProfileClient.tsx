@@ -772,37 +772,45 @@ export default function ProfileClient({
                   if (searchTimer.current) clearTimeout(searchTimer.current)
                   if (v.trim()) searchTimer.current = setTimeout(() => handleSearch(v), 250)
                 }}
-                // font-size ≥16px so iOS Safari doesn't auto-zoom on focus.
-                className="w-full max-w-[300px] border-b border-ink bg-transparent pb-1.5 font-sans text-[16px] text-ink placeholder:text-ink focus:outline-none"
+                // Figma: 359x62, 1px #BCBCBC, radius 20, Mier A 600 14/20 #000,
+                // 20px inset. 14px is safe here despite iOS Safari's auto-zoom
+                // on sub-16px inputs — globals.css already floors every text
+                // control at 16px under 640px.
+                className="h-[62px] w-full max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-transparent px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black focus:outline-none"
               />
             )}
 
-            {/* View tabs (Figma 912:23527/23524). Both segments are #f3f3f3
-                rounded-2px blocks; the SELECTED one gets black text + four black
-                corner registration dots, the other grey text. Hidden while
+            {/* View tabs — Figma Group 100667: a single 371x62 container,
+                1px #EBEBEB, radius 20, 5px padding; the SELECTED segment is a
+                52px-tall #F3F3F3 pill at the same radius. (Was two separate
+                #f3f3f3 blocks with corner registration dots.)
+
+                Each tab carries its own glyph rather than the dots marking
+                selection: a filled dot for Recent Bullets, and for Lists the
+                same three-dot tick used on a card's list line. Hidden while
                 searching. */}
             {!query.trim() && (
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex h-[62px] w-full max-w-[371px] shrink items-center rounded-[20px] border border-[#EBEBEB] p-[5px] sm:shrink-0">
                 {([['recent', 'Recent Bullets'], ['lists', 'Lists']] as const).map(([tab, label]) => {
                   const on = activeTab === tab
                   return (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`relative rounded-[2px] bg-[#f3f3f3] px-7 py-2.5 text-center font-sans text-[14px] font-[600] shadow-[0px_-4px_64px_0px_rgba(0,0,0,0.05)] transition-colors ${
-                        on ? 'text-ink' : 'text-black/30 hover:text-black/50'
+                      className={`flex h-[52px] min-w-0 flex-1 items-center justify-center gap-[7px] rounded-[20px] font-sans text-[14px] font-[600] leading-5 transition-colors ${
+                        on ? 'bg-[#F3F3F3] text-ink' : 'text-black/30 hover:text-black/50'
                       }`}
                     >
-                      {/* selected-state registration dots at the four corners */}
-                      {on && (
-                        <>
-                          <span aria-hidden className="absolute left-0 top-0 h-[4px] w-[4px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-ink" />
-                          <span aria-hidden className="absolute right-0 top-0 h-[4px] w-[4px] translate-x-1/2 -translate-y-1/2 rounded-full bg-ink" />
-                          <span aria-hidden className="absolute bottom-0 left-0 h-[4px] w-[4px] -translate-x-1/2 translate-y-1/2 rounded-full bg-ink" />
-                          <span aria-hidden className="absolute bottom-0 right-0 h-[4px] w-[4px] translate-x-1/2 translate-y-1/2 rounded-full bg-ink" />
-                        </>
+                      {tab === 'recent' ? (
+                        <span aria-hidden className="h-[7px] w-[7px] shrink-0 rounded-full bg-current" />
+                      ) : (
+                        <span aria-hidden className="flex shrink-0 flex-col items-center justify-center gap-[2px]">
+                          <span className="h-[2px] w-[2px] rounded-full bg-current" />
+                          <span className="h-[2px] w-[2px] rounded-full bg-current" />
+                          <span className="h-[2px] w-[2px] rounded-full bg-current" />
+                        </span>
                       )}
-                      {label}
+                      <span className="truncate">{label}</span>
                     </button>
                   )
                 })}
