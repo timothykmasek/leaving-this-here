@@ -21,6 +21,7 @@ import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BracketLabel } from '@/components/BulletinHeader'
 import { formatTimestampLabel } from '@/lib/timestampLabel'
+import { LinkStrip } from '@/components/LinkStrip'
 
 export function ListMasthead({
   name,
@@ -31,6 +32,7 @@ export function ListMasthead({
   backHref,
   backLabel,
   coverUrl,
+  stripThumbs = [],
   isPrivate = false,
   coverControl,
   editControl,
@@ -43,7 +45,11 @@ export function ListMasthead({
   ownerName: string
   backHref: string
   backLabel: string
+  /** null = never chosen, so the default band renders. '' = the owner
+   *  deliberately chose NO cover. A URL = that image. */
   coverUrl?: string | null
+  /** Images for the default band, when no cover has been chosen. */
+  stripThumbs?: string[]
   isPrivate?: boolean
   /** Owner's cover affordance (add / replace / remove). */
   coverControl?: ReactNode
@@ -111,7 +117,30 @@ export function ListMasthead({
         <BracketLabel>{backLabel}</BracketLabel>
       </Link>
 
-      {coverUrl ? (
+      {coverUrl === '' || (coverUrl == null && stripThumbs.length === 0) ? (
+        // No cover: either deliberately chosen ('') or a list with no images to
+        // build a band from. A composed row, not an empty frame.
+        <div className="mt-6">{title}</div>
+      ) : coverUrl == null ? (
+        // DEFAULT — the list's own contact-sheet band, the same asset its card
+        // shows in the overview grid. Every list gets an identity for free, with
+        // nobody having to go and find a photo. No bottom gradient here: the
+        // plate is already the card surface, so the name reads on it directly.
+        <div className="group relative mt-6 aspect-[1184/480] max-h-[360px] w-full overflow-hidden rounded-[20px] bg-card">
+          <LinkStrip
+            thumbs={stripThumbs}
+            className="absolute inset-x-0"
+            // Centred band. Shorter plate and a proportionally taller band than
+            // the card uses: at 480 tall the card's 28% left 173px of bare grey
+            // above and below, which reads as an unfinished box rather than a
+            // composed one. 25% caps a panorama from taking the masthead; most
+            // tiles fall well under it, a 1.9:1 og image being ~19% at this height.
+            style={{ top: '34%', height: '32%' }}
+            thumbMaxWidth="25%"
+          />
+          <div className="absolute inset-x-6 bottom-5 sm:inset-x-8 sm:bottom-6">{title}</div>
+        </div>
+      ) : (
         // Cover. aspect-ratio holds the mock's 1184/480 on narrow screens, and
         // max-h caps it on wide ones — this grid runs to 1720, where a true
         // 2.47:1 would be a ~700px wall of photo before any content. Spanning
@@ -127,10 +156,6 @@ export function ListMasthead({
           />
           <div className="absolute inset-x-6 bottom-5 sm:inset-x-8 sm:bottom-6">{title}</div>
         </div>
-      ) : (
-        // No cover is a real choice, not an empty frame — so this state gets a
-        // composed row rather than a placeholder box.
-        <div className="mt-6">{title}</div>
       )}
 
       {/* Same columns as the card grid below: 2 up / 3 at sm / 4 at lg, 40px

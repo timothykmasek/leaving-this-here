@@ -11,6 +11,7 @@
 // (`h-full w-auto`), not from us.
 
 import Link from 'next/link'
+import { LinkStrip } from '@/components/LinkStrip'
 
 // Geometry as percentages of the 295×393 plate, so the card scales with its
 // grid column instead of pinning to the Figma artboard's pixels.
@@ -61,45 +62,16 @@ export function CollectionCard({
         ))}
       </span>
 
-      {/* Filmstrip. Centred so it bleeds symmetrically — the export's -77/+12
-          offset is just where that particular set of widths landed, and centring
-          is the rule that holds for any number of thumbs. The plate's
-          overflow-hidden does the cropping. */}
-      <div
-        className="absolute inset-x-0 flex justify-center"
+      {/* The card's identity: a contact-sheet band of its members, bleeding off
+          both edges into the plate. Shared with the list page's default cover
+          (components/LinkStrip) — the same asset at two scales. */}
+      <LinkStrip
+        thumbs={thumbs}
+        className="absolute inset-x-0"
         style={{ top: STRIP_TOP, height: STRIP_H }}
-      >
-        {thumbs.map((src, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={`${src}-${i}`}
-            src={src}
-            alt=""
-            className="h-full w-auto shrink-0 bg-black/[0.04] object-cover"
-            style={{ maxWidth: THUMB_MAX_W }}
-          />
-        ))}
-
-        {/* Edge fades, so the strip dissolves into the plate instead of being
-            guillotined by it. Scoped to the STRIP's band, not the full plate
-            height as the Figma rects are: identical output (the plate behind is
-            the same #F1F1F1) but it cannot reach the dots or the name, which
-            share the same 20px inset and sat inside the left fade's opaque end.
-
-            Faded to rgba(241,241,241,0) rather than `transparent` — the latter
-            is transparent *black*, which risks a grey cast mid-ramp. Same
-            explicit form PrimaryCard's image fade uses. */}
-        <span
-          aria-hidden
-          className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,#F1F1F1_0%,rgba(241,241,241,0)_100%)]"
-          style={{ width: FADE_W }}
-        />
-        <span
-          aria-hidden
-          className="absolute inset-y-0 right-0 bg-[linear-gradient(270deg,#F1F1F1_0%,rgba(241,241,241,0)_100%)]"
-          style={{ width: FADE_W }}
-        />
-      </div>
+        thumbMaxWidth={THUMB_MAX_W}
+        fadeWidth={FADE_W}
+      />
 
       {/* Name + count, anchored to the bottom-left 20px inset. Anchoring the
           BLOCK (rather than positioning each line at its Figma offset) keeps the

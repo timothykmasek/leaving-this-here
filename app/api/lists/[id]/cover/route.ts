@@ -90,6 +90,24 @@ export async function POST(
 
   if (reqType.includes('application/json')) {
     const body = await req.json().catch(() => null)
+
+    // Three states, two of which store no bytes:
+    //   null → no cover chosen, so the list page renders its default band of
+    //          link images (the same asset its card shows in the overview).
+    //   ''   → the owner deliberately chose to have NO cover.
+    //   URL  → that image.
+    // Without the '' sentinel, null would have to mean both "never chose" and
+    // "chose none", and Remove could never do anything once a default existed.
+    // `screenshot_url` already uses an empty string this way.
+    if (body?.mode === 'default' || body?.mode === 'none') {
+      const { error } = await supabase
+        .from('lists')
+        .update({ cover_image_url: body.mode === 'none' ? '' : null })
+        .eq('id', params.id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ url: body.mode === 'none' ? '' : null })
+    }
+
     const sourceUrl = body?.sourceUrl
     if (typeof sourceUrl !== 'string' || !/^https?:\/\//i.test(sourceUrl)) {
       return NextResponse.json({ error: 'sourceUrl must be an http(s) URL' }, { status: 400 })
@@ -163,12 +181,14 @@ export async function DELETE(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'not signed in' }, { status: 401 })
 
-  // Only the row is cleared. The stored object is left alone: it costs almost
-  // nothing, re-adding a cover overwrites the same path anyway, and deleting
-  // bytes is the one step here that can't be undone.
+  // '' not null — the owner is choosing to have NO cover, which is a different
+  // state from "hasn't chosen", where the default band renders. Only the row
+  // changes; the stored object is left alone, since re-adding overwrites the
+  // same path anyway and deleting bytes is the one step here that can't be
+  // undone.
   const { error } = await supabase
     .from('lists')
-    .update({ cover_image_url: null })
+    .update({ cover_image_url: '' })
     .eq('id', params.id)
     .eq('user_id', user.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

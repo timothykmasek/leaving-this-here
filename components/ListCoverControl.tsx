@@ -31,14 +31,18 @@ const UNKNOWN_SCORE = 0.75
 export function ListCoverControl({
   listId,
   hasCover,
+  usingDefault,
   candidates = [],
   onChange,
 }: {
   listId: string
   hasCover: boolean
+  /** True when no cover has been chosen and the default link band is showing. */
+  usingDefault: boolean
   /** Images already on this list's bullets, offered as one-click covers. */
   candidates?: string[]
-  /** Called with the new public URL, or null once the cover is removed. */
+  /** New cover value: a URL, null for "use the default band", or '' for
+   *  "no cover at all". The three are different states, not one nullable one. */
   onChange: (url: string | null) => void
 }) {
   const [open, setOpen] = useState(false)
@@ -84,7 +88,7 @@ export function ListCoverControl({
         const res = await fetch(`/api/lists/${listId}/cover`, init)
         const json = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(json.error || 'that did not work')
-        onChange(json.url ?? null)
+        onChange(json.url === undefined ? null : json.url)
         setOpen(false)
       } catch (err: any) {
         setError(err?.message || 'that did not work')
@@ -94,6 +98,12 @@ export function ListCoverControl({
     },
     [listId, onChange]
   )
+
+  const sendMode = (mode: 'default' | 'none') =>
+    send(
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ mode }) },
+      mode
+    )
 
   const chooseExisting = (url: string) =>
     send(
@@ -194,15 +204,26 @@ export function ListCoverControl({
                 />
               </label>
 
-              {hasCover && (
+              {/* The two coverless states are genuinely different and both are
+                  reachable: fall back to the band built from this list's links,
+                  or have no cover at all. */}
+              {!usingDefault && (
                 <button
-                  onClick={() => send({ method: 'DELETE' }, 'remove')}
+                  onClick={() => sendMode('default')}
                   disabled={busy !== null}
                   className={`${PILL} border-none bg-transparent text-black/50 hover:text-ink`}
                 >
-                  {busy === 'remove' ? 'Removing…' : 'Remove cover'}
+                  {busy === 'default' ? 'Switching…' : 'Use my links'}
                 </button>
               )}
+
+              <button
+                onClick={() => sendMode('none')}
+                disabled={busy !== null}
+                className={`${PILL} border-none bg-transparent text-black/50 hover:text-ink`}
+              >
+                {busy === 'none' ? 'Removing…' : 'No cover'}
+              </button>
 
               <button
                 onClick={() => setOpen(false)}

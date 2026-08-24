@@ -39,6 +39,7 @@ export function ListDetailClient({
   initialLists,
   updatedAt,
   backHref,
+  stripThumbs,
 }: {
   username: string
   profileId: string
@@ -50,6 +51,8 @@ export function ListDetailClient({
   /** ISO timestamp of the most recent add — derived server-side. */
   updatedAt: string | null
   backHref: string
+  /** Thumbs for the masthead's default cover band, built server-side. */
+  stripThumbs: string[]
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -304,11 +307,13 @@ export function ListDetailClient({
           backHref={backHref}
           backLabel="&larr; All lists"
           coverUrl={list.cover_image_url}
+          stripThumbs={stripThumbs}
           isPrivate={list.is_private}
           coverControl={
             <ListCoverControl
               listId={list.id}
               hasCover={!!list.cover_image_url}
+              usingDefault={list.cover_image_url == null}
               candidates={coverCandidates}
               onChange={(url) => setList((prev) => ({ ...prev, cover_image_url: url }))}
             />
