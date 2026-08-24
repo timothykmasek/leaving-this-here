@@ -30,9 +30,24 @@ function getDomain(url: string): string {
 // `play` (Video) is the big centred one; `disc`/`mic` (Music/Podcast) are small
 // corner badges; `favicon` (Article) tucks the source mark bottom-left — but only
 // over real imagery (`hasImage`), since an imageless card already shows the
-// favicon centred in its FaviconPlate. `price`/`avatar` need data we don't have
-// yet, so they render nothing for now.
-function AffordanceOverlay({ kind, faviconUrl, hasImage }: { kind: Affordance; faviconUrl?: string | null; hasImage: boolean }) {
+// favicon centred in its FaviconPlate. `price` (Product) is the top-left chip.
+// `avatar` still needs data we don't have, so it renders nothing.
+function AffordanceOverlay({ kind, faviconUrl, hasImage, price }: { kind: Affordance; faviconUrl?: string | null; hasImage: boolean; price?: string | null }) {
+  if (kind === 'price') {
+    // A white plate rather than bare text on the photo. The design handoff's
+    // overlay is Mier Bold at 85% WHITE directly on the image, which is
+    // unreadable on real retail art — product photography is overwhelmingly
+    // pale, and every one of Tim's own product saves washed it out (see
+    // /preview/price). The chip is legible on any image by construction, and
+    // it's the same 6px white plate the favicon affordance uses, so this fills
+    // an existing slot with an existing mechanism.
+    if (!price) return null
+    return (
+      <span className="absolute left-3 top-3 z-[2] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
+        {price}
+      </span>
+    )
+  }
   if (kind === 'play') {
     return (
       <span aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -245,21 +260,6 @@ export const PrimaryCard = memo(function PrimaryCard({
         {/* Own stacking context so the affordance pins to the IMAGE, not the
             plate — a Place card puts a text block below the image. */}
         <div className="relative">
-          {/* Price, top-left. A white plate rather than bare text on the photo:
-              the design handoff's white-at-85% overlay is unreadable on real
-              retail art, which is overwhelmingly pale — marble, cream, studio
-              white. Checked against Tim's own product saves, where every one of
-              them washed out. The plate is legible on any image by construction,
-              and it's the same 6px white chip the favicon already uses, so this
-              adds a value to an existing mechanism rather than a new one.
-
-              A product card doesn't also show a favicon: the domain is already
-              on the caption line, and the price is the fact worth the slot. */}
-          {product?.priceFormatted && !place && (
-            <span className="absolute left-3 top-3 z-[2] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
-              {product.priceFormatted}
-            </span>
-          )}
           {placePhoto ? (
             <PlacePhoto src={placePhoto.src} box={placePhoto.box} />
           ) : (
@@ -296,7 +296,12 @@ export const PrimaryCard = memo(function PrimaryCard({
           )}
 
           {/* Per-type affordance (play / disc / mic / source favicon). */}
-          <AffordanceOverlay kind={fmt.affordance} faviconUrl={faviconUrl} hasImage={candidates.length > 0} />
+          <AffordanceOverlay
+            kind={fmt.affordance}
+            faviconUrl={faviconUrl}
+            hasImage={candidates.length > 0}
+            price={product?.priceFormatted}
+          />
         </div>
 
         {place && <PlaceFacts place={place} />}
