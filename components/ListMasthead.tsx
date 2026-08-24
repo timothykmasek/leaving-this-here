@@ -20,16 +20,7 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BracketLabel } from '@/components/BulletinHeader'
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-/** "Aug 24". UTC parts on purpose — a locale/timezone-dependent format renders
- *  differently on the server than in the browser and trips hydration. */
-function formatUpdated(iso: string): string | null {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}`
-}
+import { formatTimestampLabel } from '@/lib/timestampLabel'
 
 export function ListMasthead({
   name,
@@ -62,6 +53,10 @@ export function ListMasthead({
   const [expanded, setExpanded] = useState(false)
   const [clamped, setClamped] = useState(false)
   const descRef = useRef<HTMLParagraphElement>(null)
+  // Same treatment as the profile's "Latest Bullet": the viewer's LOCAL time, so
+  // it has to be formatted after mount or the server's string won't match the
+  // browser's. Absent on first paint by design.
+  const [updatedLabel, setUpdatedLabel] = useState<string | null>(null)
 
   // Only offer more/less when the text is ACTUALLY cut off. A length threshold
   // would guess wrong at different widths; comparing scroll to client height
@@ -76,7 +71,9 @@ export function ListMasthead({
     return () => ro.disconnect()
   }, [description, expanded])
 
-  const updated = updatedAt ? formatUpdated(updatedAt) : null
+  useEffect(() => {
+    setUpdatedLabel(formatTimestampLabel(updatedAt))
+  }, [updatedAt])
 
   const title = (
     <h1 className="font-sans text-[20px] font-[600] leading-[24px] text-ink">{name}</h1>
@@ -104,7 +101,7 @@ export function ListMasthead({
         // max-h caps it on wide ones — this grid runs to 1720, where a true
         // 2.47:1 would be a ~700px wall of photo before any content. Spanning
         // the full grid means its edges line up with the outer card columns.
-        <div className="relative mt-6 aspect-[1184/480] max-h-[480px] w-full overflow-hidden rounded-[20px] bg-card">
+        <div className="group relative mt-6 aspect-[1184/480] max-h-[480px] w-full overflow-hidden rounded-[20px] bg-card">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
           {/* The image dissolves into the page rather than ending on a hard
@@ -114,7 +111,18 @@ export function ListMasthead({
             className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,#FFFFFF_90%)]"
           />
           <div className="absolute inset-x-6 bottom-5 sm:inset-x-8 sm:bottom-6">{title}</div>
-          {coverControl && <div className="absolute right-4 top-4">{coverControl}</div>}
+          {/* Owner controls sit ON the photo, so they stay out of the way until
+              asked for: hidden until the cover is hovered, or until something
+              inside them takes focus so they stay keyboard-reachable. Guarded on
+              @media(hover:hover) — a touch screen has no hover to reveal them
+              with, and a cover you can never change on your phone is worse than
+              a visible button. Same construction PrimaryCard and
+              SuggestionShelf use for their hover-revealed controls. */}
+          {coverControl && (
+            <div className="absolute right-4 top-4 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
+              {coverControl}
+            </div>
+          )}
         </div>
       ) : (
         // No cover is a real choice, not an empty frame — so this state gets a
@@ -159,19 +167,18 @@ export function ListMasthead({
           {editControl && <div className={description ? 'mt-4' : undefined}>{editControl}</div>}
         </div>
 
-        {/* Two identical grey lines stacked read as a shrug. This is a byline:
-            the author leads (a list is someone's publication), the counts sit a
-            rung lower on the ink ladder — which is how this system is documented
-            to build hierarchy at one size. */}
-        <div className="flex flex-col gap-1 sm:col-start-3 sm:items-end sm:text-right lg:col-start-4">
-          <p className="font-sans text-[12px] leading-4 tracking-[0.05em] text-black/[0.56]">
-            {ownerName}
-          </p>
-          <p className="font-sans text-[12px] leading-4 tracking-[0.05em] text-black/30">
+        {/* The list's answer to the profile's identity block: a Mier heading
+            (the list name, up in the cover) over an editorial stack in Cardo.
+            Same metrics as ProfileIdentity's bio — 14/22, -0.01em, black/60 —
+            so the two pages read as one voice, and "Last Updated" sits in the
+            same slot as the profile's "Latest Bullet". */}
+        <div className="flex flex-col font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60 sm:col-start-3 sm:items-end sm:text-right lg:col-start-4">
+          <p>{ownerName}</p>
+          <p>
             {count} {count === 1 ? 'Item' : 'Items'}
-            {updated && ` · Updated ${updated}`}
             {isPrivate && ' · Private'}
           </p>
+          {updatedLabel && <p>Last Updated: {updatedLabel}</p>}
         </div>
       </div>
     </header>

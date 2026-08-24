@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { formatTimestampLabel } from '@/lib/timestampLabel'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
 import { CopyTagline } from '@/components/CopyTagline'
@@ -147,18 +148,12 @@ export default function ProfileClient({
 
   // Compute the "Latest Bullet" line from the newest bullet's timestamp
   // (bookmarks are ordered created_at desc, so [0] is the latest), in the
-  // viewer's local time. e.g. "Latest Bullet: 6:00 PM EST, 08.08.26".
+  // viewer's local time. e.g. "Latest Bullet: 6:00 PM EST, 08.08.26". Formatted
+  // in an effect, not in render, because local time differs between the server
+  // and the browser — see lib/timestampLabel.
   useEffect(() => {
-    const ts = bookmarks[0]?.created_at
-    if (!ts) { setLatestBulletLabel(null); return }
-    const d = new Date(ts)
-    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
-    const tz = new Intl.DateTimeFormat('en-US', { timeZoneName: 'short' })
-      .formatToParts(d).find((p) => p.type === 'timeZoneName')?.value || ''
-    const date = d
-      .toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })
-      .replace(/\//g, '.')
-    setLatestBulletLabel(`Latest Bullet: ${time}${tz ? ` ${tz}` : ''}, ${date}`)
+    const label = formatTimestampLabel(bookmarks[0]?.created_at)
+    setLatestBulletLabel(label && `Latest Bullet: ${label}`)
   }, [bookmarks])
 
   // Background full-load: the server only SSRs the newest page of bullets for a
