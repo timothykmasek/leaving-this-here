@@ -376,13 +376,14 @@ export const PrimaryCard = memo(function PrimaryCard({
       {/* A Place card states its name inside the plate, so the caption title
           would say it twice. The LIST line below still renders — that's a
           different fact, and the only one the plate doesn't carry. */}
-      {cleanTitle && !place && (
-        <p className="relative z-10 mt-5 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56] [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
-          {cleanTitle}
-        </p>
-      )}
     </>
   )
+
+  const titleLine = cleanTitle && !place ? (
+    <p className="relative z-10 mt-5 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56] [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
+      {cleanTitle}
+    </p>
+  ) : null
 
   return (
     <div className="w-full">
@@ -390,9 +391,29 @@ export const PrimaryCard = memo(function PrimaryCard({
           detail/edit view from the hover pencil below (a button can't nest inside
           the anchor, so it's an absolutely-positioned sibling). */}
       <div className="group relative w-full">
-        <a href={url} target="_blank" rel="noopener noreferrer" className="block w-full">
+        {/* Everything that HANGS is inside .pin-hang — the plate, the link that
+            covers it, and the owner's pencil. That containment is the point:
+            globals.css records that tilting the plate while the pencil was an
+            absolutely-positioned SIBLING promoted the plate to its own
+            compositing layer and made the pencil flash in and vanish. Inside
+            the transformed element, there's no boundary to cross.
+            The tack and the title stay outside — a tack is in the board, and
+            the title is on the page, not on the card. */}
+        <div className="pin-hang relative">
           {card}
-        </a>
+
+          {/* The link is a stretched overlay now rather than the plate's
+              parent, which is exactly the restructure that comment asked for:
+              a <button> cannot nest inside an <a>, so with the anchor wrapping
+              everything the pencil had nowhere to live but outside. It carries
+              the title as its accessible name, since it has no text of its own. */}
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={cleanTitle || domain}
+            className="absolute inset-0 z-[1]"
+          />
 
         {onOpen && id && (
           <button
@@ -427,6 +448,28 @@ export const PrimaryCard = memo(function PrimaryCard({
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
           </button>
+        )}
+        </div>
+
+        {/* The tack — outside .pin-hang so it stays put while the card turns. */}
+        <span aria-hidden className="pin-tack" />
+
+        {/* Title, outside the rotation: it sits on the page, not on the card.
+            Wrapped so it stays clickable now the anchor no longer contains it.
+            aria-hidden + tabIndex -1 because the stretched overlay above already
+            exposes this exact link, under this exact name — two tab stops to one
+            destination is worse than one. */}
+        {titleLine && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-hidden
+            tabIndex={-1}
+            className="block"
+          >
+            {titleLine}
+          </a>
         )}
       </div>
 
