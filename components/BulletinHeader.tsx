@@ -29,6 +29,7 @@ export function BulletinHeader({
   logoClassName = 'h-[44px]',
   tagline,
   widthClassName = 'max-w-[1208px] px-4 sm:px-6',
+  stickyLogo = false,
 }: {
   // Pass `action={null}` for a logo-only header (e.g. auth pages).
   action?: { label: string; href?: string; onClick?: () => void } | null
@@ -40,7 +41,15 @@ export function BulletinHeader({
   // wordmark and the action mark stop lining up with the columns below them.
   // Defaults to the 1208 grid every other page still uses.
   widthClassName?: string
+  // Pin the wordmark to the viewport so it survives the scroll, and blend it
+  // against whatever passes beneath. Opt-in, and only worth it on the pages
+  // with a card feed long enough to scroll under it (profile, list detail).
+  stickyLogo?: boolean
 } = {}) {
+  const wordmark = (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src="/bulletin-logo.png" alt="Bulletin" className={`${logoClassName} w-auto`} />
+  )
   // Plain Mier Book text, 70% ink, slight tracking (Figma node 912:25144) — no
   // uppercase, no registration-mark dots.
   const actionInner = action ? (
@@ -59,10 +68,18 @@ export function BulletinHeader({
             homepage; logged-in users are server-redirected to their own profile
             (see app/page.tsx), so the logo is a universal "home". Centred by
             default; pinned left when a tagline occupies the centre. */}
-        <Link href="/" aria-label="Bulletin home" className="inline-flex">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/bulletin-logo.png" alt="Bulletin" className={`${logoClassName} w-auto`} />
-        </Link>
+        {stickyLogo ? (
+          // Holds the row's height and the logo's left edge while the real
+          // wordmark rides the viewport. `invisible` (not `hidden`) so it still
+          // occupies space; aria-hidden so the pinned copy is the only link.
+          <span aria-hidden className="invisible inline-flex">
+            {wordmark}
+          </span>
+        ) : (
+          <Link href="/" aria-label="Bulletin home" className="inline-flex">
+            {wordmark}
+          </Link>
+        )}
 
         {/* centred tagline (desktop only — the phone masthead has no room) */}
         {tagline && (
@@ -85,6 +102,36 @@ export function BulletinHeader({
           </a>
         ))}
       </div>
+
+      {/* The wordmark that actually stays put. Two things make the blend work,
+          and both are easy to undo by accident:
+
+          1. The logo PNG is pure black, and difference computes
+             |backdrop - source| — a black source returns the backdrop
+             untouched, i.e. an invisible logo. `invert` flips it to white
+             first, which is what gives black-on-paper and white-over-photo.
+             Filters are applied to the element BEFORE it blends, so stacking
+             both on one element is the correct order.
+          2. mix-blend-mode blends against the backdrop of the element's PARENT
+             stacking context. `position: fixed` always forms a stacking
+             context, so the blend has to live on this wrapper — put it on an
+             inner element and it would only ever blend with this box's own
+             (empty) contents and do nothing. For the same reason nothing
+             between here and <body> may set transform/filter/opacity/isolation,
+             or the cards stop being part of the backdrop. */}
+      {stickyLogo && (
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-40 py-6 mix-blend-difference invert sm:py-7">
+          <div className={`mx-auto ${widthClassName}`}>
+            <Link
+              href="/"
+              aria-label="Bulletin home"
+              className="pointer-events-auto inline-flex"
+            >
+              {wordmark}
+            </Link>
+          </div>
+        </div>
+      )}
     </header>
   )
 }

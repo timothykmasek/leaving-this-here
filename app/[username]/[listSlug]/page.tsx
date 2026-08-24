@@ -109,6 +109,7 @@ export default async function ListPage({
           loggedIn
           logoClassName="h-[32px] sm:h-[44px]"
           widthClassName={LIST_GRID}
+          stickyLogo
           tagline={<ListTagline username={profile.username} ownerName={owner} isOwner />}
         />
         <div className={`mx-auto ${LIST_GRID} pb-16 pt-4 sm:pt-8`}>
@@ -140,6 +141,7 @@ export default async function ListPage({
         loggedIn={!!user}
         logoClassName="h-[32px] sm:h-[44px]"
         widthClassName={LIST_GRID}
+        stickyLogo
         tagline={<ListTagline username={username} ownerName={owner} isOwner={false} />}
       />
       <div className={`mx-auto ${LIST_GRID} pb-16 pt-4 sm:pt-8`}>

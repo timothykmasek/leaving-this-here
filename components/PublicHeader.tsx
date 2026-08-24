@@ -13,11 +13,13 @@ export function PublicHeader({
   logoClassName,
   tagline,
   widthClassName,
+  stickyLogo,
 }: {
   loggedIn: boolean
   logoClassName?: string
   tagline?: React.ReactNode
   widthClassName?: string
+  stickyLogo?: boolean
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -38,6 +40,7 @@ export function PublicHeader({
       logoClassName={logoClassName}
       tagline={tagline}
       widthClassName={widthClassName}
+      stickyLogo={stickyLogo}
     />
   )
 }
