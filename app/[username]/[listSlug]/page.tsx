@@ -3,6 +3,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 import { getProfileByUsername, getListBySlug } from '@/lib/queries'
 import { timed } from '@/lib/timing'
 import { PrimaryCard } from '@/components/PrimaryCard'
+import { pickCardImage } from '@/lib/cardImage'
 import { Masonry } from '@/components/Masonry'
 import { ListMasthead } from '@/components/ListMasthead'
 import { PublicHeader } from '@/components/PublicHeader'
@@ -102,6 +103,18 @@ export default async function ListPage({
   // is the wrong place.
   const backHref = `/${username}?tab=lists`
 
+  // Thumbs for the masthead's default cover band — the image each bullet's CARD
+  // renders, via the same pickCardImage the cards use, so the band is built from
+  // what a visitor actually sees below it. 8 is enough to overrun the cover at
+  // its band height (~19% each) and bleed off both edges.
+  const stripThumbs = Array.from(
+    new Set(
+      bullets
+        .map((b: any) => pickCardImage(b.url, b.image_url, b.screenshot_url, b.card_type, b.image_pref))
+        .filter(Boolean) as string[]
+    )
+  ).slice(0, 8)
+
   // Owner view: hand off to a client island that carries the profile's list
   // controls (rename / delete / description + per-bullet management) onto the
   // list's own URL. Visitors keep the read-only server render below.
@@ -145,6 +158,7 @@ export default async function ListPage({
             initialLists={shapedLists}
             updatedAt={updatedAt}
             backHref={backHref}
+            stripThumbs={stripThumbs}
           />
         </div>
         <SiteFooter />
@@ -170,6 +184,7 @@ export default async function ListPage({
           backHref={backHref}
           backLabel={`\u2190 ${owner.split(' ')[0]}\u2019s lists`}
           coverUrl={(list as any).cover_image_url}
+          stripThumbs={stripThumbs}
           isPrivate={!!list.is_private}
         />
 
