@@ -143,6 +143,12 @@ export function cardImageCandidates(
   screenshotUrl: string | null | undefined,
   cardType?: string | null,
   imagePref?: string | null,
+  /** The owner's own picture (raw_metadata.customImage). Beats everything —
+   *  it's the one image a person chose deliberately, against the automatic
+   *  ones this function otherwise ranks. Kept at the FRONT rather than
+   *  replacing the chain, so a custom image that later 404s still falls back
+   *  to og/screenshot instead of leaving a hole. */
+  customImage?: string | null,
 ): string[] {
   // Strip any live third-party screenshot-service URL (e.g. thum.io) from both
   // slots first — those never resolve to our content, so they must not be picked
@@ -176,7 +182,7 @@ export function cardImageCandidates(
         ? false
         : !!(cardType && SCREENSHOT_FIRST_CARD_TYPES.has(cardType))
   const ordered = screenshotFirst ? [ss, og] : [og, ss]
-  return [...new Set(ordered.filter((s): s is string => !!s))]
+  return [...new Set([customImage || null, ...ordered].filter((s): s is string => !!s))]
 }
 
 /**
@@ -190,6 +196,7 @@ export function pickCardImage(
   screenshotUrl: string | null | undefined,
   cardType?: string | null,
   imagePref?: string | null,
+  customImage?: string | null,
 ): string | null {
-  return cardImageCandidates(url, imageUrl, screenshotUrl, cardType, imagePref)[0] ?? null
+  return cardImageCandidates(url, imageUrl, screenshotUrl, cardType, imagePref, customImage)[0] ?? null
 }
