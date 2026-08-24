@@ -13,6 +13,21 @@ export type Category =
 
 export type Affordance = 'play' | 'price' | 'rating' | 'favicon' | 'disc' | 'mic' | 'avatar' | null
 
+// Which categories show the SOURCE MARK — the site's own favicon, bottom-left.
+//
+// Only where the PLATFORM is part of the meaning: a track, an episode, a post,
+// a video. For a shop or an article the domain is already on the caption line,
+// so a mark there is a small broken-looking box for no information.
+//
+// Deliberately by CATEGORY, not by affordance kind: Video's affordance is
+// `play`, which is a capability rather than a source, and a video wants both —
+// the play button centred and the platform's mark in the corner.
+const SOURCE_MARK_CATEGORIES = new Set<Category>(['Social', 'Music', 'Podcast', 'Video'])
+
+export function showsSourceMark(category: Category): boolean {
+  return SOURCE_MARK_CATEGORIES.has(category)
+}
+
 export interface CardFormat {
   category: Category
   label: string
@@ -25,7 +40,9 @@ export interface CardFormat {
 const SPEC: Record<Category, { aspect: string; affordance: Affordance }> = {
   Website: { aspect: '4 / 3',    affordance: null },     // the 80% workhorse
   Product: { aspect: '3 / 4',    affordance: 'price' },
-  Article: { aspect: '3 / 2',    affordance: 'favicon' },
+  // No affordance: an article's source is already named on the caption line,
+  // so a favicon plate on the photo only adds a box.
+  Article: { aspect: '3 / 2',    affordance: null },
   Music:   { aspect: '1 / 1',    affordance: 'disc' },
   Podcast: { aspect: '1 / 1',    affordance: 'mic' },
   Video:   { aspect: '16 / 9',   affordance: 'play' },
