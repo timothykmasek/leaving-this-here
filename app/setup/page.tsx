@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { BulletinHeader } from '@/components/BulletinHeader'
 import { normalizeUrl } from '@/lib/normalizeUrl'
+import { withProductFact } from '@/lib/productFact'
 
 // 4-step onboarding wizard. The first three load the user into the product;
 // the fourth is just a congratulatory pause before redirecting to their folio.
@@ -141,7 +142,7 @@ function SetupInner() {
         // screenshot captured + persisted server-side after insert
         screenshot_url: null,
         favicon_url: meta.favicon,
-        raw_metadata: meta.raw || null,
+        raw_metadata: withProductFact(meta.raw, meta.product) || null,
         tags: [],
       }).select('id').single()
       if (error) throw new Error(error.message)

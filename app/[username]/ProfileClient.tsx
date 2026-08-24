@@ -32,7 +32,7 @@ import { uniqueSlug } from '@/lib/slug'
 const PROFILE_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 const BULLET_COLS =
-  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place'
+  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product'
 
 // How many bullets to render at once. A power profile holds ~1000 bullets;
 // mounting them all floods the DOM and fires ~1000 image-optimizer requests in
@@ -551,6 +551,7 @@ export default function ProfileClient({
             faviconUrl={b.favicon_url}
             rawMetadata={b.raw_metadata}
             place={b.place}
+                product={b.product}
             cardType={b.card_type}
             imagePref={b.image_pref}
             listName={listByBookmark.get(b.id)?.name ?? null}
