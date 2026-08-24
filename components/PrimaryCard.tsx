@@ -1,11 +1,11 @@
 'use client'
 
-import { memo, useCallback, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { cardImageCandidates } from '@/lib/cardImage'
 import { CardThumb } from '@/components/CardThumb'
 import { FaviconPlate } from '@/components/FaviconPlate'
 import { formatCardTitle } from '@/lib/cardTitle'
-import { resolveCategory, type Affordance } from '@/lib/cardFormat'
+import { resolveCategory, showsSourceMark, type Affordance } from '@/lib/cardFormat'
 import type { CardType } from '@/lib/cardType'
 import type { PlaceMeta } from '@/lib/placeLink'
 import type { ProductFact } from '@/lib/productFact'
@@ -60,29 +60,7 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage, metric }: { kind: Affor
       </span>
     )
   }
-  // Anything whose SOURCE is the point — an article, a track, an episode, a
-  // post — shows the site's own mark rather than a drawn glyph. A Spotify save
-  // gets Spotify's logo, a LinkedIn save gets LinkedIn's, and so on for every
-  // domain, with no brand assets to license, draw or keep current: it's the
-  // favicon we already store on the row.
-  //
-  // This used to be `favicon` only. `disc` and `mic` drew a generic record and
-  // microphone INSTEAD of the mark, which meant a Spotify track — the one case
-  // where the brand is unmistakable and useful — was the one hiding it.
-  if (SOURCE_MARK_KINDS.has(kind as string) && faviconUrl && hasImage) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={faviconUrl}
-        alt=""
-        aria-hidden
-        className="pointer-events-none absolute bottom-3 left-3 h-6 w-6 rounded-[6px] bg-white/90 p-[3px] shadow-[0_1px_4px_rgba(0,0,0,0.25)]"
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-      />
-    )
-  }
-  // Fallback when there's no favicon to show (3 of 24 brand-domain saves have
-  // none): the drawn glyph still says what KIND of thing this is.
+  // The drawn glyph, for a source-marked card whose favicon is missing or dead.
   if (kind === 'disc' || kind === 'mic') {
     return (
       <span aria-hidden className="pointer-events-none absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.45] backdrop-blur-[2px] ring-1 ring-white/25">
@@ -97,9 +75,37 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage, metric }: { kind: Affor
   return null
 }
 
-// Kinds that identify a SOURCE rather than a capability. `play` is excluded on
-// purpose — it says the thing is playable, which the site's mark doesn't.
-const SOURCE_MARK_KINDS = new Set(['favicon', 'disc', 'mic', 'avatar'])
+// The site's own mark, bottom-left. A Spotify save shows Spotify's logo, a
+// LinkedIn post LinkedIn's — every domain, with no brand assets to license,
+// draw or keep current, because it's the favicon already on the row.
+//
+// Its own component because a favicon 404s more often than a card image does,
+// and a plain onError is not enough to catch it. The <img> is server-rendered
+// and starts loading immediately; if it fails BEFORE React hydrates and
+// attaches the handler, that error event is lost and a broken-image box sits
+// on the card forever. So the ref checks on mount whether the image has
+// already failed (complete, but zero natural width) as well. Same fix, and the
+// same reasoning, as CardThumb's fallback chain.
+function SourceMark({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false)
+  const ref = useRef<HTMLImageElement>(null)
+  useEffect(() => {
+    const img = ref.current
+    if (img && img.complete && img.naturalWidth === 0) setFailed(true)
+  }, [src])
+  if (failed) return null
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      ref={ref}
+      src={src}
+      alt=""
+      aria-hidden
+      className="pointer-events-none absolute bottom-3 left-3 z-[1] h-6 w-6 rounded-[6px] bg-white/90 p-[3px] shadow-[0_1px_4px_rgba(0,0,0,0.25)]"
+      onError={() => setFailed(true)}
+    />
+  )
+}
 
 // The hero photo as a CSS-clipped window onto the capture. The maths: mapping
 // the box's width to 100% of the frame means scaling the image by 1/w, and the
@@ -322,6 +328,13 @@ export const PrimaryCard = memo(function PrimaryCard({
             hasImage={candidates.length > 0}
             metric={metric}
           />
+          {/* The platform's mark, only where the platform is part of the
+              meaning (lib/cardFormat: Social / Music / Podcast / Video). Needs
+              a real image on the card — an imageless one already shows the
+              favicon centred in its FaviconPlate, so a corner copy is noise. */}
+          {showsSourceMark(fmt.category) && faviconUrl && candidates.length > 0 && (
+            <SourceMark src={faviconUrl} />
+          )}
         </div>
 
         {place && <PlaceFacts place={place} />}
