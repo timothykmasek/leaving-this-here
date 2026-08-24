@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ListMasthead } from '@/components/ListMasthead'
 import { ListCoverControl } from '@/components/ListCoverControl'
+import { pickCardImage } from '@/lib/cardImage'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
 import { BulletDetail } from '@/components/BulletDetail'
@@ -210,6 +211,20 @@ export function ListDetailClient({
     setList((prev) => ({ ...prev, description: clean || null }))
   }
 
+  // Cover candidates: the image each bullet's CARD actually renders, via the
+  // same pickCardImage the cards use — so the picker offers what the owner has
+  // been looking at, not a different field they've never seen. Deduped, and
+  // capped because the picker samples every one of these to rank them.
+  const coverCandidates = useMemo(() => {
+    const seen = new Set<string>()
+    for (const b of bullets) {
+      const img = pickCardImage(b.url, b.image_url, b.screenshot_url, b.card_type, b.image_pref)
+      if (img) seen.add(img)
+      if (seen.size >= 12) break
+    }
+    return [...seen]
+  }, [bullets])
+
   const handleDeleteList = async () => {
     await supabase.from('lists').delete().eq('id', list.id)
     router.push(`/${username}`)
@@ -294,6 +309,7 @@ export function ListDetailClient({
             <ListCoverControl
               listId={list.id}
               hasCover={!!list.cover_image_url}
+              candidates={coverCandidates}
               onChange={(url) => setList((prev) => ({ ...prev, cover_image_url: url }))}
             />
           }

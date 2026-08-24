@@ -27,6 +27,38 @@ const MAX_COVER_BYTES = 2_000_000
 // Below this and the "image" is a decode failure or a blank canvas, not a photo.
 const MIN_COVER_BYTES = 1_000
 
+function extFor(contentType: string): string {
+  if (/png/.test(contentType)) return 'png'
+  if (/webp/.test(contentType)) return 'webp'
+  if (/gif/.test(contentType)) return 'gif'
+  return 'jpg'
+}
+
+/** Pull a remote image server-side. Browser UA because some hosts serve a
+ *  placeholder (or 403) to unfamiliar fetchers — the same reason
+ *  lib/screenshot's persistCardImage sets one. */
+async function fetchImage(
+  url: string
+): Promise<{ bytes: Uint8Array; contentType: string } | { error: string }> {
+  let res: Response
+  try {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15000)
+    res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
+    })
+    clearTimeout(timeout)
+  } catch (err) {
+    return { error: `could not fetch that image: ${String(err)}` }
+  }
+  const contentType = res.headers.get('content-type') || ''
+  if (!res.ok || !contentType.startsWith('image/')) {
+    return { error: `source returned HTTP ${res.status} / ${contentType || 'no content-type'}` }
+  }
+  return { bytes: new Uint8Array(await res.arrayBuffer()), contentType }
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: { id: string } }
@@ -43,12 +75,38 @@ export async function POST(
     .maybeSingle()
   if (!list) return NextResponse.json({ error: 'list not found' }, { status: 404 })
 
-  const contentType = req.headers.get('content-type') || ''
-  if (!contentType.startsWith('image/')) {
-    return NextResponse.json({ error: 'expected an image body' }, { status: 400 })
+  // Two ways in. An image/* body is a file the owner picked and the browser
+  // already downscaled. An application/json body carries { sourceUrl } — an
+  // image already on one of this list's own bullets, chosen from the picker.
+  //
+  // The picked image is COPIED into the bucket rather than referenced in place.
+  // Many card images are remote og:images on hosts that rewrite or expire them
+  // (lib/screenshot keeps a ROT_PRONE_IMAGE_HOSTS list for exactly this), and a
+  // broken masthead is a worse failure than a broken card. Copying also means
+  // every cover, however chosen, serves from our CDN under one cache policy.
+  const reqType = req.headers.get('content-type') || ''
+  let bytes: Uint8Array
+  let storedType: string
+
+  if (reqType.includes('application/json')) {
+    const body = await req.json().catch(() => null)
+    const sourceUrl = body?.sourceUrl
+    if (typeof sourceUrl !== 'string' || !/^https?:\/\//i.test(sourceUrl)) {
+      return NextResponse.json({ error: 'sourceUrl must be an http(s) URL' }, { status: 400 })
+    }
+    const fetched = await fetchImage(sourceUrl)
+    if ('error' in fetched) {
+      return NextResponse.json({ error: fetched.error }, { status: 502 })
+    }
+    bytes = fetched.bytes
+    storedType = fetched.contentType
+  } else if (reqType.startsWith('image/')) {
+    bytes = new Uint8Array(await req.arrayBuffer())
+    storedType = 'image/webp'
+  } else {
+    return NextResponse.json({ error: 'expected an image body or { sourceUrl }' }, { status: 400 })
   }
 
-  const bytes = new Uint8Array(await req.arrayBuffer())
   if (bytes.byteLength < MIN_COVER_BYTES || bytes.byteLength > MAX_COVER_BYTES) {
     return NextResponse.json(
       { error: `cover must be between ${MIN_COVER_BYTES}B and ${MAX_COVER_BYTES}B (got ${bytes.byteLength}B)` },
@@ -65,11 +123,15 @@ export async function POST(
     { auth: { persistSession: false } }
   )
 
-  const path = `covers/${params.id}.webp`
+  // Extension tracks the stored bytes; the DB holds the full URL, so a cover
+  // that changes format just lands on a different path and the old object is
+  // orphaned rather than serving stale.
+  const ext = extFor(storedType)
+  const path = `covers/${params.id}.${ext}`
   const { error: upErr } = await admin.storage
     .from(SCREENSHOT_BUCKET)
     .upload(path, bytes, {
-      contentType: 'image/webp',
+      contentType: storedType,
       upsert: true,
       cacheControl: '31536000, immutable',
     })
