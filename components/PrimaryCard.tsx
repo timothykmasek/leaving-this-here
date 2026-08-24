@@ -31,9 +31,12 @@ function getDomain(url: string): string {
 // corner badges; `favicon` (Article) tucks the source mark bottom-left — but only
 // over real imagery (`hasImage`), since an imageless card already shows the
 // favicon centred in its FaviconPlate. `price` (Product) is the top-left chip.
-// `avatar` still needs data we don't have, so it renders nothing.
-function AffordanceOverlay({ kind, faviconUrl, hasImage, price }: { kind: Affordance; faviconUrl?: string | null; hasImage: boolean; price?: string | null }) {
-  if (kind === 'price') {
+// `price` (Product) and `rating` (Place) are the same top-left METRIC chip,
+// taking a pre-formatted string — the handoff's one slot for "the fact worth
+// knowing before you click", whatever the type supplies. `avatar` still needs
+// data we don't have, so it renders nothing.
+function AffordanceOverlay({ kind, faviconUrl, hasImage, metric }: { kind: Affordance; faviconUrl?: string | null; hasImage: boolean; metric?: string | null }) {
+  if (kind === 'price' || kind === 'rating') {
     // A white plate rather than bare text on the photo. The design handoff's
     // overlay is Mier Bold at 85% WHITE directly on the image, which is
     // unreadable on real retail art — product photography is overwhelmingly
@@ -41,10 +44,10 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage, price }: { kind: Afford
     // /preview/price). The chip is legible on any image by construction, and
     // it's the same 6px white plate the favicon affordance uses, so this fills
     // an existing slot with an existing mechanism.
-    if (!price) return null
+    if (!metric) return null
     return (
       <span className="absolute left-3 top-3 z-[2] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
-        {price}
+        {metric}
       </span>
     )
   }
@@ -123,7 +126,13 @@ function PlacePhoto({ src, box }: { src: string; box: NonNullable<PlaceMeta['pho
   )
 }
 
-// The Place card's in-plate facts — name, category, price, rating, address.
+// The Place card's in-plate facts — name, category, price tier, address.
+//
+// The RATING has moved out, onto the photo, as the top-left metric chip every
+// other type uses (lib/cardFormat: Place -> 'rating'). It's the one fact worth
+// scanning across a grid, and it now sits where a product's price does. The
+// rest stays: an address is not a badge, and dropping it — as the handoff's
+// mockup does — would lose the thing that makes a saved place useful later.
 // A deliberate exception to "categories live off-card" (removed 2026-08-15):
 // for a place the attributes ARE the content, which is not true of the link
 // taxonomy that rule was written about. Signed off by Tim 2026-08-21.
@@ -140,10 +149,6 @@ function PlacePhoto({ src, box }: { src: string; box: NonNullable<PlaceMeta['pho
 // Opening hours are deliberately absent: they're perishable, and this is stored.
 function PlaceFacts({ place }: { place: PlaceMeta }) {
   const meta = [place.kind, place.price].filter(Boolean).join(' · ')
-  const counts = [
-    place.rating ? `★ ${place.rating}` : null,
-    place.reviews ? `${place.reviews} reviews` : null,
-  ].filter(Boolean)
   return (
     <div className="px-5 pb-5 pt-4">
       {place.name && (
@@ -152,18 +157,8 @@ function PlaceFacts({ place }: { place: PlaceMeta }) {
         </p>
       )}
       {meta && <p className="label mt-2 text-ink/[0.45]">{meta}</p>}
-      {counts.length > 0 && (
-        <p className="mt-2.5 flex items-center gap-2 font-sans text-[12px] leading-4 tracking-[0.05em] text-ink/[0.55]">
-          {counts.map((c, i) => (
-            <span key={c} className={i === 0 ? 'text-ink/70' : undefined}>
-              {i > 0 && <span aria-hidden className="mr-2 text-ink/25">·</span>}
-              {c}
-            </span>
-          ))}
-        </p>
-      )}
       {place.address && (
-        <p className="mt-1.5 truncate font-sans text-[12px] leading-4 tracking-[0.05em] text-ink/[0.45]">
+        <p className="mt-2.5 truncate font-sans text-[12px] leading-4 tracking-[0.05em] text-ink/[0.45]">
           {place.address}
         </p>
       )}
@@ -219,6 +214,16 @@ export const PrimaryCard = memo(function PrimaryCard({
   // Product bullets carry their price the same way, in raw_metadata.product,
   // narrowed into the grid's select. Absent → no chip, never an empty pill.
   const product: ProductFact | null = productProp ?? rawMetadata?.product ?? null
+  // The one fact this card puts on its photo. A place's rating reads as one
+  // phrase — the star alone is ambiguous, the count alone is meaningless.
+  const metric =
+    fmt.affordance === 'price'
+      ? product?.priceFormatted ?? null
+      : fmt.affordance === 'rating' && place?.rating
+        ? [`\u2605 ${place.rating}`, place.reviews ? `${place.reviews} reviews` : null]
+            .filter(Boolean)
+            .join(' \u00b7 ')
+        : null
   // Two ways a place gets its picture: the backfill script cuts a real file, the
   // save path stores a box to clip out of the capture. A cut file wins — it's a
   // fraction of the bytes.
@@ -315,7 +320,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             kind={fmt.affordance}
             faviconUrl={faviconUrl}
             hasImage={candidates.length > 0}
-            price={product?.priceFormatted}
+            metric={metric}
           />
         </div>
 

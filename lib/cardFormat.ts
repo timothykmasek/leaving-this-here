@@ -11,7 +11,7 @@ export type Category =
   | 'Website' | 'Product' | 'Article' | 'Music'
   | 'Podcast' | 'Video' | 'Social' | 'Book' | 'Place'
 
-export type Affordance = 'play' | 'price' | 'favicon' | 'disc' | 'mic' | 'avatar' | null
+export type Affordance = 'play' | 'price' | 'rating' | 'favicon' | 'disc' | 'mic' | 'avatar' | null
 
 export interface CardFormat {
   category: Category
@@ -32,9 +32,11 @@ const SPEC: Record<Category, { aspect: string; affordance: Affordance }> = {
   Social:  { aspect: '4 / 5',    affordance: 'avatar' },
   Book:    { aspect: '2 / 3',    affordance: null },
   // A map link has no og:image worth showing, so an imageless Place falls back
-  // to the same 4:3 plate as Website. No affordance: the Place card states its
-  // rating in the facts block, and a badge on the photo would say it twice.
-  Place:   { aspect: '4 / 3',    affordance: null },
+  // to the same 4:3 plate as Website. The affordance is the RATING, in the same
+  // top-left slot a product's price uses, so the one fact worth scanning in a
+  // grid sits where every other type's does. Was null while the rating lived in
+  // the facts block below — it has moved up, not been duplicated.
+  Place:   { aspect: '4 / 3',    affordance: 'rating' },
 }
 
 function host(url: string): string {
