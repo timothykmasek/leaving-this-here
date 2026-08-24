@@ -1,9 +1,24 @@
 // Bulletin "collection card" — a list rendered as a plate in the profile's
-// LISTS tab. Same 272×270 footprint as the link card, with a collage of member
-// thumbnails and a centered list name + [ N items ]. Spec echoes the homepage
-// frame's "SAMPLE COLLECTION · 60 ITEMS" card.
+// LISTS tab. Figma ProjectX list-card frame: a 295×393 #F1F1F1 plate carrying a
+// single filmstrip of member thumbnails that bleeds off BOTH edges and dissolves
+// into the plate, with the name + count anchored bottom-left.
+//
+// The filmstrip is the whole idea, and it replaces the old contained 2×2
+// collage. Each thumb keeps its own aspect ratio at one shared height, so the
+// strip has the ragged rhythm of a contact sheet rather than the tidy beat of a
+// grid — that's why the Figma export's images are 156/156/72 wide rather than
+// three equal tiles. Widths therefore come from the images themselves
+// (`h-full w-auto`), not from us.
 
 import Link from 'next/link'
+
+// Geometry as percentages of the 295×393 plate, so the card scales with its
+// grid column instead of pinning to the Figma artboard's pixels.
+const STRIP_TOP = '34.9%'    // 137/393
+const STRIP_H = '27.7%'      // 109/393
+const FADE_W = '15.25%'      // 45/295
+const THUMB_MAX_W = '53%'    // 156/295 — the export's widest tile; stops one
+                             // panoramic screenshot from eating the whole strip
 
 export function CollectionCard({
   name,
@@ -23,51 +38,81 @@ export function CollectionCard({
   href?: string
 }) {
   const className =
-    'relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card text-left ring-1 ring-black/[0.03] card-lift'
-  // Small lists (≤3 links) show a single big preview of the latest link rather
-  // than a sparse 2×2 grid; the collage only earns its keep at 4+ members.
-  const single = count <= 3
+    'relative block aspect-[295/393] w-full overflow-hidden rounded-[20px] bg-card text-left ring-1 ring-black/[0.03] card-lift'
+
   const inner = (
     <>
-      {/* preview — 67.6% wide @ (16.2%, 21.9%). One big thumb for small lists,
-          a 4-up collage once there are enough members to fill it. */}
-      {single ? (
-        <div className="absolute left-[16.2%] top-[21.9%] aspect-[184/118] w-[67.6%] overflow-hidden rounded-[10px] bg-black/[0.06]">
-          {thumbs[0] && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={thumbs[0]} alt="" className="h-full w-full object-cover" />
-          )}
-        </div>
-      ) : (
-        <div className="absolute left-[16.2%] top-[21.9%] aspect-[184/118] grid w-[67.6%] grid-cols-2 grid-rows-2 gap-[2px] overflow-hidden rounded-[10px] bg-black/[0.06]">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className="overflow-hidden bg-black/[0.04]">
-              {thumbs[i] && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={thumbs[i]} alt="" className="h-full w-full object-cover" />
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Registration mark — three 2px dots, 8px pitch, top-left inset 20px.
+          Decorative (the brand's dot-corner motif, same family as the header's
+          mark), NOT a kebab menu: the Figma layer is a group of Ellipses with no
+          hit target, and a real menu would sit top-right. */}
+      <span
+        aria-hidden
+        className="absolute left-5 top-5 flex flex-col gap-[6px]"
+      >
+        {[0, 1, 2].map((i) => (
+          <span key={i} className="block h-[2px] w-[2px] bg-[#1FA9D3]" />
+        ))}
+      </span>
 
-      {/* name — matches the bullet card's title: Cardo serif, left-aligned to
-          the thumbnail, 2 lines. Keeps lists and bullets on one type system.
-          `capitalize` title-cases the display (list names are often typed
-          lowercase, e.g. "ai"/"technology") while leaving the stored name — the
-          source of the frozen slug — untouched. Already-uppercase words like an
-          acronym stay as-is (capitalize only touches each word's first letter). */}
-      <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-sans text-[12px] font-bold capitalize leading-[13px] text-ink">
-        {name}
-      </h3>
+      {/* Filmstrip. Centred so it bleeds symmetrically — the export's -77/+12
+          offset is just where that particular set of widths landed, and centring
+          is the rule that holds for any number of thumbs. The plate's
+          overflow-hidden does the cropping. */}
+      <div
+        className="absolute inset-x-0 flex justify-center"
+        style={{ top: STRIP_TOP, height: STRIP_H }}
+      >
+        {thumbs.map((src, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={`${src}-${i}`}
+            src={src}
+            alt=""
+            className="h-full w-auto shrink-0 bg-black/[0.04] object-cover"
+            style={{ maxWidth: THUMB_MAX_W }}
+          />
+        ))}
 
-      {/* item count — bracketed label font, centered near the bottom (the slot
-          the bullet card gives its [ list ] tag), so the count reads as a caption
-          rather than a second title. */}
-      <div className="absolute bottom-[5.5%] left-1/2 max-w-[88%] -translate-x-1/2">
-        <span className="label whitespace-nowrap text-black/40">
-          [ {count} {count === 1 ? 'item' : 'items'}{isPrivate ? ' · private' : ''} ]
-        </span>
+        {/* Edge fades, so the strip dissolves into the plate instead of being
+            guillotined by it. Scoped to the STRIP's band, not the full plate
+            height as the Figma rects are: identical output (the plate behind is
+            the same #F1F1F1) but it cannot reach the dots or the name, which
+            share the same 20px inset and sat inside the left fade's opaque end.
+
+            Faded to rgba(241,241,241,0) rather than `transparent` — the latter
+            is transparent *black*, which risks a grey cast mid-ramp. Same
+            explicit form PrimaryCard's image fade uses. */}
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 bg-[linear-gradient(90deg,#F1F1F1_0%,rgba(241,241,241,0)_100%)]"
+          style={{ width: FADE_W }}
+        />
+        <span
+          aria-hidden
+          className="absolute inset-y-0 right-0 bg-[linear-gradient(270deg,#F1F1F1_0%,rgba(241,241,241,0)_100%)]"
+          style={{ width: FADE_W }}
+        />
+      </div>
+
+      {/* Name + count, anchored to the bottom-left 20px inset. Anchoring the
+          BLOCK (rather than positioning each line at its Figma offset) keeps the
+          count on its 20px baseline and lets a two-line name grow upward. */}
+      <div className="absolute inset-x-5 bottom-5">
+        {/* Cardo Bold 16/20, -0.02em. Cardo registers its own 700, so unlike
+            Mier A the exported weight is safe to copy here. `capitalize`
+            title-cases the display (names are often typed lowercase, e.g. "ai")
+            while leaving the stored name — source of the frozen slug — alone. */}
+        <h3 className="line-clamp-2 font-serif text-[16px] font-bold capitalize leading-5 tracking-[-0.02em] text-black/70">
+          {name}
+        </h3>
+        {/* Mier A BOOK — the export reads `font-weight: 500`, which is Book in
+            this family's inverted metadata, so 400 is the faithful value; 500
+            would silently load Regular. Fill 0.7 × layer opacity 0.8 = 0.56,
+            the same alpha the bullet card's title settled on. */}
+        <p className="mt-2 font-sans text-[12px] font-[400] leading-4 tracking-[0.05em] text-black/[0.56]">
+          {count} {count === 1 ? 'Item' : 'Items'}{isPrivate ? ' · Private' : ''}
+        </p>
       </div>
     </>
   )

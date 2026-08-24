@@ -525,6 +525,9 @@ export default function ProfileClient({
       )
       .map((b: any) => b.image_url || b.screenshot_url)
       .filter(Boolean)
+      // 4 feeds the card's filmstrip. The Figma frame uses 3 tiles for a 1.3x
+      // overrun, but tiles keep their own widths: 4 is what still overruns the
+      // plate when a list's thumbs happen to all be portrait.
       .slice(0, 4)
 
   // Order-preserving masonry (round-robin across columns) — a plain CSS-columns
@@ -893,7 +896,7 @@ export default function ProfileClient({
                 {/* owner: a card-shaped "New list" affordance (also the empty state) */}
                 {isOwner && (
                   creatingList ? (
-                    <div className="relative flex aspect-[272/270] w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-[20px] bg-card px-6 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03]">
+                    <div className="relative flex aspect-[295/393] w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-[20px] bg-card px-6 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03]">
                       <input
                         autoFocus
                         value={newListName}
@@ -932,7 +935,7 @@ export default function ProfileClient({
                   ) : (
                     <button
                       onClick={() => setCreatingList(true)}
-                      className="relative flex aspect-[272/270] w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-[20px] bg-card text-black/40 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:text-ink hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]"
+                      className="relative flex aspect-[295/393] w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-[20px] bg-card text-black/40 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:text-ink hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]"
                     >
                       <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current text-xl">+</span>
                       <span className="label">New list</span>
