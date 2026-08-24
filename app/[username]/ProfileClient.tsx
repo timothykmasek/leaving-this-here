@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
@@ -102,8 +102,14 @@ export default function ProfileClient({
   const [query, setQuery] = useState('')
   const [showAllLists, setShowAllLists] = useState(false)
   const [activeListId, setActiveListId] = useState<string | null>(null)
-  // Profile view tab — Recent bullets vs the Lists collection grid.
-  const [activeTab, setActiveTab] = useState<'recent' | 'lists'>('recent')
+  // Profile view tab — Recent bullets vs the Lists collection grid. Seeded from
+  // ?tab= so a list page's "All lists" back link can return you to the tab you
+  // actually came from; the tab stays client state after that (switching tabs
+  // doesn't push history — this is an entry point, not a route).
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState<'recent' | 'lists'>(
+    searchParams?.get('tab') === 'lists' ? 'lists' : 'recent'
+  )
   // How many bullets the grid currently reveals (see renderBulletGrid). Grows as
   // the scroll sentinel appears; resets to one page whenever the visible set
   // changes (search, tab switch, entering/leaving a list) so we never render a

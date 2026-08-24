@@ -4,7 +4,7 @@ import { getProfileByUsername, getListBySlug } from '@/lib/queries'
 import { timed } from '@/lib/timing'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
-import { ListHero, ListTagline } from '@/components/ListHero'
+import { ListMasthead } from '@/components/ListMasthead'
 import { PublicHeader } from '@/components/PublicHeader'
 import { ListDetailClient } from './ListDetailClient'
 import { SiteFooter } from '@/components/SiteFooter'
@@ -89,6 +89,19 @@ export default async function ListPage({
 
   const owner = profile.display_name || profile.username
 
+  // "Updated" for a list is when something was last ADDED to it — list_bookmarks
+  // already records that, so this needs no column and no migration.
+  const addedAts = (((list as any).list_bookmarks || []) as any[])
+    .map((x) => x.added_at)
+    .filter(Boolean)
+    .sort()
+  const updatedAt = addedAts.length ? addedAts[addedAts.length - 1] : null
+
+  // The back link returns to the profile's LISTS tab specifically, which is why
+  // ProfileClient reads ?tab= — landing on Recent Bullets after leaving a list
+  // is the wrong place.
+  const backHref = `/${username}?tab=lists`
+
   // Owner view: hand off to a client island that carries the profile's list
   // controls (rename / delete / description + per-bullet management) onto the
   // list's own URL. Visitors keep the read-only server render below.
@@ -100,6 +113,8 @@ export default async function ListPage({
       slug: l.slug ?? null,
       is_private: l.is_private,
       description: l.description ?? null,
+      // The sidebar's list set never renders covers, so it doesn't fetch them.
+      cover_image_url: null,
       bookmark_ids: (l.list_bookmarks || []).map((x: any) => x.bookmark_id),
     }))
 
@@ -110,7 +125,6 @@ export default async function ListPage({
           logoClassName="h-[32px] sm:h-[44px]"
           widthClassName={LIST_GRID}
           stickyLogo
-          tagline={<ListTagline username={profile.username} ownerName={owner} isOwner />}
         />
         <div className={`mx-auto ${LIST_GRID} pb-16 pt-4 sm:pt-8`}>
           <ListDetailClient
@@ -124,10 +138,13 @@ export default async function ListPage({
               slug: (list as any).slug ?? null,
               is_private: (list as any).is_private,
               description: (list as any).description ?? null,
+              cover_image_url: (list as any).cover_image_url ?? null,
               bookmark_ids: ids,
             }}
             initialBullets={bullets}
             initialLists={shapedLists}
+            updatedAt={updatedAt}
+            backHref={backHref}
           />
         </div>
         <SiteFooter />
@@ -142,15 +159,20 @@ export default async function ListPage({
         logoClassName="h-[32px] sm:h-[44px]"
         widthClassName={LIST_GRID}
         stickyLogo
-        tagline={<ListTagline username={username} ownerName={owner} isOwner={false} />}
       />
       <div className={`mx-auto ${LIST_GRID} pb-16 pt-4 sm:pt-8`}>
-        <ListHero
-          count={bullets.length}
+        <ListMasthead
           name={list.name}
           description={list.description}
+          count={bullets.length}
+          updatedAt={updatedAt}
+          ownerName={owner}
+          backHref={backHref}
+          backLabel={`\u2190 ${owner.split(' ')[0]}\u2019s lists`}
+          coverUrl={(list as any).cover_image_url}
           isPrivate={!!list.is_private}
         />
+
 
         {bullets.length > 0 ? (
           <Masonry>

@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { ListHero } from '@/components/ListHero'
+import { ListMasthead } from '@/components/ListMasthead'
+import { ListCoverControl } from '@/components/ListCoverControl'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
 import { BulletDetail } from '@/components/BulletDetail'
@@ -23,6 +24,7 @@ type List = {
   slug: string | null
   is_private: boolean
   description: string | null
+  cover_image_url: string | null
   bookmark_ids: string[]
 }
 
@@ -34,6 +36,8 @@ export function ListDetailClient({
   initialList,
   initialBullets,
   initialLists,
+  updatedAt,
+  backHref,
 }: {
   username: string
   profileId: string
@@ -42,6 +46,9 @@ export function ListDetailClient({
   initialList: List
   initialBullets: any[]
   initialLists: List[]
+  /** ISO timestamp of the most recent add — derived server-side. */
+  updatedAt: string | null
+  backHref: string
 }) {
   const router = useRouter()
   const supabase = createClient()
@@ -212,32 +219,31 @@ export function ListDetailClient({
   return (
     <>
       {editing ? (
-        // Same metrics as ListHero so nothing jumps between view and edit.
-        <div className="mx-auto max-w-[720px] px-4 pb-10 pt-4 text-center sm:pb-14 sm:pt-8">
-          <p className="font-sans text-[14px] leading-5 text-ink/[0.45]">
-            {bullets.length} {bullets.length === 1 ? 'Bullet' : 'Bullets'}
-          </p>
-
+        // Mirrors ListMasthead's metrics — left-aligned, name at Mier 20/600,
+        // description in the Cardo editorial slot — so switching into edit
+        // doesn't reflow the page around you. 6 rows because the description is
+        // now real prose, not the one-liner the old centred hero assumed.
+        <div className="pb-8 pt-2">
           <input
             autoFocus
             value={nameValue}
             onChange={(e) => setNameValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
             aria-label="List name"
-            className="mt-2 w-full border-b border-black/15 bg-transparent pb-1 text-center font-sans text-[32px] font-[700] leading-[1.1] tracking-[-0.02em] text-ink focus:border-black/40 focus:outline-none sm:text-[40px]"
+            className="w-full max-w-[640px] border-b border-black/15 bg-transparent pb-1 font-sans text-[20px] font-[600] leading-[24px] text-ink focus:border-black/40 focus:outline-none"
           />
 
           <textarea
             value={descValue}
             onChange={(e) => setDescValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
-            rows={2}
-            placeholder="What is this list for?"
+            rows={6}
+            placeholder="What is this list for? Why these links, and who is it for?"
             aria-label="List description"
-            className="mx-auto mt-4 block w-full max-w-[520px] resize-none border-b border-black/15 bg-transparent pb-1 text-center font-serif text-[16px] leading-[1.45] text-ink/[0.55] placeholder:text-ink/[0.35] focus:border-black/40 focus:outline-none"
+            className="mt-4 block w-full max-w-[640px] resize-y border-b border-black/15 bg-transparent pb-1 font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60 placeholder:text-black/30 focus:border-black/40 focus:outline-none"
           />
 
-          <div className="mt-6 flex items-center justify-center gap-5">
+          <div className="mt-6 flex flex-wrap items-center gap-5">
             {/* handleRename no-ops on an empty name, so without this the panel
                 would close having silently kept the old one. */}
             <button
@@ -274,24 +280,37 @@ export function ListDetailClient({
           </div>
         </div>
       ) : (
-        <ListHero
-          count={bullets.length}
+        <ListMasthead
           name={list.name}
           description={list.description}
+          count={bullets.length}
+          updatedAt={updatedAt}
+          ownerName={ownerName}
+          backHref={backHref}
+          backLabel="&larr; All lists"
+          coverUrl={list.cover_image_url}
           isPrivate={list.is_private}
-        >
-          <button
-            onClick={() => {
-              setNameValue(list.name)
-              setDescValue(list.description || '')
-              setConfirmingDelete(false)
-              setEditing(true)
-            }}
-            className="label rounded-full border border-black/[0.12] px-4 py-2 text-ink/[0.55] transition-colors hover:border-black/30 hover:text-ink"
-          >
-            Edit
-          </button>
-        </ListHero>
+          coverControl={
+            <ListCoverControl
+              listId={list.id}
+              hasCover={!!list.cover_image_url}
+              onChange={(url) => setList((prev) => ({ ...prev, cover_image_url: url }))}
+            />
+          }
+          editControl={
+            <button
+              onClick={() => {
+                setNameValue(list.name)
+                setDescValue(list.description || '')
+                setConfirmingDelete(false)
+                setEditing(true)
+              }}
+              className="label rounded-full border border-black/[0.12] px-4 py-2 text-ink/[0.55] transition-colors hover:border-black/30 hover:text-ink"
+            >
+              Edit
+            </button>
+          }
+        />
       )}
 
       {bullets.length > 0 ? (
