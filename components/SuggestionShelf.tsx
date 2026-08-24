@@ -151,14 +151,14 @@ export function SuggestionShelf({
   }
 
   return (
-    <section className="mt-12 border-t border-gray-100 pt-8">
+    <section className="mt-12 border-t border-black/[0.06] pt-8">
       {/* header — same label font/treatment as the rest of the chrome */}
       <div className="mb-6 flex items-baseline justify-between gap-4">
-        <span className="label text-stone-400">You might also add</span>
+        <span className="label text-black/30">You might also add</span>
         {pending.length > COLLAPSED_MAX && (
           <button
             onClick={() => setShowAll((v) => !v)}
-            className="label text-stone-400 transition-colors hover:text-ink"
+            className="label text-black/30 transition-colors hover:text-ink"
           >
             {showAll ? 'Show less' : `See all ${pending.length}`}
           </button>
@@ -166,9 +166,16 @@ export function SuggestionShelf({
       </div>
 
       {pending.length === 0 ? (
-        // 0 remaining (after the owner cleared the shelf).
-        <p className="py-8 text-center font-serif text-lg italic text-stone-400">
-          Nothing left to suggest.
+        // Spent shelf. This used to be a centred 18px Cardo ITALIC sentence
+        // floating in py-8, under a left-aligned label, above a left-aligned
+        // tally — three alignments and a display-sized line to say there is
+        // nothing here. It's one quiet line now, on the same left edge and in
+        // the same editorial voice as a list description, with the tally folded
+        // in rather than orphaned below (see the tally block at the end, which
+        // stands down when this renders).
+        <p className="font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60">
+          Nothing left to suggest
+          {addedCount > 0 && ` — ${addedCount} added to this list`}.
         </p>
       ) : (
         // Same masonry as the bullets above, so the shelf reads as one system.
@@ -208,7 +215,7 @@ export function SuggestionShelf({
                   onClick={() => handleDismiss(s)}
                   aria-label="dismiss suggestion"
                   title="not for this list"
-                  className="flex shrink-0 items-center justify-center rounded-full border border-black/10 px-3 text-stone-400 transition-colors hover:border-black/30 hover:text-ink"
+                  className="flex shrink-0 items-center justify-center rounded-full border border-black/10 px-3 text-black/40 transition-colors hover:border-black/30 hover:text-ink"
                 >
                   <svg
                     aria-hidden
@@ -228,9 +235,9 @@ export function SuggestionShelf({
         </Masonry>
       )}
 
-      {addedCount > 0 && (
-        <p className="label mt-4 text-stone-400">
-          ✓ {addedCount} added to this list
+      {addedCount > 0 && pending.length > 0 && (
+        <p className="label mt-4 text-black/30">
+          {addedCount} added to this list
         </p>
       )}
     </section>
