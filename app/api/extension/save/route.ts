@@ -14,6 +14,7 @@ import {
 } from '@/lib/screenshot'
 import { maybeStoreImagePref } from '@/lib/cardImageJudge'
 import { maybeEnrichPlace } from '@/lib/placeEnrich'
+import { withProductFact } from '@/lib/productFact'
 
 // Persist a client-side screenshot (data URL from the extension's
 // captureVisibleTab) to storage and point the row at it. Runs with the service
@@ -202,7 +203,7 @@ export async function POST(request: NextRequest) {
   const refreshExisting = async (existingId: string) => {
     const { data: refreshed, error: refreshErr } = await supabase
       .from('bookmarks')
-      .update({ title, description, image_url, favicon_url, card_type, raw_metadata: meta.raw, url_key })
+      .update({ title, description, image_url, favicon_url, card_type, raw_metadata: withProductFact(meta.raw, meta.product), url_key })
       .eq('id', existingId)
       .select('id, title, image_url, favicon_url')
       .single()

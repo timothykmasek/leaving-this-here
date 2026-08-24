@@ -8,6 +8,7 @@ import { formatCardTitle } from '@/lib/cardTitle'
 import { resolveCategory, type Affordance } from '@/lib/cardFormat'
 import type { CardType } from '@/lib/cardType'
 import type { PlaceMeta } from '@/lib/placeLink'
+import type { ProductFact } from '@/lib/productFact'
 
 // ── Bulletin DS "Primary Card" (Figma symbol 886:3378) ──────────────────────
 // The redesign's saved-page card, one flexible primitive:
@@ -156,6 +157,10 @@ interface PrimaryCardProps {
   // 1000-bullet grid. Falls back to rawMetadata.place for callers that do pass
   // the full blob.
   place?: PlaceMeta | null
+  // The product's price, for retail bullets. Selected narrowly the same way, as
+  // `product:raw_metadata->product` — see lib/productFact for why the JSON-LD
+  // it's derived from is not worth selecting per card.
+  product?: ProductFact | null
   // The list this bullet belongs to (if any). Present → the second caption line
   // renders and the card is taller; absent → no line, shorter card.
   listName?: string | null
@@ -168,7 +173,7 @@ interface PrimaryCardProps {
 
 export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  cardType, imagePref, place: placeProp, listName, listHref, onOpen,
+  cardType, imagePref, place: placeProp, product: productProp, listName, listHref, onOpen,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const fmt = resolveCategory(url, cardType)
@@ -181,6 +186,9 @@ export const PrimaryCard = memo(function PrimaryCard({
   const placeMeta = placeProp ?? rawMetadata?.place ?? null
   const place: PlaceMeta | null =
     fmt.category === 'Place' && placeMeta?.name ? placeMeta : null
+  // Product bullets carry their price the same way, in raw_metadata.product,
+  // narrowed into the grid's select. Absent → no chip, never an empty pill.
+  const product: ProductFact | null = productProp ?? rawMetadata?.product ?? null
   // Two ways a place gets its picture: the backfill script cuts a real file, the
   // save path stores a box to clip out of the capture. A cut file wins — it's a
   // fraction of the bytes.
@@ -237,6 +245,21 @@ export const PrimaryCard = memo(function PrimaryCard({
         {/* Own stacking context so the affordance pins to the IMAGE, not the
             plate — a Place card puts a text block below the image. */}
         <div className="relative">
+          {/* Price, top-left. A white plate rather than bare text on the photo:
+              the design handoff's white-at-85% overlay is unreadable on real
+              retail art, which is overwhelmingly pale — marble, cream, studio
+              white. Checked against Tim's own product saves, where every one of
+              them washed out. The plate is legible on any image by construction,
+              and it's the same 6px white chip the favicon already uses, so this
+              adds a value to an existing mechanism rather than a new one.
+
+              A product card doesn't also show a favicon: the domain is already
+              on the caption line, and the price is the fact worth the slot. */}
+          {product?.priceFormatted && !place && (
+            <span className="absolute left-3 top-3 z-[2] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
+              {product.priceFormatted}
+            </span>
+          )}
           {placePhoto ? (
             <PlacePhoto src={placePhoto.src} box={placePhoto.box} />
           ) : (

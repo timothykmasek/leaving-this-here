@@ -22,7 +22,7 @@ import { SiteFooter } from '@/components/SiteFooter'
 const LIST_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 const BULLET_COLS =
-  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place'
+  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product'
 
 function notFound(username: string) {
   return (
@@ -204,6 +204,7 @@ export default async function ListPage({
                 cardType={b.card_type}
                 imagePref={b.image_pref}
                 place={b.place}
+                product={b.product}
               />
             ))}
           </Masonry>

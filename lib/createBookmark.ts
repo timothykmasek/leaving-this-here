@@ -5,6 +5,7 @@ import { classifyCardType } from '@/lib/cardType'
 import { embed, bookmarkToEmbedText } from '@/lib/embed'
 import { enrichKeywords } from '@/lib/enrichKeywords'
 import { normalizeUrl } from '@/lib/normalizeUrl'
+import { withProductFact } from '@/lib/productFact'
 
 type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServer>>
 
@@ -125,7 +126,7 @@ export async function createBookmarkFromUrl(
                 image_url: meta.image,
                 favicon_url: meta.favicon,
                 card_type: classifyCardType(url, meta),
-                raw_metadata: meta.raw,
+                raw_metadata: withProductFact(meta.raw, meta.product),
               })
               .eq('id', inserted.id)
             // English search keywords (embed-only) so cross-language / synonym
@@ -170,7 +171,7 @@ export async function createBookmarkFromUrl(
         favicon_url: meta.favicon,
         screenshot_url: opts.screenshotUrl || null,
         card_type: classifyCardType(url, meta),
-        raw_metadata: meta.raw,
+        raw_metadata: withProductFact(meta.raw, meta.product),
       })
       .select('id')
       .single()

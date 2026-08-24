@@ -386,6 +386,7 @@ export function ListDetailClient({
               cardType={b.card_type}
               imagePref={b.image_pref}
               place={b.place}
+                product={b.product}
               onOpen={setSelectedId}
             />
           ))}
