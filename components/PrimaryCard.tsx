@@ -57,18 +57,16 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage, price }: { kind: Afford
       </span>
     )
   }
-  if (kind === 'disc' || kind === 'mic') {
-    return (
-      <span aria-hidden className="pointer-events-none absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.45] backdrop-blur-[2px] ring-1 ring-white/25">
-        {kind === 'disc' ? (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" aria-hidden><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="1.6" fill="#fff" /></svg>
-        ) : (
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" aria-hidden><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v4" /></svg>
-        )}
-      </span>
-    )
-  }
-  if (kind === 'favicon' && faviconUrl && hasImage) {
+  // Anything whose SOURCE is the point — an article, a track, an episode, a
+  // post — shows the site's own mark rather than a drawn glyph. A Spotify save
+  // gets Spotify's logo, a LinkedIn save gets LinkedIn's, and so on for every
+  // domain, with no brand assets to license, draw or keep current: it's the
+  // favicon we already store on the row.
+  //
+  // This used to be `favicon` only. `disc` and `mic` drew a generic record and
+  // microphone INSTEAD of the mark, which meant a Spotify track — the one case
+  // where the brand is unmistakable and useful — was the one hiding it.
+  if (SOURCE_MARK_KINDS.has(kind as string) && faviconUrl && hasImage) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
@@ -80,8 +78,25 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage, price }: { kind: Afford
       />
     )
   }
+  // Fallback when there's no favicon to show (3 of 24 brand-domain saves have
+  // none): the drawn glyph still says what KIND of thing this is.
+  if (kind === 'disc' || kind === 'mic') {
+    return (
+      <span aria-hidden className="pointer-events-none absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.45] backdrop-blur-[2px] ring-1 ring-white/25">
+        {kind === 'disc' ? (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" aria-hidden><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="1.6" fill="#fff" /></svg>
+        ) : (
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" aria-hidden><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M6 11a6 6 0 0 0 12 0M12 17v4" /></svg>
+        )}
+      </span>
+    )
+  }
   return null
 }
+
+// Kinds that identify a SOURCE rather than a capability. `play` is excluded on
+// purpose — it says the thing is playable, which the site's mark doesn't.
+const SOURCE_MARK_KINDS = new Set(['favicon', 'disc', 'mic', 'avatar'])
 
 // The hero photo as a CSS-clipped window onto the capture. The maths: mapping
 // the box's width to 100% of the frame means scaling the image by 1/w, and the
