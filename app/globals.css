@@ -214,6 +214,7 @@ body > * {
    drift apart. */
 :root {
   --pin-inset: 22px;
+  --pin-dot: 8px;
 }
 
 .pin-hang {
@@ -229,13 +230,17 @@ body > * {
    hence it sits outside .pin-hang. Goes in just ahead of the swing. */
 .pin-tack {
   position: absolute;
-  right: calc(var(--pin-inset) - 5px);
-  top: calc(var(--pin-inset) - 5px);
-  height: 10px;
-  width: 10px;
+  /* Offset by half the dot so its CENTRE lands on --pin-inset — the same point
+     .pin-hang pivots around. Derived from --pin-dot rather than hardcoded, so
+     resizing the dot can't quietly move the pivot off it. */
+  right: calc(var(--pin-inset) - var(--pin-dot) / 2);
+  top: calc(var(--pin-inset) - var(--pin-dot) / 2);
+  height: var(--pin-dot);
+  width: var(--pin-dot);
   border-radius: 9999px;
-  background: var(--ink-pin, #2b2b2b);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  /* Flat 8px, pure black, no shadow — a tack head seen straight on, not a
+     sphere lit from somewhere. #000, not --ink: the spec says black. */
+  background: #000000;
   opacity: 0;
   transform: scale(0.4);
   transition: opacity 140ms ease-out, transform 140ms ease-out;
