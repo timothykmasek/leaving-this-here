@@ -37,6 +37,12 @@ function getDomain(url: string): string {
 // data we don't have, so it renders nothing.
 function AffordanceOverlay({ kind, faviconUrl, hasImage, metric }: { kind: Affordance; faviconUrl?: string | null; hasImage: boolean; metric?: string | null }) {
   if (kind === 'price' || kind === 'rating') {
+    // Bottom-left, the card's tag corner — the same one the source mark uses.
+    // Safe today because the two never co-occur: the metric belongs to Product
+    // and Place, the mark to Social/Music/Podcast/Video, and those sets are
+    // disjoint. That stops being true the moment Video gets a duration, which
+    // is why the handoff put duration bottom-RIGHT as a pill.
+    //
     // A white plate rather than bare text on the photo. The design handoff's
     // overlay is Mier Bold at 85% WHITE directly on the image, which is
     // unreadable on real retail art — product photography is overwhelmingly
@@ -46,7 +52,7 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage, metric }: { kind: Affor
     // an existing slot with an existing mechanism.
     if (!metric) return null
     return (
-      <span className="absolute left-3 top-3 z-[2] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
+      <span className="absolute bottom-3 left-3 z-[2] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
         {metric}
       </span>
     )
@@ -394,16 +400,18 @@ export const PrimaryCard = memo(function PrimaryCard({
             onClick={() => onOpen(id)}
             aria-label="edit bullet"
             title="edit"
-            // Top-right of the plate — bottom corners belong to the disc/mic
-            // affordances. Desktop only: revealed on hover, hidden outright on
-            // touch (a pencil pinned to every card reads as clutter), so mobile
-            // taps just open the link.
+            // Top-LEFT of the plate. The bottom-left corner is the card's tag
+            // corner (price, rating, source mark) and bottom-right belongs to
+            // the disc/mic glyphs, so the owner's control takes the one corner
+            // no content uses. Desktop only: revealed on hover, hidden outright
+            // on touch (a pencil pinned to every card reads as clutter), so
+            // mobile taps just open the link.
             // No backdrop-blur here: the plate next to it is promoted to its own
             // compositing layer by .card-lift's transform, and a backdrop-filter
             // sampling across that boundary renders the chip invisible once the
             // transform settles — the pencil appeared only mid-transition, then
             // vanished. bg-white/90 over a photo reads fine without the blur.
-            className="absolute right-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:hidden"
+            className="absolute left-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:none)]:hidden"
           >
             <svg
               aria-hidden
