@@ -185,38 +185,44 @@ export function SuggestionShelf({
                 cardType={s.card_type}
                 imagePref={s.image_pref}
               />
-              {/* Dismiss — same overlay treatment as the card's edit pencil:
-                  hover-revealed where hover exists, always visible on touch.
-                  z-[2] sits above the card's stretched link. */}
-              <button
-                type="button"
-                onClick={() => handleDismiss(s)}
-                aria-label="dismiss suggestion"
-                title="not for this list"
-                // No backdrop-blur — see the matching chip in PrimaryCard: it
-                // sits beside a .card-lift plate that gets its own compositing
-                // layer, and the filter renders the chip invisible once the
-                // transform settles.
-                className="absolute right-3 top-3 z-[2] flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-stone-500 shadow-sm transition-opacity hover:text-ink [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100"
-              >
-                <svg
-                  aria-hidden
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  className="h-3.5 w-3.5"
+              {/* Add and dismiss are the two answers to the same question, so
+                  they sit together under the card as one row. The dismiss used
+                  to be a hover-revealed chip floating over the card's top-right
+                  corner while Add was a full-width bar underneath — two controls
+                  for one decision, in two places, with two different visibility
+                  rules. Both are always visible now: on a shelf whose entire
+                  purpose is "add or don't", hiding half the choice until hover
+                  wasn't buying any calm.
+
+                  items-stretch so the dismiss matches Add's height exactly
+                  rather than being separately tuned to it. */}
+              <div className="mt-2 flex items-stretch gap-2">
+                <button
+                  onClick={() => handleAdd(s)}
+                  className="label flex-1 rounded-full border border-black/10 py-2 text-ink transition-colors hover:bg-ink hover:text-white"
                 >
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-              <button
-                onClick={() => handleAdd(s)}
-                className="label mt-2 w-full rounded-full border border-black/10 py-2 text-ink transition-colors hover:bg-ink hover:text-white"
-              >
-                + Add
-              </button>
+                  + Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDismiss(s)}
+                  aria-label="dismiss suggestion"
+                  title="not for this list"
+                  className="flex shrink-0 items-center justify-center rounded-full border border-black/10 px-3 text-stone-400 transition-colors hover:border-black/30 hover:text-ink"
+                >
+                  <svg
+                    aria-hidden
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    className="h-3.5 w-3.5"
+                  >
+                    <path d="M6 6l12 12M18 6L6 18" />
+                  </svg>
+                </button>
+              </div>
             </div>
           ))}
         </Masonry>
