@@ -17,8 +17,14 @@ import Link from 'next/link'
 const STRIP_TOP = '34.9%'    // 137/393
 const STRIP_H = '27.7%'      // 109/393
 const FADE_W = '15.25%'      // 45/295
-const THUMB_MAX_W = '53%'    // 156/295 — the export's widest tile; stops one
-                             // panoramic screenshot from eating the whole strip
+// Tile width cap, and the knob that sets how many tiles you actually SEE:
+// visible ≈ 100/THUMB_MAX_W, because Bulletin's card images are overwhelmingly
+// landscape screenshots and therefore nearly all clamp to it. The Figma frame's
+// 53% (156/295) reads as three only because its strip happens to include one
+// portrait tile; with real data 53% showed two. 35% is the deliberate choice
+// for a three-across contact sheet — 2 full tiles plus a cropped one at each
+// edge. It also still caps a panoramic screenshot from eating the strip.
+const THUMB_MAX_W = '35%'
 
 export function CollectionCard({
   name,
