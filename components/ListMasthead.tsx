@@ -75,8 +75,23 @@ export function ListMasthead({
     setUpdatedLabel(formatTimestampLabel(updatedAt))
   }, [updatedAt])
 
+  // The two owner controls live TOGETHER, beside the name, as icons. They were
+  // previously a worded pill above the description and another worded button
+  // below it — two verbal affordances in two places for what is one idea:
+  // "change this list". Hover-revealed on desktop and always visible on touch,
+  // exactly as ProfileIdentity treats its own edit pencil.
+  const controls = (editControl || coverControl) && (
+    <span className="flex items-center gap-1 text-black/35 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/title:opacity-100 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+      {editControl}
+      {coverControl}
+    </span>
+  )
+
   const title = (
-    <h1 className="font-sans text-[20px] font-[600] leading-[24px] text-ink">{name}</h1>
+    <div className="group/title flex items-center gap-2">
+      <h1 className="font-sans text-[20px] font-[600] leading-[24px] text-ink">{name}</h1>
+      {controls}
+    </div>
   )
 
   return (
@@ -111,26 +126,11 @@ export function ListMasthead({
             className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,#FFFFFF_90%)]"
           />
           <div className="absolute inset-x-6 bottom-5 sm:inset-x-8 sm:bottom-6">{title}</div>
-          {/* Owner controls sit ON the photo, so they stay out of the way until
-              asked for: hidden until the cover is hovered, or until something
-              inside them takes focus so they stay keyboard-reachable. Guarded on
-              @media(hover:hover) — a touch screen has no hover to reveal them
-              with, and a cover you can never change on your phone is worse than
-              a visible button. Same construction PrimaryCard and
-              SuggestionShelf use for their hover-revealed controls. */}
-          {coverControl && (
-            <div className="absolute right-4 top-4 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:focus-within:opacity-100 [@media(hover:hover)]:group-hover:opacity-100">
-              {coverControl}
-            </div>
-          )}
         </div>
       ) : (
         // No cover is a real choice, not an empty frame — so this state gets a
         // composed row rather than a placeholder box.
-        <div className="mt-6 flex items-end justify-between gap-4">
-          {title}
-          {coverControl}
-        </div>
+        <div className="mt-6">{title}</div>
       )}
 
       {/* Same columns as the card grid below: 2 up / 3 at sm / 4 at lg, 40px
@@ -164,7 +164,6 @@ export function ListMasthead({
               )}
             </>
           )}
-          {editControl && <div className={description ? 'mt-4' : undefined}>{editControl}</div>}
         </div>
 
         {/* The list's answer to the profile's identity block: a Mier heading
