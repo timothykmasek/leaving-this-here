@@ -50,10 +50,14 @@ export function BulletinHeader({
     // eslint-disable-next-line @next/next/no-img-element
     <img src="/bulletin-logo.png" alt="Bulletin" className={`${logoClassName} w-auto`} />
   )
-  // Plain Mier Book text, 70% ink, slight tracking (Figma node 912:25144) — no
-  // uppercase, no registration-mark dots.
+  // Plain Mier BOOK, no uppercase, no registration-mark dots (Figma node
+  // 912:25144). The class said font-[500] — which is Mier REGULAR, a different
+  // cut, because this family's numeric weights are inverted (Book is 400). So
+  // the one nav item on the page was set in a face nothing else uses, which is
+  // exactly why it read as foreign. 14/20 at 0.05em is the design system's
+  // body-lg slot, verbatim.
   const actionInner = action ? (
-    <span className="font-sans text-[14px] font-[500] tracking-[0.5px] text-black/70 transition-colors group-hover:text-ink">
+    <span className="font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/60 transition-colors group-hover:text-ink">
       {action.label}
     </span>
   ) : null
@@ -63,14 +67,17 @@ export function BulletinHeader({
           mark lines up with the right card column, and the logo centers over it. */}
       {/* Mobile: logo sits on the SAME left gutter as the bio/nav below it, so the
           whole page shares one left edge. Desktop: centered masthead. */}
-      <div className={`relative mx-auto flex items-center ${widthClassName} ${tagline ? 'justify-start' : 'justify-start sm:justify-center'}`}>
+      <div className={`relative mx-auto flex items-center ${widthClassName} ${tagline || stickyLogo ? 'justify-start' : 'justify-start sm:justify-center'}`}>
         {/* wordmark — always links to "/". Logged-out visitors land on the
             homepage; logged-in users are server-redirected to their own profile
             (see app/page.tsx), so the logo is a universal "home". Centred by
             default; pinned left when a tagline occupies the centre. */}
         {stickyLogo ? (
           // Holds the row's height and the logo's left edge while the real
-          // wordmark rides the viewport. `invisible` (not `hidden`) so it still
+          // wordmark rides the viewport. A pinned logo also forces this row to
+          // justify-start (above) even with no tagline: the pinned copy sits at
+          // the container's left edge, so a centred spacer would put the two in
+          // different places and the wordmark would jump on first scroll. `invisible` (not `hidden`) so it still
           // occupies space; aria-hidden so the pinned copy is the only link.
           <span aria-hidden className="invisible inline-flex">
             {wordmark}
