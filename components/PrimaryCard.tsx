@@ -175,6 +175,9 @@ interface PrimaryCardProps {
   // `product:raw_metadata->product` — see lib/productFact for why the JSON-LD
   // it's derived from is not worth selecting per card.
   product?: ProductFact | null
+  /** The owner's own picture for this bullet (raw_metadata.customImage),
+   *  selected narrowly like place and product. Beats og/screenshot. */
+  customImage?: string | null
   // The list this bullet belongs to (if any). Present → the second caption line
   // renders and the card is taller; absent → no line, shorter card.
   listName?: string | null
@@ -187,14 +190,17 @@ interface PrimaryCardProps {
 
 export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
-  cardType, imagePref, place: placeProp, product: productProp, listName, listHref, onOpen,
+  cardType, imagePref, place: placeProp, product: productProp,
+  customImage: customImageProp, listName, listHref, onOpen,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const fmt = resolveCategory(url, cardType)
   const cleanTitle = formatCardTitle({
     title, description, url, siteName: rawMetadata?.og?.site_name ?? null,
   })
-  const candidates = cardImageCandidates(url, imageUrl, screenshotUrl, cardType, imagePref)
+  // The owner's own picture, when they've set one, beats the automatic chain.
+  const customImage = customImageProp ?? rawMetadata?.customImage ?? null
+  const candidates = cardImageCandidates(url, imageUrl, screenshotUrl, cardType, imagePref, customImage)
   // Place bullets carry their facts in raw_metadata.place (written by
   // scripts/enrich-places.js). Absent → the card renders as any other.
   const placeMeta = placeProp ?? rawMetadata?.place ?? null

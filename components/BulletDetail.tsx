@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { GemGlyph } from '@/components/GemGlyph'
+import { resizeImageToWebp } from '@/lib/imageResize'
 
 // Mymind-style detail view for a single bullet. Two panes: a large preview on the
 // left, and metadata on the right — lists and a delete action. Rendered as an
@@ -10,6 +11,8 @@ import { GemGlyph } from '@/components/GemGlyph'
 
 interface Bullet {
   id: string
+  /** The owner's own picture, if they've set one (raw_metadata.customImage). */
+  customImage?: string | null
   title: string | null
   description: string | null
   url: string
@@ -65,15 +68,65 @@ export function BulletDetail({
 }: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [imgError, setImgError] = useState(false)
+  // The owner's own picture. Held locally so the preview updates the moment it
+  // uploads, rather than waiting for the page's data to come round again.
+  const [custom, setCustom] = useState<string | null>(bullet.customImage ?? null)
+  const [imgBusy, setImgBusy] = useState<'upload' | 'reset' | null>(null)
+  const [imgMsg, setImgMsg] = useState<string | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [newListName, setNewListName] = useState('')
 
   const domain = getDomain(bullet.url)
-  const preview = (!imgError && (bullet.screenshot_url || bullet.image_url)) || null
+  // The owner's picture wins here for the same reason it wins on the card.
+  const preview = (!imgError && (custom || bullet.screenshot_url || bullet.image_url)) || null
+
+  const uploadImage = async (file: File) => {
+    setImgMsg(null)
+    setImgBusy('upload')
+    try {
+      const { blob } = await resizeImageToWebp(file)
+      const res = await fetch(`/api/bookmarks/${bullet.id}/image`, {
+        method: 'POST',
+        headers: { 'content-type': 'image/webp' },
+        body: blob,
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || 'could not save that image')
+      setCustom(json.url)
+      setImgError(false)
+    } catch (err: any) {
+      setImgMsg(err?.message || 'could not read that image')
+    } finally {
+      setImgBusy(null)
+      // Clear the input so re-picking the SAME file still fires onChange.
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  const resetImage = async () => {
+    setImgMsg(null)
+    setImgBusy('reset')
+    try {
+      const res = await fetch(`/api/bookmarks/${bullet.id}/image`, { method: 'DELETE' })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error(json.error || 'could not undo that')
+      }
+      setCustom(null)
+      setImgError(false)
+    } catch (err: any) {
+      setImgMsg(err?.message || 'could not undo that')
+    } finally {
+      setImgBusy(null)
+    }
+  }
 
   // Reset local state when switching to a different bullet.
   useEffect(() => {
     setConfirmingDelete(false)
     setImgError(false)
+    setCustom(bullet.customImage ?? null)
+    setImgMsg(null)
   }, [bullet.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Escape closes; lock body scroll while open.
@@ -122,6 +175,43 @@ export function BulletDetail({
               <GemGlyph className="h-12 w-12 text-ink/20" />
             </div>
           )}
+          {/* Use your own picture. The card's image is normally chosen for it —
+              og:image or screenshot — and this is the escape hatch for when both
+              are wrong: a Maps link whose capture is Google's bot wall, a shop
+              whose og is a bare wordmark. Sits opposite the visit pill so the
+              two actions on this pane don't crowd each other. */}
+          <div className="absolute bottom-4 right-4 flex items-center gap-2">
+            {custom && (
+              <button
+                onClick={resetImage}
+                disabled={imgBusy !== null}
+                className="rounded-full bg-paper/90 px-3 py-1.5 text-xs font-medium text-black/55 transition-colors hover:text-ink disabled:opacity-50"
+              >
+                {imgBusy === 'reset' ? 'Undoing…' : 'Use original'}
+              </button>
+            )}
+            <label className="cursor-pointer rounded-full bg-paper/90 px-3 py-1.5 text-xs font-medium text-black/70 transition-colors hover:text-ink">
+              {imgBusy === 'upload' ? 'Uploading…' : custom ? 'Replace image' : 'Use your own image'}
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={imgBusy !== null}
+                onChange={(e) => {
+                  const f = e.target.files?.[0]
+                  if (f) uploadImage(f)
+                }}
+              />
+            </label>
+          </div>
+
+          {imgMsg && (
+            <p className="absolute bottom-14 right-4 max-w-[240px] rounded-md bg-paper/95 px-2 py-1 text-right text-xs text-[#a31f34]">
+              {imgMsg}
+            </p>
+          )}
+
           <a
             href={bullet.url}
             target="_blank"
