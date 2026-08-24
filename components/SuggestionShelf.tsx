@@ -28,14 +28,21 @@ export type Suggestion = {
   favicon_url: string | null
   card_type: any
   image_pref: string | null
+  note: string | null
+  created_at: string | null
   similarity: number
 }
 
 export function SuggestionShelf({
   listId,
   onAdd,
+  onOpen,
 }: {
   listId: string
+  /** Open a suggestion in the bullet detail modal — the same hover pencil every
+   *  other card has. Hands up the whole suggestion, not just an id: it isn't in
+   *  the page's members map, so the parent has to register it before showing it. */
+  onOpen?: (s: Suggestion) => void
   // Files a suggestion into the list (parent owns the mutation + grid/count
   // update). The shelf removes the card optimistically regardless.
   onAdd: (s: Suggestion) => Promise<void> | void
@@ -183,6 +190,8 @@ export function SuggestionShelf({
           {visible.map((s) => (
             <div key={s.id} className="group relative">
               <PrimaryCard
+                id={s.id}
+                onOpen={onOpen && (() => onOpen(s))}
                 url={s.url}
                 title={s.title}
                 description={s.description}

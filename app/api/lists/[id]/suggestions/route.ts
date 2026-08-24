@@ -193,7 +193,10 @@ export async function GET(
     // current scale (hundreds–low thousands of vectors), just heavier per load.
     // Paginate — PostgREST caps at 1000/req.
     const CARD_COLS =
-      'id, url, title, description, image_url, screenshot_url, favicon_url, card_type, image_pref, is_private, embedding'
+      // note + created_at are here for the DETAIL modal, which the shelf's
+      // cards can now open — without them it would show an empty note for a
+      // bookmark that has one, and saving would overwrite it.
+      'id, url, title, description, image_url, screenshot_url, favicon_url, card_type, image_pref, is_private, note, created_at, embedding'
     let pool: any[] = []
     for (let from = 0; ; from += 1000) {
       const { data, error } = await supabase

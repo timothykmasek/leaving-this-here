@@ -119,9 +119,15 @@ export function ListDetailClient({
           : l
       )
     )
-    // Removing from *this* list drops the bullet from the grid.
-    if (listId === list.id && !add) {
-      setMemberIds((prev) => prev.filter((x) => x !== bookmarkId))
+    // Keep the grid in step with membership in THIS list, both directions. The
+    // add case matters now that the shelf's cards open in the detail modal: you
+    // can be looking at a bullet that ISN'T yet a member and file it from there.
+    if (listId === list.id) {
+      setMemberIds((prev) =>
+        add
+          ? prev.includes(bookmarkId) ? prev : [bookmarkId, ...prev]
+          : prev.filter((x) => x !== bookmarkId)
+      )
     }
   }
 
@@ -143,7 +149,8 @@ export function ListDetailClient({
       image_url: s.image_url,
       screenshot_url: s.screenshot_url,
       favicon_url: s.favicon_url,
-      note: null,
+      note: s.note,
+      created_at: s.created_at,
       card_type: s.card_type,
     })
     setMemberIds((prev) => (prev.includes(s.id) ? prev : [s.id, ...prev]))
@@ -154,6 +161,29 @@ export function ListDetailClient({
           : l
       )
     )
+  }
+
+  // Open a SHELF suggestion in the detail modal. The modal resolves bullets out
+  // of bulletsById, and a suggestion is by definition not a member of this list
+  // — so register it first, or the modal resolves nothing and silently no-ops.
+  // Registering also means filing it from inside the modal renders immediately,
+  // since the grid can then find it.
+  const handleOpenSuggestion = (s: Suggestion) => {
+    if (!bulletsById.has(s.id)) {
+      bulletsById.set(s.id, {
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        url: s.url,
+        image_url: s.image_url,
+        screenshot_url: s.screenshot_url,
+        favicon_url: s.favicon_url,
+        note: s.note,
+        created_at: s.created_at,
+        card_type: s.card_type,
+      })
+    }
+    setSelectedId(s.id)
   }
 
   const handleCreateList = async (name: string, bookmarkIds: string[] = []) => {
@@ -370,7 +400,11 @@ export function ListDetailClient({
 
       {/* Ambient shelf — suggests other saved links that fit this list. Renders
           nothing until it has confident suggestions, so it's fully ignorable. */}
-      <SuggestionShelf listId={list.id} onAdd={handleAddSuggestion} />
+      <SuggestionShelf
+        listId={list.id}
+        onAdd={handleAddSuggestion}
+        onOpen={handleOpenSuggestion}
+      />
 
       {selectedId && (() => {
         const bullet = bulletsById.get(selectedId)
