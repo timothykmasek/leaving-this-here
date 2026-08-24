@@ -35,7 +35,7 @@ function getDomain(url: string): string {
 // taking a pre-formatted string — the handoff's one slot for "the fact worth
 // knowing before you click", whatever the type supplies. `avatar` still needs
 // data we don't have, so it renders nothing.
-function AffordanceOverlay({ kind, faviconUrl, hasImage, metric }: { kind: Affordance; faviconUrl?: string | null; hasImage: boolean; metric?: string | null }) {
+function AffordanceOverlay({ kind, faviconUrl, hasImage, metric, markShown }: { kind: Affordance; faviconUrl?: string | null; hasImage: boolean; metric?: string | null; markShown?: boolean }) {
   if (kind === 'price' || kind === 'rating') {
     // Bottom-left, the card's tag corner — the same one the source mark uses.
     // Safe today because the two never co-occur: the metric belongs to Product
@@ -66,8 +66,12 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage, metric }: { kind: Affor
       </span>
     )
   }
-  // The drawn glyph, for a source-marked card whose favicon is missing or dead.
-  if (kind === 'disc' || kind === 'mic') {
+  // The drawn glyph is a FALLBACK, not a companion: it stands in when the real
+  // source mark isn't there to take the slot. A Spotify track was showing both —
+  // the logo bottom-left and a generic record bottom-right — which is exactly
+  // the thing the mark was introduced to replace. Broke when the mark moved to
+  // being category-driven and this branch stopped knowing about it.
+  if ((kind === 'disc' || kind === 'mic') && !markShown) {
     return (
       <span aria-hidden className="pointer-events-none absolute bottom-3 right-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/[0.45] backdrop-blur-[2px] ring-1 ring-white/25">
         {kind === 'disc' ? (
@@ -226,6 +230,10 @@ export const PrimaryCard = memo(function PrimaryCard({
   // Product bullets carry their price the same way, in raw_metadata.product,
   // narrowed into the grid's select. Absent → no chip, never an empty pill.
   const product: ProductFact | null = productProp ?? rawMetadata?.product ?? null
+  // Does the real source mark take the bottom-left slot? Computed once: the
+  // drawn disc/mic glyph reads this to know whether it's needed, and showing
+  // both was the bug.
+  const markShown = showsSourceMark(fmt.category) && !!faviconUrl && candidates.length > 0
   // The one fact this card puts on its photo. A place's rating reads as one
   // phrase — the star alone is ambiguous, the count alone is meaningless.
   const metric =
@@ -333,14 +341,13 @@ export const PrimaryCard = memo(function PrimaryCard({
             faviconUrl={faviconUrl}
             hasImage={candidates.length > 0}
             metric={metric}
+            markShown={markShown}
           />
           {/* The platform's mark, only where the platform is part of the
               meaning (lib/cardFormat: Social / Music / Podcast / Video). Needs
               a real image on the card — an imageless one already shows the
               favicon centred in its FaviconPlate, so a corner copy is noise. */}
-          {showsSourceMark(fmt.category) && faviconUrl && candidates.length > 0 && (
-            <SourceMark src={faviconUrl} />
-          )}
+          {markShown && <SourceMark src={faviconUrl!} />}
         </div>
 
         {place && <PlaceFacts place={place} />}
