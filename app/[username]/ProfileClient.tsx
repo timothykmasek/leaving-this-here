@@ -575,6 +575,7 @@ export default function ProfileClient({
         action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
         logoClassName="h-[32px] sm:h-[44px]"
         widthClassName={PROFILE_GRID}
+        stickyLogo
         tagline={
           <CopyTagline path={`/${profile.username}`}>
             A home for <span className="text-ink underline decoration-black/20 underline-offset-2">{(profile.display_name || profile.username).split(' ')[0]}&apos;s</span> links

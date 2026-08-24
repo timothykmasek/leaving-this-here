@@ -179,10 +179,16 @@ body::before {
   content: none;
 }
 
-/* Keep app content above the grain layer. */
+/* Keeps app content above the grain layer — which is why this exists, and why
+   it no longer needs a z-index: the grain (body::before) is `content: none`,
+   and the dot grid sits at z-index -1, so in-flow content already paints above
+   both. The explicit `z-index: 1` DID make every body child a stacking context,
+   which silently trapped mix-blend-mode inside <main> — the paper is painted by
+   <body>, so a blending element could never see it and blended against
+   transparent instead. `position: relative` stays: descendants absolutely
+   position against these, and dropping it would reparent them to the viewport. */
 body > * {
   position: relative;
-  z-index: 1;
 }
 
 /* Auto-scrolling carousel (marquee). Track holds two copies of the items, so
