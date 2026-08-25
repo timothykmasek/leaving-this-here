@@ -1,12 +1,17 @@
 'use client'
 
-import { forwardRef } from 'react'
+import { forwardRef, useEffect, useState } from 'react'
 import { CHROME_STORE_URL } from '@/lib/extension'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
-// Site footer — © + Privacy + extension link. Extracted from ProfileClient so
-// list pages (and anything else) show the same footer instead of losing it off
-// the profile.
+// Site footer — © + Privacy + extension link, plus Import when there is
+// somebody to import for. Extracted from ProfileClient so list pages (and
+// anything else) show the same footer instead of losing it off the profile.
+//
+// Import is signed-in only, everywhere including the homepage: /import
+// redirects a signed-out visitor to /login, so offering it to them was a link
+// that answered a different question than the one it asked.
 //
 // Two modes:
 // - default: static in-flow footer (list pages, homepage).
@@ -23,6 +28,23 @@ export const SiteFooter = forwardRef<
   { reveal = false, revealed = false, widthClassName = 'max-w-[1208px] px-6' },
   ref,
 ) {
+  // Starts false so a signed-out reader never sees Import flash and vanish; a
+  // signed-in one gets it a tick later instead. getSession is a local JWT
+  // decode, not a network call — same pattern as Header.
+  const [signedIn, setSignedIn] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    createClient()
+      .auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!cancelled) setSignedIn(!!session?.user)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <footer
       ref={ref}
@@ -39,10 +61,12 @@ export const SiteFooter = forwardRef<
           — no stacked-© variant that looked inconsistent across screens. */}
       <div className={`mx-auto flex ${widthClassName} flex-row items-center justify-between`}>
         <span className="label whitespace-nowrap text-black/35">© 2026</span>
-        {/* Tight gap so © + all three links fit one row on a 375px phone without
-            any item wrapping onto a second line. */}
+        {/* Tight gap so © + every link fits one row on a 375px phone without any
+            item wrapping onto a second line — three links when signed in. */}
         <nav className="flex items-center gap-5 sm:gap-8">
-          <Link href="/import" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Import</Link>
+          {signedIn && (
+            <Link href="/import" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Import</Link>
+          )}
           <Link href="/privacy" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Privacy</Link>
           <a
             href={CHROME_STORE_URL}
