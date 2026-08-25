@@ -33,6 +33,42 @@ export type Suggestion = {
   similarity: number
 }
 
+/**
+ * Drop a bookmark from every cached shelf, everywhere.
+ *
+ * The shelf paints its sessionStorage cache first and swaps in a fresh fetch
+ * after, so a DELETED bullet kept being offered — the delete handlers emptied
+ * the grid but never touched this cache. It self-corrected once the fetch
+ * landed, and not at all if that fetch failed.
+ *
+ * Worse than a stale card: list_bookmarks.bookmark_id is a foreign key, so
+ * pressing "+ Add" on a suggestion whose row is gone throws rather than
+ * quietly doing nothing.
+ *
+ * Scans every `bulletin:shelf:*` key because a bookmark can sit in the cache of
+ * any number of lists and the caller has no idea which — the add path could
+ * clean just its own list's entry, a delete can't.
+ */
+export function forgetSuggestion(bookmarkId: string) {
+  if (typeof window === 'undefined') return
+  try {
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i)
+      if (!key || !key.startsWith('bulletin:shelf:')) continue
+      // Skip the dismissal lists — different shape, different lifetime.
+      if (key.startsWith('bulletin:shelf:dismissed:')) continue
+      const raw = sessionStorage.getItem(key)
+      if (!raw) continue
+      const list = JSON.parse(raw)
+      if (!Array.isArray(list)) continue
+      const next = list.filter((s: any) => s?.id !== bookmarkId)
+      if (next.length !== list.length) sessionStorage.setItem(key, JSON.stringify(next))
+    }
+  } catch {
+    // Cache hygiene is best-effort; the background fetch is the real backstop.
+  }
+}
+
 export function SuggestionShelf({
   listId,
   onAdd,

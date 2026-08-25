@@ -9,7 +9,7 @@ import { pickCardImage } from '@/lib/cardImage'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
 import { BulletDetail } from '@/components/BulletDetail'
-import { SuggestionShelf, type Suggestion } from '@/components/SuggestionShelf'
+import { SuggestionShelf, forgetSuggestion, type Suggestion } from '@/components/SuggestionShelf'
 import { uniqueSlug } from '@/lib/slug'
 
 // Owner-editing island for a list at /username/<slug>. Visitors get the plain
@@ -81,6 +81,7 @@ export function ListDetailClient({
 
   const handleDelete = async (id: string) => {
     await supabase.from('bookmarks').delete().eq('id', id)
+    forgetSuggestion(id)
     setMemberIds((prev) => prev.filter((x) => x !== id))
     setLists((prev) =>
       prev.map((l) => ({ ...l, bookmark_ids: l.bookmark_ids.filter((x) => x !== id) }))
