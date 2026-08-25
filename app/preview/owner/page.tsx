@@ -24,6 +24,7 @@ import { ListMasthead } from '@/components/ListMasthead'
 import { ListCoverControl } from '@/components/ListCoverControl'
 import { SuggestionShelf, forgetSuggestion } from '@/components/SuggestionShelf'
 import { ImportFab } from '@/components/ImportFab'
+import { BulletDetail } from '@/components/BulletDetail'
 
 // Real local files, so cards look like cards rather than grey boxes.
 const IMAGES = [
@@ -206,6 +207,13 @@ export default function OwnerPreview() {
       </Section>
 
       <Section
+        title="Bullet detail — creating a list"
+        note="Type a name and press enter. The chip must appear greyed IMMEDIATELY, carrying the name you typed, and only then fill in — pressing enter used to await the whole round trip before even clearing the input, so nothing moved and there was no way to tell if it had worked. The fake create here takes 1.5s so the pending state is easy to see; a failure hands your typing back rather than eating it."
+      >
+        <ShowDetail />
+      </Section>
+
+      <Section
         title="Import button"
         note="Fixed to the viewport, above the cards, on the right. Scroll this page: it should stay put and never collide with the footer."
       >
@@ -277,6 +285,62 @@ function ShelfHarness() {
         </button>
       </div>
       {seeded ? <SuggestionShelf key={nonce} listId={LIST_ID} onAdd={async () => {}} /> : null}
+    </div>
+  )
+}
+
+// The bullet-detail modal only opens for the owner, from the hover pencil. This
+// mounts it directly against fixtures so the list-creation feedback can be seen
+// without an account. onCreateList deliberately takes 1.5s — the pending chip is
+// invisible against a fast local server, and slow is the case that matters.
+function ShowDetail() {
+  const [open, setOpen] = useState(false)
+  const [lists, setLists] = useState([
+    { id: 'l1', name: 'Ecommerce Sites', bookmark_ids: ['fixture-1'] },
+    { id: 'l2', name: 'The fit check', bookmark_ids: [] },
+  ])
+  const [fail, setFail] = useState(false)
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-wrap gap-3">
+        <button onClick={() => setOpen(true)} className="rounded-full border border-black/15 px-4 py-2 font-sans text-[12px] leading-4 tracking-[0.05em] hover:border-black/40">
+          Open the modal
+        </button>
+        <button onClick={() => setFail((f) => !f)} className="rounded-full border border-black/15 px-4 py-2 font-sans text-[12px] leading-4 tracking-[0.05em] hover:border-black/40">
+          Create should {fail ? 'fail' : 'succeed'}
+        </button>
+      </div>
+      {open && (
+        <BulletDetail
+          bullet={{ ...BULLETS[0], created_at: new Date('2026-08-07T00:00:00Z').toISOString(), note: null } as any}
+          lists={lists}
+          onClose={() => setOpen(false)}
+          onNoteUpdate={() => {}}
+          onDelete={() => setOpen(false)}
+          onToggleListMembership={(listId, bookmarkId, add) =>
+            setLists((prev) =>
+              prev.map((l) =>
+                l.id !== listId
+                  ? l
+                  : {
+                      ...l,
+                      bookmark_ids: add
+                        ? [...l.bookmark_ids, bookmarkId]
+                        : l.bookmark_ids.filter((x) => x !== bookmarkId),
+                    }
+              )
+            )
+          }
+          onCreateList={async (name, ids) => {
+            await new Promise((r) => setTimeout(r, 1500))
+            if (fail) return null
+            const id = `l${lists.length + 1}`
+            setLists((prev) => [...prev, { id, name, bookmark_ids: ids || [] }])
+            return id
+          }}
+        />
+      )}
     </div>
   )
 }

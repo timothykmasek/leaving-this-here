@@ -75,6 +75,15 @@ export function BulletDetail({
   const [imgMsg, setImgMsg] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [newListName, setNewListName] = useState('')
+  // Names typed and sent, not yet confirmed. Pressing enter used to await the
+  // whole round trip before so much as clearing the input, so the text just sat
+  // there and nothing moved — no way to tell if it had worked, or whether to
+  // press it again.
+  const [pendingLists, setPendingLists] = useState<string[]>([])
+  // A name stops counting as pending the instant the real list appears in
+  // `lists`, so the placeholder and the finished chip never overlap for a frame
+  // in the window between the parent's state landing and the await resolving.
+  const pendingNames = pendingLists.filter((n) => !lists.some((l) => l.name === n))
 
   const domain = getDomain(bullet.url)
   // The owner's picture wins here for the same reason it wins on the card.
@@ -243,8 +252,8 @@ export function BulletDetail({
               <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-black/40">
                 lists
               </p>
-              {lists.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
+              {(lists.length > 0 || pendingNames.length > 0) && (
+                <div className="flex flex-wrap gap-1.5" aria-live="polite">
                   {lists.map((l) => {
                     const inList = l.bookmark_ids.includes(bullet.id)
                     return (
@@ -262,6 +271,18 @@ export function BulletDetail({
                       </button>
                     )
                   })}
+                  {/* The chip you are about to get, in the slot it will occupy,
+                      greyed until the server agrees. Carries the name rather
+                      than being a blank placeholder — it confirms what was
+                      typed, which is the actual question in the moment. */}
+                  {pendingNames.map((name) => (
+                    <span
+                      key={name}
+                      className="inline-flex animate-pulse items-center gap-1 rounded-full border border-black/10 bg-black/[0.04] px-2.5 py-1 text-xs text-black/40"
+                    >
+                      {name}
+                    </span>
+                  ))}
                 </div>
               )}
               {onCreateList && (
@@ -269,9 +290,23 @@ export function BulletDetail({
                   value={newListName}
                   onChange={(e) => setNewListName(e.target.value)}
                   onKeyDown={async (e) => {
-                    if (e.key === 'Enter' && newListName.trim()) {
-                      await onCreateList(newListName, [bullet.id])
-                      setNewListName('')
+                    if (e.key !== 'Enter') return
+                    const name = newListName.trim()
+                    if (!name) return
+                    // Clear and show the pending chip BEFORE awaiting, so the
+                    // press has a visible consequence immediately.
+                    setNewListName('')
+                    setPendingLists((p) => [...p, name])
+                    try {
+                      // A null id means the create failed. Hand the typing back
+                      // rather than swallowing it — retyping a list name because
+                      // the network blipped is worse than seeing it reappear.
+                      const id = await onCreateList(name, [bullet.id])
+                      if (!id) setNewListName(name)
+                    } catch {
+                      setNewListName(name)
+                    } finally {
+                      setPendingLists((p) => p.filter((n) => n !== name))
                     }
                   }}
                   placeholder="+ new list (press enter)"
