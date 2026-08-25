@@ -292,6 +292,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           ) : (
           <CardThumb
             candidates={candidates}
+            placeholderAspect={fmt.aspect}
             onEdgeLightness={handleEdgeLightness}
             className="block w-full h-auto"
             // No image → the favicon plate, given the type's fallback shape.

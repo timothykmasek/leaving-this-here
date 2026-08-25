@@ -55,17 +55,67 @@ export default async function ProfilePage({
   const supabase = await createSupabaseServer()
   const username = params.username
 
-  // Auth and the profile lookup are independent — fire them together. The profile
-  // goes through a per-request cache() so this route's generateMetadata reuses it
-  // instead of issuing its own duplicate query. Identity comes from getSession()
-  // (local JWT decode) rather than getUser() (a network round-trip to Supabase
-  // Auth): the middleware already validated + refreshed this token on the real
-  // navigation, and it's only used here to toggle owner-only UI — every actual
-  // write is still guarded by RLS.
-  const [{ data: { session } }, profile] = await timed('profile:auth+profile', () =>
-    Promise.all([supabase.auth.getSession(), getProfileByUsername(username)])
+  // ONE round trip for the whole page.
+  //
+  // Every Supabase call costs ~139ms of pure network latency before the query
+  // does any work — measured with a bare `select id`, which takes the same
+  // 139ms as a real one. So this page's speed is decided by the NUMBER of hops,
+  // not the weight of what's in them: 60 bullets cost 220ms, the lists cost
+  // 139ms (i.e. free), and all three together as one embedded query cost 232ms.
+  //
+  // So the profile, its bullets and its lists come back together, keyed on the
+  // USERNAME. Fetching the profile first to learn its id — which is what this
+  // did — spends a whole round trip to obtain a value the same query could
+  // have filtered on.
+  //
+  // getSession() rides alongside: it's a local JWT decode, not a network call
+  // (the middleware already validated and refreshed the token), so it costs
+  // nothing to await here. It only toggles owner-only UI; every write is still
+  // guarded by RLS.
+  const [{ data: { session } }, embedded] = await timed('profile:one-shot', () =>
+    Promise.all([
+      supabase.auth.getSession(),
+      supabase
+        .from('profiles')
+        .select(`*, bookmarks(${BULLET_COLS}), lists(id, name, slug, is_private, description, created_at, list_bookmarks(bookmark_id))`)
+        .eq('username', username)
+        .order('created_at', { referencedTable: 'bookmarks', ascending: false })
+        .limit(INITIAL_BULLETS, { referencedTable: 'bookmarks' })
+        .maybeSingle(),
+    ])
   )
   const user = session?.user ?? null
+
+  // The embed depends on the foreign keys being introspectable, and this is the
+  // profile's only route to its own data — so if it fails for any reason, fall
+  // back to the original three-query path rather than showing an empty page.
+  let profile: any = embedded.error ? null : embedded.data
+  let bookmarks: any[] | null = profile ? (profile.bookmarks || []) : null
+  let lists: any[] = profile
+    ? (profile.lists || []).map((l: any) => ({
+        ...l,
+        bookmark_ids: (l.list_bookmarks || []).map((x: any) => x.bookmark_id),
+      }))
+    : []
+
+  if (embedded.error) {
+    profile = await timed('profile:fallback-profile', () => getProfileByUsername(username))
+    if (profile) {
+      const [b, l] = await timed('profile:fallback-bullets+lists', () =>
+        Promise.all([
+          supabase
+            .from('bookmarks')
+            .select(BULLET_COLS)
+            .eq('user_id', profile.id)
+            .order('created_at', { ascending: false })
+            .limit(INITIAL_BULLETS),
+          fetchLists(supabase, profile.id),
+        ])
+      )
+      bookmarks = b.data
+      lists = l
+    }
+  }
 
   if (!profile) {
     return (
@@ -76,20 +126,6 @@ export default async function ProfilePage({
       </main>
     )
   }
-
-  // Bookmarks and lists both key off the profile id but not off each other —
-  // fetch them in parallel rather than serially.
-  const [{ data: bookmarks }, lists] = await timed('profile:bookmarks+lists', () =>
-    Promise.all([
-      supabase
-        .from('bookmarks')
-        .select(BULLET_COLS)
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(INITIAL_BULLETS),
-      fetchLists(supabase, profile.id),
-    ])
-  )
 
   // If we got a full page, there are probably more — tell the client to
   // background-load the rest so search/lists cover the whole collection.
