@@ -18,46 +18,66 @@ import Link from 'next/link'
 // rounded-[20px] instead of the export's 30, which is proportionally close and
 // matches every other surface here.
 //
-// z-40 puts it above the revealed footer bar (z-30) and level with the pinned
-// wordmark, which is diagonally opposite and can't collide.
+// ── Where it sits ──────────────────────────────────────────────────────────
 //
-// It stands down while that footer bar is revealed. Two reasons, and the second
-// is the better one: at z-40 over a z-30 bar it sat directly on top of the
-// footer's own links — but also, that bar carries an "Import" link of its own.
-// With the bar up, this button is a second route to a destination already
-// offered a few pixels away, so hiding it removes a collision AND a duplicate.
-// Matches the bar's own 340ms curve so the two move as one gesture rather than
-// two things happening at once.
+// On the grid's right edge, not the viewport's. It used to be `right-6`, which
+// put it 24px from the window while the cards stopped at the grid's padding —
+// so it hung outside the column it belongs to, by a different amount at every
+// width. The same fixed-full-width-then-mx-auto trick BulletinHeader uses for
+// the pinned wordmark keeps it on the same line the cards end on.
+//
+// Parked ABOVE where the revealed footer bar lands, permanently, rather than
+// getting out of its way. It used to fade out whenever that bar came up, so
+// scrolling up made the button vanish — which reads as losing a control, not
+// as tidying. Sitting clear of the bar means nothing has to move at all.
+//
+// The clearance is the bar's own height plus a gap. That bar is
+// border(1) + pt-[18px] + one .label line(12px) + pb-[max(18px,safe-area)],
+// so 31px plus that bottom padding; 24px of air on top of it. Expressed as a
+// calc so the iOS safe-area inset is carried through rather than guessed at.
+const FOOTER_CLEARANCE = 'calc(55px + max(18px, env(safe-area-inset-bottom)))'
 
-export function ImportFab({ hidden = false }: { hidden?: boolean }) {
+export function ImportFab({
+  // Must match the page's grid, or the button lands off the column edge — the
+  // same contract SiteFooter's widthClassName has, for the same reason.
+  widthClassName = 'max-w-[1720px] px-4 sm:px-10',
+}: {
+  widthClassName?: string
+}) {
   return (
-    <Link
-      href="/import"
-      aria-label="Import links"
-      title="Import links"
-      aria-hidden={hidden}
-      tabIndex={hidden ? -1 : undefined}
-      className={`group fixed bottom-6 right-6 z-40 hidden h-16 w-16 items-center justify-center rounded-[20px] transition-all duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.04] active:scale-[0.98] sm:flex ${
-        hidden ? 'pointer-events-none translate-y-3 opacity-0' : 'translate-y-0 opacity-100'
-      }`}
-      style={{
-        // Frosted, per the handoff: it takes its colour from whatever it's over.
-        // The radial overlay is Figma's, approximated — the export's own note
-        // says its rotation isn't expressible in CSS.
-        background:
-          'radial-gradient(140% 140% at 0% 0%, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.067) 77%, rgba(0,0,0,0) 100%)',
-        boxShadow: 'inset 0.93px 7.45px 10.25px rgba(255,255,255,0.55)',
-        backdropFilter: 'blur(24px)',
-        WebkitBackdropFilter: 'blur(24px)',
-      }}
+    // The wrapper spans the viewport so its inner row can be centred on the
+    // grid; it must not swallow clicks meant for the feed underneath, hence
+    // pointer-events-none here and auto on the button itself.
+    <div
+      className="pointer-events-none fixed inset-x-0 z-40 hidden sm:block"
+      style={{ bottom: FOOTER_CLEARANCE }}
     >
-      {/* The plus as two bars rather than a glyph, so the stroke stays exactly
-          2px and the arms stay exactly equal at any size — a font's "+" gives
-          neither. */}
-      <span aria-hidden className="relative block h-4 w-4">
-        <span className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 rounded-full bg-white" />
-        <span className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 rounded-full bg-white" />
-      </span>
-    </Link>
+      <div className={`mx-auto flex ${widthClassName} justify-end`}>
+        <Link
+          href="/import"
+          aria-label="Import links"
+          title="Import links"
+          className="group pointer-events-auto flex h-16 w-16 items-center justify-center rounded-[20px] transition-transform duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.04] active:scale-[0.98]"
+          style={{
+            // Frosted, per the handoff: it takes its colour from whatever it's
+            // over. The radial overlay is Figma's, approximated — the export's
+            // own note says its rotation isn't expressible in CSS.
+            background:
+              'radial-gradient(140% 140% at 0% 0%, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.067) 77%, rgba(0,0,0,0) 100%)',
+            boxShadow: 'inset 0.93px 7.45px 10.25px rgba(255,255,255,0.55)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+          }}
+        >
+          {/* The plus as two bars rather than a glyph, so the stroke stays
+              exactly 2px and the arms stay exactly equal at any size — a font's
+              "+" gives neither. */}
+          <span aria-hidden className="relative block h-4 w-4">
+            <span className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 rounded-full bg-white" />
+            <span className="absolute left-1/2 top-0 h-full w-[2px] -translate-x-1/2 rounded-full bg-white" />
+          </span>
+        </Link>
+      </div>
+    </div>
   )
 }

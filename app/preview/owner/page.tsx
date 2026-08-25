@@ -25,6 +25,7 @@ import { ListCoverControl } from '@/components/ListCoverControl'
 import { SuggestionShelf, forgetSuggestion } from '@/components/SuggestionShelf'
 import { ImportFab } from '@/components/ImportFab'
 import { BulletDetail } from '@/components/BulletDetail'
+import { SiteFooter } from '@/components/SiteFooter'
 
 // Real local files, so cards look like cards rather than grey boxes.
 const IMAGES = [
@@ -93,6 +94,9 @@ function Section({ title, note, children }: { title: string; note: string; child
     </section>
   )
 }
+
+// The profile's grid, so the fixed chrome here lines up the way it does there.
+const OWNER_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 export default function OwnerPreview() {
   // Each masthead owns its cover so clicking through the picker actually moves
@@ -214,15 +218,16 @@ export default function OwnerPreview() {
       </Section>
 
       <Section
-        title="Import button"
-        note="Fixed to the viewport, above the cards, on the right. Scroll this page: it should stay put and never collide with the footer."
+        title="Import button, against the revealed footer"
+        note="Both are rendered on the profile's own grid, and the footer below is forced open. The button must land on the same vertical line the cards end on — not 24px from the window — and must clear the footer bar without either of them moving. It used to fade out whenever that bar came up, so scrolling up made the control vanish."
       >
         <p className="font-sans text-[12px] leading-4 tracking-[0.05em] text-black/45">
-          Rendered fixed — look bottom right, and scroll.
+          Look bottom right. The footer bar below is pinned open.
         </p>
       </Section>
 
-      <ImportFab />
+      <ImportFab widthClassName={OWNER_GRID} />
+      <SiteFooter reveal revealed widthClassName={OWNER_GRID} />
     </main>
   )
 }

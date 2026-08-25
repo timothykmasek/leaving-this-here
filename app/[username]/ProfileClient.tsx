@@ -1153,7 +1153,7 @@ export default function ProfileClient({
           no footer at all — no privacy link, no extension link, nothing. The
           Import button below stays owner-only; it is an action, not chrome. */}
       <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />
-      {isOwner && <ImportFab hidden={footerRevealed} />}
+      {isOwner && <ImportFab widthClassName={PROFILE_GRID} />}
     </main>
   )
 }
