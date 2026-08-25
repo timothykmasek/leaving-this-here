@@ -1,4 +1,4 @@
-import Link from 'next/link'
+import { notFound } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { getProfileByUsername } from '@/lib/queries'
 import { timed } from '@/lib/timing'
@@ -23,19 +23,6 @@ const LIST_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 const BULLET_COLS =
   'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
-
-function notFound(username: string) {
-  return (
-    <main className="min-h-screen">
-      <div className="mx-auto max-w-6xl px-4 py-12 text-center">
-        <p className="text-gray-500">list not found</p>
-        <Link href={`/${username}`} className="mt-3 inline-block text-sm text-stone-400 hover:text-ink">
-          ← back to profile
-        </Link>
-      </div>
-    </main>
-  )
-}
 
 export default async function ListPage({
   params,
@@ -78,11 +65,11 @@ export default async function ListPage({
     ])
   )
   const user = session?.user ?? null
-  if (oneShot.error || !oneShot.data) return notFound(username)
+  if (oneShot.error || !oneShot.data) notFound()
 
   const row: any = oneShot.data
   const profile: any = row.profiles
-  if (!profile) return notFound(username)
+  if (!profile) notFound()
   const isOwner = !!user && user.id === profile.id
 
   const list: any = {

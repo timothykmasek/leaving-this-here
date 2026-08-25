@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { getProfileByUsername } from '@/lib/queries'
 import { timed } from '@/lib/timing'
@@ -117,15 +118,10 @@ export default async function ProfilePage({
     }
   }
 
-  if (!profile) {
-    return (
-      <main className="min-h-screen">
-        <div className="mx-auto max-w-6xl px-4 py-12 text-center">
-          <p className="text-gray-500">user not found</p>
-        </div>
-      </main>
-    )
-  }
+  // notFound() rather than a 200 that says "user not found": the old shell
+  // answered every unmatched path — /robots.txt among them — with a page a
+  // crawler could index.
+  if (!profile) notFound()
 
   // If we got a full page, there are probably more — tell the client to
   // background-load the rest so search/lists cover the whole collection.
