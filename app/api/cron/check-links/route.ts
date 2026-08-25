@@ -45,6 +45,13 @@ const CONCURRENCY = 10
 const HEALTHY_DAYS = 90
 const FAILING_DAYS = 3
 const TIMEOUT_MS = 10_000
+// Stop STARTING new probes after this. maxDuration is 60s, and the batch alone
+// does not bound the run: 200 links at a 10s timeout and concurrency 10 is 200
+// seconds in the worst case, which would be killed mid-flight. Measured on a
+// real batch of 196 the whole run took 23s — but that was a lucky batch, and
+// the failure mode of guessing wrong here is a function that dies without
+// recording anything it learned. Whatever is left simply stays due.
+const DEADLINE_MS = 45_000
 
 // A real browser's UA. Not a disguise — plenty of servers simply refuse an
 // unknown agent, and being refused would be recorded as a fact about the link
@@ -158,9 +165,15 @@ export async function GET(req: Request) {
 
   // Fixed-size worker pool rather than Promise.all over everything: bounded
   // sockets, and the slowest link can't stall the rest.
+  const startedAt = Date.now()
   let cursor = 0
+  let ranOutOfTime = false
   async function worker() {
     while (cursor < rows.length) {
+      if (Date.now() - startedAt > DEADLINE_MS) {
+        ranOutOfTime = true
+        return
+      }
       const b = rows[cursor++]
       const status = await probe(b.url)
       tally[status]++
@@ -181,7 +194,13 @@ export async function GET(req: Request) {
   return NextResponse.json({
     dryRun,
     due: due?.length ?? 0,
-    checked: rows.length,
+    // What was actually probed. Not the same as the batch when the deadline cut
+    // the run short — every worker checks the clock before taking its next
+    // item, so cursor is exactly the number that got a verdict.
+    checked: cursor,
+    ranOutOfTime,
+    elapsedMs: Date.now() - startedAt,
+    candidates: rows.length,
     deferredSameHost: (due?.length ?? 0) - rows.length,
     ...tally,
     // Confirmed twice — the only ones a reader would ever be shown.
