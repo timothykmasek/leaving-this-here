@@ -69,6 +69,86 @@ function placeKeywords(facts, resolved, urlName) {
   return out.filter(Boolean).join(', ')
 }
 
+
+// ── Finding the hero photo without asking a model ───────────────────────────
+//
+// extractPhotoEdges() asks Haiku for the photo's four edges. On Cherry Paris it
+// returned 385x153 where the photo is really 402x240 — it came in 87px short and
+// sliced the tops off the bar stools, which is why that card rendered as a
+// letterbox strip half the height of its neighbours.
+//
+// Google's place panel doesn't need a model. The hero photo is the only large
+// DARK region at the top of an otherwise white panel, and ImageMagick can
+// average whole rows and columns in one pass each:
+//
+//   • rows:    crop the panel column, squash to 1px wide -> each pixel is a row
+//              mean. Photo rows measure 11-42; panel rows 254-255. The gap is a
+//              chasm, not a threshold anyone had to tune.
+//   • columns: crop the top band, squash to 1px tall -> the photo is the long
+//              dark run; the left rail and the map are both light.
+//
+// The one subtlety is the floating search bar, which is a white island INSIDE
+// the photo (rows ~12-60 read 239). Requiring the white to be SUSTAINED steps
+// over it: the panel below the photo stays white for hundreds of rows, the
+// search bar doesn't.
+function meansAlong(file, cropGeom, resizeGeom) {
+  const out = execFileSync('magick', [
+    file, '-crop', cropGeom, '+repage', '-colorspace', 'gray',
+    '-resize', resizeGeom, '-depth', '8', 'txt:-',
+  ]).toString()
+  return out.split('\n').slice(1)
+    .map((l) => { const m = l.match(/gray\((\d+)\)/); return m ? Number(m[1]) : null })
+    .filter((n) => n !== null)
+}
+
+function photoBoxFromPixels(file, w, h) {
+  try {
+    // Horizontal: the photo is the longest dark run across the top band.
+    const cols = meansAlong(file, `${w}x${Math.min(200, h)}+0+60`, `${w}x1!`)
+    let best = null, start = null
+    cols.concat([255]).forEach((m, x) => {
+      if (m < 170 && start === null) start = x
+      else if (m >= 170 && start !== null) {
+        if (!best || x - start > best[1] - best[0]) best = [start, x]
+        start = null
+      }
+    })
+    if (!best || best[1] - best[0] < 120) return null
+    const [l, r] = best
+
+    // Vertical: the first row that is white AND STAYS white — stepping over the
+    // search bar, which is white but only ~48 rows tall.
+    const rows = meansAlong(file, `${r - l}x${h}+${l}+0`, `1x${h}!`)
+    const sustained = (y) => {
+      for (let k = y; k < Math.min(rows.length, y + 60); k++) if (rows[k] <= 200) return false
+      return true
+    }
+    let bottom = null
+    for (let y = 0; y < rows.length; y++) {
+      if (rows[y] > 230 && sustained(y)) { bottom = y; break }
+    }
+    if (!bottom || bottom < 80) return null
+
+    // The search bar floats ON the photo, so cropping from y=0 puts Google's
+    // own chrome in the card. Start below it instead: take the end of the last
+    // white run that begins in the top ~80 rows. (There's usually a sliver of
+    // photo above the bar too — losing it costs a dozen pixels and beats
+    // shipping a search field.)
+    let top = 0
+    for (let y = 0; y < Math.min(80, bottom); y++) {
+      if (rows[y] > 200) {
+        let e = y
+        while (e < bottom && rows[e] > 200) e++
+        if (e < bottom) top = e
+        y = e
+      }
+    }
+    return [l, top, r, bottom]
+  } catch {
+    return null
+  }
+}
+
 async function main() {
   if (!env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY missing from .env.local')
 
@@ -112,9 +192,14 @@ async function main() {
       : null
     if (resolved) console.log(`   geocode ${resolved.lat},${resolved.lon} ${resolved.addressLine || ''}`)
 
+    // Measure the photo off the pixels first; the model is the fallback now,
+    // not the other way round.
+    const measured = photoBoxFromPixels(tmp, w, h)
+    if (measured) console.log(`   measured ${measured[2] - measured[0]}x${measured[3] - measured[1]} (pixels, no model)`)
+
     let photoUrl = null
-    if (edges) {
-      const [l, t, r, bo] = cropBoxFromEdges(edges, w, h)
+    if (measured || edges) {
+      const [l, t, r, bo] = measured || cropBoxFromEdges(edges, w, h)
       const cw = r - l, ch = bo - t
       console.log(`   crop   ${cw}x${ch} at ${l},${t}`)
       if (cw > 80 && ch > 60) {

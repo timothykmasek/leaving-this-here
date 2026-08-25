@@ -9,7 +9,7 @@ import type { CardType } from '@/lib/cardType'
 
 export type Category =
   | 'Website' | 'Product' | 'Article' | 'Music'
-  | 'Podcast' | 'Video' | 'Social' | 'Book' | 'Place'
+  | 'Podcast' | 'Video' | 'Social' | 'Book' | 'Place' | 'App'
 
 export type Affordance = 'play' | 'price' | 'rating' | 'favicon' | 'disc' | 'mic' | 'avatar' | null
 
@@ -22,7 +22,7 @@ export type Affordance = 'play' | 'price' | 'rating' | 'favicon' | 'disc' | 'mic
 // Deliberately by CATEGORY, not by affordance kind: Video's affordance is
 // `play`, which is a capability rather than a source, and a video wants both —
 // the play button centred and the platform's mark in the corner.
-const SOURCE_MARK_CATEGORIES = new Set<Category>(['Social', 'Music', 'Podcast', 'Video'])
+const SOURCE_MARK_CATEGORIES = new Set<Category>(['Social', 'Music', 'Podcast', 'Video', 'App'])
 
 export function showsSourceMark(category: Category): boolean {
   return SOURCE_MARK_CATEGORIES.has(category)
@@ -48,6 +48,10 @@ const SPEC: Record<Category, { aspect: string; affordance: Affordance }> = {
   Video:   { aspect: '16 / 9',   affordance: 'play' },
   Social:  { aspect: '4 / 5',    affordance: 'avatar' },
   Book:    { aspect: '2 / 3',    affordance: null },
+  // An app-store listing. The mark is the store's own — it says WHERE this
+  // lives, which for an app is the useful half (App Store vs Play). 4:3 like
+  // Website: store og:images are wide hero shots, not covers.
+  App:     { aspect: '4 / 3',    affordance: null },
   // A map link has no og:image worth showing, so an imageless Place falls back
   // to the same 4:3 plate as Website. The affordance is the RATING, in the same
   // top-left slot a product's price uses, so the one fact worth scanning in a
@@ -75,6 +79,14 @@ function categoryFromUrl(url: string): Category | null {
   if (is('music.apple.com', 'bandcamp.com', 'soundcloud.com')) return 'Music'
   if (is('x.com', 'twitter.com', 'reddit.com', 'linkedin.com', 'instagram.com', 'threads.net', 'facebook.com')) return 'Social'
   if (is('goodreads.com', 'bookshop.org') || h.startsWith('books.google')) return 'Book'
+  // Apps means a store LISTING, not "a site that happens to be software".
+  // Deliberately a narrow allowlist: a link to Linear or Figma is a Website,
+  // which is ~80% of all cards — marking those would put a plate on nearly
+  // everything, the opposite of what the source mark is for. Note the Apple
+  // hosts are siblings of podcasts.apple.com and music.apple.com, matched
+  // above, so ordering matters and this must stay below them.
+  if (is('apps.apple.com', 'itunes.apple.com', 'testflight.apple.com')) return 'App'
+  if (h === 'play.google.com' && p.startsWith('/store/apps')) return 'App'
   // Places. Scoped to the /maps path on google.* so an ordinary google.com
   // link is untouched (and books.google, matched above, is a disjoint host).
   // Mirrors isPlaceUrl() in lib/placeLink.ts — keep the two in step.
