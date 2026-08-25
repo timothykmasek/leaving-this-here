@@ -6,6 +6,7 @@
 //   2. Otherwise fall back to the stored card_type.
 //   3. Otherwise Website — the 80% workhorse and the safe default.
 import type { CardType } from '@/lib/cardType'
+import { isPlaceUrl } from '@/lib/placeLink'
 
 export type Category =
   | 'Website' | 'Product' | 'Article' | 'Music'
@@ -87,11 +88,16 @@ function categoryFromUrl(url: string): Category | null {
   // above, so ordering matters and this must stay below them.
   if (is('apps.apple.com', 'itunes.apple.com', 'testflight.apple.com')) return 'App'
   if (h === 'play.google.com' && p.startsWith('/store/apps')) return 'App'
-  // Places. Scoped to the /maps path on google.* so an ordinary google.com
-  // link is untouched (and books.google, matched above, is a disjoint host).
-  // Mirrors isPlaceUrl() in lib/placeLink.ts — keep the two in step.
-  if (is('maps.app.goo.gl') || h === 'maps.google.com' || is('maps.apple.com')) return 'Place'
-  if ((h.startsWith('google.') || h.includes('.google.')) && p.startsWith('/maps')) return 'Place'
+  // Places. Asks isPlaceUrl() rather than restating its rules: this used to be
+  // a copy under a "keep the two in step" comment, and the copy had already
+  // fallen behind — it was missing openstreetmap.org and goo.gl/maps, so those
+  // links were enriched with place facts by the save path and then rendered as
+  // ordinary websites, with no 4/3 plate and no rating. One definition can't
+  // drift from itself.
+  //
+  // Ordering still matters: books.google and play.google.com/store/apps are
+  // matched above, and isPlaceUrl only claims /maps paths on google hosts.
+  if (isPlaceUrl(url)) return 'Place'
   return null
 }
 
