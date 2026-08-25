@@ -34,7 +34,7 @@ export default function Loading() {
           <div className="mt-6 aspect-[1184/480] max-h-[360px] w-full animate-pulse rounded-[20px] bg-card" />
 
           {/* description (cols 1–2) opposite the meta stack (last column) */}
-          <div className="mt-8 grid grid-cols-1 gap-y-6 border-b border-black/[0.06] pb-8 sm:grid-cols-3 sm:gap-x-[40px] lg:grid-cols-4">
+          <div className="mt-8 grid grid-cols-1 gap-y-6 pb-8 sm:grid-cols-3 sm:gap-x-[40px] lg:grid-cols-4">
             <div className="space-y-2 sm:col-span-2">
               <div className="h-3 w-full animate-pulse rounded bg-black/[0.05]" />
               <div className="h-3 w-[92%] animate-pulse rounded bg-black/[0.05]" />

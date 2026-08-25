@@ -19,12 +19,13 @@
 
 import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { cleanListDescription } from '@/lib/listDescription'
 import { BracketLabel } from '@/components/BulletinHeader'
 import { LinkStrip } from '@/components/LinkStrip'
 
 export function ListMasthead({
   name,
-  description,
+  description: rawDescription,
   count,
   ownerName,
   backHref,
@@ -54,6 +55,10 @@ export function ListMasthead({
   editControl?: ReactNode
 }) {
   const [expanded, setExpanded] = useState(false)
+  // Never the raw value: a leading "# List Name" would print the title twice,
+  // the second time with a hash in front of it.
+  const description = cleanListDescription(rawDescription)
+
   const [clamped, setClamped] = useState(false)
   const descRef = useRef<HTMLParagraphElement>(null)
   // Only offer more/less when the text is ACTUALLY cut off. A length threshold
@@ -147,12 +152,15 @@ export function ListMasthead({
       )}
 
       {/* Same columns as the card grid below: 2 up / 3 at sm / 4 at lg, 40px
-          gaps. The description spans two of them — a ~660px measure at desktop,
+          gaps. No rule underneath: the cover above and the grid below are both
+          strong horizontal edges already, and a hairline between them was
+          drawing a boundary nobody needed drawn. The pb-8 stays — the spacing
+          was doing the separating, not the line. The description spans two of them — a ~660px measure at desktop,
           which is a good line length for prose as well as a grid alignment —
           and the meta takes the last column. At lg that deliberately leaves the
           third column empty, so the space between them reads as structure
           rather than as drift. */}
-      <div className="mt-8 grid grid-cols-1 gap-y-6 border-b border-black/[0.06] pb-8 sm:grid-cols-3 sm:gap-x-[40px] lg:grid-cols-4">
+      <div className="mt-8 grid grid-cols-1 gap-y-6 pb-8 sm:grid-cols-3 sm:gap-x-[40px] lg:grid-cols-4">
         <div className="sm:col-span-2">
           {description && (
             <>
