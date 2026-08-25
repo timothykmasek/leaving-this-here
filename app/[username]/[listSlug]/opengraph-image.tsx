@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { loadCardo, INK } from '@/lib/og'
+import { loadFonts, HEADLINE, INK } from '@/lib/og'
 
 // A list's own share card — the profile's list card, turned on its side.
 //
@@ -142,7 +142,7 @@ export default async function ListOgImage({
   // Satori won't read, so the network is only asked about plausible ones.
   const likely = candidates.filter((u) => LIKELY_DRAWABLE.test(u.split('?')[0])).slice(0, STRIP_CONFIRM)
 
-  const [fonts, checked] = await Promise.all([loadCardo(), Promise.all(likely.map(drawable))])
+  const [fonts, checked] = await Promise.all([loadFonts(), Promise.all(likely.map(drawable))])
 
   const strip = (checked.filter(Boolean) as string[]).slice(0, STRIP_TILES)
   // Two tiles is not a contact sheet, it's two pictures. Below the floor the
@@ -160,7 +160,6 @@ export default async function ListOgImage({
           display: 'flex',
           position: 'relative',
           color: INK,
-          fontFamily: 'Cardo, serif',
         }}
       >
         {hasStrip ? (
@@ -208,8 +207,11 @@ export default async function ListOgImage({
               left: 80,
               top: 268,
               display: 'flex',
+              // Mier A DemiBold, the face both page headlines use
+              // (font-sans font-[600] → app/fonts.ts maps 600 to DemiBold).
+              fontFamily: HEADLINE,
               fontSize: 68,
-              fontWeight: 700,
+              fontWeight: 600,
               lineHeight: 1.05,
               letterSpacing: -1,
               maxWidth: 1040,

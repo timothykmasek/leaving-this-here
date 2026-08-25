@@ -1,6 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { loadCardo, loadLogo, PAPER, INK } from '@/lib/og'
+import { loadFonts, loadLogo, HEADLINE, BODY, PAPER, INK } from '@/lib/og'
 import { clampDescription, SITE_DESCRIPTION } from '@/lib/meta'
 
 // The share card for a folio — what a Bulletin link looks like in iMessage,
@@ -37,7 +37,7 @@ export default async function OgImage({ params }: { params: { username: string }
   }
 
   const [fonts, logo] = await Promise.all([
-    loadCardo(),
+    loadFonts(),
     loadLogo(),
   ])
 
@@ -53,7 +53,8 @@ export default async function OgImage({ params }: { params: { username: string }
           justifyContent: 'space-between',
           padding: '72px 80px',
           color: INK,
-          fontFamily: 'Cardo, serif',
+          // Body voice by default; the name overrides to the headline face.
+          fontFamily: BODY,
         }}
       >
         {logo ? (
@@ -72,8 +73,10 @@ export default async function OgImage({ params }: { params: { username: string }
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div
             style={{
+              // Mier A DemiBold — ProfileIdentity's h1 is font-sans font-[600].
+              fontFamily: HEADLINE,
               fontSize: 92,
-              fontWeight: 700,
+              fontWeight: 600,
               lineHeight: 1.05,
               letterSpacing: -1,
               maxWidth: 1000,

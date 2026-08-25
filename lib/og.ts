@@ -1,9 +1,23 @@
 // Shared pieces for the generated share cards.
 //
 // Satori (what ImageResponse renders with) reads ttf, otf and woff — but NOT
-// woff2, which is the only format app/fonts holds. So the brand serif can't be
-// loaded from disk. Cardo is on Google Fonts, which serves ttf to any client
-// that doesn't advertise woff2 support, so it's fetched from there instead.
+// woff2, which is the only format app/fonts holds.
+//
+// Two faces, matching what the pages themselves set:
+//
+//   Mier A DemiBold — headlines. ProfileIdentity and ListMasthead both set
+//     `font-sans font-[600]`, and app/fonts.ts maps 600 to DemiBold. It's a
+//     licensed face and not on any CDN, so MierA-DemiBold.ttf here is a plain
+//     sfnt conversion of app/fonts/MierA-DemiBold.woff2 — same outlines, only
+//     the woff2 compression dropped. Regenerate with fontTools if the woff2
+//     is ever replaced:
+//
+//       from fontTools.ttLib import TTFont
+//       f = TTFont('app/fonts/MierA-DemiBold.woff2'); f.flavor = None
+//       f.save('lib/MierA-DemiBold.ttf')
+//
+//   Cardo — body, matching the pages' `font-serif`. On Google Fonts, which
+//     serves ttf to any client that doesn't advertise woff2 support.
 //
 // The css is parsed rather than pinning the versioned file url: that url
 // carries a version segment (…/cardo/v21/…) that Google rotates, and a pinned
@@ -11,14 +25,33 @@
 
 const CARDO_CSS = 'https://fonts.googleapis.com/css2?family=Cardo:wght@400;700'
 
-export type OgFont = { name: string; data: ArrayBuffer; weight: 400 | 700; style: 'normal' }
+export type OgFont = { name: string; data: ArrayBuffer; weight: 400 | 600 | 700; style: 'normal' }
 
 // Module scope, so a warm lambda pays the two fetches once rather than per card.
 let cached: OgFont[] | null = null
 
-/** Cardo 400 + 700, or an empty list — a card in the fallback font is worse
- *  than one in Cardo, and far better than no card at all. */
-export async function loadCardo(): Promise<OgFont[]> {
+/** The headline face. Bundled, so it can't fail the way a fetch can. */
+export const HEADLINE = 'Mier A'
+/** The body face. */
+export const BODY = 'Cardo'
+
+/** Both faces. Cardo is fetched and may come back empty — a card in the
+ *  fallback serif is worse than one in Cardo and far better than no card. Mier
+ *  is bundled, so if it is missing something is wrong with the build. */
+export async function loadFonts(): Promise<OgFont[]> {
+  const [mier, cardo] = await Promise.all([
+    fetch(new URL('./MierA-DemiBold.ttf', import.meta.url))
+      .then((r) => r.arrayBuffer())
+      .catch(() => null),
+    loadCardo(),
+  ])
+  return [
+    ...(mier ? [{ name: HEADLINE, data: mier, weight: 600 as const, style: 'normal' as const }] : []),
+    ...cardo,
+  ]
+}
+
+async function loadCardo(): Promise<OgFont[]> {
   if (cached) return cached
   try {
     // A bare UA string: Google decides the format from it, and answers with
@@ -36,8 +69,8 @@ export async function loadCardo(): Promise<OgFont[]> {
       urls.slice(0, 2).map((u) => fetch(u).then((r) => r.arrayBuffer()))
     )
     cached = [
-      { name: 'Cardo', data: regular, weight: 400, style: 'normal' },
-      { name: 'Cardo', data: bold, weight: 700, style: 'normal' },
+      { name: BODY, data: regular, weight: 400, style: 'normal' },
+      { name: BODY, data: bold, weight: 700, style: 'normal' },
     ]
     return cached
   } catch {
