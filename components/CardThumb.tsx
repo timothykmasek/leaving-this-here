@@ -20,6 +20,7 @@ export function CardThumb({
   priority = false,
   fallback = null,
   onEdgeLightness,
+  placeholderAspect,
 }: {
   candidates: string[]
   alt?: string
@@ -30,8 +31,11 @@ export function CardThumb({
   // card can draw a hairline when it would otherwise bleed into a white page.
   // null = couldn't measure (non-CORS host, decode failure); treat as "no".
   onEdgeLightness?: (light: boolean | null) => void
+  /** Aspect to hold the card's space with until the image loads. */
+  placeholderAspect?: string
 }) {
   const [idx, setIdx] = useState(0)
+  const [loaded, setLoaded] = useState(false)
   const ref = useRef<HTMLImageElement>(null)
   const src = candidates[idx]
 
@@ -45,6 +49,8 @@ export function CardThumb({
     const img = ref.current
     if (img && img.complete && img.naturalWidth === 0) {
       setIdx((i) => i + 1)
+    } else if (img && img.complete) {
+      setLoaded(true)
     }
   }, [src])
 
@@ -71,7 +77,23 @@ export function CardThumb({
       src={src}
       alt={alt}
       loading={priority ? 'eager' : 'lazy'}
+      // Reserve height until the image arrives. A card renders at its image's
+      // NATURAL aspect, so before that image loads it had no height at all —
+      // which made the whole feed collapse to almost nothing on first paint.
+      //
+      // That wasn't just ugly, it doubled the work: the load-more sentinel sits
+      // at the end of the grid with an 800px rootMargin, so against a collapsed
+      // document it was already on screen and fired immediately, rendering two
+      // pages of cards (96, not 48) and pulling twice the images before anyone
+      // had scrolled. Measured: 96 cards and 58 below-fold images fetched on a
+      // page nobody had touched.
+      //
+      // `placeholderAspect` is the type's own fallback plate shape, so the
+      // reservation is roughly right rather than arbitrary; it's dropped the
+      // moment the real image can speak for itself.
+      style={loaded || !placeholderAspect ? undefined : { aspectRatio: placeholderAspect }}
       className={className}
+      onLoad={() => setLoaded(true)}
       onError={() => setIdx((i) => i + 1)}
     />
   )

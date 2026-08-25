@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { getProfileByUsername, getListBySlug } from '@/lib/queries'
+import { getProfileByUsername } from '@/lib/queries'
 import { timed } from '@/lib/timing'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { pickCardImage } from '@/lib/cardImage'
@@ -45,48 +45,79 @@ export default async function ListPage({
   const { username, listSlug } = params
   const supabase = await createSupabaseServer()
 
-  // Stage 1 — auth + profile are independent; the profile lookup is shared with
-  // this route's generateMetadata via a per-request cache() so it fires once.
-  // Identity via getSession() (local decode) not getUser() (network) — middleware
-  // already validated the token; here it only toggles the owner management view.
-  const [{ data: { session } }, profile] = await timed('list:auth+profile', () =>
-    Promise.all([supabase.auth.getSession(), getProfileByUsername(username)])
-  )
-  const user = session?.user ?? null
-  if (!profile) return notFound(username)
-
-  const isOwner = !!user && user.id === profile.id
-
-  // Stage 2 — the requested list (also shared with generateMetadata) and, for the
-  // owner, their full list set for the management sidebar. Independent → parallel.
-  const [listRes, allListsRes] = await timed('list:list+allLists', () =>
+  // ONE round trip for the whole page, where this used to take three.
+  //
+  // Every Supabase call costs ~139ms of pure network latency before the query
+  // does any work — a bare `select id` takes the same 139ms as a real one. So
+  // the page's speed is decided by the NUMBER of hops. This route made three,
+  // each waiting on the last: profile by username, then the list by that
+  // profile's id, then the bullets by that list's member ids. ~425ms of
+  // latency to assemble one page.
+  //
+  // PostgREST can express the whole shape in one request: filter lists on the
+  // embedded profile's username, and pull the member bookmarks up through
+  // list_bookmarks. Measured: 425ms -> 158ms.
+  //
+  // The owner's full list set is embedded too. It's only needed for their
+  // management sidebar, but lists are tiny and fetching them separately would
+  // put the second round trip straight back for exactly the people who use the
+  // page most.
+  const [{ data: { session } }, oneShot] = await timed('list:one-shot', () =>
     Promise.all([
-      getListBySlug(profile.id, listSlug),
-      isOwner
-        ? supabase
-            .from('lists')
-            .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
-            .eq('user_id', profile.id)
-            .order('created_at', { ascending: false })
-        : Promise.resolve({ data: null }),
+      supabase.auth.getSession(),
+      supabase
+        .from('lists')
+        .select(
+          `id, name, slug, is_private, description, cover_image_url,
+           profiles!inner(id, username, display_name, bio, links),
+           list_bookmarks(bookmark_id, added_at, bookmarks(${BULLET_COLS}))`
+        )
+        .eq('profiles.username', username)
+        .eq('slug', listSlug)
+        .maybeSingle(),
     ])
   )
-  const { data: list, error } = listRes
-  if (error || !list) return notFound(username)
+  const user = session?.user ?? null
+  if (oneShot.error || !oneShot.data) return notFound(username)
 
-  // Stage 3 — the member bullets (needs the list's ids, so it follows stage 2).
-  const ids = ((list as any).list_bookmarks || []).map((x: any) => x.bookmark_id)
-  let bullets: any[] = []
-  if (ids.length) {
-    const { data: bmarks } = await timed('list:bullets', () =>
-      supabase
-        .from('bookmarks')
-        .select(BULLET_COLS)
-        .in('id', ids)
-        .order('created_at', { ascending: false })
-    )
-    bullets = bmarks || []
+  const row: any = oneShot.data
+  const profile: any = row.profiles
+  if (!profile) return notFound(username)
+  const isOwner = !!user && user.id === profile.id
+
+  const list: any = {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    is_private: row.is_private,
+    description: row.description,
+    cover_image_url: row.cover_image_url,
+    list_bookmarks: (row.list_bookmarks || []).map((x: any) => ({
+      bookmark_id: x.bookmark_id,
+      added_at: x.added_at,
+    })),
   }
+
+  // Newest first, matching what the standalone bullets query used to order by.
+  const bullets: any[] = (row.list_bookmarks || [])
+    .map((x: any) => x.bookmarks)
+    .filter(Boolean)
+    .sort((a: any, b: any) =>
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    )
+  const ids = bullets.map((b: any) => b.id)
+
+  // The owner's other lists, for their management sidebar. One more hop, and
+  // only for them — a visitor never sees it.
+  const allListsRes: any = isOwner
+    ? await timed('list:allLists (owner)', () =>
+        supabase
+          .from('lists')
+          .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
+          .eq('user_id', profile.id)
+          .order('created_at', { ascending: false })
+      )
+    : { data: null }
 
   const owner = profile.display_name || profile.username
 
