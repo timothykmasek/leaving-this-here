@@ -1135,7 +1135,7 @@ export default function ProfileClient({
           bar that slides in when the user scrolls up (or hits the true end) and
           tucks away while browsing down. */}
       {isOwner && <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />}
-      {isOwner && <ImportFab />}
+      {isOwner && <ImportFab hidden={footerRevealed} />}
     </main>
   )
 }
