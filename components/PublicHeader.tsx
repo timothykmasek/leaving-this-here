@@ -35,7 +35,10 @@ export function PublicHeader({
       action={
         loggedIn
           ? { label: 'Log out', onClick: handleSignOut }
-          : { label: 'Sign in', href: '/login' }
+          // A visitor reading someone's list has nothing to sign in to yet —
+          // the useful invitation is to make an account. /start is where
+          // /login?mode=signup redirects to anyway, so this skips the hop.
+          : { label: 'Sign up', href: '/start' }
       }
       logoClassName={logoClassName}
       tagline={tagline}

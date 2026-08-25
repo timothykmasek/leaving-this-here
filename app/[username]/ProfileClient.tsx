@@ -579,7 +579,16 @@ export default function ProfileClient({
   return (
     <main className="min-h-screen">
       <BulletinHeader
-        action={isOwner ? { label: 'Log out', onClick: handleSignOut } : { label: 'Sign in', href: '/login' }}
+        // Someone reading a stranger's bulletin has no account to sign IN to —
+        // the invitation is to make one. Keyed off currentUserId, not isOwner:
+        // a signed-in visitor on someone else's profile isn't the owner either,
+        // and was being told to sign in while already signed in.
+        // Straight to /start, which is where /login?mode=signup redirects anyway.
+        action={
+          currentUserId
+            ? { label: 'Log out', onClick: handleSignOut }
+            : { label: 'Sign up', href: '/start' }
+        }
         logoClassName="h-[32px] sm:h-[44px]"
         widthClassName={PROFILE_GRID}
         stickyLogo
