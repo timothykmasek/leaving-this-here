@@ -19,6 +19,7 @@ import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useRevealFooter } from '@/lib/useRevealFooter'
 import { uniqueSlug } from '@/lib/slug'
+import { forgetSuggestion } from '@/components/SuggestionShelf'
 
 // Hybrid: the server component ([username]/page.tsx) fetches profile + bullets +
 // lists and passes them in as props, so this island hydrates with content already
@@ -354,6 +355,9 @@ export default function ProfileClient({
 
   const handleDelete = async (id: string) => {
     await supabase.from('bookmarks').delete().eq('id', id)
+    // The shelf caches its suggestions per list; without this a deleted bullet
+    // keeps being offered from that cache.
+    forgetSuggestion(id)
     setBookmarks((prev) => prev.filter((b) => b.id !== id))
     setFiltered((prev) => prev.filter((b) => b.id !== id))
   }
