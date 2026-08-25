@@ -79,6 +79,15 @@ export default function ProfileClient({
   const extInstalled = useExtensionInstalled()
 
   const isOwner = !!currentUserId && currentUserId === initialProfile.id
+
+  // Links the sweeper has confirmed gone (twice, on separate days) and that the
+  // owner has not already answered for. Loaded after paint rather than with the
+  // page: this is a drawer somebody opens occasionally, and the profile's
+  // server work is the thing we spent real effort keeping down — a count in the
+  // one-shot query would have cost the owner a whole round trip on every visit
+  // to say "nothing to do" almost every time.
+  const [deadBullets, setDeadBullets] = useState<any[] | null>(null)
+  const [reviewingDead, setReviewingDead] = useState(false)
   const [profile, setProfile] = useState<any>(initialProfile)
   const [bookmarks, setBookmarks] = useState<any[]>(initialBookmarks)
   const [filtered, setFiltered] = useState<any[]>(initialBookmarks)
@@ -110,6 +119,21 @@ export default function ProfileClient({
   // actually came from; the tab stays client state after that (switching tabs
   // doesn't push history — this is an entry point, not a route).
   const searchParams = useSearchParams()
+  // Owner only, and quietly: a failure here should cost nothing but the drawer.
+  useEffect(() => {
+    if (!isOwner) return
+    let cancelled = false
+    fetch('/api/dead-links')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!cancelled && d?.bullets) setDeadBullets(d.bullets)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [isOwner])
+
   const [activeTab, setActiveTab] = useState<'recent' | 'lists'>(
     searchParams?.get('tab') === 'lists' ? 'lists' : 'recent'
   )
@@ -120,6 +144,9 @@ export default function ProfileClient({
   const [visibleCount, setVisibleCount] = useState(RENDER_PAGE)
   useEffect(() => {
     setVisibleCount(RENDER_PAGE)
+    // Leave the dead-links drawer too. It renders instead of the grid, so
+    // switching to Recent Bullets while it is open would show neither.
+    setReviewingDead(false)
   }, [query, activeTab, activeListId])
   // Debounce timer for the search — one request per pause, not per keystroke
   // (the embedding API is rate-limited, so per-keystroke calls 429 instantly).
@@ -351,6 +378,24 @@ export default function ProfileClient({
     await supabase.auth.signOut()
     router.push('/')
     router.refresh()
+  }
+
+  // "I know, and I want it anyway." Records the decision without touching
+  // link_status — the link really is gone, and writing 'ok' to quieten the
+  // drawer would put a false fact in the column the sweeper reasons from.
+  const handleKeepDead = async (id: string) => {
+    setDeadBullets((prev) => (prev ? prev.filter((b) => b.id !== id) : prev))
+    await fetch('/api/dead-links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    }).catch(() => {})
+  }
+
+  // Deleting from the drawer is the ordinary delete — same row, same cleanup.
+  const handleDeleteDead = async (id: string) => {
+    setDeadBullets((prev) => (prev ? prev.filter((b) => b.id !== id) : prev))
+    await handleDelete(id)
   }
 
   const handleDelete = async (id: string) => {
@@ -895,7 +940,7 @@ export default function ProfileClient({
         )}
 
         {/* ── Home: RECENT BULLETS grid or LISTS collection grid (tab-gated) ── */}
-        {!activeList && !query.trim() && (
+        {!activeList && !query.trim() && !reviewingDead && (
           activeTab === 'recent' ? (
             bookmarks.length > 0 ? (
               renderBulletGrid(filtered)
@@ -982,6 +1027,74 @@ export default function ProfileClient({
                 <p className="label text-black/40">No lists yet</p>
               </div>
             )
+          )
+        )}
+
+        {/* ── Dead links ──────────────────────────────────────────────────
+            A line under the lists, not a card among them and not a count on
+            the tab row: a card claims a slot in the grid's rhythm and reads
+            as a collection you might open for pleasure, and a count on the
+            tab row follows you around whether or not you are tidying. This
+            only appears where you are already looking at how your links are
+            organised — and only when there is something to say.
+
+            "Confirmed gone" means two failed sweeps on separate days. A 403
+            never counts: across Tim's whole library the sweeper found 46 of
+            those against 33 genuine 404s, so a checker that treated them the
+            same would invite you to delete more live links than dead ones. */}
+        {!activeList && !query.trim() && activeTab === 'lists' && isOwner && !!deadBullets?.length && (
+          reviewingDead ? (
+            <div>
+              <button
+                onClick={() => setReviewingDead(false)}
+                className="label mb-6 text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"
+              >
+                &larr; Back to lists
+              </button>
+              <Masonry>
+                {deadBullets.map((b) => (
+                  <div key={b.id} className="group relative">
+                    {/* No badge and no status on the card. You came through a
+                        door marked "links look dead"; every card here is dead,
+                        and stamping each one restates the door. */}
+                    <PrimaryCard
+                      id={b.id}
+                      url={b.url}
+                      title={b.title}
+                      description={b.description}
+                      imageUrl={b.image_url}
+                      screenshotUrl={b.screenshot_url}
+                      faviconUrl={b.favicon_url}
+                      cardType={b.card_type}
+                      imagePref={b.image_pref}
+                    />
+                    {/* Two answers to one question, both always visible — the
+                        shape the suggestion shelf already uses. */}
+                    <div className="mt-2 flex items-stretch gap-2">
+                      <button
+                        onClick={() => handleKeepDead(b.id)}
+                        className="label flex-1 rounded-full border border-black/10 py-2 text-ink transition-colors hover:bg-ink hover:text-white"
+                      >
+                        Keep
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDead(b.id)}
+                        className="label rounded-full border border-black/10 px-4 text-black/40 transition-colors hover:border-black/30 hover:text-ink"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </Masonry>
+            </div>
+          ) : (
+            <button
+              onClick={() => setReviewingDead(true)}
+              className="label mt-10 text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"
+            >
+              {deadBullets.length} {deadBullets.length === 1 ? 'link looks' : 'links look'} dead &middot; review
+            </button>
           )
         )}
 
