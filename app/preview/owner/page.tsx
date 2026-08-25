@@ -27,6 +27,7 @@ import { ImportFab } from '@/components/ImportFab'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SiteFooter } from '@/components/SiteFooter'
 import { Masonry } from '@/components/Masonry'
+import { CollectionCard } from '@/components/CollectionCard'
 
 // Real local files, so cards look like cards rather than grey boxes.
 const IMAGES = [
@@ -99,9 +100,9 @@ function Section({ title, note, children }: { title: string; note: string; child
 
 // Four bullets from Tim's own library that really are gone — found by probing
 // 150 of his 1,115 links and keeping the 404s. Real titles, real images, real
-// save dates, so the screen is judged on what it would actually hold rather
-// than on invented copy. All four are years old, which is the shape of rot:
-// nothing saved last week is dead yet.
+// images, so the screen is judged on what it would actually hold rather than
+// on invented copy. All four were saved between one and three years ago, which
+// is the shape of rot: nothing saved last week is dead yet.
 const DEAD = [
   {
     id: 'dead-1',
@@ -112,8 +113,6 @@ const DEAD = [
       'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/7ccbbfa6-e121-431f-83ba-2288cacf0457.webp',
     screenshotUrl: null,
     faviconUrl: null,
-    saved: 'Dec 2023',
-    reason: '404',
   },
   {
     id: 'dead-2',
@@ -124,8 +123,6 @@ const DEAD = [
       'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/e7b5e68e-b7d7-48df-8a59-83a84e0c4c21.webp',
     screenshotUrl: null,
     faviconUrl: null,
-    saved: 'Apr 2024',
-    reason: '404',
   },
   {
     id: 'dead-3',
@@ -136,8 +133,6 @@ const DEAD = [
       'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/aae94da0-eef3-4d5f-8e05-3ce9e3734790.webp',
     screenshotUrl: null,
     faviconUrl: null,
-    saved: 'Dec 2024',
-    reason: '404',
   },
   {
     id: 'dead-4',
@@ -148,8 +143,6 @@ const DEAD = [
       'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/71fd1cc3-69be-4ac8-96fd-c87f8523b038.webp',
     screenshotUrl: null,
     faviconUrl: null,
-    saved: 'Feb 2025',
-    reason: '404',
   },
 ]
 
@@ -277,7 +270,7 @@ export default function OwnerPreview() {
 
       <Section
         title="Dead links — where the count lives, and what it opens"
-        note="The signal sits on the tab row, opposite the pill — the one empty space on a profile that is already a control row, and the place you look when deciding what to do with your library. It is owner-only and appears only when the number is not zero, so a tidy library never sees it. Clicking filters the grid you already have rather than opening a separate screen: the cards are the right UI, and a second grid would only duplicate them."
+        note="A line under the LISTS grid, and behind it the cards with nothing on them but the question — per Tim. A count on the tab row would have followed you across both tabs whether or not you were tidying; this only appears where you are already looking at how your links are organised. A line rather than a card, even an outlined one: a card claims a slot in the grid\'s rhythm and reads as a collection you might open for pleasure, and this is a maintenance door — findable, otherwise invisible. Owner-only, and absent entirely when nothing is dead."
       >
         <DeadLinks />
       </Section>
@@ -439,48 +432,43 @@ function DeadLinks() {
   const [resolved, setResolved] = useState<Record<string, 'kept' | 'deleted'>>({})
   const open = DEAD.filter((d) => !resolved[d.id])
 
-  return (
-    <div>
-      {/* The profile's tab row, reproduced: pill right, and the count filling
-          the space to its left that is otherwise always empty. */}
-      <div className="mb-8 flex items-center justify-between gap-4">
-        {open.length > 0 ? (
-          <button
-            onClick={() => setReviewing((v) => !v)}
-            className="label text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"
-          >
-            {reviewing ? 'Done' : `${open.length} links look dead`}
-          </button>
-        ) : (
-          // Nothing to say → nothing said. Same rule the shelf now follows.
-          <span />
-        )}
-        <div className="flex items-center gap-1 rounded-full border border-black/10 p-1">
-          <span className="label rounded-full px-4 py-2 text-black/40">Recent Bullets</span>
-          <span className="label rounded-full bg-ink px-4 py-2 text-paper">Lists</span>
-        </div>
-      </div>
+  // Stand-ins for the real lists, so the drawer can be seen in the company it
+  // would actually keep.
+  const LISTS = [
+    { name: 'VCs / Investors', count: 14, thumbs: [IMAGES[0], IMAGES[3], IMAGES[2]] },
+    { name: 'Agencies & Studios', count: 11, thumbs: [IMAGES[1], IMAGES[4], IMAGES[5]] },
+    { name: 'Green Energy', count: 11, thumbs: [IMAGES[2], IMAGES[0], IMAGES[1]] },
+  ]
 
-      {reviewing && open.length > 0 && (
+  if (reviewing) {
+    return (
+      <div>
+        <button
+          onClick={() => setReviewing(false)}
+          className="label mb-6 text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"
+        >
+          &larr; Back to lists
+        </button>
         <Masonry>
           {open.map((d) => (
             <div key={d.id} className="group relative">
-              <div className="relative opacity-70 transition-opacity group-hover:opacity-100">
-                <PrimaryCard
-                  id={d.id}
-                  url={d.url}
-                  title={d.title}
-                  description={d.description}
-                  imageUrl={d.imageUrl}
-                  screenshotUrl={d.screenshotUrl}
-                  faviconUrl={d.faviconUrl}
-                />
-                {/* Same 6px white plate, same bottom-left slot, same shadow as
-                    the price chip — legible on any image by construction. */}
-                <span className="pointer-events-none absolute bottom-3 left-3 z-[3] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
-                  {d.reason} · saved {d.saved}
-                </span>
-              </div>
+              {/* No badge, no status, no dimming. You clicked "links look
+                  dead" — every card here is dead, and saying so on each one is
+                  restating the door you just came through. What is left is the
+                  card and the question, exactly like the suggestion shelf. */}
+              <PrimaryCard
+                id={d.id}
+                url={d.url}
+                title={d.title}
+                description={d.description}
+                imageUrl={d.imageUrl}
+                screenshotUrl={d.screenshotUrl}
+                faviconUrl={d.faviconUrl}
+              />
+              {/* Two answers to one question, both always visible — the shape
+                  the suggestion shelf already uses. Keep does not repair the
+                  link; it silences the flag, which is the honest verb for
+                  "I know, and I want it anyway". */}
               <div className="mt-2 flex items-stretch gap-2">
                 <button
                   onClick={() => setResolved((p) => ({ ...p, [d.id]: 'kept' }))}
@@ -498,35 +486,34 @@ function DeadLinks() {
             </div>
           ))}
         </Masonry>
-      )}
+        {open.length === 0 && (
+          <p className="max-w-[52ch] font-serif text-[14px] leading-[22px] text-black/50">
+            All four resolved. Go back and the drawer is gone with them — reload to start over.
+          </p>
+        )}
+      </div>
+    )
+  }
 
-      {!reviewing && (
-        <p className="max-w-[52ch] font-serif text-[14px] leading-[22px] text-black/50">
-          {open.length > 0
-            ? 'Click the count above. Below is how one of these reads while you are just browsing — the marker has to be discoverable in place, or nobody ever learns there is anything to tidy.'
-            : 'All four resolved, and the count is gone with them. Reload the page to start over.'}
-        </p>
-      )}
+  return (
+    <div>
+      <div className="grid grid-cols-2 gap-x-[40px] gap-y-[40px] sm:grid-cols-3 lg:grid-cols-4">
+        {LISTS.map((l) => (
+          <CollectionCard key={l.name} name={l.name} count={l.count} thumbs={l.thumbs} />
+        ))}
+      </div>
 
-      {!reviewing && open.length > 0 && (
-        <div className="mt-6 grid grid-cols-1 gap-10 sm:grid-cols-3">
-          <div className="relative">
-            <div className="relative opacity-70">
-              <PrimaryCard
-                id={DEAD[0].id}
-                url={DEAD[0].url}
-                title={DEAD[0].title}
-                description={DEAD[0].description}
-                imageUrl={DEAD[0].imageUrl}
-                screenshotUrl={DEAD[0].screenshotUrl}
-                faviconUrl={DEAD[0].faviconUrl}
-              />
-              <span className="pointer-events-none absolute bottom-3 left-3 z-[3] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
-                {DEAD[0].reason}
-              </span>
-            </div>
-          </div>
-        </div>
+      {/* A line under the grid, not a card in it. A card — even an outlined one
+          — claims a slot in the rhythm and reads as a collection you might
+          open for pleasure. This is a maintenance door: it should be findable
+          and otherwise invisible. Same label voice as the shelf's heading. */}
+      {open.length > 0 && (
+        <button
+          onClick={() => setReviewing(true)}
+          className="label mt-10 text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"
+        >
+          {open.length} links look dead &middot; review
+        </button>
       )}
     </div>
   )
