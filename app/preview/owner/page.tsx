@@ -262,8 +262,11 @@ function ShelfHarness() {
   const [nonce, setNonce] = useState(0)
 
   const seed = () => {
-    const rows = BULLETS.map((b, i) => ({
-      id: b.id, url: b.url, title: b.title, description: b.description,
+    // Seven, deliberately: the shelf shows four, so acting on one has to pull a
+    // replacement in. That backfill is where the jolt lived.
+    const source = [...BULLETS, ...BULLETS, ...BULLETS].slice(0, 7)
+    const rows = source.map((b, i) => ({
+      id: `${b.id}-${i}`, url: b.url, title: `${b.title} ${i + 1}`, description: b.description,
       image_url: b.imageUrl, screenshot_url: null, favicon_url: null,
       card_type: null, image_pref: null, is_private: false, note: null,
       created_at: new Date('2026-08-01T00:00:00Z').toISOString(),
@@ -282,7 +285,7 @@ function ShelfHarness() {
           Seed the shelf
         </button>
         <button
-          onClick={() => forgetSuggestion(BULLETS[0].id)}
+          onClick={() => forgetSuggestion('fixture-1-0')}
           disabled={!seeded}
           className="rounded-full border border-black/15 px-4 py-2 font-sans text-[12px] leading-4 tracking-[0.05em] hover:border-black/40 disabled:opacity-40"
         >

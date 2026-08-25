@@ -102,6 +102,13 @@ export function SuggestionShelf({
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null)
   const [addedIds, setAddedIds] = useState<Set<string>>(new Set())
   const [showAll, setShowAll] = useState(false)
+  // The ids on screen, in the order they sit. Held explicitly rather than
+  // derived by slicing the pool, because Masonry places by INDEX
+  // (columns[i % cols]): drop the second of four and the third and fourth each
+  // shift a column left while a replacement appears in the fourth — three cards
+  // jumping sideways for one click. Acting on a slot now swaps only that slot,
+  // and every other card stays exactly where it was.
+  const [slotIds, setSlotIds] = useState<string[] | null>(null)
 
   // Per-tab cache so revisiting a list paints the shelf instantly, then a
   // background fetch replaces it with fresh ranking. sessionStorage (not local)
@@ -178,7 +185,33 @@ export function SuggestionShelf({
   const pending = suggestions.filter(
     (s) => !addedIds.has(s.id) && !dismissedIds.has(s.id)
   )
-  const visible = showAll ? pending : pending.slice(0, COLLAPSED_MAX)
+  // Slots fill themselves the first time, and refill from the pool whenever the
+  // fetch brings in more or the reader asks to see everything. Filtered against
+  // pending each render so a card removed by some other route (a deleted
+  // bullet) can't linger in a slot.
+  const wanted = showAll ? pending.length : COLLAPSED_MAX
+  const live = (slotIds ?? []).filter((id) => pending.some((s) => s.id === id))
+  const filled =
+    live.length >= wanted
+      ? live.slice(0, wanted)
+      : [
+          ...live,
+          ...pending.filter((s) => !live.includes(s.id)).slice(0, wanted - live.length).map((s) => s.id),
+        ]
+  const byId = new Map(pending.map((s) => [s.id, s]))
+  const visible = filled.map((id) => byId.get(id)!).filter(Boolean)
+
+  // Replace one slot in place with the next unused suggestion, so the cards
+  // either side of it do not move. Returning the same array when nothing
+  // changes keeps React from re-rendering for no reason.
+  const swapSlot = (goneId: string) =>
+    setSlotIds((prev) => {
+      const base = prev ?? filled
+      if (!base.includes(goneId)) return prev
+      const taken = new Set(base)
+      const next = pending.find((s) => s.id !== goneId && !taken.has(s.id))
+      return base.map((id) => (id === goneId ? next?.id : id)).filter(Boolean) as string[]
+    })
 
   // "✕ not for this list" — quiet refusal. No confirmation, no undo UI; the
   // card just leaves. Two persistence layers: localStorage applies instantly on
@@ -187,6 +220,7 @@ export function SuggestionShelf({
   // across devices via the route's server-side filter. If the table doesn't
   // exist the insert fails silently and the local layer still holds.
   const handleDismiss = (s: Suggestion) => {
+    swapSlot(s.id)
     setDismissedIds((prev) => {
       const next = new Set(prev).add(s.id)
       try {
@@ -201,6 +235,11 @@ export function SuggestionShelf({
   }
 
   const handleAdd = async (s: Suggestion) => {
+    // Remember where it sat, so a failed add can put it back in its own slot
+    // rather than at the end — or nowhere, which is what would happen if the
+    // revert only undid addedIds.
+    const slot = filled.indexOf(s.id)
+    swapSlot(s.id)
     setAddedIds((prev) => new Set(prev).add(s.id))
     try {
       await onAdd(s)
@@ -218,6 +257,12 @@ export function SuggestionShelf({
         const next = new Set(prev)
         next.delete(s.id)
         return next
+      })
+      setSlotIds((prev) => {
+        if (!prev || slot < 0) return prev
+        const restored = prev.filter((id) => id !== s.id)
+        restored.splice(slot, 0, s.id)
+        return restored
       })
     }
   }
