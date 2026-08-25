@@ -53,7 +53,17 @@ export const SiteFooter = forwardRef<
           ? `fixed inset-x-0 bottom-0 z-30 border-t border-black/[0.06] bg-paper/90 pt-[18px] pb-[max(18px,env(safe-area-inset-bottom))] backdrop-blur-md transition-transform duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] focus-within:translate-y-0 ${
               revealed ? 'translate-y-0' : 'translate-y-[110%]'
             }`
-          : 'border-t border-black/[0.06] py-10'
+          : // bg-paper, not transparent. The page's dot grid is painted by a
+            // fixed ::before behind everything, so a footer with no background
+            // let the dots run straight through it — while the reveal bar above
+            // sits on bg-paper/90 and reads as a solid white band. Two
+            // treatments for one piece of furniture.
+            //
+            // Solid here rather than /90: the reveal bar is translucent because
+            // it floats OVER cards and has to admit there is something beneath
+            // it. This one sits at the end of the page with nothing behind it
+            // but ground, so translucency would only let the dots back in.
+            'border-t border-black/[0.06] bg-paper py-10'
       }
     >
       {/* Both modes render one slim justified row, on mobile too, so the static
