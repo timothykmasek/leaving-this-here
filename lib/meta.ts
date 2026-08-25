@@ -26,7 +26,17 @@ export const SITE_DESCRIPTION = 'Everything you save, finally somewhere.'
  *  mid-syllable, and only add the ellipsis when something was actually removed. */
 export function clampDescription(text: string | null | undefined, max = 155): string | null {
   if (!text) return null
-  const clean = text.replace(/\s+/g, ' ').trim()
+  // A bio written on two lines is two statements. Collapsing the break to a
+  // space runs them together ("…founders factory Exited founder of…"); the
+  // middot keeps them as the separate things they were written as.
+  const clean = text
+    .replace(/\r/g, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(' · ')
+    .replace(/[ \t]+/g, ' ')
+    .trim()
   if (!clean) return null
   if (clean.length <= max) return clean
   const cut = clean.slice(0, max)
