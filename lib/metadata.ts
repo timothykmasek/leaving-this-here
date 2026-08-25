@@ -786,6 +786,12 @@ export function looksLikeLogoUrl(urlStr: string | null | undefined): boolean {
 function formatPrice(price: number, currency: string | null): string {
   const symbolMap: Record<string, string> = {
     USD: '$', EUR: '€', GBP: '£', JPY: '¥', CAD: 'CA$', AUD: 'A$',
+    // MYR renders as "MYR 266" without this — the design handoff's own example
+    // was RM388.00. The rest are the currencies actually present in Tim's
+    // saves, or one keystroke away from being.
+    MYR: 'RM', SGD: 'S$', NZD: 'NZ$', CHF: 'CHF ', SEK: 'SEK ', DKK: 'DKK ',
+    NOK: 'NOK ', PLN: 'PLN ', INR: '₹', KRW: '₩', CNY: '¥', HKD: 'HK$',
+    BRL: 'R$', MXN: 'MX$', ZAR: 'R', THB: '฿', PHP: '₱', IDR: 'Rp',
   }
   const symbol = currency ? (symbolMap[currency] || currency + ' ') : '$'
   // Drop trailing .00 — "$130" looks cleaner than "$130.00"
