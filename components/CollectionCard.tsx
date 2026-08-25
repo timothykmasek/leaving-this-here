@@ -58,13 +58,19 @@ export function CollectionCard({
       {/* Registration mark — three 2px dots, 8px pitch, top-left inset 20px.
           Decorative (the brand's dot-corner motif, same family as the header's
           mark), NOT a kebab menu: the Figma layer is a group of Ellipses with no
-          hit target, and a real menu would sit top-right. */}
+          hit target, and a real menu would sit top-right.
+
+          Grey, not the cyan the export carried: a decorative mark that reads as
+          the only colour on an otherwise monochrome plate looks like a status
+          light, and invites a click it does not answer. 0.35 sits below the
+          count's 0.56 on the card's own alpha ladder, so it recedes behind the
+          two things that are actually information. */}
       <span
         aria-hidden
         className="absolute left-5 top-5 flex flex-col gap-[6px]"
       >
         {[0, 1, 2].map((i) => (
-          <span key={i} className="block h-[2px] w-[2px] bg-[#1FA9D3]" />
+          <span key={i} className="block h-[2px] w-[2px] bg-black/[0.35]" />
         ))}
       </span>
 
