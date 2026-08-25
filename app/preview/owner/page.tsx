@@ -26,6 +26,7 @@ import { SuggestionShelf, forgetSuggestion } from '@/components/SuggestionShelf'
 import { ImportFab } from '@/components/ImportFab'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SiteFooter } from '@/components/SiteFooter'
+import { Masonry } from '@/components/Masonry'
 
 // Real local files, so cards look like cards rather than grey boxes.
 const IMAGES = [
@@ -94,6 +95,63 @@ function Section({ title, note, children }: { title: string; note: string; child
     </section>
   )
 }
+
+
+// Four bullets from Tim's own library that really are gone — found by probing
+// 150 of his 1,115 links and keeping the 404s. Real titles, real images, real
+// save dates, so the screen is judged on what it would actually hold rather
+// than on invented copy. All four are years old, which is the shape of rot:
+// nothing saved last week is dead yet.
+const DEAD = [
+  {
+    id: 'dead-1',
+    url: 'https://replicate.com/stability-ai/stable-video-diffusion',
+    title: 'stability-ai/stable-video-diffusion – Run with an API on Replicate',
+    description: null,
+    imageUrl:
+      'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/7ccbbfa6-e121-431f-83ba-2288cacf0457.webp',
+    screenshotUrl: null,
+    faviconUrl: null,
+    saved: 'Dec 2023',
+    reason: '404',
+  },
+  {
+    id: 'dead-2',
+    url: 'https://artiken.com/collections/creative/products/every-damn-day-blue',
+    title: 'Every Damn Day',
+    description: null,
+    imageUrl:
+      'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/e7b5e68e-b7d7-48df-8a59-83a84e0c4c21.webp',
+    screenshotUrl: null,
+    faviconUrl: null,
+    saved: 'Apr 2024',
+    reason: '404',
+  },
+  {
+    id: 'dead-3',
+    url: 'https://creatorx.app/',
+    title: 'Core Access',
+    description: 'We headhunt & recruit talented creators to create for company accounts.',
+    imageUrl:
+      'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/aae94da0-eef3-4d5f-8e05-3ce9e3734790.webp',
+    screenshotUrl: null,
+    faviconUrl: null,
+    saved: 'Dec 2024',
+    reason: '404',
+  },
+  {
+    id: 'dead-4',
+    url: 'https://difaino.com/',
+    title: 'Difaino Harting — Building Brands for Scale & Exit',
+    description: 'Operator and mentor helping founders move beyond dropshipping.',
+    imageUrl:
+      'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/71fd1cc3-69be-4ac8-96fd-c87f8523b038.webp',
+    screenshotUrl: null,
+    faviconUrl: null,
+    saved: 'Feb 2025',
+    reason: '404',
+  },
+]
 
 // The profile's grid, so the fixed chrome here lines up the way it does there.
 const OWNER_GRID = 'max-w-[1720px] px-4 sm:px-10'
@@ -215,6 +273,13 @@ export default function OwnerPreview() {
         note="Type a name and press enter. The chip must appear greyed IMMEDIATELY, carrying the name you typed, and only then fill in — pressing enter used to await the whole round trip before even clearing the input, so nothing moved and there was no way to tell if it had worked. The fake create here takes 1.5s so the pending state is easy to see; a failure hands your typing back rather than eating it."
       >
         <ShowDetail />
+      </Section>
+
+      <Section
+        title="Dead links — where the count lives, and what it opens"
+        note="The signal sits on the tab row, opposite the pill — the one empty space on a profile that is already a control row, and the place you look when deciding what to do with your library. It is owner-only and appears only when the number is not zero, so a tidy library never sees it. Clicking filters the grid you already have rather than opening a separate screen: the cards are the right UI, and a second grid would only duplicate them."
+      >
+        <DeadLinks />
       </Section>
 
       <Section
@@ -348,6 +413,120 @@ function ShowDetail() {
             return id
           }}
         />
+      )}
+    </div>
+  )
+}
+
+// How "12 links look dead" would work, end to end.
+//
+// Three things are being proposed here and each can be argued with separately:
+//
+//   1. WHERE the count sits — on the tab row, opposite the pill.
+//   2. WHAT clicking it does — filters the existing grid, rather than
+//      navigating to a screen that would have to re-draw the same cards.
+//   3. HOW a dead card reads — the white chip the price already uses, in the
+//      slot the price already occupies, over a dimmed image. Reusing that
+//      mechanism rather than inventing a badge means one legible treatment on
+//      any photograph instead of two competing ones.
+//
+// Keep and Delete sit under the card as one row, the same shape as the
+// suggestion shelf's Add and dismiss — two answers to one question, both
+// always visible. Keep does not repair the link; it silences the flag, which
+// is the honest verb for "I know, and I want it anyway".
+function DeadLinks() {
+  const [reviewing, setReviewing] = useState(false)
+  const [resolved, setResolved] = useState<Record<string, 'kept' | 'deleted'>>({})
+  const open = DEAD.filter((d) => !resolved[d.id])
+
+  return (
+    <div>
+      {/* The profile's tab row, reproduced: pill right, and the count filling
+          the space to its left that is otherwise always empty. */}
+      <div className="mb-8 flex items-center justify-between gap-4">
+        {open.length > 0 ? (
+          <button
+            onClick={() => setReviewing((v) => !v)}
+            className="label text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"
+          >
+            {reviewing ? 'Done' : `${open.length} links look dead`}
+          </button>
+        ) : (
+          // Nothing to say → nothing said. Same rule the shelf now follows.
+          <span />
+        )}
+        <div className="flex items-center gap-1 rounded-full border border-black/10 p-1">
+          <span className="label rounded-full px-4 py-2 text-black/40">Recent Bullets</span>
+          <span className="label rounded-full bg-ink px-4 py-2 text-paper">Lists</span>
+        </div>
+      </div>
+
+      {reviewing && open.length > 0 && (
+        <Masonry>
+          {open.map((d) => (
+            <div key={d.id} className="group relative">
+              <div className="relative opacity-70 transition-opacity group-hover:opacity-100">
+                <PrimaryCard
+                  id={d.id}
+                  url={d.url}
+                  title={d.title}
+                  description={d.description}
+                  imageUrl={d.imageUrl}
+                  screenshotUrl={d.screenshotUrl}
+                  faviconUrl={d.faviconUrl}
+                />
+                {/* Same 6px white plate, same bottom-left slot, same shadow as
+                    the price chip — legible on any image by construction. */}
+                <span className="pointer-events-none absolute bottom-3 left-3 z-[3] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
+                  {d.reason} · saved {d.saved}
+                </span>
+              </div>
+              <div className="mt-2 flex items-stretch gap-2">
+                <button
+                  onClick={() => setResolved((p) => ({ ...p, [d.id]: 'kept' }))}
+                  className="label flex-1 rounded-full border border-black/10 py-2 text-ink transition-colors hover:bg-ink hover:text-white"
+                >
+                  Keep
+                </button>
+                <button
+                  onClick={() => setResolved((p) => ({ ...p, [d.id]: 'deleted' }))}
+                  className="label rounded-full border border-black/10 px-4 text-black/40 transition-colors hover:border-black/30 hover:text-ink"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </Masonry>
+      )}
+
+      {!reviewing && (
+        <p className="max-w-[52ch] font-serif text-[14px] leading-[22px] text-black/50">
+          {open.length > 0
+            ? 'Click the count above. Below is how one of these reads while you are just browsing — the marker has to be discoverable in place, or nobody ever learns there is anything to tidy.'
+            : 'All four resolved, and the count is gone with them. Reload the page to start over.'}
+        </p>
+      )}
+
+      {!reviewing && open.length > 0 && (
+        <div className="mt-6 grid grid-cols-1 gap-10 sm:grid-cols-3">
+          <div className="relative">
+            <div className="relative opacity-70">
+              <PrimaryCard
+                id={DEAD[0].id}
+                url={DEAD[0].url}
+                title={DEAD[0].title}
+                description={DEAD[0].description}
+                imageUrl={DEAD[0].imageUrl}
+                screenshotUrl={DEAD[0].screenshotUrl}
+                faviconUrl={DEAD[0].faviconUrl}
+              />
+              <span className="pointer-events-none absolute bottom-3 left-3 z-[3] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
+                {DEAD[0].reason}
+              </span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
