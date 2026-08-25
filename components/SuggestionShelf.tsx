@@ -201,6 +201,12 @@ export function SuggestionShelf({
   const byId = new Map(pending.map((s) => [s.id, s]))
   const visible = filled.map((id) => byId.get(id)!).filter(Boolean)
 
+  // Spent → the whole section goes, border and all. It used to keep its rule
+  // and print "Nothing left to suggest" underneath, which is a heading with
+  // nothing beneath it announcing its own absence. A shelf with nothing on it
+  // is not a state worth drawing.
+  if (pending.length === 0) return null
+
   // Replace one slot in place with the next unused suggestion, so the cards
   // either side of it do not move. Returning the same array when nothing
   // changes keeps React from re-rendering for no reason.
@@ -269,13 +275,8 @@ export function SuggestionShelf({
 
   return (
     <section className="mt-12 border-t border-black/[0.06] pt-8">
-      {/* When the shelf is spent the header IS the message — one label line
-          rather than a heading followed by a second line saying there's
-          nothing under it. */}
-      <div className={`flex items-baseline justify-between gap-4 ${pending.length === 0 ? '' : 'mb-6'}`}>
-        <span className="label text-black/30">
-          {pending.length === 0 ? 'Nothing left to suggest' : 'You might also add'}
-        </span>
+      <div className="mb-6 flex items-baseline justify-between gap-4">
+        <span className="label text-black/30">You might also add</span>
         {pending.length > COLLAPSED_MAX && (
           <button
             onClick={() => setShowAll((v) => !v)}
@@ -286,66 +287,63 @@ export function SuggestionShelf({
         )}
       </div>
 
-      {pending.length > 0 && (
-        // Same masonry as the bullets above, so the shelf reads as one system.
-        <Masonry>
-          {visible.map((s) => (
-            <div key={s.id} className="group relative">
-              <PrimaryCard
-                id={s.id}
-                onOpen={onOpen && (() => onOpen(s))}
-                url={s.url}
-                title={s.title}
-                description={s.description}
-                imageUrl={s.image_url}
-                screenshotUrl={s.screenshot_url}
-                faviconUrl={s.favicon_url}
-                cardType={s.card_type}
-                imagePref={s.image_pref}
-              />
-              {/* Add and dismiss are the two answers to the same question, so
-                  they sit together under the card as one row. The dismiss used
-                  to be a hover-revealed chip floating over the card's top-right
-                  corner while Add was a full-width bar underneath — two controls
-                  for one decision, in two places, with two different visibility
-                  rules. Both are always visible now: on a shelf whose entire
-                  purpose is "add or don't", hiding half the choice until hover
-                  wasn't buying any calm.
+      {/* Same masonry as the bullets above, so the shelf reads as one system. */}
+      <Masonry>
+        {visible.map((s) => (
+          <div key={s.id} className="group relative">
+            <PrimaryCard
+              id={s.id}
+              onOpen={onOpen && (() => onOpen(s))}
+              url={s.url}
+              title={s.title}
+              description={s.description}
+              imageUrl={s.image_url}
+              screenshotUrl={s.screenshot_url}
+              faviconUrl={s.favicon_url}
+              cardType={s.card_type}
+              imagePref={s.image_pref}
+            />
+            {/* Add and dismiss are the two answers to the same question, so
+                they sit together under the card as one row. The dismiss used
+                to be a hover-revealed chip floating over the card's top-right
+                corner while Add was a full-width bar underneath — two controls
+                for one decision, in two places, with two different visibility
+                rules. Both are always visible now: on a shelf whose entire
+                purpose is "add or don't", hiding half the choice until hover
+                wasn't buying any calm.
 
-                  items-stretch so the dismiss matches Add's height exactly
-                  rather than being separately tuned to it. */}
-              <div className="mt-2 flex items-stretch gap-2">
-                <button
-                  onClick={() => handleAdd(s)}
-                  className="label flex-1 rounded-full border border-black/10 py-2 text-ink transition-colors hover:bg-ink hover:text-white"
+                items-stretch so the dismiss matches Add's height exactly
+                rather than being separately tuned to it. */}
+            <div className="mt-2 flex items-stretch gap-2">
+              <button
+                onClick={() => handleAdd(s)}
+                className="label flex-1 rounded-full border border-black/10 py-2 text-ink transition-colors hover:bg-ink hover:text-white"
+              >
+                + Add
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDismiss(s)}
+                aria-label="dismiss suggestion"
+                title="not for this list"
+                className="flex shrink-0 items-center justify-center rounded-full border border-black/10 px-3 text-black/40 transition-colors hover:border-black/30 hover:text-ink"
+              >
+                <svg
+                  aria-hidden
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  className="h-3.5 w-3.5"
                 >
-                  + Add
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDismiss(s)}
-                  aria-label="dismiss suggestion"
-                  title="not for this list"
-                  className="flex shrink-0 items-center justify-center rounded-full border border-black/10 px-3 text-black/40 transition-colors hover:border-black/30 hover:text-ink"
-                >
-                  <svg
-                    aria-hidden
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    className="h-3.5 w-3.5"
-                  >
-                    <path d="M6 6l12 12M18 6L6 18" />
-                  </svg>
-                </button>
-              </div>
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
             </div>
-          ))}
-        </Masonry>
-      )}
-
+          </div>
+        ))}
+      </Masonry>
     </section>
   )
 }

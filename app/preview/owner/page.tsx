@@ -205,7 +205,7 @@ export default function OwnerPreview() {
 
       <Section
         title="Suggestion shelf"
-        note="Renders nothing here, and that is the correct answer: the shelf fetches its own suggestions, the fixture list id has none, and a shelf with nothing to say should not occupy the page. It also means this is the one surface fixtures cannot fully exercise — seeing 'You might also add' or 'Nothing left to suggest' needs a real list with real neighbours."
+        note="Seed it, then add or dismiss all seven. Acting on a card must swap ONLY that card — the others hold their columns — and when the last one goes the whole section should disappear, rule and heading with it, rather than sitting there announcing its own emptiness."
       >
         <ShelfHarness />
       </Section>
