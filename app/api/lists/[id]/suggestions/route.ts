@@ -59,19 +59,18 @@ export async function GET(
       return NextResponse.json({ error: 'not authenticated' }, { status: 401 })
     }
 
-    // List (for the ownership check) and member embeddings don't depend on each
-    // other — fetch both concurrently. Sequentially these were the second-biggest
-    // slice of shelf latency after the pool pull.
-    const [listRes, membersRes, dismissalsRes] = await Promise.all([
+    // The list (for the ownership check) and the dismissals. The MEMBER
+    // EMBEDDINGS are deliberately NOT fetched here any more: on a 146-member
+    // list that was 786ms and 899KB, pulled only to average into one centroid
+    // in JS. suggest_for_list does that averaging in Postgres, so the common
+    // path never needs them — they're fetched lazily below, only for the
+    // name-weighted blend or if the SQL function isn't installed.
+    const [listRes, dismissalsRes] = await Promise.all([
       supabase
         .from('lists')
         .select('id, name, description, user_id')
         .eq('id', listId)
         .single(),
-      supabase
-        .from('list_bookmarks')
-        .select('bookmarks(id, embedding)')
-        .eq('list_id', listId),
       // "✕ not for this list" refusals (optional table, migration 013). RLS
       // scopes rows to the caller. An error (e.g. table not created yet) just
       // means no server-side dismissals — the client's localStorage layer still
@@ -97,18 +96,55 @@ export async function GET(
       return NextResponse.json({ error: 'forbidden' }, { status: 403 })
     }
 
-    // Embeddings of the bullets already in the list → centroid.
-    const { data: members, error: memErr } = membersRes
-    if (memErr) {
-      return NextResponse.json({ error: memErr.message }, { status: 500 })
+    // Members' embeddings, only when something actually needs them. Kept behind
+    // a function so the centroid-in-SQL path can return without ever paying for
+    // it — see the note on stage 1.
+    let memberIds = new Set<string>()
+    let memberVecs: Vec[] = []
+    let membersLoaded = false
+    const loadMembers = async (): Promise<string | null> => {
+      if (membersLoaded) return null
+      membersLoaded = true
+      const { data: members, error: memErr } = await supabase
+        .from('list_bookmarks')
+        .select('bookmarks(id, embedding)')
+        .eq('list_id', listId)
+      if (memErr) return memErr.message
+      memberIds = new Set(
+        (members || []).map((m: any) => m.bookmarks?.id).filter(Boolean) as string[]
+      )
+      memberVecs = (members || [])
+        .map((m: any) => parseVec(m.bookmarks?.embedding))
+        .filter((v: Vec | null): v is Vec => !!v && v.length > 0)
+      return null
     }
 
-    const memberIds = new Set(
-      (members || []).map((m: any) => m.bookmarks?.id).filter(Boolean) as string[]
-    )
-    const memberVecs: Vec[] = (members || [])
-      .map((m: any) => parseVec(m.bookmarks?.embedding))
-      .filter((v: Vec | null): v is Vec => !!v && v.length > 0)
+    // Centroid-only ranking — the default — is entirely expressible in SQL.
+    // suggest_for_list takes a LIST id and derives the centroid, the owner and
+    // the exclusions itself, so the member vectors never cross the wire.
+    if (nameWeight === 0) {
+      const { data: fastData, error: fastErr } = await supabase.rpc('suggest_for_list', {
+        p_list_id: listId,
+        match_threshold: threshold,
+        match_count: limit,
+      })
+      if (!fastErr && Array.isArray(fastData)) {
+        const kept = fastData
+          .filter((r: any) => !dismissedIds.has(r.id))
+          .map(({ custom_image, ...r }: any) => ({ ...r, customImage: custom_image ?? null }))
+        return NextResponse.json({
+          suggestions: kept,
+          meta: { used_name: false, name_weight: 0, threshold, engine: 'rpc-centroid' },
+        })
+      }
+      // Not installed (or errored) — fall through to the older paths, which
+      // need the members after all.
+    }
+
+    const memErrMsg = await loadMembers()
+    if (memErrMsg) {
+      return NextResponse.json({ error: memErrMsg }, { status: 500 })
+    }
 
     // Name/description embedding — the blend lever that steadies thin lists.
     let nameVec: Vec | null = null
