@@ -9,11 +9,14 @@
 # swinging the wrong way, a stale cache still offering a deleted bullet. Those
 # need eyes. This just stops a broken build reaching production.
 #
-# No env vars at all. The build used to need placeholder Supabase values
-# because /api/backfill-images constructed a client at module scope and Next
-# collects page data at build time; that client is lazy now, so a checkout with
-# no credentials builds exactly as a developer's fresh clone does — which is
-# the point of checking it here.
+# Placeholder Supabase env. /start and /bookmarklet are statically prerendered
+# and build a browser client while doing so, which throws without credentials —
+# so a fresh clone of this repo cannot `next build` at all. The values below are
+# never used; nothing here reaches a real database.
+#
+# Removing them was tried and reverted: a local build appeared to pass without
+# them, but that was Next reusing a cached prerender. A clean .next fails
+# exactly as CI did.
 
 name: check
 
@@ -25,6 +28,10 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
     steps:
       - uses: actions/checkout@v5
 
