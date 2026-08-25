@@ -2,6 +2,7 @@
 
 import { forwardRef } from 'react'
 import { CHROME_STORE_URL } from '@/lib/extension'
+import Link from 'next/link'
 
 // Site footer — © + Privacy + extension link. Extracted from ProfileClient so
 // list pages (and anything else) show the same footer instead of losing it off
@@ -41,8 +42,8 @@ export const SiteFooter = forwardRef<
         {/* Tight gap so © + all three links fit one row on a 375px phone without
             any item wrapping onto a second line. */}
         <nav className="flex items-center gap-5 sm:gap-8">
-          <a href="/import" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Import</a>
-          <a href="/privacy" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Privacy</a>
+          <Link href="/import" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Import</Link>
+          <Link href="/privacy" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Privacy</Link>
           <a
             href={CHROME_STORE_URL}
             target="_blank"

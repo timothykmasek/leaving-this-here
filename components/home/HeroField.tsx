@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { HERO_CARDS, HERO_LISTS, HERO_PROFILES, captionMask } from '@/lib/homeContent'
+import Link from 'next/link'
 
 // ── Hero: the drifting field ────────────────────────────────────────────────
 // Thirteen cards on a 1330×1230 canvas — 9 links, 2 ghost list plates, 2 profile
@@ -203,12 +204,12 @@ export function HeroField() {
           viewport narrower than 1330 the canvas crops, and a canvas-anchored
           link gets sliced in half. It's not one of the physics obstacles, so
           moving it out of the canvas costs nothing. */}
-      <a
+      <Link
         href="/start"
         className="absolute right-6 top-[38px] z-[7] text-[12px] leading-4 tracking-[0.05em] text-black/70 transition-colors hover:text-black"
       >
         Sign up
-      </a>
+      </Link>
 
       <section
         ref={rootRef}
@@ -311,12 +312,12 @@ export function HeroField() {
           Collect, organize and share links worth keeping
         </p>
         <div className="mt-7 flex justify-center">
-          <a
+          <Link
             href="/start"
             className="flex h-11 w-[270px] items-center justify-center rounded-full border border-black/15 text-[12px] tracking-[0.05em] text-black/70 transition-colors hover:border-black hover:text-black"
           >
             Sign up
-          </a>
+          </Link>
         </div>
       </div>
 
