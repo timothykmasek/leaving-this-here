@@ -1,7 +1,6 @@
 import { ImageResponse } from 'next/og'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { loadCardo, loadLogo, PAPER, INK } from '@/lib/og'
-import { clampDescription } from '@/lib/meta'
+import { loadCardo, INK } from '@/lib/og'
 
 // A list's own share card — the profile's list card, turned on its side.
 //
@@ -12,6 +11,12 @@ import { clampDescription } from '@/lib/meta'
 // The identity of a list is its contents, which is why the card in the profile
 // is a contact sheet of its members rather than a title on a plate. This is
 // that band at landscape proportions, bleeding off both edges the same way.
+//
+// No wordmark, no owner, no count: a share card already sits under the site's
+// name, the owner, and a description supplied by the meta tags, so repeating
+// them inside the picture spends the picture on things the platform is
+// printing anyway. The plate and the strip are what a Bulletin list looks
+// like; that's the whole card.
 //
 // The list's own cover is deliberately NOT used here. Covers are written as
 // webp by the picker (lib/imageResize), and Satori cannot decode webp — a
@@ -37,7 +42,17 @@ const STRIP_CONFIRM = 8
 const STRIP_TILES = 5
 const STRIP_MIN = 3
 const LIKELY_DRAWABLE = /\.(jpe?g|png|svg)$/i
-const STRIP_H = 300
+// The plate, and the band's place on it, taken from CollectionCard: a #f1f1f1
+// plate with the strip starting ~35% down and standing ~28% of the height. At
+// 630 that is 220 and 174; the band is opened up a little here because a
+// landscape card gives it room the portrait one doesn't.
+const PLATE = '#f1f1f1'
+const STRIP_H = 286
+const STRIP_TOP = 172
+// 45/295 of the plate on the card. Same share of this one, fading into the
+// plate colour rather than to `transparent` — see LinkStrip.
+const FADE_W = 184
+const FADE_TO = 'rgba(241,241,241,0)'
 // The band starts left of the frame and runs past the right, so it reads as a
 // slice of something longer rather than a row that happens to fit.
 const STRIP_BLEED = 72
@@ -72,31 +87,27 @@ export default async function ListOgImage({
     .single()
 
   let name = params.listSlug
-  let description: string | null = null
-  let count: number | null = null
   let candidates: string[] = []
 
   if (profile?.id) {
     const { data: list } = await supabase
       .from('lists')
-      .select('id, name, description')
+      .select('id, name')
       .eq('user_id', profile.id)
       .eq('slug', params.listSlug)
       .maybeSingle()
 
     if (list) {
       name = list.name || params.listSlug
-      description = clampDescription(list.description, 100)
-      const { data: members, count: c } = await supabase
+      const { data: members } = await supabase
         .from('list_bookmarks')
-        .select('bookmarks(image_url, screenshot_url)', { count: 'exact' })
+        .select('bookmarks(image_url, screenshot_url)')
         .eq('list_id', list.id)
         // Newest first, and above all DETERMINISTIC: unordered, Postgres is
         // free to hand back a different set each time and the card would
         // quietly reshuffle between renders.
         .order('added_at', { ascending: false })
         .limit(STRIP_CANDIDATES)
-      count = c ?? null
       candidates = (members || [])
         .map((m: any) => m.bookmarks)
         .filter(Boolean)
@@ -105,7 +116,6 @@ export default async function ListOgImage({
     }
   }
 
-  const owner = profile?.display_name || profile?.username || params.username
 
   // Satori decodes png, jpeg and svg — NOT webp, which it fails on silently,
   // drawing nothing while the layout still holds the space open. Roughly half
@@ -127,95 +137,77 @@ export default async function ListOgImage({
   // Satori won't read, so the network is only asked about plausible ones.
   const likely = candidates.filter((u) => LIKELY_DRAWABLE.test(u.split('?')[0])).slice(0, STRIP_CONFIRM)
 
-  const [fonts, logo, checked] = await Promise.all([
-    loadCardo(),
-    loadLogo(),
-    Promise.all(likely.map(drawable)),
-  ])
+  const [fonts, checked] = await Promise.all([loadCardo(), Promise.all(likely.map(drawable))])
 
   const strip = (checked.filter(Boolean) as string[]).slice(0, STRIP_TILES)
   // Two tiles is not a contact sheet, it's two pictures. Below the floor the
-  // card falls back to type alone — a deliberate look rather than a thin strip.
+  // card is the bare plate and the name — a deliberate look, not a thin strip.
   const hasStrip = strip.length >= STRIP_MIN
+  const widths = tileWidths(strip.length)
 
   return new ImageResponse(
     (
       <div
         style={{
-          ...PAPER,
           width: '100%',
           height: '100%',
+          backgroundColor: PLATE,
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
+          position: 'relative',
           color: INK,
           fontFamily: 'Cardo, serif',
         }}
       >
-        <div style={{ display: 'flex', padding: '64px 80px 0' }}>
-          {logo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logo as any} alt="Bulletin" width={220} height={52} style={{ objectFit: 'contain' }} />
-          ) : (
-            <div style={{ fontSize: 30, fontWeight: 700 }}>Bulletin</div>
-          )}
-        </div>
-
         {hasStrip && (
-          <div style={{ display: 'flex', height: STRIP_H, marginLeft: -STRIP_BLEED }}>
-            {strip.map((src, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={src}
-                src={src}
-                alt=""
-                width={tileWidths(strip.length)[i]}
-                height={STRIP_H}
-                style={{ objectFit: 'cover' }}
-              />
-            ))}
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', padding: '0 80px 64px' }}>
-          <div
-            style={{
-              fontSize: hasStrip ? 64 : 88,
-              fontWeight: 700,
-              lineHeight: 1.05,
-              letterSpacing: -1,
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }}
-          >
-            {name}
-          </div>
-          {description && !hasStrip && (
+          <>
+            <div style={{ position: 'absolute', top: STRIP_TOP, left: -STRIP_BLEED, display: 'flex', height: STRIP_H }}>
+              {strip.map((src, i) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={src} src={src} alt="" width={widths[i]} height={STRIP_H} style={{ objectFit: 'cover' }} />
+              ))}
+            </div>
+            {/* Scoped to the band's own height, not the full plate: a
+                full-height fade reaches the name and washes it out. */}
             <div
               style={{
-                marginTop: 18,
-                fontSize: 32,
-                lineHeight: 1.35,
-                color: 'rgba(43,43,43,0.6)',
-                display: '-webkit-box',
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: 'vertical',
-                overflow: 'hidden',
+                position: 'absolute',
+                top: STRIP_TOP,
+                left: 0,
+                width: FADE_W,
+                height: STRIP_H,
+                backgroundImage: `linear-gradient(to right, ${PLATE}, ${FADE_TO})`,
               }}
-            >
-              {description}
-            </div>
-          )}
-          <div style={{ display: 'flex', marginTop: 14, fontSize: 21, color: 'rgba(43,43,43,0.45)' }}>
-            {[
-              `a list by ${owner}`,
-              typeof count === 'number' ? `${count} ${count === 1 ? 'item' : 'items'}` : null,
-            ]
-              .filter(Boolean)
-              .join('  ·  ')}
-          </div>
+            />
+            {/* Placed by a computed `left`, not `right: 0`: Satori honoured the
+                left fade and ignored the right one, so the band ended in a hard
+                edge on that side only. */}
+            <div
+              style={{
+                position: 'absolute',
+                top: STRIP_TOP,
+                left: size.width - FADE_W,
+                width: FADE_W,
+                height: STRIP_H,
+                backgroundImage: `linear-gradient(to left, ${PLATE}, ${FADE_TO})`,
+              }}
+            />
+          </>
+        )}
+
+        <div
+          style={{
+            position: 'absolute',
+            left: 80,
+            bottom: 76,
+            display: 'flex',
+            fontSize: 68,
+            fontWeight: 700,
+            lineHeight: 1.05,
+            letterSpacing: -1,
+            maxWidth: 1040,
+          }}
+        >
+          {name}
         </div>
       </div>
     ),
