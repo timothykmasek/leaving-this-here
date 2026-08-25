@@ -20,14 +20,26 @@ import Link from 'next/link'
 //
 // z-40 puts it above the revealed footer bar (z-30) and level with the pinned
 // wordmark, which is diagonally opposite and can't collide.
+//
+// It stands down while that footer bar is revealed. Two reasons, and the second
+// is the better one: at z-40 over a z-30 bar it sat directly on top of the
+// footer's own links — but also, that bar carries an "Import" link of its own.
+// With the bar up, this button is a second route to a destination already
+// offered a few pixels away, so hiding it removes a collision AND a duplicate.
+// Matches the bar's own 340ms curve so the two move as one gesture rather than
+// two things happening at once.
 
-export function ImportFab() {
+export function ImportFab({ hidden = false }: { hidden?: boolean }) {
   return (
     <Link
       href="/import"
       aria-label="Import links"
       title="Import links"
-      className="group fixed bottom-6 right-6 z-40 hidden h-16 w-16 items-center justify-center rounded-[20px] transition-transform duration-200 ease-out hover:scale-[1.04] active:scale-[0.98] sm:flex"
+      aria-hidden={hidden}
+      tabIndex={hidden ? -1 : undefined}
+      className={`group fixed bottom-6 right-6 z-40 hidden h-16 w-16 items-center justify-center rounded-[20px] transition-all duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.04] active:scale-[0.98] sm:flex ${
+        hidden ? 'pointer-events-none translate-y-3 opacity-0' : 'translate-y-0 opacity-100'
+      }`}
       style={{
         // Frosted, per the handoff: it takes its colour from whatever it's over.
         // The radial overlay is Figma's, approximated — the export's own note
