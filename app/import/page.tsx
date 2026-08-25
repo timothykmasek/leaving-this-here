@@ -4,7 +4,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 import ImportClient from './ImportClient'
 
 export const metadata: Metadata = {
-  title: 'import · Bulletin',
+  title: 'Import',
   description: 'Bulk-add links to your Bulletin from a CSV or a pasted list.',
 }
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { SiteFooter } from '@/components/SiteFooter'
 import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -221,6 +222,7 @@ export default function ImportClient({ username }: { username: string }) {
           </div>
         )}
       </div>
+      <SiteFooter widthClassName="max-w-2xl px-6 sm:px-8" />
     </main>
   )
 }

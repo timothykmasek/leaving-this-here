@@ -35,7 +35,11 @@ export async function generateMetadata({
   const url = `/${params.username}/${params.listSlug}`
 
   return {
-    title: `${name} · ${owner}`,
+    // Absolute, not templated. This segment sits under [username], which sets
+    // its own string title, and the root's "%s · Bulletin" template stopped
+    // applying here — a list page came out "The fit check · Tim Masek" with no
+    // masthead at all. Spelling it out cannot silently lose or double it.
+    title: { absolute: `${name} · ${owner} · ${SITE_NAME}` },
     description,
     alternates: { canonical: url },
     openGraph: {

@@ -1,8 +1,12 @@
+import { SiteFooter } from '@/components/SiteFooter'
 import type { Metadata } from 'next'
 import { BulletinHeader } from '@/components/BulletinHeader'
 
+// Footers must sit on the same measure as the page above them.
+const PAGE_GRID = 'max-w-2xl px-6 sm:px-8'
+
 export const metadata: Metadata = {
-  title: 'privacy · Bulletin',
+  title: 'Privacy',
   description: 'What Bulletin collects, why, and what happens to it.',
 }
 
@@ -115,6 +119,7 @@ export default function PrivacyPage() {
           </section>
         </div>
       </div>
+      <SiteFooter widthClassName={PAGE_GRID} />
     </main>
   )
 }

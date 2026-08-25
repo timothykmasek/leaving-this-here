@@ -169,7 +169,7 @@ export default async function ListPage({
             stripThumbs={stripThumbs}
           />
         </div>
-        <SiteFooter />
+        <SiteFooter widthClassName={LIST_GRID} />
       </main>
     )
   }
@@ -222,7 +222,7 @@ export default async function ListPage({
           </div>
         )}
       </div>
-      <SiteFooter />
+      <SiteFooter widthClassName={LIST_GRID} />
     </main>
   )
 }

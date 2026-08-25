@@ -127,7 +127,7 @@ export default function ProfileClient({
   // Reveal footer: hidden while browsing, slides in from the bottom on
   // scroll-up (or at the true end of the feed). The floating search pill lifts
   // to clear it — see the pill render below.
-  const footerRevealed = useRevealFooter(isOwner)
+  const footerRevealed = useRevealFooter(true)
   const [newListName, setNewListName] = useState('')
   const [creatingList, setCreatingList] = useState(false)
   // List-detail rename + share affordances.
@@ -1143,11 +1143,16 @@ export default function ProfileClient({
         )
       })()}
 
-      {/* Footer — owner only, reveal-on-scroll-up. The feed is effectively
-          endless, so instead of a bottom-anchored footer this is a fixed glassy
-          bar that slides in when the user scrolls up (or hits the true end) and
-          tucks away while browsing down. */}
-      {isOwner && <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />}
+      {/* Reveal-on-scroll-up. The feed is effectively endless, so instead of a
+          bottom-anchored footer this is a fixed glassy bar that slides in when
+          the reader scrolls up (or hits the true end) and tucks away while
+          browsing down.
+          
+          For everyone, not just the owner: the feed is just as endless for a
+          visitor, and gating it meant anyone arriving at a shared profile got
+          no footer at all — no privacy link, no extension link, nothing. The
+          Import button below stays owner-only; it is an action, not chrome. */}
+      <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />
       {isOwner && <ImportFab hidden={footerRevealed} />}
     </main>
   )
