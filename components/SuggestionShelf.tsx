@@ -195,9 +195,13 @@ export function SuggestionShelf({
 
   return (
     <section className="mt-12 border-t border-black/[0.06] pt-8">
-      {/* header — same label font/treatment as the rest of the chrome */}
-      <div className="mb-6 flex items-baseline justify-between gap-4">
-        <span className="label text-black/30">You might also add</span>
+      {/* When the shelf is spent the header IS the message — one label line
+          rather than a heading followed by a second line saying there's
+          nothing under it. */}
+      <div className={`flex items-baseline justify-between gap-4 ${pending.length === 0 ? '' : 'mb-6'}`}>
+        <span className="label text-black/30">
+          {pending.length === 0 ? 'Nothing left to suggest' : 'You might also add'}
+        </span>
         {pending.length > COLLAPSED_MAX && (
           <button
             onClick={() => setShowAll((v) => !v)}
@@ -208,19 +212,7 @@ export function SuggestionShelf({
         )}
       </div>
 
-      {pending.length === 0 ? (
-        // Spent shelf. This used to be a centred 18px Cardo ITALIC sentence
-        // floating in py-8, under a left-aligned label, above a left-aligned
-        // tally — three alignments and a display-sized line to say there is
-        // nothing here. It's one quiet line now, on the same left edge and in
-        // the same editorial voice as a list description, with the tally folded
-        // in rather than orphaned below (see the tally block at the end, which
-        // stands down when this renders).
-        <p className="font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60">
-          Nothing left to suggest
-          {addedCount > 0 && ` — ${addedCount} added to this list`}.
-        </p>
-      ) : (
+      {pending.length > 0 && (
         // Same masonry as the bullets above, so the shelf reads as one system.
         <Masonry>
           {visible.map((s) => (
