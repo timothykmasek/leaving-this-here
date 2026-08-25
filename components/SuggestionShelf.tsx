@@ -148,7 +148,6 @@ export function SuggestionShelf({
   const pending = suggestions.filter(
     (s) => !addedIds.has(s.id) && !dismissedIds.has(s.id)
   )
-  const addedCount = addedIds.size
   const visible = showAll ? pending : pending.slice(0, COLLAPSED_MAX)
 
   // "✕ not for this list" — quiet refusal. No confirmation, no undo UI; the
@@ -272,11 +271,6 @@ export function SuggestionShelf({
         </Masonry>
       )}
 
-      {addedCount > 0 && pending.length > 0 && (
-        <p className="label mt-4 text-black/30">
-          {addedCount} added to this list
-        </p>
-      )}
     </section>
   )
 }
