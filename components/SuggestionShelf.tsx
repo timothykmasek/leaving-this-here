@@ -85,6 +85,51 @@ export function forgetSuggestion(bookmarkId: string) {
   }
 }
 
+
+// Keep an element pinned to the same viewport position while the page settles
+// around it. Used after adding a bullet, which grows the grid ABOVE the shelf
+// by a card whose height only resolves once its image has loaded.
+//
+// Polls on animation frames rather than watching for a resize. Two earlier
+// attempts failed, both measured in a real browser:
+//
+//   Correcting once on the next frame — the grid grew 175px, the shelf dropped
+//   176px, and the correction ran having seen no drift at all. React had
+//   committed; the image had not loaded, so the height did not exist yet.
+//
+//   A ResizeObserver on document.body — body's height grew by 1144px and the
+//   observer fired ZERO times. Same for documentElement. Whatever the reason,
+//   it cannot be relied on to notice a page getting taller.
+//
+// A frame loop has no such subtlety: it runs, it measures, it corrects, and it
+// keeps doing that until the layout stops moving or the deadline passes. Sixty
+// getBoundingClientRect calls a second for a second and a half is nothing.
+const HOLD_MS = 1500
+const USER_SCROLL = ['wheel', 'touchmove', 'keydown'] as const
+
+function holdInPlace(el: HTMLElement | null, top: number) {
+  if (!el || typeof window === 'undefined') return
+  const deadline = performance.now() + HOLD_MS
+  let stopped = false
+  // Only genuinely user-initiated events. NOT 'scroll' — our own scrollBy
+  // fires that, and we would switch ourselves off on the first correction.
+  const stop = () => {
+    stopped = true
+    for (const ev of USER_SCROLL) window.removeEventListener(ev, stop)
+  }
+  for (const ev of USER_SCROLL) window.addEventListener(ev, stop, { passive: true })
+
+  const tick = () => {
+    if (stopped) return
+    if (performance.now() > deadline) return stop()
+    const drift = el.getBoundingClientRect().top - top
+    // Sub-pixel drift is not worth a scroll call.
+    if (Math.abs(drift) > 1) window.scrollBy(0, drift)
+    requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+}
+
 export function SuggestionShelf({
   listId,
   onAdd,
@@ -282,22 +327,19 @@ export function SuggestionShelf({
       })
     }
 
-    // Put the shelf back where it was. Two frames because the first only
-    // guarantees React committed; the layout it caused is measurable on the
-    // next one. Corrects on success AND failure — the grid may have grown
-    // either way, and a shelf that jumps only sometimes is worse than one that
-    // always does.
-    if (topBefore !== null) {
-      requestAnimationFrame(() =>
-        requestAnimationFrame(() => {
-          const topAfter = sectionRef.current?.getBoundingClientRect().top
-          if (topAfter === undefined) return
-          const drift = topAfter - topBefore
-          // Sub-pixel drift is not worth a scroll call.
-          if (Math.abs(drift) > 1) window.scrollBy(0, drift)
-        })
-      )
-    }
+    // Put the shelf back where it was, and KEEP putting it back until the
+    // layout stops moving.
+    //
+    // Correcting once on the next frame does not work — measured on a real
+    // list page: the grid grew 175px, the shelf dropped 176px, and the
+    // correction fired having seen no drift at all. The new card's height is
+    // not known until its IMAGE loads, so the growth lands tens or hundreds of
+    // milliseconds after React has committed. A single frame is far too early.
+    //
+    // So watch the page resize instead and re-correct each time, for a bounded
+    // window. Stops early the moment the reader scrolls themselves — wheel,
+    // touch or key — because from then on the position is theirs, not ours.
+    if (topBefore !== null) holdInPlace(sectionRef.current, topBefore)
   }
 
   return (
