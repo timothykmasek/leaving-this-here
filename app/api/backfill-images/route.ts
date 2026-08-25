@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   extractMetadata,
   deriveFromRaw,
@@ -10,10 +10,25 @@ import { screenshotApiUrl } from '@/lib/screenshot'
 import { classifyCardType, type CardType } from '@/lib/cardType'
 
 // Use service role key if available (bypasses RLS), else anon key + RPC.
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-)
+//
+// Built on first use, not at module scope. Next collects page data at build
+// time, which imports this file — so a client constructed up here ran during
+// `next build` and threw on a machine without Supabase credentials. The effect
+// was that a fresh clone of this repo could not build at all, and CI had to be
+// handed placeholder env vars to get past it. Nothing here needs a client until
+// a request arrives.
+// SupabaseClient, not ReturnType<typeof createClient> — the latter collapses
+// the generic defaults and every query then types as `never`.
+let cached: SupabaseClient | null = null
+function supabase() {
+  if (!cached) {
+    cached = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    )
+  }
+  return cached
+}
 
 // CardType + classifyCardType now live in lib/cardType.ts, shared with the save
 // paths (so card_type is set at insert) and the image router (lib/cardImage.ts).
@@ -25,7 +40,7 @@ function screenshotUrl(url: string): string {
 }
 
 async function applyUpdate(bookmarkId: string, update: Record<string, any>, raw: RawMetadata | null) {
-  return supabaseAdmin.rpc('backfill_bookmark', {
+  return supabase().rpc('backfill_bookmark', {
     bookmark_id: bookmarkId,
     new_card_type: update.card_type ?? null,
     new_image_url: update.image_url ?? null,
@@ -52,7 +67,7 @@ export async function POST(request: NextRequest) {
     // - fetch: re-fetch + re-process ALL bookmarks (expensive)
     // - reclassify: run pickers over stored raw_metadata (free, no network)
     // - fetch-missing: only fetch bookmarks without card_type set
-    let query = supabaseAdmin
+    let query = supabase()
       .from('bookmarks')
       .select('id, url, title, description, image_url, favicon_url, raw_metadata, card_type')
       .order('created_at', { ascending: false })

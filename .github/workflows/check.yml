@@ -9,10 +9,11 @@
 # swinging the wrong way, a stale cache still offering a deleted bullet. Those
 # need eyes. This just stops a broken build reaching production.
 #
-# Placeholder Supabase env: the build fails without them because
-# /api/backfill-images constructs a client at module scope, and Next collects
-# page data at build time. The values are never used — nothing here talks to a
-# real database — so no secrets are needed.
+# No env vars at all. The build used to need placeholder Supabase values
+# because /api/backfill-images constructed a client at module scope and Next
+# collects page data at build time; that client is lazy now, so a checkout with
+# no credentials builds exactly as a developer's fresh clone does — which is
+# the point of checking it here.
 
 name: check
 
@@ -24,10 +25,6 @@ on:
 jobs:
   check:
     runs-on: ubuntu-latest
-    env:
-      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
-      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
     steps:
       - uses: actions/checkout@v5
 
