@@ -14,6 +14,7 @@ import { ProfileIdentity } from '@/components/ProfileIdentity'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
+import { ImportFab } from '@/components/ImportFab'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useRevealFooter } from '@/lib/useRevealFooter'
@@ -1134,6 +1135,7 @@ export default function ProfileClient({
           bar that slides in when the user scrolls up (or hits the true end) and
           tucks away while browsing down. */}
       {isOwner && <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />}
+      {isOwner && <ImportFab />}
     </main>
   )
 }
