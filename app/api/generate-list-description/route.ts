@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { cleanListDescription } from '@/lib/listDescription'
 import { createSupabaseServer } from '@/lib/supabase/server'
 
 // POST /api/generate-list-description
@@ -26,9 +27,13 @@ export async function POST(request: NextRequest) {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return NextResponse.json({ description: null })
 
+  // "Plain prose" spelled out: the page renders this as text, so a heading or
+  // a bullet arrives as literal hashes and asterisks. Also "do not repeat the
+  // name" — the title sits directly above this on every surface that shows it.
+  const FORMAT = ' Reply with the sentence only: plain prose, no markdown, no heading, no quotes, and do not repeat the list name.'
   const prompt = bio
-    ? `The user "${bio}" created a list called "${listName}". Write one brief sentence describing what this list might contain or its purpose. Keep it under 100 characters. Be specific and conversational, not generic.`
-    : `Someone created a list called "${listName}". Write one brief sentence describing what this list might contain. Keep it under 100 characters. Be specific and conversational.`
+    ? `The user "${bio}" created a list called "${listName}". Write one brief sentence describing what this list might contain or its purpose. Keep it under 100 characters. Be specific and conversational, not generic.${FORMAT}`
+    : `Someone created a list called "${listName}". Write one brief sentence describing what this list might contain. Keep it under 100 characters. Be specific and conversational.${FORMAT}`
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -48,8 +53,9 @@ export async function POST(request: NextRequest) {
     if (!res.ok) return NextResponse.json({ description: null })
     const data = await res.json()
     const description: string = data?.content?.[0]?.text || ''
+    // Asking is not the same as getting. Clean it anyway.
     return NextResponse.json({
-      description: description.trim().slice(0, 200) || null,
+      description: (cleanListDescription(description) || '').slice(0, 200) || null,
     })
   } catch {
     return NextResponse.json({ description: null })
