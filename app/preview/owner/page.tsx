@@ -22,7 +22,7 @@ import Link from 'next/link'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { ListMasthead } from '@/components/ListMasthead'
 import { ListCoverControl } from '@/components/ListCoverControl'
-import { SuggestionShelf } from '@/components/SuggestionShelf'
+import { SuggestionShelf, forgetSuggestion } from '@/components/SuggestionShelf'
 import { ImportFab } from '@/components/ImportFab'
 
 // Real local files, so cards look like cards rather than grey boxes.
@@ -204,7 +204,7 @@ export default function OwnerPreview() {
         title="Suggestion shelf"
         note="Renders nothing here, and that is the correct answer: the shelf fetches its own suggestions, the fixture list id has none, and a shelf with nothing to say should not occupy the page. It also means this is the one surface fixtures cannot fully exercise — seeing 'You might also add' or 'Nothing left to suggest' needs a real list with real neighbours."
       >
-        <SuggestionShelf listId="fixture-list" onAdd={async () => {}} />
+        <ShelfHarness />
       </Section>
 
       <Section
@@ -232,5 +232,53 @@ function PencilButton() {
         <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
       </svg>
     </button>
+  )
+}
+
+// The shelf fetches its own suggestions, so fixtures alone render nothing. But
+// it also paints from its sessionStorage cache on mount, which gives us a way
+// in: seed the cache, mount the shelf, and it renders real cards through the
+// real code path.
+//
+// That makes one specific regression testable. Deleting a bullet used to leave
+// its card sitting in the shelf until a reload — forgetSuggestion() purged the
+// cache, which only governs the NEXT mount, while the shelf on screen kept its
+// suggestions in React state. "Delete a bullet" below runs the real
+// forgetSuggestion; the card must vanish immediately.
+function ShelfHarness() {
+  const LIST_ID = 'fixture-list'
+  const [seeded, setSeeded] = useState(false)
+  const [nonce, setNonce] = useState(0)
+
+  const seed = () => {
+    const rows = BULLETS.map((b, i) => ({
+      id: b.id, url: b.url, title: b.title, description: b.description,
+      image_url: b.imageUrl, screenshot_url: null, favicon_url: null,
+      card_type: null, image_pref: null, is_private: false, note: null,
+      created_at: new Date('2026-08-01T00:00:00Z').toISOString(),
+      customImage: null, similarity: 0.9 - i * 0.01,
+    }))
+    sessionStorage.setItem(`bulletin:shelf:${LIST_ID}`, JSON.stringify(rows))
+    localStorage.removeItem(`bulletin:shelf:dismissed:${LIST_ID}`)
+    setSeeded(true)
+    setNonce((n) => n + 1)
+  }
+
+  return (
+    <div>
+      <div className="mb-6 flex flex-wrap gap-3">
+        <button onClick={seed} className="rounded-full border border-black/15 px-4 py-2 font-sans text-[12px] leading-4 tracking-[0.05em] hover:border-black/40">
+          Seed the shelf
+        </button>
+        <button
+          onClick={() => forgetSuggestion(BULLETS[0].id)}
+          disabled={!seeded}
+          className="rounded-full border border-black/15 px-4 py-2 font-sans text-[12px] leading-4 tracking-[0.05em] hover:border-black/40 disabled:opacity-40"
+        >
+          Delete a bullet (first card must vanish)
+        </button>
+      </div>
+      {seeded ? <SuggestionShelf key={nonce} listId={LIST_ID} onAdd={async () => {}} /> : null}
+    </div>
   )
 }

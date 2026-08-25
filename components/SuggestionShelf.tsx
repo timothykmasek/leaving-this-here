@@ -49,6 +49,9 @@ export type Suggestion = {
  * any number of lists and the caller has no idea which — the add path could
  * clean just its own list's entry, a delete can't.
  */
+/** Fired by forgetSuggestion(); listened for by every mounted shelf. */
+const BULLET_DELETED = 'bulletin:bullet-deleted'
+
 export function forgetSuggestion(bookmarkId: string) {
   if (typeof window === 'undefined') return
   try {
@@ -66,6 +69,19 @@ export function forgetSuggestion(bookmarkId: string) {
     }
   } catch {
     // Cache hygiene is best-effort; the background fetch is the real backstop.
+  }
+  // Clearing the cache only decides what a FUTURE shelf fetches. Any shelf
+  // already on screen holds its suggestions in React state, and its visible
+  // filter asks only "added?" and "dismissed?" — a deleted bullet is neither,
+  // so the card sat there until a reload. Tell the live ones too.
+  //
+  // An event rather than a prop because this is the one function both delete
+  // handlers already call (the list page and the profile), so every mounted
+  // shelf heals without either of them knowing a shelf exists.
+  try {
+    window.dispatchEvent(new CustomEvent(BULLET_DELETED, { detail: bookmarkId }))
+  } catch {
+    // Older browsers without CustomEvent: the cache purge above still stands.
   }
 }
 
@@ -140,6 +156,20 @@ export function SuggestionShelf({
       cancelled = true
     }
   }, [listId, cacheKey])
+
+  // A bullet deleted anywhere on the page leaves this shelf immediately, rather
+  // than lingering until the next mount. Filters state instead of refetching:
+  // the row is already gone, so asking the server again would only cost a round
+  // trip to be told the same thing.
+  useEffect(() => {
+    const onDeleted = (e: Event) => {
+      const id = (e as CustomEvent<string>).detail
+      if (!id) return
+      setSuggestions((prev) => (prev ? prev.filter((s) => s.id !== id) : prev))
+    }
+    window.addEventListener(BULLET_DELETED, onDeleted)
+    return () => window.removeEventListener(BULLET_DELETED, onDeleted)
+  }, [])
 
   // Still loading, or nothing to offer → render nothing (stays ignorable; no
   // skeleton flash, no "empty" announcement on a list that had zero suggestions).
