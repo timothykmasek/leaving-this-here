@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BulletinHeader } from '@/components/BulletinHeader'
+import { CHROME_STORE_URL } from '@/lib/extension'
+import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 
 // Bulk import: paste anything (or drop a CSV) → we pull out the URLs → save
 // them one at a time through /api/import. Format is deliberately forgiving —
@@ -55,6 +57,10 @@ type Phase = 'input' | 'running' | 'done'
 
 export default function ImportClient({ username }: { username: string }) {
   const router = useRouter()
+  // undefined while checking → treated as not-installed for the pitch, which
+  // is the safe way round: a missed install shows an extra offer, a wrong
+  // "installed" hides the only mention of it.
+  const extInstalled = useExtensionInstalled()
   const supabase = createClient()
   const [text, setText] = useState('')
   const [phase, setPhase] = useState<Phase>('input')
@@ -169,6 +175,43 @@ export default function ImportClient({ username }: { username: string }) {
                 min for this batch) — keep this tab open.
               </p>
             )}
+
+            {/* The extension, framed against what this page is FOR. Someone
+                here is moving a back catalogue across — a one-time job. The
+                extension is the other half: how saving works from now on. That
+                pairing is the reason this sits on the import page rather than
+                being a generic "we also have an extension" banner.
+
+                It's also the only durable place it's said. SaveHelp on the
+                profile only renders on a completely empty collection and can't
+                be reopened once closed, so after a user's first save nothing
+                ever mentions the extension again except a footer link. */}
+            <div className="mt-14 border-t border-black/[0.06] pt-8">
+              {extInstalled ? (
+                <p className="font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60">
+                  That&rsquo;s the back catalogue. From now on the extension
+                  handles it — click its icon on any page to save what
+                  you&rsquo;re looking at.
+                </p>
+              ) : (
+                <>
+                  <p className="max-w-[520px] font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60">
+                    That&rsquo;s the back catalogue. For everything from here on,
+                    the Bulletin extension saves whatever page you&rsquo;re on in
+                    one click — including pages a server can&rsquo;t reach, since
+                    it reads them from your own browser.
+                  </p>
+                  <a
+                    href={CHROME_STORE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-5 inline-block rounded-full border border-black/15 px-5 py-2.5 text-sm text-ink transition-colors hover:border-black/40"
+                  >
+                    Add to Chrome →
+                  </a>
+                </>
+              )}
+            </div>
           </>
         )}
 
