@@ -29,8 +29,11 @@ returns table (
   screenshot_url text,
   favicon_url text,
   card_type text,
+  image_pref text,
   is_private boolean,
+  note text,
   created_at timestamptz,
+  custom_image text,
   similarity float
 )
 language sql
@@ -45,8 +48,17 @@ as $$
     b.screenshot_url,
     b.favicon_url,
     b.card_type,
+    -- image_pref, note and the owner's own picture are here because the shelf's
+    -- cards render and OPEN like any other bullet. Without note the detail modal
+    -- would show an empty field for a bookmark that has one, then overwrite it
+    -- on save; without image_pref the card can pick the wrong image. The JS
+    -- fallback path already selects all three, so the two engines must agree or
+    -- installing this function would quietly change what the shelf shows.
+    b.image_pref,
     b.is_private,
+    b.note,
     b.created_at,
+    b.raw_metadata->>'customImage' as custom_image,
     1 - (b.embedding <=> query_embedding) as similarity
   from bookmarks b
   where b.user_id = target_user_id

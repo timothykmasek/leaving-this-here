@@ -174,7 +174,11 @@ export async function GET(
         // The function doesn't know about dismissals — post-filter here. The
         // client over-fetches (limit 12 vs a 4-up row), so a few filtered rows
         // don't leave the shelf sparse.
-        const kept = rpcData.filter((r: any) => !dismissedIds.has(r.id))
+        // SQL can't return a camelCase column, so the function aliases the
+        // owner's own picture as custom_image; the shelf reads customImage.
+        const kept = rpcData
+          .filter((r: any) => !dismissedIds.has(r.id))
+          .map(({ custom_image, ...r }: any) => ({ ...r, customImage: custom_image ?? null }))
         return NextResponse.json({
           suggestions: kept,
           meta: {
