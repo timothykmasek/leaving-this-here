@@ -9,7 +9,6 @@ import { normalizeUrl } from '@/lib/normalizeUrl'
 import {
   ensureBucket,
   storeImageBytes,
-  isRotProneImageUrl,
   persistCardImage,
 } from '@/lib/screenshot'
 import { maybeStoreImagePref } from '@/lib/cardImageJudge'
@@ -56,11 +55,26 @@ async function persistClientShot(bookmarkId: string, dataUrl: string, cardType: 
   }
 }
 
-// Copy a rot-prone hotlinked image (signed IG/FB/LinkedIn/TikTok CDN URL) into
-// our bucket and repoint the row — the signature is fresh at save time, so this
-// is the one moment the bytes are reliably fetchable. Best-effort, post-response.
-function persistRotProneImage(bookmarkId: string, imageUrl: string | null | undefined) {
-  if (!imageUrl || !isRotProneImageUrl(imageUrl)) return
+// Copy a hotlinked card image into our bucket and repoint the row.
+//
+// This used to fire only for the five "rot-prone" hosts (signed IG/FB/LinkedIn/
+// TikTok CDN URLs), on the reasoning that only those expire. But leaving every
+// OTHER site's image hotlinked is what quietly built up 326 remote images
+// across 209 hosts — and those were the slowest things on a profile by a wide
+// margin, because each one costs the reader's browser a fresh DNS lookup and
+// TLS handshake. Persisting only the ones that expire fixed rot and left the
+// speed problem to regrow on every save.
+//
+// Now: anything not already in our bucket. It's post-response via waitUntil, so
+// the person saving waits for none of it, and save time is unchanged.
+//
+// Rot was never the only reason to own the bytes. A remote og:image can also be
+// replaced or deleted by whoever owns it — which is why some older cards render
+// a broken frame today.
+function persistRemoteImage(bookmarkId: string, imageUrl: string | null | undefined) {
+  if (!imageUrl) return
+  // Already ours (or a data URI) — nothing to copy.
+  if (!/^https?:\/\//i.test(imageUrl) || imageUrl.includes('/card-images/')) return
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return
   waitUntil(
     (async () => {
@@ -237,7 +251,7 @@ export async function POST(request: NextRequest) {
         ? body.clientShot
         : null
     if (dupShot) waitUntil(persistClientShot(refreshed.id, dupShot, card_type))
-    persistRotProneImage(refreshed.id, image_url)
+    persistRemoteImage(refreshed.id, image_url)
     return json({ bookmark: refreshed, refreshed: true })
   }
 
@@ -320,7 +334,7 @@ export async function POST(request: NextRequest) {
   // that already have an og:image). waitUntil keeps the instance alive so the
   // post-response work isn't dropped when the function freezes.
   // Rot-prone hotlinks (signed IG/FB/LinkedIn CDN URLs) get a permanent copy.
-  persistRotProneImage(inserted.id, image_url)
+  persistRemoteImage(inserted.id, image_url)
 
   const clientShot =
     typeof body.clientShot === 'string' && body.clientShot.startsWith('data:image/')
