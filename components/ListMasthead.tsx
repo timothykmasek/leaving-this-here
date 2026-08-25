@@ -20,14 +20,12 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BracketLabel } from '@/components/BulletinHeader'
-import { formatTimestampLabel } from '@/lib/timestampLabel'
 import { LinkStrip } from '@/components/LinkStrip'
 
 export function ListMasthead({
   name,
   description,
   count,
-  updatedAt,
   ownerName,
   backHref,
   backLabel,
@@ -41,7 +39,6 @@ export function ListMasthead({
   description?: string | null
   count: number
   /** ISO timestamp of the most recent add to this list, or null. */
-  updatedAt?: string | null
   ownerName: string
   backHref: string
   backLabel: string
@@ -59,11 +56,6 @@ export function ListMasthead({
   const [expanded, setExpanded] = useState(false)
   const [clamped, setClamped] = useState(false)
   const descRef = useRef<HTMLParagraphElement>(null)
-  // Same treatment as the profile's "Latest Bullet": the viewer's LOCAL time, so
-  // it has to be formatted after mount or the server's string won't match the
-  // browser's. Absent on first paint by design.
-  const [updatedLabel, setUpdatedLabel] = useState<string | null>(null)
-
   // Only offer more/less when the text is ACTUALLY cut off. A length threshold
   // would guess wrong at different widths; comparing scroll to client height
   // asks the browser what really happened.
@@ -76,10 +68,6 @@ export function ListMasthead({
     ro.observe(el)
     return () => ro.disconnect()
   }, [description, expanded])
-
-  useEffect(() => {
-    setUpdatedLabel(formatTimestampLabel(updatedAt))
-  }, [updatedAt])
 
   // The two owner controls live TOGETHER, beside the name, as icons. They were
   // previously a worded pill above the description and another worded button
@@ -194,15 +182,19 @@ export function ListMasthead({
         {/* The list's answer to the profile's identity block: a Mier heading
             (the list name, up in the cover) over an editorial stack in Cardo.
             Same metrics as ProfileIdentity's bio — 14/22, -0.01em, black/60 —
-            so the two pages read as one voice, and "Last Updated" sits in the
-            same slot as the profile's "Latest Bullet". */}
+            so the two pages read as one voice.
+
+            Two lines, not three. A "Last Updated" line used to sit here, and
+            because the stack was always three lines against a description of
+            one to three, its last line regularly hung below the description
+            with nothing beside it — a stray timestamp floating above the cards.
+            Four lists have no description at all, where the whole stack hung. */}
         <div className="flex flex-col font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60 sm:col-start-3 sm:items-end sm:text-right lg:col-start-4">
           <p>{ownerName}</p>
           <p>
             {count} {count === 1 ? 'Item' : 'Items'}
             {isPrivate && ' · Private'}
           </p>
-          {updatedLabel && <p>Last Updated: {updatedLabel}</p>}
         </div>
       </div>
     </header>

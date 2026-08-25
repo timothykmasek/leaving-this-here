@@ -37,7 +37,6 @@ export function ListDetailClient({
   initialList,
   initialBullets,
   initialLists,
-  updatedAt,
   backHref,
   stripThumbs,
 }: {
@@ -49,7 +48,6 @@ export function ListDetailClient({
   initialBullets: any[]
   initialLists: List[]
   /** ISO timestamp of the most recent add — derived server-side. */
-  updatedAt: string | null
   backHref: string
   /** Thumbs for the masthead's default cover band, built server-side. */
   stripThumbs: string[]
@@ -333,7 +331,6 @@ export function ListDetailClient({
           name={list.name}
           description={list.description}
           count={bullets.length}
-          updatedAt={updatedAt}
           ownerName={ownerName}
           backHref={backHref}
           backLabel="&larr; All lists"

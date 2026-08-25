@@ -16,10 +16,10 @@ export const getProfileByUsername = cache(async (username: string) => {
   return data
 })
 
-// added_at rides along so the page can show "updated <date>" — a list's
-// freshness is when something was last ADDED to it, which list_bookmarks
-// already records; there's no updated_at on lists and none is needed.
-const LIST_COLS = 'id, name, slug, is_private, description, list_bookmarks(bookmark_id, added_at)'
+// added_at used to ride along for a "Last Updated" line in the masthead. That
+// line is gone, and nothing else reads the column, so it is no longer fetched —
+// it was a value per member row, on lists with up to 146 members.
+const LIST_COLS = 'id, name, slug, is_private, description, list_bookmarks(bookmark_id)'
 
 /** PostgREST's undefined_column. Selecting a column that doesn't exist is a hard
  *  400, unlike a missing TABLE, which this app already tolerates. */

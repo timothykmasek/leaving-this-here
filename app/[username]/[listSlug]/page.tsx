@@ -70,7 +70,7 @@ export default async function ListPage({
         .select(
           `id, name, slug, is_private, description, cover_image_url,
            profiles!inner(id, username, display_name, bio, links),
-           list_bookmarks(bookmark_id, added_at, bookmarks(${BULLET_COLS}))`
+           list_bookmarks(bookmark_id, bookmarks(${BULLET_COLS}))`
         )
         .eq('profiles.username', username)
         .eq('slug', listSlug)
@@ -94,7 +94,6 @@ export default async function ListPage({
     cover_image_url: row.cover_image_url,
     list_bookmarks: (row.list_bookmarks || []).map((x: any) => ({
       bookmark_id: x.bookmark_id,
-      added_at: x.added_at,
     })),
   }
 
@@ -120,14 +119,6 @@ export default async function ListPage({
     : { data: null }
 
   const owner = profile.display_name || profile.username
-
-  // "Updated" for a list is when something was last ADDED to it — list_bookmarks
-  // already records that, so this needs no column and no migration.
-  const addedAts = (((list as any).list_bookmarks || []) as any[])
-    .map((x) => x.added_at)
-    .filter(Boolean)
-    .sort()
-  const updatedAt = addedAts.length ? addedAts[addedAts.length - 1] : null
 
   // The back link returns to the profile's LISTS tab specifically, which is why
   // ProfileClient reads ?tab= — landing on Recent Bullets after leaving a list
@@ -187,7 +178,6 @@ export default async function ListPage({
             }}
             initialBullets={bullets}
             initialLists={shapedLists}
-            updatedAt={updatedAt}
             backHref={backHref}
             stripThumbs={stripThumbs}
           />
@@ -210,7 +200,6 @@ export default async function ListPage({
           name={list.name}
           description={list.description}
           count={bullets.length}
-          updatedAt={updatedAt}
           ownerName={owner}
           backHref={backHref}
           backLabel={`\u2190 ${owner.split(' ')[0]}\u2019s lists`}

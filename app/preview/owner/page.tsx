@@ -136,7 +136,6 @@ export default function OwnerPreview() {
           name="The fit check"
           description="Clothes I would actually wear, mostly from people who make small numbers of things."
           count={BULLETS.length}
-          updatedAt={new Date('2026-08-20T09:23:00Z').toISOString()}
           ownerName="tim"
           backHref="/preview/owner"
           backLabel="&larr; All lists"
@@ -163,7 +162,6 @@ export default function OwnerPreview() {
           name="Rooms I think about"
           description="Interiors with one idea each."
           count={BULLETS.length}
-          updatedAt={new Date('2026-08-11T18:02:00Z').toISOString()}
           ownerName="tim"
           backHref="/preview/owner"
           backLabel="&larr; All lists"

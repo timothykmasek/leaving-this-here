@@ -43,7 +43,6 @@ export default function Loading() {
             <div className="flex flex-col gap-2 sm:col-start-3 sm:items-end lg:col-start-4">
               <div className="h-3 w-24 animate-pulse rounded bg-black/[0.05]" />
               <div className="h-3 w-16 animate-pulse rounded bg-black/[0.05]" />
-              <div className="h-3 w-44 animate-pulse rounded bg-black/[0.05]" />
             </div>
           </div>
         </div>
