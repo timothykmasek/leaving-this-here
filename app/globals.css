@@ -103,6 +103,12 @@ body {
    Applies on the element itself OR on a `.group` ancestor, since PrimaryCard
    hovers the whole card (plate + title) rather than just the plate. */
 .card-lift {
+  /* The raised shadow, named once. It is applied by two separate rules below
+     (the :has() ones have to be split off), and two hand-copied shadows are
+     two shadows that will eventually disagree. */
+  --card-lift-raised:
+    0 20px 32px -26px rgba(35, 30, 20, 0.5),
+    0 6px 13px -14px rgba(35, 30, 20, 0.35);
   box-shadow: 0 1px 2px rgba(40, 40, 30, 0.06);
   transition: box-shadow 180ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
@@ -122,12 +128,17 @@ body {
 
 .card-lift:hover,
 .card-lift:focus-visible,
-.card-lift:focus-within,
-.group:hover .card-lift,
-.group:focus-within .card-lift {
-  box-shadow:
-    0 20px 32px -26px rgba(35, 30, 20, 0.5),
-    0 6px 13px -14px rgba(35, 30, 20, 0.35);
+.group:hover .card-lift {
+  box-shadow: var(--card-lift-raised);
+}
+/* Keyboard focus only, and split off — same two reasons as the pin rules:
+   :focus-within stayed true after a click had already opened the link, leaving
+   the card raised with nothing touching it; and a browser without :has()
+   discards an entire rule over one unknown selector, which would take the
+   hover lift with it. */
+.card-lift:has(:focus-visible),
+.group:has(:focus-visible) .card-lift {
+  box-shadow: var(--card-lift-raised);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -221,8 +232,21 @@ body > * {
   transform-origin: calc(100% - var(--pin-inset)) var(--pin-inset);
   transition: transform 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
-.group:hover .pin-hang,
-.group:focus-within .pin-hang {
+.group:hover .pin-hang {
+  transform: rotate(-2.4deg);
+}
+/* Keyboard focus, NOT :focus-within.
+   
+   A click leaves focus on the card's own overlay link, so :focus-within stayed
+   true after the link had opened and the card sat there tilted — held up by a
+   pin the reader had already let go of. :focus-visible is only true for
+   keyboard focus, which is the case the rule was for.
+   
+   Its own rule rather than a second selector in the list above: a browser
+   without :has() throws out the WHOLE rule when one selector in a comma list
+   is unknown, and that would take plain hover down with it. Split, the worst
+   case is losing the keyboard tilt. */
+.group:has(:focus-visible) .pin-hang {
   transform: rotate(-2.4deg);
 }
 
@@ -247,16 +271,19 @@ body > * {
   pointer-events: none;
   z-index: 3;
 }
-.group:hover .pin-tack,
-.group:focus-within .pin-tack {
+.group:hover .pin-tack {
+  opacity: 1;
+  transform: scale(1);
+}
+.group:has(:focus-visible) .pin-tack {
   opacity: 1;
   transform: scale(1);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .pin-hang { transition: none; }
-  .group:hover .pin-hang,
-  .group:focus-within .pin-hang { transform: none; }
+  .group:hover .pin-hang { transform: none; }
+  .group:has(:focus-visible) .pin-hang { transform: none; }
   .pin-tack { transition: none; }
 }
 
