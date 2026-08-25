@@ -256,7 +256,7 @@ export default function OwnerPreview() {
 
       <Section
         title="Suggestion shelf"
-        note="Seed it, then add or dismiss all seven. Acting on a card must swap ONLY that card — the others hold their columns — and when the last one goes the whole section should disappear, rule and heading with it, rather than sitting there announcing its own emptiness."
+        note="Seed it, then add one. A card lands in the grid ABOVE the shelf — as it does on a real list page — and the shelf must NOT slide down the screen: the page grows under a held scroll position, which reads as being thrown upward into whatever was above. Then add or dismiss all seven. Acting on a card must swap ONLY that card — the others hold their columns — and when the last one goes the whole section should disappear, rule and heading with it, rather than sitting there announcing its own emptiness."
       >
         <ShelfHarness />
       </Section>
@@ -318,6 +318,7 @@ function ShelfHarness() {
   const LIST_ID = 'fixture-list'
   const [seeded, setSeeded] = useState(false)
   const [nonce, setNonce] = useState(0)
+  const [added, setAdded] = useState<typeof BULLETS>([])
 
   const seed = () => {
     // Seven, deliberately: the shelf shows four, so acting on one has to pull a
@@ -350,7 +351,39 @@ function ShelfHarness() {
           Delete a bullet (first card must vanish)
         </button>
       </div>
-      {seeded ? <SuggestionShelf key={nonce} listId={LIST_ID} onAdd={async () => {}} /> : null}
+      {/* A grid ABOVE the shelf that grows when you add — which is what the
+          real list page does, and the whole reason adding used to jolt. With a
+          no-op onAdd nothing above changed and the bug could not be seen here. */}
+      {added.length > 0 && (
+        // One column on purpose: in a four-up grid the first four adds fill
+        // row one and the block does not get taller, so nothing above the shelf
+        // moves and the bug cannot be reproduced. Stacked, every add grows it.
+        <div className="mb-4 grid grid-cols-1 gap-y-[40px]">
+          {added.map((b, i) => (
+            <PrimaryCard
+              key={`${b.id}-${i}`}
+              id={`${b.id}-added-${i}`}
+              url={b.url}
+              title={b.title}
+              description={b.description}
+              imageUrl={b.imageUrl}
+              screenshotUrl={null}
+              faviconUrl={null}
+            />
+          ))}
+        </div>
+      )}
+      {seeded ? (
+        <SuggestionShelf
+          key={nonce}
+          listId={LIST_ID}
+          onAdd={async (sug) => {
+            // A round trip, like the real insert.
+            await new Promise((r) => setTimeout(r, 200))
+            setAdded((prev) => [...prev, BULLETS[prev.length % BULLETS.length]])
+          }}
+        />
+      ) : null}
     </div>
   )
 }

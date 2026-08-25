@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
@@ -109,6 +109,7 @@ export function SuggestionShelf({
   // jumping sideways for one click. Acting on a slot now swaps only that slot,
   // and every other card stays exactly where it was.
   const [slotIds, setSlotIds] = useState<string[] | null>(null)
+  const sectionRef = useRef<HTMLElement>(null)
 
   // Per-tab cache so revisiting a list paints the shelf instantly, then a
   // background fetch replaces it with fresh ranking. sessionStorage (not local)
@@ -241,6 +242,15 @@ export function SuggestionShelf({
   }
 
   const handleAdd = async (s: Suggestion) => {
+    // Where the shelf sits in the viewport, right now. Adding a bullet grows
+    // the grid ABOVE this shelf by a card, and the browser holds scrollY — so
+    // the shelf slides down the screen and the reader is left looking at
+    // whatever used to be above it. Nothing scrolled; the page grew under the
+    // scroll position. Native scroll anchoring should cover this and doesn't:
+    // the masonry re-distributes every child on each render, so the anchor it
+    // picked is gone by the time it looks again.
+    const topBefore = sectionRef.current?.getBoundingClientRect().top ?? null
+
     // Remember where it sat, so a failed add can put it back in its own slot
     // rather than at the end — or nowhere, which is what would happen if the
     // revert only undid addedIds.
@@ -271,10 +281,27 @@ export function SuggestionShelf({
         return restored
       })
     }
+
+    // Put the shelf back where it was. Two frames because the first only
+    // guarantees React committed; the layout it caused is measurable on the
+    // next one. Corrects on success AND failure — the grid may have grown
+    // either way, and a shelf that jumps only sometimes is worse than one that
+    // always does.
+    if (topBefore !== null) {
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          const topAfter = sectionRef.current?.getBoundingClientRect().top
+          if (topAfter === undefined) return
+          const drift = topAfter - topBefore
+          // Sub-pixel drift is not worth a scroll call.
+          if (Math.abs(drift) > 1) window.scrollBy(0, drift)
+        })
+      )
+    }
   }
 
   return (
-    <section className="mt-12 border-t border-black/[0.06] pt-8">
+    <section ref={sectionRef} className="mt-12 border-t border-black/[0.06] pt-8">
       <div className="mb-6 flex items-baseline justify-between gap-4">
         <span className="label text-black/30">You might also add</span>
         {pending.length > COLLAPSED_MAX && (
