@@ -104,9 +104,12 @@ export function BulletinHeader({
             {actionInner}
           </button>
         ) : (
-          <a href={action.href} className="group ml-auto shrink-0">
+          // <Link>, not <a>: this points at an internal route (/start), and a
+          // plain anchor tears down the whole document and reloads the app
+          // instead of doing a client transition.
+          <Link href={action.href || '/'} className="group ml-auto shrink-0">
             {actionInner}
-          </a>
+          </Link>
         ))}
       </div>
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { STEPS } from '@/lib/homeContent'
 import { Featured } from '@/components/home/Featured'
+import Link from 'next/link'
 
 // ── Mobile homepage ─────────────────────────────────────────────────────────
 // Deliberately pared back from desktop. Two things are gone on purpose:
@@ -291,7 +292,7 @@ export function MobileHome() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/bulletin-logo.png" alt="Bulletin" className="block h-[26px] w-auto" />
         </a>
-        <a href="/start" className="text-[12px] leading-4 tracking-[0.05em] text-black/70">Sign up</a>
+        <Link href="/start" className="text-[12px] leading-4 tracking-[0.05em] text-black/70">Sign up</Link>
       </div>
 
       <section className="px-6 pt-10">
@@ -302,12 +303,12 @@ export function MobileHome() {
         <p className="mt-3 text-center text-[12px] leading-4 tracking-[0.05em] text-black/50">
           Collect, organize and share links worth keeping
         </p>
-        <a
+        <Link
           href="/start"
           className="mt-[22px] flex h-12 items-center justify-center rounded-full border border-black/15 text-[12px] tracking-[0.05em] text-black/70"
         >
           Sign up
-        </a>
+        </Link>
 
         <div className="relative mt-[34px]">
           {/* The foot-fade lives INSIDE the moving element, not beside it. Left
