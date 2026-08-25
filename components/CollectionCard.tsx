@@ -10,6 +10,9 @@
 // three equal tiles. Widths therefore come from the images themselves
 // (`h-full w-auto`), not from us.
 
+'use client'
+
+import { useState } from 'react'
 import Link from 'next/link'
 import { LinkStrip } from '@/components/LinkStrip'
 
@@ -46,6 +49,9 @@ export function CollectionCard({
 }) {
   const className =
     'relative block aspect-[295/393] w-full overflow-hidden rounded-[20px] bg-card text-left ring-1 ring-black/[0.03] card-lift'
+
+  // false until hovered → no viewport prefetch; true → full payload.
+  const [warm, setWarm] = useState(false)
 
   const inner = (
     <>
@@ -97,7 +103,32 @@ export function CollectionCard({
 
   if (href) {
     return (
-      <Link href={href} className={className}>
+      // Prefetch on approach, not on sight.
+      //
+      // The list page is a dynamic route, and Next's automatic prefetch stops
+      // at its loading.tsx boundary — it fetches the skeleton, never the
+      // bullets. So the skeleton appeared instantly and the content still cost
+      // a full round trip on every click. prefetch={true} does fetch the whole
+      // payload, but it fires for every card in the viewport, which on a
+      // profile with twenty lists is twenty full page renders nobody asked for.
+      //
+      // Flipping it on hover buys the good half of both: nothing is fetched
+      // until a pointer commits to a card, and then the WHOLE page is, during
+      // the ~200-400ms the mouse still needs to arrive. By the time the click
+      // lands the payload is in the router cache and the page renders from
+      // memory — the same state the profile's tab switch is already in, which
+      // is why that one feels instant and this one didn't.
+      //
+      // Once warm, it stays warm: flipping back on mouse-out would throw away
+      // the fetch we just paid for, and Next dedupes repeat prefetches anyway.
+      <Link
+        href={href}
+        prefetch={warm}
+        onMouseEnter={() => setWarm(true)}
+        onTouchStart={() => setWarm(true)}
+        onFocus={() => setWarm(true)}
+        className={className}
+      >
         {inner}
       </Link>
     )
