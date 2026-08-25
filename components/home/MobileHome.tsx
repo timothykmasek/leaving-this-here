@@ -288,10 +288,10 @@ export function MobileHome() {
   return (
     <div className="mx-auto w-full max-w-[390px]">
       <div className="flex items-center justify-between px-6 pt-[18px]">
-        <a href="/" aria-label="Bulletin home" className="block">
+        <Link href="/" aria-label="Bulletin home" className="block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/bulletin-logo.png" alt="Bulletin" className="block h-[26px] w-auto" />
-        </a>
+        </Link>
         <Link href="/start" className="text-[12px] leading-4 tracking-[0.05em] text-black/70">Sign up</Link>
       </div>
 

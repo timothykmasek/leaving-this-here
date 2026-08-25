@@ -1,0 +1,48 @@
+# Mechanical checks on every push and PR.
+#
+# Deliberately narrow: this proves the code COMPILES and BUILDS, and catches the
+# one class of mistake we know recurs and can be spotted by pattern (internal
+# links that reload the whole app instead of transitioning).
+#
+# It is not a test suite and it never opens the app. It would not have caught
+# most of what we found by hand — a chip that's invisible on white, a card
+# swinging the wrong way, a stale cache still offering a deleted bullet. Those
+# need eyes. This just stops a broken build reaching production.
+#
+# Placeholder Supabase env: the build fails without them because
+# /api/backfill-images constructs a client at module scope, and Next collects
+# page data at build time. The values are never used — nothing here talks to a
+# real database — so no secrets are needed.
+
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: types
+        run: npx tsc --noEmit
+
+      - name: internal links must not reload the app
+        run: node scripts/check-links.mjs
+
+      - name: build
+        run: npm run build

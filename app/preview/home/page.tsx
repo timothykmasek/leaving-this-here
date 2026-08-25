@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { LinkCard } from '@/components/LinkCard'
 import { BulletinHeader } from '@/components/BulletinHeader'
 import { pickCardImage } from '@/lib/cardImage'
+import Link from 'next/link'
 
 const SHOWCASE_COUNT = 16
 
@@ -69,12 +70,12 @@ export default function HomePreview() {
 
         {/* Single primary action — extension lives in the footer, not here. */}
         <div className="mt-9 flex justify-center">
-          <a
+          <Link
             href="/login?mode=signup"
             className="label rounded-full bg-ink px-7 py-3 text-paper transition-colors hover:bg-black"
           >
             Sign up — it’s free
-          </a>
+          </Link>
         </div>
       </section>
 
@@ -101,9 +102,9 @@ export default function HomePreview() {
             <span className="label text-black/35">© 2026</span>
           </div>
           <nav className="flex items-center gap-8">
-            <a href="/login?mode=signup" className="label text-black/45 transition-colors hover:text-ink">Sign up</a>
-            <a href="/login" className="label text-black/45 transition-colors hover:text-ink">Sign in</a>
-            <a href="/privacy" className="label text-black/45 transition-colors hover:text-ink">Privacy</a>
+            <Link href="/login?mode=signup" className="label text-black/45 transition-colors hover:text-ink">Sign up</Link>
+            <Link href="/login" className="label text-black/45 transition-colors hover:text-ink">Sign in</Link>
+            <Link href="/privacy" className="label text-black/45 transition-colors hover:text-ink">Privacy</Link>
             <a href="#" className="label text-black/45 transition-colors hover:text-ink">Extension</a>
           </nav>
         </div>

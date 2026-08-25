@@ -218,10 +218,10 @@ export function HeroField() {
       {/* Masthead. The white patch masks the dot grid behind the wordmark, and
           the cards bounce off it (WALLS[1]) rather than sliding under. */}
       <div aria-hidden className="absolute left-[516px] top-0 z-[7] h-[100px] w-[298px] bg-paper" />
-      <a href="/" aria-label="Bulletin home" className="absolute left-[596px] top-[26px] z-[7] block">
+      <Link href="/" aria-label="Bulletin home" className="absolute left-[596px] top-[26px] z-[7] block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/bulletin-logo.png" alt="Bulletin" className="block h-10 w-auto" />
-      </a>
+      </Link>
 
       {/* Link cards */}
       {HERO_CARDS.map((c) => (
