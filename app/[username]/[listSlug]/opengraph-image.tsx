@@ -12,11 +12,13 @@ import { loadCardo, INK } from '@/lib/og'
 // is a contact sheet of its members rather than a title on a plate. This is
 // that band at landscape proportions, bleeding off both edges the same way.
 //
-// No wordmark, no owner, no count: a share card already sits under the site's
-// name, the owner, and a description supplied by the meta tags, so repeating
-// them inside the picture spends the picture on things the platform is
-// printing anyway. The plate and the strip are what a Bulletin list looks
-// like; that's the whole card.
+// No wordmark, no owner, no count, no title: a share card is already printed
+// under the site's name and a description supplied by the meta tags, so putting
+// any of it inside the picture spends the picture on what the platform prints
+// anyway. The plate and the contact sheet ARE what a Bulletin list looks like.
+//
+// The one exception is a list with nothing drawable at all, where the card
+// would otherwise be an empty grey rectangle — see below.
 //
 // The list's own cover is deliberately NOT used here. Covers are written as
 // webp by the picker (lib/imageResize), and Satori cannot decode webp — a
@@ -40,7 +42,10 @@ export const contentType = 'image/png'
 const STRIP_CANDIDATES = 60
 const STRIP_CONFIRM = 8
 const STRIP_TILES = 5
-const STRIP_MIN = 3
+// One picture is enough to fill the band. The floor used to be three, back when
+// a short strip sat beside a title and looked thin; with the band alone, one
+// image spanning it reads as a hero rather than as a gap.
+const STRIP_MIN = 1
 const LIKELY_DRAWABLE = /\.(jpe?g|png|svg)$/i
 // The plate, and the band's place on it, taken from CollectionCard: a #f1f1f1
 // plate with the strip starting ~35% down and standing ~28% of the height. At
@@ -158,8 +163,9 @@ export default async function ListOgImage({
           fontFamily: 'Cardo, serif',
         }}
       >
-        {hasStrip && (
+        {hasStrip ? (
           <>
+            {/* Centred: 172 + 286 + 172 = 630. */}
             <div style={{ position: 'absolute', top: STRIP_TOP, left: -STRIP_BLEED, display: 'flex', height: STRIP_H }}>
               {strip.map((src, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -167,7 +173,7 @@ export default async function ListOgImage({
               ))}
             </div>
             {/* Scoped to the band's own height, not the full plate: a
-                full-height fade reaches the name and washes it out. */}
+                full-height fade reaches past it and greys the whole card. */}
             <div
               style={{
                 position: 'absolute',
@@ -192,23 +198,26 @@ export default async function ListOgImage({
               }}
             />
           </>
+        ) : (
+          // Nothing drawable — a new list, or one whose every image is webp.
+          // The name only in this case: the alternative is shipping a blank
+          // grey rectangle as somebody's share card.
+          <div
+            style={{
+              position: 'absolute',
+              left: 80,
+              top: 268,
+              display: 'flex',
+              fontSize: 68,
+              fontWeight: 700,
+              lineHeight: 1.05,
+              letterSpacing: -1,
+              maxWidth: 1040,
+            }}
+          >
+            {name}
+          </div>
         )}
-
-        <div
-          style={{
-            position: 'absolute',
-            left: 80,
-            bottom: 76,
-            display: 'flex',
-            fontSize: 68,
-            fontWeight: 700,
-            lineHeight: 1.05,
-            letterSpacing: -1,
-            maxWidth: 1040,
-          }}
-        >
-          {name}
-        </div>
       </div>
     ),
     { ...size, fonts: fonts.length ? (fonts as any) : undefined }
