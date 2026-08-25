@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { BulletinHeader } from '@/components/BulletinHeader'
 import { SEED_LIBRARY, seedImageUrl, CATEGORY, INTERESTS, INTEREST_LABEL, type Interest } from '@/lib/seedLibrary'
+import { CHROME_STORE_URL as WEB_STORE_URL } from '@/lib/extension'
 
 // Account-first onboarding (no AI). The account is created at step 1, so every
 // step after it runs with a real session — none of the localStorage-across-auth
@@ -23,8 +24,6 @@ import { SEED_LIBRARY, seedImageUrl, CATEGORY, INTERESTS, INTEREST_LABEL, type I
 // username step.
 
 const STORE_KEY = 'bulletin-onboarding'
-const WEB_STORE_URL =
-  'https://chromewebstore.google.com/detail/dgpigmcmbffpoigjalnbgfmpgidoabgc'
 
 type Step = 'account' | 'username' | 'about' | 'interests' | 'picks' | 'building' | 'check-email' | 'ext'
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { forwardRef } from 'react'
+import { CHROME_STORE_URL } from '@/lib/extension'
 
 // Site footer — © + Privacy + extension link. Extracted from ProfileClient so
 // list pages (and anything else) show the same footer instead of losing it off
@@ -43,7 +44,7 @@ export const SiteFooter = forwardRef<
           <a href="/import" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Import</a>
           <a href="/privacy" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Privacy</a>
           <a
-            href="https://chromewebstore.google.com/detail/dgpigmcmbffpoigjalnbgfmpgidoabgc"
+            href={CHROME_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink"
