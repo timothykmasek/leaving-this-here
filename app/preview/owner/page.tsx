@@ -28,6 +28,7 @@ import { BulletDetail } from '@/components/BulletDetail'
 import { SiteFooter } from '@/components/SiteFooter'
 import { Masonry } from '@/components/Masonry'
 import { CollectionCard } from '@/components/CollectionCard'
+import { CardFallback } from '@/components/CardFallback'
 
 // Real local files, so cards look like cards rather than grey boxes.
 const IMAGES = [
@@ -143,6 +144,35 @@ const DEAD = [
       'https://xtnqvjaexkztcrriotjj.supabase.co/storage/v1/object/public/card-images/71fd1cc3-69be-4ac8-96fd-c87f8523b038.webp',
     screenshotUrl: null,
     faviconUrl: null,
+  },
+]
+
+
+// Three real no-image bullets from the seeded preview profiles, with whatever
+// the pipeline actually managed to collect for each — which is the point: one
+// has a description, one has only a name, one has a name and a dead domain.
+const NO_IMAGE = [
+  {
+    domain: 'drinkoaza.com',
+    brand: 'Drinkoaza',
+    faviconUrl: null,
+    description:
+      'A non-alcoholic aperitif built on botanicals rather than imitation — bitter, dry, and meant to be drunk the way you would drink the real thing.',
+    why: 'has a description',
+  },
+  {
+    domain: 'arrowmoc.com',
+    brand: 'Arrowmoc',
+    faviconUrl: null,
+    description: null,
+    why: 'name only — no description',
+  },
+  {
+    domain: 'livinkombucha.com',
+    brand: 'Livin Kombucha',
+    faviconUrl: null,
+    description: 'Small-batch kombucha.',
+    why: 'description too short to be prose',
   },
 ]
 
@@ -266,6 +296,28 @@ export default function OwnerPreview() {
         note="Type a name and press enter. The chip must appear greyed IMMEDIATELY, carrying the name you typed, and only then fill in — pressing enter used to await the whole round trip before even clearing the input, so nothing moved and there was no way to tell if it had worked. The fake create here takes 1.5s so the pending state is easy to see; a failure hands your typing back rather than eating it."
       >
         <ShowDetail />
+      </Section>
+
+      <Section
+        title="Cards with no picture"
+        note="About a quarter of the seeded library has no usable image — sites that serve no og:image, sites that refuse a capture, sites that are gone. The old fallback showed the favicon over the domain in grey caps, which threw away the title, the description and the type, and repeated the brand that is already printed directly beneath the card. These are three real failures from the preview profiles. A card with no photograph should still be a card."
+      >
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-3">
+          {NO_IMAGE.map((b) => (
+            <div key={b.domain}>
+              <div className="overflow-hidden rounded-[20px] bg-card ring-1 ring-black/[0.03]" style={{ aspectRatio: '3 / 4' }}>
+                <CardFallback
+                  domain={b.domain}
+                  faviconUrl={b.faviconUrl}
+                  brand={b.brand}
+                  description={b.description}
+                />
+              </div>
+              <p className="mt-3 font-serif text-[14px] leading-[22px] text-black/70">{b.brand}</p>
+              <p className="label mt-1 text-black/30">{b.why}</p>
+            </div>
+          ))}
+        </div>
       </Section>
 
       <Section

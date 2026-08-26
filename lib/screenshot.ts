@@ -59,9 +59,24 @@ export function screenshotApiUrl(url: string, opts: { fresh?: boolean } = {}): s
     wait_until: 'networkidle2',
     delay: '2',
     cache: opts.fresh ? 'false' : 'true',
-    // Many live sites bot-block or return non-2xx to the crawler but still
-    // render fine — capture them anyway instead of failing.
-    ignore_host_errors: 'true',
+    // A real browser's UA. Plenty of bot checks refuse an unknown agent
+    // outright, and being refused for that reason gets stored as a fact about
+    // the page when it is only a fact about the request.
+    user_agent:
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    // ignore_host_errors is deliberately NOT set.
+    //
+    // It used to be 'true', on the reasoning that some sites bot-block the
+    // crawler but still render fine. What it actually did was tell
+    // ScreenshotOne to capture 403s and CAPTCHA interstitials ANYWAY and hand
+    // them back as successful screenshots — so "confirm you are human" pages
+    // were stored as card images and there was no way to tell them from a real
+    // capture. Every ugly card on the seeded preview profiles came from here:
+    // NYT, Reuters, Etsy, Target, Bain, puck.
+    //
+    // Off, a blocked site now FAILS, which is a fact we can act on: the card
+    // falls to CardFallback, which is designed for exactly this and looks
+    // deliberate. An honest failure beats an undetectable success.
   })
   // cache_ttl is only valid when cache is on — ScreenshotOne rejects the whole
   // request ("cache_ttl cannot be used when cache is false") otherwise, which

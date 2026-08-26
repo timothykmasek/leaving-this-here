@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { cardImageCandidates } from '@/lib/cardImage'
 import { CardThumb } from '@/components/CardThumb'
-import { FaviconPlate } from '@/components/FaviconPlate'
+import { CardFallback } from '@/components/CardFallback'
 import { formatCardTitle } from '@/lib/cardTitle'
 import { resolveCategory, showsSourceMark, type Affordance } from '@/lib/cardFormat'
 import type { CardType } from '@/lib/cardType'
@@ -30,7 +30,7 @@ function getDomain(url: string): string {
 // `play` (Video) is the big centred one; `disc`/`mic` (Music/Podcast) are small
 // corner badges; `favicon` (Article) tucks the source mark bottom-left — but only
 // over real imagery (`hasImage`), since an imageless card already shows the
-// favicon centred in its FaviconPlate. `price` (Product) is the top-left chip.
+// favicon centred in its fallback card. `price` (Product) is the top-left chip.
 // `price` (Product) and `rating` (Place) are the same top-left METRIC chip,
 // taking a pre-formatted string — the handoff's one slot for "the fact worth
 // knowing before you click", whatever the type supplies. `avatar` still needs
@@ -295,10 +295,17 @@ export const PrimaryCard = memo(function PrimaryCard({
             placeholderAspect={fmt.aspect}
             onEdgeLightness={handleEdgeLightness}
             className="block w-full h-auto"
-            // No image → the favicon plate, given the type's fallback shape.
+            // No image → a real card rather than an apology. Gets the
+            // description and the brand, both of which the old favicon plate
+            // held and threw away. See components/CardFallback.
             fallback={
               <div className="w-full" style={{ aspectRatio: fmt.aspect }}>
-                <FaviconPlate faviconUrl={faviconUrl} domain={domain} />
+                <CardFallback
+                  domain={domain}
+                  faviconUrl={faviconUrl}
+                  brand={cleanTitle || domain}
+                  description={description}
+                />
               </div>
             }
           />
@@ -334,7 +341,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           {/* The platform's mark, only where the platform is part of the
               meaning (lib/cardFormat: Social / Music / Podcast / Video). Needs
               a real image on the card — an imageless one already shows the
-              favicon centred in its FaviconPlate, so a corner copy is noise. */}
+              favicon carried by CardFallback, so a corner copy is noise. */}
           {markShown && <SourceMark src={faviconUrl!} />}
         </div>
 
