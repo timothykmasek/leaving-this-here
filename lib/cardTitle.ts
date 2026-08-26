@@ -142,11 +142,19 @@ const IG_JUNK_TITLE = /^(instagram)?$|• Instagram photos and videos/i
 function instagramTitle(url: string, title?: string | null, description?: string | null): string | null {
   if (getDomain(url) !== 'instagram.com') return null
   const raw = (title || '').replace(TAB_BADGE, '').trim()
-  if (raw && !IG_JUNK_TITLE.test(raw)) return null
+  // A title that is just the URL is no title at all, and must not stop this
+  // rule before it reaches the handle in the path below. 52 of 64 Instagram
+  // bullets are stored that way — metadata extraction hit the login wall and
+  // kept the URL — and they were falling through to the generic branch, which
+  // built a title out of the wall's own description: every one of them read
+  // "Instagram — Create an account or log in to Instagram".
+  const urlish = /^https?:\/\//i.test(raw)
+  if (raw && !urlish && !IG_JUNK_TITLE.test(raw)) return null
 
   // Best source: the real og:title, "NAME (@handle) • Instagram photos and
   // videos" or "handle • Instagram photos and videos".
-  const lead = raw.replace(/\s*[•·]\s*Instagram photos and videos.*$/i, '').trim()
+  // A urlish raw has nothing to lead with — go straight to the path handle.
+  const lead = urlish ? '' : raw.replace(/\s*[•·]\s*Instagram photos and videos.*$/i, '').trim()
   if (lead && !/^instagram$/i.test(lead)) {
     const m = lead.match(/^(.+?)\s*\(@[\w.]+\)$/)
     return `Instagram — ${m ? m[1] : lead}`
@@ -212,6 +220,18 @@ export interface CardTitleInput {
  * Format a card title as `Brand — what it is`. Always leads with the brand.
  * Falls back to the domain when there's no usable title or brand.
  */
+
+/** Copy that a site shows INSTEAD of itself: login walls, consent gates, bot
+ *  checks. It arrives in the description field looking like prose, and then
+ *  gets used as a title or printed on a card as though it described the link.
+ *  It describes the obstacle, not the thing. */
+export function isObstacleCopy(text: string | null | undefined): boolean {
+  if (!text) return false
+  return /create an account or log in|log in to (instagram|facebook|see more)|sign up to (see|continue)|enable javascript|verify you are human|access denied|checking your browser|are you a robot|attention required|please enable cookies/i.test(
+    text,
+  )
+}
+
 export function formatCardTitle({ title, description, url, siteName }: CardTitleInput): string {
   const pl = placeTitle(url, title)
   if (pl) return pl
@@ -233,7 +253,7 @@ export function formatCardTitle({ title, description, url, siteName }: CardTitle
     .replace(/^[\s|•·—–-]+|[\s|•·—–-]+$/g, '')
   if (!raw || /^https?:\/\//i.test(raw) || GENERIC.has(raw.toLowerCase())) {
     if (!brand) return domain
-    const d = shortDescriptor(description, brand)
+    const d = isObstacleCopy(description) ? null : shortDescriptor(description, brand)
     return d ? `${brand} — ${d}` : brand
   }
   if (!brand) return raw

@@ -28,6 +28,7 @@
 // provenance rather than as the subject.
 
 import { useState } from 'react'
+import { isObstacleCopy } from '@/lib/cardTitle'
 
 export function CardFallback({
   domain,
@@ -42,7 +43,11 @@ export function CardFallback({
   description?: string | null
 }) {
   const [faviconBroken, setFaviconBroken] = useState(false)
-  const text = (description || '').trim()
+  const raw = (description || '').trim()
+  // A login wall's copy is not a description of the link — it describes the
+  // obstacle. Printing it here would put "Create an account or log in to
+  // Instagram" on the card as though it were the point.
+  const text = isObstacleCopy(raw) ? '' : raw
   // Long enough to be a sentence, not a stray fragment or a cookie notice.
   const hasProse = text.length >= 24
 

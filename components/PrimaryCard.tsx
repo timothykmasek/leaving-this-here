@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { cardImageCandidates } from '@/lib/cardImage'
 import { CardThumb } from '@/components/CardThumb'
 import { CardFallback } from '@/components/CardFallback'
-import { formatCardTitle } from '@/lib/cardTitle'
+import { formatCardTitle, isObstacleCopy } from '@/lib/cardTitle'
 import { resolveCategory, showsSourceMark, type Affordance } from '@/lib/cardFormat'
 import type { CardType } from '@/lib/cardType'
 import type { PlaceMeta } from '@/lib/placeLink'
@@ -381,7 +381,25 @@ export const PrimaryCard = memo(function PrimaryCard({
   )
 
   const shownTitle = placeTitle || cleanTitle
-  const titleLine = shownTitle ? (
+
+  // A card with no picture at all carries its own title, set large — so
+  // printing the caption underneath would say the same words twice, which is
+  // exactly what was wrong with the plate this replaced. One title, set
+  // properly, instead of two.
+  //
+  // Only when the fallback is showing the TITLE. When it has a description to
+  // show instead, the card and the caption are saying different things and both
+  // earn their place. Runtime failures (an image that 404s after render) still
+  // get a caption — this can only know about links that had no candidate at all.
+  //
+  // Uses the same obstacle check CardFallback does, or the two disagree: a
+  // login wall's copy is long enough to look like prose here while the card
+  // correctly refuses to print it, and the caption came back to say the same
+  // words as the card. One rule, read by both.
+  const usableDescription = isObstacleCopy(description) ? '' : (description || '').trim()
+  const fallbackCarriesTitle = candidates.length === 0 && usableDescription.length < 24
+
+  const titleLine = shownTitle && !fallbackCarriesTitle ? (
     <p className="relative z-10 mt-5 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56] [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
       {shownTitle}
     </p>
