@@ -31,13 +31,33 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const sb = createClient(url, key, { auth: { persistSession: false } })
 
-    const [{ data: profiles }, { data: lists }] = await Promise.all([
-      sb.from('profiles').select('username'),
+    // Preview profiles (seeded outreach pages, migration 023) are link-only:
+    // out of the sitemap along with their lists. If the column doesn't exist
+    // yet the select errors, so fall back to the unfiltered shape rather than
+    // emitting a roots-only sitemap.
+    let profiles: any[] | null = null
+    let lists: any[] | null = null
+    const [pRes, lRes] = await Promise.all([
+      sb.from('profiles').select('username, is_preview'),
       sb
         .from('lists')
-        .select('slug, is_private, profiles(username)')
+        .select('slug, is_private, profiles(username, is_preview)')
         .eq('is_private', false),
     ])
+    if (pRes.error || lRes.error) {
+      const [pOld, lOld] = await Promise.all([
+        sb.from('profiles').select('username'),
+        sb
+          .from('lists')
+          .select('slug, is_private, profiles(username)')
+          .eq('is_private', false),
+      ])
+      profiles = pOld.data
+      lists = lOld.data
+    } else {
+      profiles = (pRes.data || []).filter((p: any) => !p.is_preview)
+      lists = (lRes.data || []).filter((l: any) => !(l as any).profiles?.is_preview)
+    }
 
     return [
       ...roots,

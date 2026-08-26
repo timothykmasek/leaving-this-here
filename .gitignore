@@ -26,5 +26,6 @@ tsconfig.tsbuildinfo
 # local seeding tooling — kept off the public repo (scripts/harvest/out = scraped data)
 /scripts/harvest/
 
-# private strategy doc — never publish (repo is public)
+# private strategy docs — never publish (repo is public)
 BUSINESS_PLAN.md
+OUTREACH_KIT.md

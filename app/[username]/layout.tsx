@@ -38,6 +38,11 @@ export async function generateMetadata({
     // The masthead is appended by the root template.
     title: name,
     description,
+    // Preview profiles (seeded for outreach, unclaimed) stay out of search:
+    // reachable by the direct link the DM carries, but never indexed under a
+    // real person's name before they've said yes. Absent column (migration 023
+    // not applied) is falsy, so this is safe to ship ahead of the migration.
+    ...(profile?.is_preview ? { robots: { index: false, follow: false } } : {}),
     alternates: { canonical: `/${params.username}` },
     openGraph: {
       title: shareTitle,

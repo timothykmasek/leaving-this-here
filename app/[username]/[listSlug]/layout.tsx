@@ -43,6 +43,9 @@ export async function generateMetadata({
     // masthead at all. Spelling it out cannot silently lose or double it.
     title: { absolute: `${name} · ${owner} · ${SITE_NAME}` },
     description,
+    // A preview profile's lists inherit its noindex — same reasoning as the
+    // profile layout.
+    ...(profile?.is_preview ? { robots: { index: false, follow: false } } : {}),
     alternates: { canonical: url },
     openGraph: {
       title: name,

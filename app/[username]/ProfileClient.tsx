@@ -14,6 +14,7 @@ import { ProfileIdentity } from '@/components/ProfileIdentity'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
+import { PreviewBanner } from '@/components/PreviewBanner'
 import { ImportFab } from '@/components/ImportFab'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { SiteFooter } from '@/components/SiteFooter'
@@ -653,6 +654,7 @@ export default function ProfileClient({
           end of the feed. (The old min-h-screen push-the-footer-past-the-fold
           hack is gone — the footer is out of flow now.) */}
       <div className={`mx-auto ${PROFILE_GRID} pb-40 pt-6 sm:pt-16`}>
+        {profile.is_preview && <PreviewBanner />}
         {isOwner && <WelcomeBanner />}
 
         {/* Hero — centered identity block (name · bio · links · edit). */}
