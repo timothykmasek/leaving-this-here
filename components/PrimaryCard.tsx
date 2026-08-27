@@ -220,7 +220,16 @@ export const PrimaryCard = memo(function PrimaryCard({
   // Does the real source mark take the bottom-left slot? Computed once: the
   // drawn disc/mic glyph reads this to know whether it's needed, and showing
   // both was the bug.
-  const markShown = showsSourceMark(fmt.category) && !!faviconUrl && candidates.length > 0
+  // Holding an image URL is not the same as that image rendering. An Instagram
+  // profile picture 403s for a visitor, the chain exhausts, and the fallback
+  // card is what is actually on screen — while candidates.length still says 1.
+  // CardThumb tells us which it is.
+  const [imageExhausted, setImageExhausted] = useState(false)
+  const hasImage = candidates.length > 0 && !imageExhausted
+
+  // No source mark on a card with no image: CardFallback already carries the
+  // favicon, and a second copy in the corner landed on top of the domain line.
+  const markShown = showsSourceMark(fmt.category) && !!faviconUrl && hasImage
   // The one fact this card puts on its photo. A place's rating reads as one
   // phrase — the star alone is ambiguous, the count alone is meaningless.
   const metric =
@@ -294,6 +303,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             candidates={candidates}
             placeholderAspect={fmt.aspect}
             onEdgeLightness={handleEdgeLightness}
+            onExhausted={setImageExhausted}
             className="block w-full h-auto"
             // No image → a real card rather than an apology. Gets the
             // description and the brand, both of which the old favicon plate
@@ -334,7 +344,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           <AffordanceOverlay
             kind={fmt.affordance}
             faviconUrl={faviconUrl}
-            hasImage={candidates.length > 0}
+            hasImage={hasImage}
             metric={metric}
             markShown={markShown}
           />
@@ -389,15 +399,16 @@ export const PrimaryCard = memo(function PrimaryCard({
   //
   // Only when the fallback is showing the TITLE. When it has a description to
   // show instead, the card and the caption are saying different things and both
-  // earn their place. Runtime failures (an image that 404s after render) still
-  // get a caption — this can only know about links that had no candidate at all.
+  // earn their place. Covers runtime failures too, now that CardThumb reports
+  // an exhausted chain — an Instagram picture that 403s for a visitor gets the
+  // same treatment as a link that never had an image.
   //
   // Uses the same obstacle check CardFallback does, or the two disagree: a
   // login wall's copy is long enough to look like prose here while the card
   // correctly refuses to print it, and the caption came back to say the same
   // words as the card. One rule, read by both.
   const usableDescription = isObstacleCopy(description) ? '' : (description || '').trim()
-  const fallbackCarriesTitle = candidates.length === 0 && usableDescription.length < 24
+  const fallbackCarriesTitle = !hasImage && usableDescription.length < 24
 
   const titleLine = shownTitle && !fallbackCarriesTitle ? (
     <p className="relative z-10 mt-5 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56] [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">

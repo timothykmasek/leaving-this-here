@@ -1,7 +1,14 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { sampleEdgeLightness, onIdle, LIGHT_EDGE_THRESHOLD } from '@/lib/imageLightness'
+import {
+  sampleEdgeLightness,
+  sampleImageField,
+  onIdle,
+  LIGHT_EDGE_THRESHOLD,
+  SMALL_IMAGE_WIDTH,
+  type ImageField,
+} from '@/lib/imageLightness'
 
 // The card thumbnail image, with a graceful fallback chain. Given an ordered
 // list of candidate URLs (og first, screenshot next — see cardImageCandidates),
@@ -20,6 +27,7 @@ export function CardThumb({
   priority = false,
   fallback = null,
   onEdgeLightness,
+  onExhausted,
   placeholderAspect,
 }: {
   candidates: string[]
@@ -31,6 +39,11 @@ export function CardThumb({
   // card can draw a hairline when it would otherwise bleed into a white page.
   // null = couldn't measure (non-CORS host, decode failure); treat as "no".
   onEdgeLightness?: (light: boolean | null) => void
+  // Fires when every candidate has failed and the fallback is what is on
+  // screen. The caller cannot work this out for itself: holding an image URL
+  // is not the same as that image rendering, and a link whose og:image 403s
+  // for a visitor looks identical in the database to one that works.
+  onExhausted?: (exhausted: boolean) => void
   /** Aspect to hold the card's space with until the image loads. */
   placeholderAspect?: string
 }) {
@@ -54,6 +67,31 @@ export function CardThumb({
     }
   }, [src])
 
+  const exhausted = !src
+  useEffect(() => {
+    onExhausted?.(exhausted)
+    // onExhausted is a fresh closure each render on most call sites; depending
+    // on it would loop. The boolean is the whole signal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exhausted])
+
+  // A small image is not a big image that needs stretching. An Instagram avatar
+  // arrives at 150px; a card is 295-430px wide, so covering the plate with it
+  // means a 2x blow-up that reads as broken. Measured after load, because the
+  // natural size is not knowable before it.
+  const [field, setField] = useState<ImageField | null>(null)
+  useEffect(() => {
+    setField(null)
+    if (!src) return
+    let cancelled = false
+    const cancelIdle = onIdle(() => {
+      sampleImageField(src).then((f) => {
+        if (!cancelled && f && f.width && f.width < SMALL_IMAGE_WIDTH) setField(f)
+      })
+    })
+    return () => { cancelled = true; cancelIdle() }
+  }, [src])
+
   // Measure the src that WON the fallback chain, not candidates[0] — a card
   // that fell back from a 404 og to its screenshot is showing a different image.
   useEffect(() => {
@@ -69,6 +107,35 @@ export function CardThumb({
   }, [src, onEdgeLightness])
 
   if (!src) return <>{fallback}</>
+
+  // Field mode: the picture at its own size, centred on a colour taken from
+  // its own corners. Sized to a share of the card rather than to raw pixels so
+  // it holds its proportions across breakpoints, and capped so a 300px logo
+  // never crowds the plate.
+  if (field) {
+    return (
+      <div
+        className="flex w-full items-center justify-center"
+        style={{
+          aspectRatio: placeholderAspect,
+          backgroundColor: field.background ?? '#f1f1f1',
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          ref={ref}
+          key={src}
+          src={src}
+          alt={alt}
+          loading={priority ? 'eager' : 'lazy'}
+          className="h-auto w-[42%] max-w-[168px] rounded-[6px]"
+          onLoad={() => setLoaded(true)}
+          onError={() => setIdx((i) => i + 1)}
+        />
+      </div>
+    )
+  }
+
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img

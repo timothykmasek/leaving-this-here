@@ -89,3 +89,69 @@ export async function sampleEdgeLightness(url: string): Promise<number | null> {
     return null
   }
 }
+
+// ── Small images ────────────────────────────────────────────────────────────
+
+/** Narrower than this and the card should not stretch it. Cards render around
+ *  295-430px wide, so a 150px avatar blown up to fill one is visibly soft while
+ *  a 400px og:image is fine. Instagram profile pictures — the case this exists
+ *  for — arrive at exactly 150. */
+export const SMALL_IMAGE_WIDTH = 320
+
+export type ImageField = {
+  width: number
+  height: number
+  /** A colour taken from the image's own corners, for the plate it sits on.
+   *  null when the canvas was tainted or the decode failed. */
+  background: string | null
+}
+
+/**
+ * Natural size, plus a background colour drawn from the image's corners.
+ *
+ * For a small image the answer to "how do we fill a card with this?" is not to
+ * scale it up — mymind's Instagram cards keep the avatar at its own size and
+ * flood the rest of the card with a colour from the picture, so the card reads
+ * as a subject placed on a field rather than a stretched thumbnail.
+ *
+ * The corners rather than the average: a centred subject on a plain ground —
+ * which is what an avatar or a logo is — has its ground at the edges. Averaging
+ * the whole image would drag the colour toward the subject and lose the field.
+ */
+export async function sampleImageField(url: string): Promise<ImageField | null> {
+  if (typeof document === 'undefined' || !isSampleable(url)) return null
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image()
+      i.crossOrigin = 'anonymous'
+      i.onload = () => resolve(i)
+      i.onerror = reject
+      i.src = url
+    })
+    const width = img.naturalWidth
+    const height = img.naturalHeight
+    if (!width || !height) return null
+
+    if (!canvas) {
+      canvas = document.createElement('canvas')
+      canvas.width = SIZE
+      canvas.height = SIZE
+      ctx = canvas.getContext('2d', { willReadFrequently: true })
+    }
+    if (!ctx) return { width, height, background: null }
+    ctx.clearRect(0, 0, SIZE, SIZE)
+    ctx.drawImage(img, 0, 0, SIZE, SIZE)
+    const { data } = ctx.getImageData(0, 0, SIZE, SIZE)
+
+    // One pixel in from each corner, so a stray border row can't decide it.
+    const at = (x: number, y: number) => {
+      const i = (y * SIZE + x) * 4
+      return [data[i], data[i + 1], data[i + 2]]
+    }
+    const corners = [at(1, 1), at(SIZE - 2, 1), at(1, SIZE - 2), at(SIZE - 2, SIZE - 2)]
+    const avg = [0, 1, 2].map((c) => Math.round(corners.reduce((a, p) => a + p[c], 0) / corners.length))
+    return { width, height, background: `rgb(${avg[0]}, ${avg[1]}, ${avg[2]})` }
+  } catch {
+    return null
+  }
+}
