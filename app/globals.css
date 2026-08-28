@@ -68,6 +68,16 @@ body {
 }
 
 
+/* Beta landing state-swap entrance (button → form → thank-you). 220ms per the
+   landing handoff; each state animates in once as it replaces the last. */
+@keyframes beta-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.beta-in {
+  animation: beta-in 220ms ease;
+}
+
 /* UI label — uppercase, 10px, 1.5px tracking. The workhorse for metadata, nav,
    tags. Font swapped Routed Gothic → Mier A (2026-08-15) when the type system
    consolidated; the uppercase-tracked treatment stays, per Tim. */
