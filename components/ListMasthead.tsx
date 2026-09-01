@@ -16,8 +16,8 @@
 // renders them.
 //
 // Type:
-//   • name  → Cardo 400, clamp(52px→180px at 13.5vw), 1.22 leading, -7%
-//             tracking, black/70 — the frame's 180/220/-0.07em at desktop.
+//   • name  → Cardo 400, clamp(52px→180px at 13.5vw), 1.22 leading, -3%
+//             tracking (eased off the frame's -0.07em, see titleClass), black/70.
 //   • meta  → Mier 500 12/16 +0.05em black/56 — the card metadata voice; the
 //             back link keeps its existing BracketLabel dress.
 
@@ -25,10 +25,12 @@ import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BracketLabel } from '@/components/BulletinHeader'
 
-// -0.05em, eased off the frame's -0.07em: at poster size Cardo's rounds were
-// colliding (the frame's own "Startups" shows the r/t touching).
+// -0.03em, eased off in two steps from the frame's -0.07em: first to -0.05
+// because at poster size Cardo's rounds were colliding (the frame's own
+// "Startups" shows the r/t touching), then to -0.03 on Tim's call (2026-09-01)
+// — the title wanted a bit more air.
 const titleClass =
-  'whitespace-nowrap font-serif font-normal leading-[1.22] tracking-[-0.05em] text-black/70 text-[clamp(52px,13.5vw,180px)]'
+  'whitespace-nowrap font-serif font-normal leading-[1.22] tracking-[-0.03em] text-black/70 text-[clamp(52px,13.5vw,180px)]'
 
 export function ListMasthead({
   name,
