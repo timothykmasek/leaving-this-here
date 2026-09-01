@@ -234,9 +234,11 @@
         flex: none; display: flex; align-items: flex-start; justify-content: space-between;
         gap: 12px; margin-bottom: 18px;
       }
-      .secret-title { font-weight: 400; font-size: 15px; line-height: 22px; letter-spacing: 0.05em; color: #000; }
-      .secret-sub { margin-top: 2px; font-size: 12px; line-height: 16px; letter-spacing: 0.05em; color: #000; }
-      .secret-row .dot { margin-top: 3px; }
+      /* Quiet by design — an option you can find, not a decision the screen
+         pushes (Tim: soft grey, smaller). */
+      .secret-title { font-weight: 400; font-size: 13px; line-height: 18px; letter-spacing: 0.05em; color: #8a8a8a; }
+      .secret-sub { margin-top: 1px; font-size: 11px; line-height: 15px; letter-spacing: 0.05em; color: #a8a8a8; }
+      .secret-row .dot { margin-top: 1px; }
       /* The app's CTA (design verdicts: rounded-lg, sentence case, gray-900). */
       .cta {
         flex: none; width: 100%; height: 40px;
