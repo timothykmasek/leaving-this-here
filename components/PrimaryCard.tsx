@@ -52,7 +52,7 @@ function AffordanceOverlay({ kind, faviconUrl, hasImage, metric, markShown }: { 
     // an existing slot with an existing mechanism.
     if (!metric) return null
     return (
-      <span className="absolute bottom-3 left-3 z-[2] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
+      <span className="absolute bottom-[20px] left-[20px] z-[2] flex h-7 items-center rounded-[6px] bg-white px-2 font-sans text-[12px] font-[600] leading-4 tracking-[0.02em] text-ink shadow-[0_1px_4px_rgba(0,0,0,0.15)]">
         {metric}
       </span>
     )
@@ -111,7 +111,7 @@ function SourceMark({ src }: { src: string }) {
       src={src}
       alt=""
       aria-hidden
-      className="pointer-events-none absolute bottom-3 left-3 z-[1] h-6 w-6 rounded-[6px] bg-white/90 p-[3px] shadow-[0_1px_4px_rgba(0,0,0,0.25)]"
+      className="pointer-events-none absolute bottom-[20px] left-[20px] z-[1] h-6 w-6 rounded-[6px] bg-white/90 p-[3px] shadow-[0_1px_4px_rgba(0,0,0,0.25)]"
       onError={() => setFailed(true)}
     />
   )
@@ -285,17 +285,53 @@ export const PrimaryCard = memo(function PrimaryCard({
         className={`relative w-full overflow-hidden rounded-[20px] card-lift ${
           'bg-card'
         } ${
-          lightEdges ? 'border border-[#EBEBEB]' : 'ring-1 ring-black/[0.03]'
+          // A light card WITH a foot-fade gets its hairline from the masked
+          // overlay below instead — a container border would trace the bottom
+          // edge and corners of a card whose image is busy dissolving there.
+          lightEdges && !hasFade ? 'border border-[#EBEBEB]' : ''
         } ${
-          // Has a foot-fade and no border to define it → let it dissolve
-          // cleanly. A light card keeps its resting shadow because its border
-          // is already a deliberate edge; a Place card has no fade at all.
-          hasFade && !lightEdges ? 'card-lift-flat' : ''
+          !lightEdges ? 'ring-1 ring-black/[0.03]' : ''
+        } ${
+          // Has a foot-fade → let it dissolve cleanly: the resting shadow
+          // pools along exactly the bottom edge the fade erases. This now
+          // covers light cards too, since their border no longer defines a
+          // bottom edge either. Hover lift still applies — a deliberate raise
+          // isn't in conflict with the melt.
+          hasFade ? 'card-lift-flat' : ''
+        } ${
+          // The foot-fade painted into the plate's OWN background as well.
+          // bg-card is a separate paint layer under the image, and the browser
+          // antialiases each layer against the corner clip independently — so
+          // on retina a sub-pixel grey rim of bg-card survives at the bottom
+          // corners even though everything above it has faded white. With the
+          // background itself white at the foot, the corner AA blends white on
+          // white: no layer left to fringe. Not on a Place card, whose plate
+          // ends in a facts block, not the fade.
+          hasFade && !place
+            ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0)_78%,#FFFFFF_92%)]'
+            : ''
         }`}
       >
         {/* Own stacking context so the affordance pins to the IMAGE, not the
             plate — a Place card puts a text block below the image. */}
         <div className="relative">
+          {/* The image + its foot-fade, masked to transparent before the
+              corner curve. Whitening the image with an overlay is not enough
+              on retina: the image and the overlay are separate paint layers,
+              each antialiased against the rounded clip on its own, and a
+              sub-pixel arc of image colour survives at the bottom corners.
+              Masked to nothing there, the only layer the corner clip touches
+              is the plate's own background — solid white at the foot — so
+              there is no colour left to fringe. The badges live OUTSIDE this
+              wrapper: the price chip and source mark sit in the masked zone
+              and must not fade with it. */}
+          <div
+            className={
+              hasFade && !place
+                ? '[-webkit-mask-image:linear-gradient(180deg,#000_74%,transparent_94%)] [mask-image:linear-gradient(180deg,#000_74%,transparent_94%)]'
+                : undefined
+            }
+          >
           {placePhoto ? (
             <PlacePhoto src={placePhoto.src} box={placePhoto.box} />
           ) : (
@@ -331,14 +367,28 @@ export const PrimaryCard = memo(function PrimaryCard({
               Written out in full rather than with Tailwind's gradient stop
               utilities, so the end stop is unambiguously solid white.
 
+              A plain two-stop ramp starts at a constant slope, and the eye
+              catches that discontinuity as a hard line where the fade begins
+              (Mach banding). The smoothstep stops ease in from zero slope, so
+              the top edge is imperceptible; slightly taller to buy room for
+              the gentler onset.
+
+              Solid white lands at 90%, not 100%: the corner radius occupies
+              the plate's last ~20px, and a fade still 4% short of white there
+              lets a dark image ghost through — the rounded clip then cuts
+              that haze into a grey arc that reads as a border. Saturating
+              before the curve starts means the corners clip pure white
+              against the white page: nothing to see, which is the point.
+
               Skipped on a Place card, where the image meets its facts block
               rather than the page. */}
           {hasFade && (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-[19%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,#FFFFFF_100%)]"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-[26%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.05)_12%,rgba(255,255,255,0.18)_24%,rgba(255,255,255,0.36)_36%,rgba(255,255,255,0.56)_48%,rgba(255,255,255,0.74)_60%,rgba(255,255,255,0.88)_72%,rgba(255,255,255,0.97)_82%,#FFFFFF_90%,#FFFFFF_100%)]"
             />
           )}
+          </div>
 
           {/* Per-type affordance (play / disc / mic / source favicon). */}
           <AffordanceOverlay
@@ -355,6 +405,18 @@ export const PrimaryCard = memo(function PrimaryCard({
           {markShown && <SourceMark src={faviconUrl!} />}
         </div>
 
+        {/* The light-card hairline, dissolving with the image. On a card whose
+            foot fades into the page, a border that keeps tracing the bottom
+            edge and corners rebuilds the box the fade just erased — so the
+            hairline lives on this overlay and is masked out along the same
+            ramp: solid where it defines the top and sides against the white
+            page, gone before the bottom corners' curve begins. */}
+        {lightEdges && hasFade && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#EBEBEB] [-webkit-mask-image:linear-gradient(180deg,#000_74%,transparent_94%)] [mask-image:linear-gradient(180deg,#000_74%,transparent_94%)]"
+          />
+        )}
       </div>
 
       {/* Backdrop scrim — Figma ProjectX "Rectangle 5111": 45px tall, sitting
