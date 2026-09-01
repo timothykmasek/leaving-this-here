@@ -99,9 +99,10 @@ export function BulletDetail({
   utmCampaign,
 }: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  // Local mirror so the link's label flips instantly even under a parent that
+  // Local mirrors so the links' labels flip instantly even under a parent that
   // mutates its bullet map without re-rendering (ListDetailClient).
   const [isPrivate, setIsPrivate] = useState(!!bullet.is_private)
+  const [pinned, setPinned] = useState(!!bullet.pinned_at)
   const [imgError, setImgError] = useState(false)
   // Wide images float mid-well; tall and square ones anchor to its top. Only
   // the loaded image knows which it is, so this lands onLoad.
@@ -541,10 +542,13 @@ export function BulletDetail({
             <span className="flex items-center gap-[30px]">
               {onTogglePin && (
                 <button
-                  onClick={() => onTogglePin(bullet.id, !bullet.pinned_at)}
+                  onClick={() => {
+                    setPinned(!pinned)
+                    onTogglePin(bullet.id, !pinned)
+                  }}
                   className="underline underline-offset-2 transition-opacity hover:opacity-50"
                 >
-                  {bullet.pinned_at ? 'Unpin Bullet' : 'Pin Bullet'}
+                  {pinned ? 'Unpin Bullet' : 'Pin Bullet'}
                 </button>
               )}
               {onToggleVisibility && (

@@ -83,6 +83,15 @@ export function ListDetailClient({
     if (b) bulletsById.set(id, { ...b, note: newNote })
   }
 
+  // Pin/unpin to the top of the PROFILE (migration 025) — a bullet opened from
+  // a list is the same bullet; the pin just doesn't reorder this list page.
+  const handleTogglePin = async (id: string, pin: boolean) => {
+    const pinned_at = pin ? new Date().toISOString() : null
+    const b = bulletsById.get(id)
+    if (b) bulletsById.set(id, { ...b, pinned_at })
+    await supabase.from('bookmarks').update({ pinned_at }).eq('id', id)
+  }
+
   // Flip a bullet between public and secret. Same in-place idiom as note/title
   // above: the modal shows the flip via its own local state, and the grid's
   // lock chip catches up on the next render (closing the modal).
@@ -319,6 +328,7 @@ export function ListDetailClient({
             onDelete={handleDelete}
             onToggleListMembership={handleToggleMembership}
             onCreateList={handleCreateList}
+            onTogglePin={handleTogglePin}
             onToggleVisibility={handleToggleVisibility}
             onTitleUpdate={handleTitleUpdate}
             utmCampaign={username}
