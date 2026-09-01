@@ -1,3 +1,6 @@
+'use client'
+
+import { useState } from 'react'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { BracketLabel } from '@/components/BulletinHeader'
 import { resolveCategory } from '@/lib/cardFormat'
@@ -25,7 +28,25 @@ const SAMPLES: any[] = [
   { card_type: 'screenshot', url: 'https://open.spotify.com/album/1ATL5GLyefJaxhQzSPVrLX', title: 'Random Access Memories — Daft Punk', image_url: null, screenshot_url: null, favicon_url: null, list: null },
 ]
 
+// The foot-fade ramp, parameterised by where it lands on solid white (as a %
+// of the 26% band). 98 = the shipped curve, stop for stop. Other values scale
+// the same easing along the band, so 80 is "the identical melt, arriving
+// earlier" — not a different curve.
+const FADE_STOPS: Array<[number, number]> = [
+  [0, 0], [10, 0.03], [20, 0.10], [29, 0.22], [39, 0.35], [49, 0.50],
+  [59, 0.65], [69, 0.78], [78, 0.90], [88, 0.97], [98, 1],
+]
+function footFade(land: number): string {
+  const stops = FADE_STOPS.map(([pos, a]) => {
+    const p = (pos * land) / 98
+    return a >= 1 ? `#FFFFFF ${p.toFixed(1)}%` : `rgba(255,255,255,${a}) ${p.toFixed(1)}%`
+  })
+  return `linear-gradient(180deg,${stops.join(',')},#FFFFFF 100%)`
+}
+
 export default function CardsPreview() {
+  // Where the fade lands on solid white, % of the band. Shipped = 98.
+  const [land, setLand] = useState(98)
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-[1208px] px-6 py-16">
@@ -39,8 +60,40 @@ export default function CardsPreview() {
           <code> cardFormat</code> map — the mask-aspect knob is the whole point.
         </p>
 
+        {/* Foot-fade tuner. Drives the --card-foot-fade variable the real
+            component reads, so what you see IS PrimaryCard, not a mock. The
+            dark Valarian screenshot is the stress case: the 2026-08 "gentler
+            fade" exists because early saturation erased its bottom quarter. */}
+        <div className="mb-10 flex flex-wrap items-center gap-5 rounded-[15px] border border-[#EBEBEB] px-5 py-4">
+          <BracketLabel>Foot-fade lands white at</BracketLabel>
+          <input
+            type="range"
+            min={60}
+            max={98}
+            step={1}
+            value={land}
+            onChange={(e) => setLand(Number(e.target.value))}
+            className="w-[220px] accent-black"
+          />
+          <span className="w-[44px] font-sans text-[14px] font-[600] tabular-nums text-ink">{land}%</span>
+          {[80, 98].map((v) => (
+            <button
+              key={v}
+              onClick={() => setLand(v)}
+              className={`rounded-full border px-3 py-1 font-sans text-[12px] tracking-[0.05em] transition-colors ${
+                land === v ? 'border-black bg-black text-white' : 'border-black/15 text-black/50 hover:border-black/40'
+              }`}
+            >
+              {v === 98 ? 'shipped (98)' : 'feedback (80)'}
+            </button>
+          ))}
+        </div>
+
         {/* Masonry via CSS columns — cards vary in height by their mask aspect. */}
-        <div className="[column-gap:24px] columns-2 sm:columns-3 lg:columns-4">
+        <div
+          className="[column-gap:24px] columns-2 sm:columns-3 lg:columns-4"
+          style={{ '--card-foot-fade': footFade(land) } as React.CSSProperties}
+        >
           {SAMPLES.map((b, i) => (
             <div key={i} className="mb-8 break-inside-avoid">
               <div className="mb-1"><BracketLabel>{b.card_type} → {resolveCategory(b.url, b.card_type).category}</BracketLabel></div>
