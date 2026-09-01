@@ -91,6 +91,9 @@ export function BulletDetail({
 }: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [imgError, setImgError] = useState(false)
+  // Wide images float mid-well; tall and square ones anchor to its top. Only
+  // the loaded image knows which it is, so this lands onLoad.
+  const [landscape, setLandscape] = useState(false)
   // The owner's own picture. Held locally so the preview updates the moment it
   // uploads, rather than waiting for the page's data to come round again.
   const [custom, setCustom] = useState<string | null>(bullet.customImage ?? null)
@@ -206,6 +209,7 @@ export function BulletDetail({
   useEffect(() => {
     setConfirmingDelete(false)
     setImgError(false)
+    setLandscape(false)
     setCustom(bullet.customImage ?? null)
     setImgMsg(null)
     setEditingTitle(false)
@@ -244,15 +248,21 @@ export function BulletDetail({
             the image takes its natural aspect inside it — full width, height by
             aspect, capped and cropped only when taller than the well. */}
         <div className="relative w-full md:w-1/2">
-          {/* Always anchored to the well's top-left — a short image leaves
-              white below it, never a gap above. */}
-          <div className="flex items-start justify-start px-10 pt-[60px] pb-[90px] md:absolute md:inset-x-10 md:top-[60px] md:bottom-[90px] md:p-0">
+          {/* Tall and square images anchor to the well's top-left; a wide
+              landscape one would leave a lonely band up there, so it centers
+              vertically instead. */}
+          <div
+            className={`flex justify-start px-10 pt-[60px] pb-[90px] md:absolute md:inset-x-10 md:top-[60px] md:bottom-[90px] md:p-0 ${
+              landscape ? 'items-center' : 'items-start'
+            }`}
+          >
             <div className="group relative w-full max-h-full overflow-hidden rounded-[20px] bg-[#F1F1F1]">
               {preview ? (
                 <img
                   src={preview}
                   alt={displayTitle}
                   className="max-h-[456px] w-full object-cover md:max-h-[522px]"
+                  onLoad={(e) => setLandscape(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight)}
                   onError={() => setImgError(true)}
                 />
               ) : (
