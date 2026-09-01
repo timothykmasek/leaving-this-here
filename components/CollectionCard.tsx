@@ -18,11 +18,11 @@ import { LinkStrip } from '@/components/LinkStrip'
 
 // Geometry as percentages of the 295×393 plate, so the card scales with its
 // grid column instead of pinning to the Figma artboard's pixels.
-// Centred in the well: the name block's text top sits at ~78.6% (393 − 20
-// inset − ~64 block), so an equal gap above and below the 27.7% strip puts its
-// top at (78.6 − 27.7) / 2. The Figma's 34.9% left half again as much air
-// above the strip as below it, which read as the band sagging.
-const STRIP_TOP = '25.4%'
+// Centred in the well THE EYE MEASURES: from the registration dots' foot
+// (~7.7%) down to the name's text top (~78.6%) — not from the card's top edge,
+// which put the band optically high, and not the Figma's 34.9%, which sagged.
+// Equal air each side of the 27.7% strip: 7.7 + (70.9 − 27.7) / 2.
+const STRIP_TOP = '29.3%'
 const STRIP_H = '27.7%'      // 109/393
 const FADE_W = '15.25%'      // 45/295
 // Tile width cap, and the knob that sets how many tiles you actually SEE:
