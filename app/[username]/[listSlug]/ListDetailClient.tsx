@@ -83,6 +83,15 @@ export function ListDetailClient({
     if (b) bulletsById.set(id, { ...b, note: newNote })
   }
 
+  // Flip a bullet between public and secret. Same in-place idiom as note/title
+  // above: the modal shows the flip via its own local state, and the grid's
+  // lock chip catches up on the next render (closing the modal).
+  const handleToggleVisibility = async (id: string, isPrivate: boolean) => {
+    const b = bulletsById.get(id)
+    if (b) bulletsById.set(id, { ...b, is_private: isPrivate })
+    await supabase.from('bookmarks').update({ is_private: isPrivate }).eq('id', id)
+  }
+
   // A hand-edited title wins outright at render time (lib/cardTitle), so
   // whatever gets typed here is exactly what the card shows from now on.
   const handleTitleUpdate = async (id: string, newTitle: string) => {
@@ -310,6 +319,7 @@ export function ListDetailClient({
             onDelete={handleDelete}
             onToggleListMembership={handleToggleMembership}
             onCreateList={handleCreateList}
+            onToggleVisibility={handleToggleVisibility}
             onTitleUpdate={handleTitleUpdate}
             utmCampaign={username}
           />

@@ -436,6 +436,16 @@ export default function ProfileClient({
     }
   }
 
+  // Flip a bullet between public and secret. Optimistic: the card's lock chip
+  // answers immediately (privateMark reads is_private from state); RLS
+  // (migration 026) is what actually hides it from logged-out readers.
+  const handleToggleVisibility = async (id: string, isPrivate: boolean) => {
+    const patch = (list: any[]) => list.map((b) => (b.id === id ? { ...b, is_private: isPrivate } : b))
+    setBookmarks(patch)
+    setFiltered(patch)
+    await supabase.from('bookmarks').update({ is_private: isPrivate }).eq('id', id)
+  }
+
   const handleNoteUpdate = async (id: string, newNote: string | null) => {
     const { error } = await supabase.from('bookmarks').update({ note: newNote }).eq('id', id)
     if (error && /note/i.test(error.message || '')) {
@@ -1307,6 +1317,7 @@ export default function ProfileClient({
             onToggleListMembership={handleToggleMembership}
             onCreateList={handleCreateList}
             onTogglePin={handleTogglePin}
+            onToggleVisibility={handleToggleVisibility}
             onTitleUpdate={handleTitleUpdate}
             utmCampaign={username}
           />

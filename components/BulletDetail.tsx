@@ -31,6 +31,8 @@ interface Bullet {
   created_at: string | null
   /** Set = pinned to the top of the profile (migration 025). */
   pinned_at?: string | null
+  /** Secret bullet — owner sees it, logged-out visitors don't (migration 026). */
+  is_private?: boolean
 }
 
 interface List {
@@ -48,6 +50,8 @@ interface BulletDetailProps {
   onToggleListMembership?: (listId: string, bookmarkId: string, add: boolean) => void
   onCreateList?: (name: string, bookmarkIds?: string[]) => Promise<string | null>
   onTogglePin?: (id: string, pin: boolean) => void
+  /** Flip the bullet between public and secret. Absent → no visibility link. */
+  onToggleVisibility?: (id: string, isPrivate: boolean) => void
   /** Persist a hand-edited title. Absent → the title is not clickable. */
   onTitleUpdate?: (id: string, title: string) => void
   // utm_campaign for the visit link's click-out attribution (curator username).
@@ -90,10 +94,14 @@ export function BulletDetail({
   onToggleListMembership,
   onCreateList,
   onTogglePin,
+  onToggleVisibility,
   onTitleUpdate,
   utmCampaign,
 }: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  // Local mirror so the link's label flips instantly even under a parent that
+  // mutates its bullet map without re-rendering (ListDetailClient).
+  const [isPrivate, setIsPrivate] = useState(!!bullet.is_private)
   const [imgError, setImgError] = useState(false)
   // Wide images float mid-well; tall and square ones anchor to its top. Only
   // the loaded image knows which it is, so this lands onLoad.
@@ -537,6 +545,17 @@ export function BulletDetail({
                   className="underline underline-offset-2 transition-opacity hover:opacity-50"
                 >
                   {bullet.pinned_at ? 'Unpin Bullet' : 'Pin Bullet'}
+                </button>
+              )}
+              {onToggleVisibility && (
+                <button
+                  onClick={() => {
+                    setIsPrivate(!isPrivate)
+                    onToggleVisibility(bullet.id, !isPrivate)
+                  }}
+                  className="underline underline-offset-2 transition-opacity hover:opacity-50"
+                >
+                  {isPrivate ? 'Make Public' : 'Make Private'}
                 </button>
               )}
               {confirmingDelete ? (
