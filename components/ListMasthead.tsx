@@ -62,6 +62,15 @@ export function ListMasthead({
 
   return (
     <header className="group pt-2">
+      {/* Back link leads the masthead — you know where you are before the
+          title announces what it is. Current BracketLabel dress unchanged. */}
+      <Link
+        href={backHref}
+        className="inline-flex text-black/30 transition-colors hover:text-ink"
+      >
+        <BracketLabel>{backLabel}</BracketLabel>
+      </Link>
+
       {/* Display title. One line always — length is handled by the fade, not
           by wrapping, so the masthead's height never moves. */}
       {/* Frame gives the title ~90px of air below the header and as much again
@@ -81,26 +90,18 @@ export function ListMasthead({
         )}
       </div>
 
-      {/* Meta row: back link (current styling) and the owner's pencil on the
-          left, the count on the right where the last card column ends. */}
-      <div className="mt-10 flex items-center justify-between gap-4 pb-8 sm:mt-24">
-        <span className="flex items-center gap-2">
-          <Link
-            href={backHref}
-            className="inline-flex text-black/30 transition-colors hover:text-ink"
-          >
-            <BracketLabel>{backLabel}</BracketLabel>
-          </Link>
-          {editControl && (
-            <span className="flex items-center text-black/35 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
-              {editControl}
-            </span>
-          )}
-        </span>
+      {/* Meta row: the count takes the slot the back link vacated, the
+          owner's pencil rides beside it on hover. */}
+      <div className="mt-10 flex items-center gap-2 pb-8 sm:mt-24">
         <span className="font-sans text-[12px] font-medium leading-4 tracking-[0.05em] text-black/[0.56]">
           {count} {count === 1 ? 'Bullet' : 'Bullets'}
           {isPrivate && ' · Private'}
         </span>
+        {editControl && (
+          <span className="flex items-center text-black/35 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+            {editControl}
+          </span>
+        )}
       </div>
     </header>
   )
