@@ -308,7 +308,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           // white: no layer left to fringe. Not on a Place card, whose plate
           // ends in a facts block, not the fade.
           hasFade && !place
-            ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0)_78%,#FFFFFF_92%)]'
+            ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0)_92%,#FFFFFF_96%)]'
             : ''
         }`}
       >
@@ -328,7 +328,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           <div
             className={
               hasFade && !place
-                ? '[-webkit-mask-image:linear-gradient(180deg,#000_74%,transparent_94%)] [mask-image:linear-gradient(180deg,#000_74%,transparent_94%)]'
+                ? '[-webkit-mask-image:linear-gradient(180deg,#000_90%,transparent_96%)] [mask-image:linear-gradient(180deg,#000_90%,transparent_96%)]'
                 : undefined
             }
           >
@@ -373,19 +373,21 @@ export const PrimaryCard = memo(function PrimaryCard({
               the top edge is imperceptible; slightly taller to buy room for
               the gentler onset.
 
-              Solid white lands at 90%, not 100%: the corner radius occupies
-              the plate's last ~20px, and a fade still 4% short of white there
-              lets a dark image ghost through — the rounded clip then cuts
-              that haze into a grey arc that reads as a border. Saturating
-              before the curve starts means the corners clip pure white
-              against the white page: nothing to see, which is the point.
+              Solid white lands at 98% of the band (tuned 2026-09-01 — the
+              old 90% landing plus a mask starting at 74% of the card made
+              the fade read as intense on dark images, eating a quarter of
+              the card). The corners no longer rely on the band saturating
+              early: the wrapper mask below erases the image entirely by 96%
+              of the card, before the ~20px corner curve, so the rounded clip
+              only ever touches the plate's own white foot — no haze left to
+              cut into a grey arc.
 
               Skipped on a Place card, where the image meets its facts block
               rather than the page. */}
           {hasFade && (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-[26%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.05)_12%,rgba(255,255,255,0.18)_24%,rgba(255,255,255,0.36)_36%,rgba(255,255,255,0.56)_48%,rgba(255,255,255,0.74)_60%,rgba(255,255,255,0.88)_72%,rgba(255,255,255,0.97)_82%,#FFFFFF_90%,#FFFFFF_100%)]"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-[26%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.03)_10%,rgba(255,255,255,0.10)_20%,rgba(255,255,255,0.22)_29%,rgba(255,255,255,0.35)_39%,rgba(255,255,255,0.50)_49%,rgba(255,255,255,0.65)_59%,rgba(255,255,255,0.78)_69%,rgba(255,255,255,0.90)_78%,rgba(255,255,255,0.97)_88%,#FFFFFF_98%,#FFFFFF_100%)]"
             />
           )}
           </div>
@@ -414,7 +416,7 @@ export const PrimaryCard = memo(function PrimaryCard({
         {lightEdges && hasFade && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#EBEBEB] [-webkit-mask-image:linear-gradient(180deg,#000_74%,transparent_94%)] [mask-image:linear-gradient(180deg,#000_74%,transparent_94%)]"
+            className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#EBEBEB] [-webkit-mask-image:linear-gradient(180deg,#000_90%,transparent_96%)] [mask-image:linear-gradient(180deg,#000_90%,transparent_96%)]"
           />
         )}
       </div>
