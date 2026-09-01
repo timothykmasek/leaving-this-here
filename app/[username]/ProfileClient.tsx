@@ -691,7 +691,10 @@ export default function ProfileClient({
       {/* pb-40 clears the revealed footer bar + lifted search pill at the true
           end of the feed. (The old min-h-screen push-the-footer-past-the-fold
           hack is gone — the footer is out of flow now.) */}
-      <div className={`mx-auto ${PROFILE_GRID} pb-40 pt-6 sm:pt-16`}>
+      {/* Top padding matches the list masthead's air below the header (~88px
+          desktop / ~48 mobile), so the profile, its Lists tab, and a list page
+          all breathe on the same rhythm. */}
+      <div className={`mx-auto ${PROFILE_GRID} pb-40 pt-12 sm:pt-[88px]`}>
         {profile.is_preview && <PreviewBanner />}
         {isOwner && <WelcomeBanner />}
 
