@@ -331,3 +331,19 @@ body > * {
     animation: none;
   }
 }
+
+/* The list card's drifting contact-sheet (components/LinkStrip). Same doubled-
+   track/-50% geometry as bullet-marquee above; duration is set inline per
+   strip so every card travels at the same px/s regardless of strip length. */
+.strip-drift {
+  animation: bullet-marquee linear infinite;
+  will-change: transform;
+}
+.strip-drift:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .strip-drift {
+    animation: none;
+  }
+}

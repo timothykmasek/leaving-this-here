@@ -614,10 +614,10 @@ export default function ProfileClient({
       )
       .map((b: any) => b.image_url || b.screenshot_url)
       .filter(Boolean)
-      // 4 feeds the card's filmstrip. The Figma frame uses 3 tiles for a 1.3x
-      // overrun, but tiles keep their own widths: 4 is what still overruns the
-      // plate when a list's thumbs happen to all be portrait.
-      .slice(0, 4)
+      // 8 feeds the card's filmstrip — enough sequence for the drifting
+      // carousel to travel through before it loops. (The still used 4; the
+      // strip's imgs are lazy, so the extra tiles don't tax first paint.)
+      .slice(0, 8)
 
   // Order-preserving masonry (round-robin across columns) — a plain CSS-columns
   // flow would fill column-major and scramble the created_at-desc order.

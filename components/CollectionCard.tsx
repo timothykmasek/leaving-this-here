@@ -83,6 +83,7 @@ export function CollectionCard({
         style={{ top: STRIP_TOP, height: STRIP_H }}
         thumbMaxWidth={THUMB_MAX_W}
         fadeWidth={FADE_W}
+        drift
       />
 
       {/* Name + count, anchored to the bottom-left 20px inset. Anchoring the
