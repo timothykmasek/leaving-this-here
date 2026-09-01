@@ -1,209 +1,104 @@
 'use client'
 
-// The masthead for a list page — the redesign that treats a list as a
-// publication rather than a filtered view: a back link, an optional cover
-// photo, the name, the description as real edited prose, and a meta line.
+// The masthead for a list page, per the ProjectX list frame: the list's name
+// as a full-width editorial display — Cardo at poster scale, one line, running
+// off the right edge into white when it's long — over a quiet meta row (back
+// link left, bullet count right). The attribution ("A list by Tim Masek")
+// moved up into the header's centred tagline slot, descriptions dropped from
+// display entirely, and the cover band is retired — the name IS the identity
+// now. Legacy props (description, cover, strip) are still accepted so older
+// call sites compile, but nothing renders them.
 //
-// Type follows the PROFILE, not the Figma export, per Tim:
-//   • name        → Mier DemiBold 20/24, text-ink — same slot as the profile's
-//                   own name (ProfileIdentity). This also happens to match the
-//                   Figma panel exactly; only the export's `font-weight: 700`
-//                   was wrong (that loads Bold, not DemiBold — 600 here).
-//   • description → Cardo 14/22 -0.01em black/60 — the profile's bio treatment.
-//                   Deliberately NOT the export's 14/18/-2%: an 18px leading on
-//                   a multi-hundred-character paragraph is unreadably tight.
-//   • meta        → Mier Book 12/16 0.05em black/0.56 — the card metadata voice,
-//                   identical to the "145 Items" line on a CollectionCard. The
-//                   mock set this at the title's own 20px; Tim chose the card
-//                   voice so counts read the same everywhere.
+// Type:
+//   • name  → Cardo 400, clamp(52px→180px at 13.5vw), 1.22 leading, -7%
+//             tracking, black/70 — the frame's 180/220/-0.07em at desktop.
+//   • meta  → Mier 500 12/16 +0.05em black/56 — the card metadata voice, same
+//             as before; the back link keeps its existing BracketLabel dress.
 
 import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { cleanListDescription } from '@/lib/listDescription'
 import { BracketLabel } from '@/components/BulletinHeader'
-import { LinkStrip } from '@/components/LinkStrip'
 
 export function ListMasthead({
   name,
-  description: rawDescription,
   count,
-  ownerName,
   backHref,
   backLabel,
-  coverUrl,
-  stripThumbs = [],
   isPrivate = false,
-  coverControl,
   editControl,
+  // Retired by the display masthead — accepted so call sites compile.
+  description: _description,
+  ownerName: _ownerName,
+  coverUrl: _coverUrl,
+  stripThumbs: _stripThumbs,
+  coverControl: _coverControl,
 }: {
   name: string
-  description?: string | null
   count: number
-  /** ISO timestamp of the most recent add to this list, or null. */
-  ownerName: string
   backHref: string
   backLabel: string
-  /** null = never chosen, so the default band renders. '' = the owner
-   *  deliberately chose NO cover. A URL = that image. */
-  coverUrl?: string | null
-  /** Images for the default band, when no cover has been chosen. */
-  stripThumbs?: string[]
   isPrivate?: boolean
-  /** Owner's cover affordance (add / replace / remove). */
-  coverControl?: ReactNode
-  /** Owner's edit affordance for name + description — one control, as today. */
+  /** Owner's edit affordance for the list — the same pencil as before. */
   editControl?: ReactNode
+  description?: string | null
+  ownerName?: string
+  coverUrl?: string | null
+  stripThumbs?: string[]
+  coverControl?: ReactNode
 }) {
-  const [expanded, setExpanded] = useState(false)
-  // Never the raw value: a leading "# List Name" would print the title twice,
-  // the second time with a hash in front of it.
-  const description = cleanListDescription(rawDescription)
-
-  const [clamped, setClamped] = useState(false)
-  const descRef = useRef<HTMLParagraphElement>(null)
-  // Only offer more/less when the text is ACTUALLY cut off. A length threshold
-  // would guess wrong at different widths; comparing scroll to client height
-  // asks the browser what really happened.
+  // The right-edge fade only earns its place when the name actually runs past
+  // the container — a short name ends in air, not in a dissolve.
+  const titleRef = useRef<HTMLHeadingElement>(null)
+  const [overflowing, setOverflowing] = useState(false)
   useEffect(() => {
-    const el = descRef.current
+    const el = titleRef.current
     if (!el) return
-    const measure = () => setClamped(el.scrollHeight > el.clientHeight + 1)
+    const measure = () => setOverflowing(el.scrollWidth > el.clientWidth + 1)
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [description, expanded])
-
-  // The two owner controls live TOGETHER, beside the name, as icons. They were
-  // previously a worded pill above the description and another worded button
-  // below it — two verbal affordances in two places for what is one idea:
-  // "change this list". Hover-revealed on desktop and always visible on touch,
-  // exactly as ProfileIdentity treats its own edit pencil.
-  const controls = (editControl || coverControl) && (
-    <span className="flex items-center gap-1 text-black/35 opacity-100 transition-opacity sm:opacity-0 sm:group-hover/title:opacity-100 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
-      {editControl}
-      {coverControl}
-    </span>
-  )
-
-  const title = (
-    <div className="group/title flex items-center gap-2">
-      <h1 className="font-sans text-[20px] font-[600] leading-[24px] text-ink">{name}</h1>
-      {controls}
-    </div>
-  )
+  }, [name])
 
   return (
-    // Full grid width, because the masthead below is laid out on the SAME
-    // columns as the card grid (Masonry: 4 / 3 / 2 equal columns, 40px gaps).
-    // Capping this at the Figma frame's 1184 was the earlier attempt at keeping
-    // the description and the meta related, but it left the meta right-aligned
-    // to an edge nothing else shared — which is precisely what made it look
-    // arbitrary. Sharing the grid fixes it properly: the description spans the
-    // first two columns, the meta lands in the last one, and its right edge
-    // meets the last card's.
-    <header className="pt-2">
-      <Link
-        href={backHref}
-        className="inline-flex text-black/30 transition-colors hover:text-ink"
-      >
-        <BracketLabel>{backLabel}</BracketLabel>
-      </Link>
-
-      {coverUrl === '' || (coverUrl == null && stripThumbs.length === 0) ? (
-        // No cover: either deliberately chosen ('') or a list with no images to
-        // build a band from. A composed row, not an empty frame.
-        <div className="mt-6">{title}</div>
-      ) : coverUrl == null ? (
-        // DEFAULT — the list's own contact-sheet band, the same asset its card
-        // shows in the overview grid. Every list gets an identity for free, with
-        // nobody having to go and find a photo. No bottom gradient here: the
-        // plate is already the card surface, so the name reads on it directly.
-        <div className="group relative mt-6 aspect-[1184/480] max-h-[360px] w-full overflow-hidden rounded-[20px] bg-card">
-          <LinkStrip
-            thumbs={stripThumbs}
-            className="absolute inset-x-0"
-            // Centred band. Shorter plate and a proportionally taller band than
-            // the card uses: at 480 tall the card's 28% left 173px of bare grey
-            // above and below, which reads as an unfinished box rather than a
-            // composed one. 25% caps a panorama from taking the masthead; most
-            // tiles fall well under it, a 1.9:1 og image being ~19% at this height.
-            style={{ top: '34%', height: '32%' }}
-            thumbMaxWidth="25%"
-          />
-          <div className="absolute inset-x-6 bottom-5 sm:inset-x-8 sm:bottom-6">{title}</div>
-        </div>
-      ) : (
-        // Cover. aspect-ratio holds the mock's 1184/480 on narrow screens, and
-        // max-h caps it on wide ones — this grid runs to 1720, where a true
-        // 2.47:1 would be a ~700px wall of photo before any content. Spanning
-        // the full grid means its edges line up with the outer card columns.
-        <div className="group relative mt-6 aspect-[1184/480] max-h-[480px] w-full overflow-hidden rounded-[20px] bg-card">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          {/* The image dissolves into the page rather than ending on a hard
-              edge, so the title below reads as dark type on paper. */}
+    <header className="group pt-2">
+      {/* Display title. One line always — length is handled by the fade, not
+          by wrapping, so the masthead's height never moves. */}
+      <div className="relative mt-4 overflow-hidden sm:mt-8">
+        <h1
+          ref={titleRef}
+          className="whitespace-nowrap font-serif font-normal leading-[1.22] tracking-[-0.07em] text-black/70 text-[clamp(52px,13.5vw,180px)]"
+        >
+          {name}
+        </h1>
+        {overflowing && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,#FFFFFF_90%)]"
+            className="pointer-events-none absolute inset-y-0 right-0 w-[100px] bg-gradient-to-r from-white/0 to-white sm:w-[220px]"
           />
-          <div className="absolute inset-x-6 bottom-5 sm:inset-x-8 sm:bottom-6">{title}</div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Same columns as the card grid below: 2 up / 3 at sm / 4 at lg, 40px
-          gaps. No rule underneath: the cover above and the grid below are both
-          strong horizontal edges already, and a hairline between them was
-          drawing a boundary nobody needed drawn. The pb-8 stays — the spacing
-          was doing the separating, not the line. The description spans two of them — a ~660px measure at desktop,
-          which is a good line length for prose as well as a grid alignment —
-          and the meta takes the last column. At lg that deliberately leaves the
-          third column empty, so the space between them reads as structure
-          rather than as drift. */}
-      <div className="mt-8 grid grid-cols-1 gap-y-6 pb-8 sm:grid-cols-3 sm:gap-x-[40px] lg:grid-cols-4">
-        <div className="sm:col-span-2">
-          {description && (
-            <>
-              <p
-                ref={descRef}
-                className="font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60"
-                style={
-                  expanded
-                    ? undefined
-                    : { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }
-                }
-              >
-                {description}
-              </p>
-              {(clamped || expanded) && (
-                <button
-                  onClick={() => setExpanded((v) => !v)}
-                  className="mt-2 font-sans text-[12px] leading-4 tracking-[0.05em] text-black/30 underline transition-colors hover:text-ink"
-                >
-                  {expanded ? 'less' : 'more'}
-                </button>
-              )}
-            </>
+      {/* Meta row: back link (current styling) and the owner's pencil on the
+          left, the count on the right where the last card column ends. */}
+      <div className="mt-8 flex items-center justify-between gap-4 pb-8 sm:mt-14">
+        <span className="flex items-center gap-2">
+          <Link
+            href={backHref}
+            className="inline-flex text-black/30 transition-colors hover:text-ink"
+          >
+            <BracketLabel>{backLabel}</BracketLabel>
+          </Link>
+          {editControl && (
+            <span className="flex items-center text-black/35 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
+              {editControl}
+            </span>
           )}
-        </div>
-
-        {/* The list's answer to the profile's identity block: a Mier heading
-            (the list name, up in the cover) over an editorial stack in Cardo.
-            Same metrics as ProfileIdentity's bio — 14/22, -0.01em, black/60 —
-            so the two pages read as one voice.
-
-            Two lines, not three. A "Last Updated" line used to sit here, and
-            because the stack was always three lines against a description of
-            one to three, its last line regularly hung below the description
-            with nothing beside it — a stray timestamp floating above the cards.
-            Four lists have no description at all, where the whole stack hung. */}
-        <div className="flex flex-col font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60 sm:col-start-3 sm:items-end sm:text-right lg:col-start-4">
-          <p>{ownerName}</p>
-          <p>
-            {count} {count === 1 ? 'Item' : 'Items'}
-            {isPrivate && ' · Private'}
-          </p>
-        </div>
+        </span>
+        <span className="font-sans text-[12px] font-medium leading-4 tracking-[0.05em] text-black/[0.56]">
+          {count} {count === 1 ? 'Bullet' : 'Bullets'}
+          {isPrivate && ' · Private'}
+        </span>
       </div>
     </header>
   )

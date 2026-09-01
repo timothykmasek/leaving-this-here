@@ -21,7 +21,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { ListMasthead } from '@/components/ListMasthead'
-import { ListCoverControl } from '@/components/ListCoverControl'
 import { SuggestionShelf, forgetSuggestion } from '@/components/SuggestionShelf'
 import { ImportFab } from '@/components/ImportFab'
 import { BulletDetail } from '@/components/BulletDetail'
@@ -180,10 +179,6 @@ const NO_IMAGE = [
 const OWNER_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 export default function OwnerPreview() {
-  // Each masthead owns its cover so clicking through the picker actually moves
-  // this page, the way it moves the real one.
-  const [bandCover, setBandCover] = useState<string | null>(null)
-  const [photoCover, setPhotoCover] = useState<string | null>(IMAGES[3])
   const [opened, setOpened] = useState<string | null>(null)
 
   return (
@@ -215,70 +210,40 @@ export default function OwnerPreview() {
       </Section>
 
       <Section
-        title="Cover picker — default band"
-        note="No cover chosen, so the list shows a band built from its own bullets. Hover the band: the cover control fades in. It offers the list's images ranked, an upload, and 'no cover' as a real third choice."
+        title="List masthead — display title"
+        note="The name at poster scale in Cardo, one line always. Hover the meta row: the owner's pencil fades in beside the back link. Covers and descriptions are retired — the name is the identity."
       >
         <ListMasthead
           name="The fit check"
-          description="Clothes I would actually wear, mostly from people who make small numbers of things."
           count={BULLETS.length}
-          ownerName="tim"
           backHref="/preview/owner"
           backLabel="&larr; All lists"
-          coverUrl={bandCover}
-          stripThumbs={IMAGES}
-          coverControl={
-            <ListCoverControl
-              listId="fixture-list"
-              hasCover={!!bandCover}
-              usingDefault={bandCover == null}
-              candidates={IMAGES}
-              onChange={setBandCover}
-            />
-          }
           editControl={<PencilButton />}
         />
       </Section>
 
       <Section
-        title="Cover picker — uploaded photo"
-        note="A cover is set. The control must stay hidden until hover, otherwise it sits permanently on top of the photo the owner chose."
+        title="List masthead — long name"
+        note="A long name never wraps and never resizes the masthead: it runs off the right edge and melts into white. The fade must only render when the name actually overflows."
       >
         <ListMasthead
-          name="Rooms I think about"
-          description="Interiors with one idea each."
+          name="Rooms I think about when I cannot sleep at night"
           count={BULLETS.length}
-          ownerName="tim"
           backHref="/preview/owner"
           backLabel="&larr; All lists"
-          coverUrl={photoCover}
-          stripThumbs={IMAGES}
-          coverControl={
-            <ListCoverControl
-              listId="fixture-list"
-              hasCover={!!photoCover}
-              usingDefault={false}
-              candidates={IMAGES}
-              onChange={setPhotoCover}
-            />
-          }
           editControl={<PencilButton />}
         />
       </Section>
 
       <Section
-        title="Private list, no cover"
-        note="'No cover' is a deliberate choice, not an empty state — the masthead should look composed without one. The private marker rides beside the title."
+        title="List masthead — private, empty"
+        note="The private marker rides with the count, and an empty list still reads composed: '0 Bullets · Private' in the card metadata voice."
       >
         <ListMasthead
           name="Reading later"
-          description=""
           count={0}
-          ownerName="tim"
           backHref="/preview/owner"
           backLabel="&larr; All lists"
-          coverUrl=""
-          stripThumbs={IMAGES}
           isPrivate
           editControl={<PencilButton />}
         />

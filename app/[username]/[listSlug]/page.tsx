@@ -9,6 +9,7 @@ import { ListMasthead } from '@/components/ListMasthead'
 import { PublicHeader } from '@/components/PublicHeader'
 import { ListDetailClient } from './ListDetailClient'
 import { SiteFooter } from '@/components/SiteFooter'
+import { CopyTagline } from '@/components/CopyTagline'
 
 // Public, shareable page for a single list at /username/<slug>. Read-only —
 // owners manage membership and rename from their profile. RLS hides private
@@ -147,6 +148,12 @@ export default async function ListPage({
           logoClassName="h-[32px] sm:h-[44px]"
           widthClassName={LIST_GRID}
           stickyLogo
+          tagline={
+            <CopyTagline path={`/${profile.username}/${listSlug}`}>
+              A list by{' '}
+              <span className="text-ink underline decoration-black/20 underline-offset-2">{owner}</span>
+            </CopyTagline>
+          }
         />
         <div className={`mx-auto ${LIST_GRID} pb-16 pt-4 sm:pt-8`}>
           <ListDetailClient
@@ -181,6 +188,12 @@ export default async function ListPage({
         logoClassName="h-[32px] sm:h-[44px]"
         widthClassName={LIST_GRID}
         stickyLogo
+        tagline={
+          <CopyTagline path={`/${profile.username}/${listSlug}`}>
+            A list by{' '}
+            <span className="text-ink underline decoration-black/20 underline-offset-2">{owner}</span>
+          </CopyTagline>
+        }
       />
       <div className={`mx-auto ${LIST_GRID} pb-16 pt-4 sm:pt-8`}>
         <ListMasthead
