@@ -143,18 +143,45 @@ function PlacePhoto({ src, box }: { src: string; box: NonNullable<PlaceMeta['pho
   )
 }
 
-// A Place card is an ordinary card now.
+// The Place card's in-plate facts — name, category, price tier, address.
 //
-// It used to state its facts in a white block inside the plate, as a deliberate
-// exception ("for a place the attributes ARE the content"), signed off
-// 2026-08-21 and reversed by Tim 2026-08-24: a bespoke card in a grid of
-// uniform ones reads as a different object, not a richer one. The facts didn't
-// disappear — the rating is the photo's metric chip, and the name, category and
-// street are the title line, in the same slot every other card uses.
+// The RATING has moved out, onto the photo, as the top-left metric chip every
+// other type uses (lib/cardFormat: Place -> 'rating'). It's the one fact worth
+// scanning across a grid, and it now sits where a product's price does. The
+// rest stays: an address is not a badge, and dropping it — as the handoff's
+// mockup does — would lose the thing that makes a saved place useful later.
+// A deliberate exception to "categories live off-card" (removed 2026-08-15):
+// for a place the attributes ARE the content, which is not true of the link
+// taxonomy that rule was written about. Signed off by Tim 2026-08-21.
 //
-// Deliberately just the STREET, not the full address. Google's is "1 Rue du
-// Sabot, 75006 Paris, France"; the postcode and country earn nothing on a card
-// that already fades its title at the right edge.
+// Every line maps to an existing DS text style; none are invented here:
+//   name        Mier A Book 14/20/5%  — the card-title style (Figma ProjectX)
+//   category    `.label` 10/12/1.5px  — the uppercase metadata workhorse
+//   facts+addr  Mier A 12/16/5%       — the small-body style used across MobileHome
+// Deliberately NOT Cardo: the palette scopes serif to editorial voice (bios,
+// taglines, quotes, list titles, the list line). A rating and a street address
+// are data. The list line UNDER the card stays Cardo, which is correct and also
+// keeps it visually distinct from the facts inside the plate.
+//
+// Opening hours are deliberately absent: they're perishable, and this is stored.
+function PlaceFacts({ place }: { place: PlaceMeta }) {
+  const meta = [place.kind, place.price].filter(Boolean).join(' · ')
+  return (
+    <div className="px-5 pb-5 pt-4">
+      {place.name && (
+        <p className="truncate font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56]">
+          {place.name}
+        </p>
+      )}
+      {meta && <p className="label mt-2 text-ink/[0.45]">{meta}</p>}
+      {place.address && (
+        <p className="mt-2.5 truncate font-sans text-[12px] leading-4 tracking-[0.05em] text-ink/[0.45]">
+          {place.address}
+        </p>
+      )}
+    </div>
+  )
+}
 
 interface PrimaryCardProps {
   id?: string
@@ -214,14 +241,6 @@ export const PrimaryCard = memo(function PrimaryCard({
   // Product bullets carry their price the same way, in raw_metadata.product,
   // narrowed into the grid's select. Absent → no chip, never an empty pill.
   const product: ProductFact | null = productProp ?? rawMetadata?.product ?? null
-  // "Cherry Paris — Restaurant — 1 Rue du Sabot". Same em-dash join lib/cardTitle
-  // uses for "Brand — what it is", so a place reads like everything else.
-  const placeTitle = place
-    ? [place.name, place.kind, place.address?.split(',')[0]?.trim()]
-        .filter(Boolean)
-        .join(' \u2014 ')
-    : null
-
   // Does the real source mark take the bottom-left slot? Computed once: the
   // drawn disc/mic glyph reads this to know whether it's needed, and showing
   // both was the bug.
@@ -258,7 +277,7 @@ export const PrimaryCard = memo(function PrimaryCard({
 
   // The foot-fade only means anything over a real image; an imageless card
   // shows the favicon plate and has no photo to dissolve.
-  const hasFade = candidates.length > 0
+  const hasFade = !place && candidates.length > 0
 
   const placePhoto =
     place && !place.photo && place.photoBox && screenshotUrl
@@ -288,20 +307,22 @@ export const PrimaryCard = memo(function PrimaryCard({
       <div className="relative w-full">
       <div
         className={`relative w-full overflow-hidden rounded-[20px] card-lift ${
-          'bg-card'
+          place ? 'bg-paper' : 'bg-card'
         } ${
           // A light card WITH a foot-fade gets its hairline from the masked
           // overlay below instead — a container border would trace the bottom
           // edge and corners of a card whose image is busy dissolving there.
-          lightEdges && !hasFade ? 'border border-[#EBEBEB]' : ''
+          // A Place card always keeps the border: its plate ends in the white
+          // facts block, a deliberate edge with no fade to fight.
+          place || (lightEdges && !hasFade) ? 'border border-[#EBEBEB]' : ''
         } ${
-          !lightEdges ? 'ring-1 ring-black/[0.03]' : ''
+          !place && !lightEdges ? 'ring-1 ring-black/[0.03]' : ''
         } ${
           // Has a foot-fade → let it dissolve cleanly: the resting shadow
           // pools along exactly the bottom edge the fade erases. This now
           // covers light cards too, since their border no longer defines a
           // bottom edge either. Hover lift still applies — a deliberate raise
-          // isn't in conflict with the melt.
+          // isn't in conflict with the melt. (A Place has no fade at all.)
           hasFade ? 'card-lift-flat' : ''
         } ${
           // The foot-fade painted into the plate's OWN background as well.
@@ -424,6 +445,8 @@ export const PrimaryCard = memo(function PrimaryCard({
             className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#EBEBEB] [-webkit-mask-image:linear-gradient(180deg,#000_90%,transparent_96%)] [mask-image:linear-gradient(180deg,#000_90%,transparent_96%)]"
           />
         )}
+
+        {place && <PlaceFacts place={place} />}
       </div>
 
       {/* Backdrop scrim — Figma ProjectX "Rectangle 5111": 45px tall, sitting
@@ -459,8 +482,6 @@ export const PrimaryCard = memo(function PrimaryCard({
     </>
   )
 
-  const shownTitle = placeTitle || cleanTitle
-
   // A card with no picture at all carries its own title, set large — so
   // printing the caption underneath would say the same words twice, which is
   // exactly what was wrong with the plate this replaced. One title, set
@@ -479,9 +500,11 @@ export const PrimaryCard = memo(function PrimaryCard({
   const usableDescription = isObstacleCopy(description) ? '' : (description || '').trim()
   const fallbackCarriesTitle = !hasImage && usableDescription.length < 24
 
-  const titleLine = shownTitle && !fallbackCarriesTitle ? (
+  // A Place states its facts in the plate's own block — a caption underneath
+  // would say the same words twice.
+  const titleLine = cleanTitle && !place && !fallbackCarriesTitle ? (
     <p className="relative z-10 mt-5 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56] [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
-      {shownTitle}
+      {cleanTitle}
     </p>
   ) : null
 
@@ -511,7 +534,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             href={outboundUrl}
             target="_blank"
             rel="noopener"
-            aria-label={shownTitle || domain}
+            aria-label={cleanTitle || domain}
             className="absolute inset-0 z-[1]"
           />
 
@@ -586,7 +609,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             <span className="truncate">{listName}</span>
           </>
         )
-        const cls = `relative z-10 mt-1.5 flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/[0.55]`
+        const cls = `relative z-10 ${place ? 'mt-5' : 'mt-1.5'} flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/[0.55]`
         return listHref ? (
           <a href={listHref} className={`${cls} transition-colors hover:text-ink`}>{inner}</a>
         ) : (
