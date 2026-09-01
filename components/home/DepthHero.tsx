@@ -235,9 +235,11 @@ export function DepthHero() {
     setSubmitted(true)
   }
 
+  // Phone tier runs ~15% smaller across the lockup (logo, tagline, pill);
+  // sm:+ keeps the shipped desktop sizes exactly.
   const pill =
-    'font-serif text-[15px] inline-flex h-[46px] items-center justify-center whitespace-nowrap ' +
-    'rounded-full border border-black/[0.28] bg-white px-7 text-black ' +
+    'font-serif text-[14px] sm:text-[15px] inline-flex h-[40px] sm:h-[46px] items-center justify-center whitespace-nowrap ' +
+    'rounded-full border border-black/[0.28] bg-white px-6 sm:px-7 text-black ' +
     'transition-[border-color] duration-150 ease-out hover:border-black/[0.55]'
 
   return (
@@ -317,11 +319,11 @@ export function DepthHero() {
         <img
           src="/bulletin-logo.png"
           alt="Bulletin"
-          className="block h-auto w-[min(280px,45vw)]"
+          className="block h-auto w-[min(220px,38vw)] sm:w-[min(280px,45vw)]"
         />
-        <p className="text-[20px] font-normal leading-[1.3] text-black">
+        <p className="text-[17px] font-normal leading-[1.3] text-black sm:text-[20px]">
           Bookmark in public
-          <span className="mt-1 block text-[15px] text-black/70">(or don&rsquo;t).</span>
+          <span className="mt-1 block text-[13px] text-black/70 sm:text-[15px]">(or don&rsquo;t).</span>
         </p>
 
         {submitted ? (
@@ -335,7 +337,7 @@ export function DepthHero() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@email.com"
-              className="font-serif h-[46px] w-[260px] rounded-full border border-black/[0.15] bg-white px-[18px] text-[15px] text-black outline-none focus:border-black/40"
+              className="font-serif h-[40px] w-[230px] rounded-full border border-black/[0.15] bg-white px-[18px] text-[14px] text-black outline-none focus:border-black/40 sm:h-[46px] sm:w-[260px] sm:text-[15px]"
             />
             <button type="submit" className={pill}>
               Request Access
