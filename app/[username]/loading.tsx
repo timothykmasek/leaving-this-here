@@ -23,10 +23,10 @@ export default function Loading() {
         widthClassName={PROFILE_GRID}
         stickyLogo
       />
-      <div className={`mx-auto ${PROFILE_GRID} pb-40 pt-6 sm:pt-16`}>
+      <div className={`mx-auto ${PROFILE_GRID} pb-40 pt-12 sm:pt-[88px]`}>
         {/* Identity block — CENTRED, like ProfileIdentity: name, two bio lines,
             the "Latest Bullet" line, then the social row. */}
-        <div className="mb-8 flex flex-col items-center gap-3 sm:mb-10">
+        <div className="mb-10 flex flex-col items-center gap-3 sm:mb-24">
           <div className="h-6 w-40 animate-pulse rounded bg-black/[0.07]" />
           <div className="flex flex-col items-center gap-2">
             <div className="h-3 w-64 animate-pulse rounded bg-black/[0.05]" />

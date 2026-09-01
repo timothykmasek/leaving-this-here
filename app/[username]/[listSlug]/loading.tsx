@@ -28,22 +28,16 @@ export default function Loading() {
           {/* back link */}
           <div className="h-3 w-28 animate-pulse rounded bg-black/[0.05]" />
 
-          {/* Cover. Every list has one now — the default band if nothing was
-              chosen — so the skeleton reserves its box at the band cover's
-              height rather than dropping the reader straight into cards. */}
-          <div className="mt-6 aspect-[1184/480] max-h-[360px] w-full animate-pulse rounded-[20px] bg-card" />
+          {/* Poster title — one bar at the display type's own line box
+              (clamp(52→180px) × 1.22 leading), so the name lands in a slot
+              already its size. Cover and description skeletons went with the
+              cover and the description. */}
+          <div className="mt-6 h-[clamp(63px,16.5vw,220px)] w-[72%] animate-pulse rounded-[20px] bg-black/[0.05] sm:mt-12" />
 
-          {/* description (cols 1–2) opposite the meta stack (last column) */}
-          <div className="mt-8 grid grid-cols-1 gap-y-6 pb-8 sm:grid-cols-3 sm:gap-x-[40px] lg:grid-cols-4">
-            <div className="space-y-2 sm:col-span-2">
-              <div className="h-3 w-full animate-pulse rounded bg-black/[0.05]" />
-              <div className="h-3 w-[92%] animate-pulse rounded bg-black/[0.05]" />
-              <div className="h-3 w-[64%] animate-pulse rounded bg-black/[0.05]" />
-            </div>
-            <div className="flex flex-col gap-2 sm:col-start-3 sm:items-end lg:col-start-4">
-              <div className="h-3 w-24 animate-pulse rounded bg-black/[0.05]" />
-              <div className="h-3 w-16 animate-pulse rounded bg-black/[0.05]" />
-            </div>
+          {/* meta row: count left, owner's delete slot right */}
+          <div className="mt-10 flex items-center justify-between pb-8 sm:mt-24">
+            <div className="h-3 w-16 animate-pulse rounded bg-black/[0.05]" />
+            <div className="h-3 w-14 animate-pulse rounded bg-black/[0.05]" />
           </div>
         </div>
 
