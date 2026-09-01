@@ -33,7 +33,7 @@ export function LinkCard({ url, title, image, fallbackImage, faviconUrl, priorit
     <a
       href={url}
       target="_blank"
-      rel="noopener noreferrer"
+      rel="noopener"
       className="relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card ring-1 ring-black/[0.03] card-lift"
     >
       {/* thumbnail — 67.6% wide, 184:118, at (16.2%, 21.9%) */}

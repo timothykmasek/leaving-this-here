@@ -32,7 +32,7 @@ const CAPTION_MASK = 'linear-gradient(90deg,#000 72%,transparent 100%)'
 function Slot({ index, height }: { index: number; height: number }) {
   const item = POOL[index]
   return (
-    <a href={item.href} target="_blank" rel="noopener noreferrer" className="block">
+    <a href={item.href} target="_blank" rel="noopener" className="block">
       <span className="block overflow-hidden rounded-[20px] bg-card" style={{ height }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={item.src} alt="" className="block h-full w-full object-cover" />
@@ -322,7 +322,7 @@ export function MobileHome() {
             <div className="flex flex-col gap-[26px]">
               <div className={slotClass(0)}><Slot index={slots[0]} height={SLOT_HEIGHTS[0]} /></div>
               <div className={slotClass(1)}><Slot index={slots[1]} height={SLOT_HEIGHTS[1]} /></div>
-              <a href="/tim/the-fit-check" target="_blank" rel="noopener noreferrer" className="flex h-[150px] flex-col items-center justify-center gap-2.5 rounded-[20px] bg-card">
+              <a href="/tim/the-fit-check" target="_blank" rel="noopener" className="flex h-[150px] flex-col items-center justify-center gap-2.5 rounded-[20px] bg-card">
                 <span className="text-[26px] leading-8 text-black">+</span>
                 <span className="text-[12px] leading-4 tracking-[0.05em] text-black/50">Add to “Fit Check”</span>
               </a>
@@ -330,7 +330,7 @@ export function MobileHome() {
             <div className="flex flex-col gap-[26px] pt-11">
               <div className={slotClass(2)}><Slot index={slots[2]} height={SLOT_HEIGHTS[2]} /></div>
               <div className={slotClass(3)}><Slot index={slots[3]} height={SLOT_HEIGHTS[3]} /></div>
-              <a href="/remi" target="_blank" rel="noopener noreferrer" className="flex h-[150px] flex-col items-center justify-center gap-1 rounded-[20px] bg-card">
+              <a href="/remi" target="_blank" rel="noopener" className="flex h-[150px] flex-col items-center justify-center gap-1 rounded-[20px] bg-card">
                 <span className="font-serif text-[22px] leading-[26px] text-black">Remi</span>
                 <span className="text-[12px] leading-4 tracking-[0.05em] text-black/50">[&nbsp;96 items&nbsp;]</span>
               </a>

@@ -266,7 +266,7 @@ export function DepthHero() {
               data-h={h}
               href={c.href}
               target="_blank"
-              rel="noopener noreferrer"
+              rel="noopener"
               className="absolute left-1/2 top-1/2 block will-change-transform"
               // Cards start invisible; the first frame places and fades them in.
               style={{ width: w, marginLeft: -w / 2, marginTop: -h / 2, opacity: 0 }}

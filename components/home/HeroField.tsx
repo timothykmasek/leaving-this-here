@@ -230,7 +230,7 @@ export function HeroField() {
           data-drift
           href={c.href}
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noopener"
           className="absolute will-change-transform"
           style={{ left: c.left, top: c.top }}
         >
@@ -268,7 +268,7 @@ export function HeroField() {
           data-drift
           href={l.href}
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noopener"
           className="group absolute block h-[180px] w-[179px] rounded-[20px] bg-card transition-colors duration-[140ms] hover:bg-[rgb(237,237,237)] will-change-transform"
           style={{ left: l.left, top: l.top }}
         >
@@ -290,7 +290,7 @@ export function HeroField() {
           data-drift
           href={p.href}
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noopener"
           className="absolute block h-[168px] w-[168px] rounded-[20px] bg-card will-change-transform"
           style={{ left: p.left, top: p.top }}
         >

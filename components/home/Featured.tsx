@@ -58,7 +58,7 @@ function Table({
           key={r.name}
           href={r.href}
           target="_blank"
-          rel="noopener noreferrer"
+          rel="noopener"
           className="flex items-center gap-[18px] border-b border-black/[0.06] py-[18px]"
         >
           <Thumbs srcs={r.thumbs} compact={compact} />

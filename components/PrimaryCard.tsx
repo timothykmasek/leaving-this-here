@@ -505,7 +505,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           <a
             href={url}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener"
             aria-label={shownTitle || domain}
             className="absolute inset-0 z-[1]"
           />
@@ -558,7 +558,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           <a
             href={url}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener"
             aria-hidden
             tabIndex={-1}
             className="block"

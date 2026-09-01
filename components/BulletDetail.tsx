@@ -228,7 +228,7 @@ export function BulletDetail({
           <a
             href={bullet.url}
             target="_blank"
-            rel="noopener noreferrer"
+            rel="noopener"
             className="absolute bottom-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-paper hover:bg-ink/85 transition-colors"
           >
             {bullet.favicon_url && (
