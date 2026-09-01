@@ -923,7 +923,10 @@ export default function ProfileClient({
                       }`}
                     >
                       {tab === 'recent' ? (
-                        <span aria-hidden className="h-[7px] w-[7px] shrink-0 rounded-full bg-current" />
+                        // Flex centers the dot on the line box, but the label's
+                        // visual middle is its cap height, a hair above that —
+                        // the nudge centers the dot on the R, not the box.
+                        <span aria-hidden className="h-[7px] w-[7px] shrink-0 -translate-y-[1px] rounded-full bg-current" />
                       ) : (
                         <span aria-hidden className="flex shrink-0 flex-col items-center justify-center gap-[2px]">
                           <span className="h-[2px] w-[2px] rounded-full bg-current" />
