@@ -260,7 +260,7 @@ body > * {
   transition: transform 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 .group:hover .pin-hang {
-  transform: rotate(-2.52deg);
+  transform: rotate(-2.77deg);
 }
 /* Keyboard focus, NOT :focus-within.
    
@@ -274,7 +274,7 @@ body > * {
    is unknown, and that would take plain hover down with it. Split, the worst
    case is losing the keyboard tilt. */
 .group:has(:focus-visible) .pin-hang {
-  transform: rotate(-2.52deg);
+  transform: rotate(-2.77deg);
 }
 
 /* The tack is in the BOARD, not on the card, so it must not turn with it —
