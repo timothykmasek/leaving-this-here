@@ -1004,8 +1004,8 @@ export default function ProfileClient({
             (isOwner || lists.length > 0) ? (
               // Equal columns that fill the width at every breakpoint — a fixed-
               // width auto-fill grid left-packed the cards and left a big empty
-              // gap on the right at mid-wide viewports.
-              {/* One gap both ways — rows and columns read as the same grid. */}
+              // gap on the right at mid-wide viewports. One gap value both
+              // ways, so rows and columns read as the same grid.
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
                 {/* owner: a card-shaped "New list" affordance (also the empty state) */}
                 {isOwner && (
