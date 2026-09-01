@@ -25,8 +25,10 @@ import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BracketLabel } from '@/components/BulletinHeader'
 
+// -0.05em, eased off the frame's -0.07em: at poster size Cardo's rounds were
+// colliding (the frame's own "Startups" shows the r/t touching).
 const titleClass =
-  'whitespace-nowrap font-serif font-normal leading-[1.22] tracking-[-0.07em] text-black/70 text-[clamp(52px,13.5vw,180px)]'
+  'whitespace-nowrap font-serif font-normal leading-[1.22] tracking-[-0.05em] text-black/70 text-[clamp(52px,13.5vw,180px)]'
 
 export function ListMasthead({
   name,
