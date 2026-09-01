@@ -64,7 +64,9 @@ export function ListMasthead({
     <header className="group pt-2">
       {/* Display title. One line always — length is handled by the fade, not
           by wrapping, so the masthead's height never moves. */}
-      <div className="relative mt-4 overflow-hidden sm:mt-8">
+      {/* Frame gives the title ~90px of air below the header and as much again
+          before the meta row — the spaciousness IS the composition. */}
+      <div className="relative mt-6 overflow-hidden sm:mt-12">
         <h1
           ref={titleRef}
           className="whitespace-nowrap font-serif font-normal leading-[1.22] tracking-[-0.07em] text-black/70 text-[clamp(52px,13.5vw,180px)]"
@@ -81,7 +83,7 @@ export function ListMasthead({
 
       {/* Meta row: back link (current styling) and the owner's pencil on the
           left, the count on the right where the last card column ends. */}
-      <div className="mt-8 flex items-center justify-between gap-4 pb-8 sm:mt-14">
+      <div className="mt-10 flex items-center justify-between gap-4 pb-8 sm:mt-24">
         <span className="flex items-center gap-2">
           <Link
             href={backHref}
