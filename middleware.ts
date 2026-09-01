@@ -53,11 +53,10 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect these routes — redirect to login if not signed in
-  const protectedPaths = ['/bookmarklet', '/setup']
-  if (protectedPaths.includes(request.nextUrl.pathname) && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
-  }
+  // No route protection here anymore — /bookmarklet and /setup (the last
+  // protected paths) were removed 2026-08-29; next.config redirects them to
+  // /start. The middleware still runs everywhere for the cookie refresh above.
+  void user
 
   return response
 }

@@ -14,6 +14,15 @@ const nextConfig = {
       { protocol: 'http', hostname: '**' },
     ],
   },
+  // /setup and /bookmarklet were orphaned legacy from before extension-only
+  // saving (flagged for cleanup in 0e6b698, removed 2026-08-29). Old links and
+  // crawlers land on onboarding instead of a 404.
+  async redirects() {
+    return [
+      { source: '/setup', destination: '/start', permanent: true },
+      { source: '/bookmarklet', destination: '/start', permanent: true },
+    ]
+  },
 }
 
 module.exports = nextConfig
