@@ -89,6 +89,132 @@ export const HERO_CARDS: HeroCard[] = [
   },
 ]
 
+// A card in the depth hero's fleet: same fields as HeroCard minus the canvas
+// position — the depth field lays out by slot, not coordinates.
+export type DepthCard = {
+  key: string
+  href: string
+  caption: string
+  image: string
+  /** Plate box. Three sizes only: 168×168, 240×160, 200×280. */
+  w: number
+  h: number
+  objectPosition?: string
+}
+
+// The depth hero's fleet: the original nine, plus fifteen Tim picked from
+// real saves via /preview/hero-picker (2026-09-01, plate shape assigned from
+// each image's own aspect). Captions hand-tidied to `Brand — what it is`;
+// images frozen into /public/home like everything else on this page.
+export const DEPTH_HERO_CARDS: DepthCard[] = [
+  ...HERO_CARDS.map(({ left: _l, top: _t, ...rest }) => rest),
+  {
+    key: 'aufi',
+    href: 'https://aufi.com/',
+    caption: 'AUFI — Top creative & branding agencies',
+    image: '/home/aufi-agency-index.png',
+    w: 240, h: 160,
+  },
+  {
+    key: 'tansan',
+    href: 'https://tansanmagnesium.kr/',
+    caption: 'Tansan Magnesium — Outerwear, tops & accessories',
+    image: '/home/tansan-magnesium-shop.jpg',
+    w: 240, h: 160,
+  },
+  {
+    key: 'martiniano',
+    href: 'https://martinianoshoes.com/collections/shop/products/glove-white',
+    caption: 'Martiniano — Glove White',
+    image: '/home/martiniano-glove-product.jpg',
+    w: 240, h: 160,
+  },
+  {
+    key: 'sightunseen',
+    href: 'https://www.sightunseen.com/2014/11/sight-unseen-jewelry-by-architects/',
+    caption: 'Sight Unseen — Jewelry by architects',
+    image: '/home/sight-unseen-jewelry-article.jpg',
+    w: 168, h: 168,
+  },
+  {
+    key: 'terada',
+    href: 'https://www.teradahonke.co.jp/en/ufufu/',
+    caption: 'Terada Honke — Café Ufufu',
+    image: '/home/terada-honke-ufufu-location.jpg',
+    w: 240, h: 160,
+  },
+  {
+    key: 'postalco',
+    href: 'https://postalco.com/en-us/products/viewpoint-in-the-fog',
+    caption: 'POSTALCO — Viewpoint in the Fog',
+    image: '/home/postalco-viewpoint-product.jpg',
+    w: 200, h: 280,
+  },
+  {
+    key: 'emilydawnlong',
+    href: 'https://www.emilydawnlong.com/',
+    caption: 'Emily Dawn Long — New York womenswear',
+    image: '/home/emily-dawn-long-website.jpg',
+    w: 240, h: 160,
+  },
+  {
+    key: 'thinkingmachines',
+    href: 'https://thinkingmachines.ai/news/learning-to-replicate-expert-judgment-in-financial-tasks/',
+    caption: 'Thinking Machines — Replicating expert judgment',
+    image: '/home/thinking-machines-article.jpg',
+    w: 240, h: 160,
+  },
+  {
+    key: 'sardine',
+    href: 'https://www.galeriesardine.com/therewhen',
+    caption: 'Galerie Sardine — There, When',
+    image: '/home/galerie-sardine-show.jpg',
+    w: 200, h: 280,
+  },
+  {
+    key: 'geo',
+    href: 'https://geo-nyc.com/',
+    caption: 'G.E.O. — Creative agency, New York',
+    image: '/home/geo-nyc-agency.png',
+    w: 240, h: 160,
+  },
+  {
+    key: 'etched',
+    href: 'https://www.etched.com/',
+    caption: 'Etched — Frontier inference clusters',
+    image: '/home/etched-website.png',
+    w: 240, h: 160,
+  },
+  {
+    key: 'adhome',
+    href: 'https://www.architecturaldigest.com/gallery/see-how-a-crumbling-1890s-east-la-home-was-restored-to-its-former-glory',
+    caption: 'Architectural Digest — An 1890s East LA home, restored',
+    image: '/home/ad-east-la-home-article.jpg',
+    w: 240, h: 160,
+  },
+  {
+    key: 'ebur',
+    href: 'https://studioebur.com/product/giza-suspension-2',
+    caption: 'EBUR — Giza Suspension II',
+    image: '/home/ebur-giza-product.jpg',
+    w: 200, h: 280,
+  },
+  {
+    key: 'heist',
+    href: 'https://www.heist.co/',
+    caption: 'Heist — Specialty decaf without a curfew',
+    image: '/home/heist-coffee-website.jpg',
+    w: 240, h: 160,
+  },
+  {
+    key: 'intelligencer',
+    href: 'https://nymag.com/intelligencer/article/new-york-salaries-jobs.html',
+    caption: 'Intelligencer — What do you do and what do you make?',
+    image: '/home/intelligencer-salaries-article.jpg',
+    w: 240, h: 160,
+  },
+]
+
 // Ghost list plates — a `+` over an "Add to …" label. 179×180, no caption.
 export const HERO_LISTS = [
   { key: 'list-furniture', label: 'Furniture Reccs', href: '/remi/furniture-reccs', left: -40, top: 420 },

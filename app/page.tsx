@@ -1,15 +1,17 @@
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { BetaLanding } from '@/components/home/BetaLanding'
+import { DepthHero } from '@/components/home/DepthHero'
 
-// The private-beta landing (design handoff "Bulletin Landing", 2026-08-28):
-// wordmark, tagline, and an inline email capture over an animated dot grid.
-// One viewport, nothing below the fold. Sign-up itself stays open everywhere
-// else in the app — the waitlist is the front door's posture, not a gate.
+// The depth hero (shipped 2026-09-01): the private-beta landing's lockup and
+// email capture, with 24 real saved links drifting through 3D depth behind
+// it. One viewport, nothing below the fold; scroll kicks the cards instead of
+// the page. Sign-up itself stays open everywhere else in the app — the
+// waitlist is the front door's posture, not a gate.
 //
-// The v3 marketing home this replaced is kept intact but unrouted, on purpose
-// (Tim, 2026-08-28): components/home/{HeroField,HowItWorks,Featured,MobileHome}
-// still compile and can be re-routed here to bring it back.
+// Predecessors kept intact but unrouted, on purpose (Tim): BetaLanding (the
+// static-lockup landing this replaced) and the v3 marketing home
+// (components/home/{HeroField,HowItWorks,Featured,MobileHome}) both still
+// compile and can be re-routed here to bring either back.
 
 export default async function Home({
   searchParams,
@@ -42,5 +44,5 @@ export default async function Home({
     }
   }
 
-  return <BetaLanding />
+  return <DepthHero />
 }

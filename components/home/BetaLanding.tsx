@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import { DotGridCanvas } from './DotGridCanvas'
 
 // The private-beta landing (design handoff "Bulletin Landing", 2026-08-28).
 // One viewport, no scroll: wordmark, tagline, and a CTA that unfolds into an
@@ -8,109 +9,14 @@ import { useEffect, useRef, useState } from 'react'
 // home as `/` — that page is preserved unrouted in components/home/ (HeroField,
 // HowItWorks, Featured, MobileHome).
 //
-// The grid here is the DS dot-ground's animated sibling: same 32px pitch, same
-// #d9d9d9 resting grey, but each dot breathes on its own phase and darkens/
-// swells near the pointer. It's a canvas because that's per-dot state — the
-// tiled-gradient .dot-ground can't do it — and this page's opaque white ground
-// covers the static body grid anyway. Honors prefers-reduced-motion by drawing
-// the resting grid once.
-
-const PITCH = 32
-const POINTER_RADIUS = 150
-
-type Dot = { x: number; y: number; phase: number; speed: number }
+// The grid (DotGridCanvas) breathes per-dot and swells near the pointer; this
+// page's opaque white ground covers the static body grid, so the canvas is the
+// only grid visible here.
 
 export function BetaLanding() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const [revealed, setRevealed] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [email, setEmail] = useState('')
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    let dots: Dot[] = []
-    let w = 0
-    let h = 0
-    let rafId = 0
-    const mouse = { x: -9999, y: -9999 }
-
-    const setup = () => {
-      const parent = canvas.parentElement
-      if (!parent) return
-      const dpr = window.devicePixelRatio || 1
-      w = parent.clientWidth
-      h = parent.clientHeight
-      canvas.width = w * dpr
-      canvas.height = h * dpr
-      canvas.style.width = `${w}px`
-      canvas.style.height = `${h}px`
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-      dots = []
-      for (let y = PITCH / 2; y < h; y += PITCH) {
-        for (let x = PITCH / 2; x < w; x += PITCH) {
-          dots.push({ x, y, phase: Math.random() * Math.PI * 2, speed: 0.12 + Math.random() * 0.14 })
-        }
-      }
-    }
-
-    const drawStatic = () => {
-      ctx.clearRect(0, 0, w, h)
-      ctx.fillStyle = '#dddddd'
-      for (const d of dots) {
-        ctx.beginPath()
-        ctx.arc(d.x, d.y, 1, 0, Math.PI * 2)
-        ctx.fill()
-      }
-    }
-
-    const animate = (t: number) => {
-      ctx.clearRect(0, 0, w, h)
-      const time = t / 1000
-      for (const d of dots) {
-        const idle = (Math.sin(time * d.speed + d.phase) + 1) / 2
-        const dist = Math.hypot(d.x - mouse.x, d.y - mouse.y)
-        const p = Math.max(0, 1 - dist / POINTER_RADIUS)
-        // 10% fainter across the range (2026-09-01): base 217→221, the idle
-        // and pointer darkening scaled by 0.9, floor 60→80 — the whole swing
-        // sits closer to the paper.
-        const shade = Math.max(80, Math.round(221 - idle * 90 - p * 81))
-        ctx.beginPath()
-        ctx.fillStyle = `rgb(${shade},${shade},${shade})`
-        ctx.arc(d.x, d.y, 1 + idle * 0.4 + p * 0.9, 0, Math.PI * 2)
-        ctx.fill()
-      }
-      rafId = requestAnimationFrame(animate)
-    }
-
-    const onResize = () => setup()
-    const onMove = (e: MouseEvent | TouchEvent) => {
-      const r = canvas.getBoundingClientRect()
-      const p = 'touches' in e ? e.touches[0] : e
-      if (!p) return
-      mouse.x = p.clientX - r.left
-      mouse.y = p.clientY - r.top
-    }
-
-    setup()
-    window.addEventListener('resize', onResize)
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('touchmove', onMove)
-
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduce) drawStatic()
-    else rafId = requestAnimationFrame(animate)
-
-    return () => {
-      window.removeEventListener('resize', onResize)
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('touchmove', onMove)
-      if (rafId) cancelAnimationFrame(rafId)
-    }
-  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -135,7 +41,7 @@ export function BetaLanding() {
 
   return (
     <div className="relative flex h-[100dvh] w-full flex-col items-center justify-center gap-8 overflow-hidden bg-white p-6 text-center">
-      <canvas ref={canvasRef} className="pointer-events-none absolute inset-0" />
+      <DotGridCanvas />
 
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
