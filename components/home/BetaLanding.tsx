@@ -59,7 +59,7 @@ export function BetaLanding() {
 
     const drawStatic = () => {
       ctx.clearRect(0, 0, w, h)
-      ctx.fillStyle = '#d9d9d9'
+      ctx.fillStyle = '#dddddd'
       for (const d of dots) {
         ctx.beginPath()
         ctx.arc(d.x, d.y, 1, 0, Math.PI * 2)
@@ -74,7 +74,10 @@ export function BetaLanding() {
         const idle = (Math.sin(time * d.speed + d.phase) + 1) / 2
         const dist = Math.hypot(d.x - mouse.x, d.y - mouse.y)
         const p = Math.max(0, 1 - dist / POINTER_RADIUS)
-        const shade = Math.max(60, Math.round(217 - idle * 100 - p * 90))
+        // 10% fainter across the range (2026-09-01): base 217→221, the idle
+        // and pointer darkening scaled by 0.9, floor 60→80 — the whole swing
+        // sits closer to the paper.
+        const shade = Math.max(80, Math.round(221 - idle * 90 - p * 81))
         ctx.beginPath()
         ctx.fillStyle = `rgb(${shade},${shade},${shade})`
         ctx.arc(d.x, d.y, 1 + idle * 0.4 + p * 0.9, 0, Math.PI * 2)
