@@ -144,9 +144,11 @@ export function ListMasthead({
         )}
       </div>
 
-      {/* Meta row: the count, with the owner's delete link riding beside it on
-          hover — confirm-guarded inline, same pattern as the bullet modal. */}
-      <div className="mt-10 flex items-center gap-4 pb-8 font-sans text-[12px] font-medium leading-4 tracking-[0.05em] sm:mt-24">
+      {/* Meta row: count left, and on the right — the slot the count used to
+          hold — the owner's delete, dressed exactly like the count (same 12px,
+          same 56% black), underlining only under the pointer. Confirm-guarded
+          inline, same pattern as the bullet modal. */}
+      <div className="mt-10 flex items-center justify-between gap-4 pb-8 font-sans text-[12px] font-medium leading-4 tracking-[0.05em] sm:mt-24">
         <span className="text-black/[0.56]">
           {count} {count === 1 ? 'Bullet' : 'Bullets'}
           {isPrivate && ' · Private'}
@@ -171,7 +173,7 @@ export function ListMasthead({
           ) : (
             <button
               onClick={() => setConfirmingDelete(true)}
-              className="text-black/35 underline underline-offset-2 opacity-100 transition-all hover:text-black/60 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+              className="text-black/[0.56] hover:underline hover:underline-offset-2"
             >
               Delete list
             </button>
