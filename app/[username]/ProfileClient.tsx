@@ -851,8 +851,10 @@ export default function ProfileClient({
 
             {/* View tabs — Figma Group 100667: a single 371x62 container,
                 1px #EBEBEB, radius 20, 5px padding; the SELECTED segment is a
-                52px-tall #F3F3F3 pill at the same radius. (Was two separate
-                #f3f3f3 blocks with corner registration dots.)
+                52px-tall #F3F3F3 pill at radius 15 — outer radius minus the
+                5px inset, so the two curves run concentric instead of the
+                inner one out-rounding the frame. (Was two separate #f3f3f3
+                blocks with corner registration dots.)
 
                 Each tab carries its own glyph rather than the dots marking
                 selection: a filled dot for Recent Bullets, and for Lists the
@@ -869,7 +871,7 @@ export default function ProfileClient({
                     Easing matches .card-lift's. */}
                 <span
                   aria-hidden
-                  className="absolute left-[5px] top-[5px] h-[52px] w-[calc(50%-5px)] rounded-[20px] bg-[#F3F3F3] transition-transform duration-[280ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none"
+                  className="absolute left-[5px] top-[5px] h-[52px] w-[calc(50%-5px)] rounded-[15px] bg-[#F3F3F3] transition-transform duration-[280ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none"
                   style={{ transform: activeTab === 'lists' ? 'translateX(100%)' : 'translateX(0)' }}
                 />
                 {([['recent', 'Recent Bullets'], ['lists', 'Lists']] as const).map(([tab, label]) => {
@@ -878,7 +880,7 @@ export default function ProfileClient({
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`relative z-10 flex h-[52px] min-w-0 flex-1 items-center justify-center gap-[7px] rounded-[20px] font-sans text-[14px] font-[600] leading-5 transition-colors ${
+                      className={`relative z-10 flex h-[52px] min-w-0 flex-1 items-center justify-center gap-[7px] rounded-[15px] font-sans text-[14px] font-[600] leading-5 transition-colors ${
                         on ? 'text-ink' : 'text-black/30 hover:text-black/50'
                       }`}
                     >
