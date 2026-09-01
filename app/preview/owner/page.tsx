@@ -449,6 +449,12 @@ function ShowDetail() {
   const [lists, setLists] = useState([
     { id: 'l1', name: 'Ecommerce Sites', bookmark_ids: ['fixture-1'] },
     { id: 'l2', name: 'The fit check', bookmark_ids: [] },
+    // Enough non-member rows to overflow the three-row well (scroll + fade),
+    // and names that collide with likely typing so the typeahead's
+    // "Add to this List" row can be seen before creating a duplicate.
+    { id: 'l3', name: 'Product Design Patterns', bookmark_ids: [] },
+    { id: 'l4', name: 'Rooms I think about', bookmark_ids: [] },
+    { id: 'l5', name: 'Must Buys', bookmark_ids: [] },
   ])
   const [fail, setFail] = useState(false)
   const [pinnedAt, setPinnedAt] = useState<string | null>(null)
@@ -469,6 +475,7 @@ function ShowDetail() {
           lists={lists}
           onClose={() => setOpen(false)}
           onNoteUpdate={() => {}}
+          onTitleUpdate={() => {}}
           onDelete={() => setOpen(false)}
           onTogglePin={(_id, pin) => setPinnedAt(pin ? new Date().toISOString() : null)}
           onToggleListMembership={(listId, bookmarkId, add) =>

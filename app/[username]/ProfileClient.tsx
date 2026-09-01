@@ -446,6 +446,15 @@ export default function ProfileClient({
     setFiltered(update)
   }
 
+  // A hand-edited title wins outright at render time (lib/cardTitle), so
+  // whatever gets typed here is exactly what the card shows from now on.
+  const handleTitleUpdate = async (id: string, newTitle: string) => {
+    const update = (list: any[]) => list.map((b) => (b.id === id ? { ...b, title: newTitle } : b))
+    setBookmarks(update)
+    setFiltered(update)
+    await supabase.from('bookmarks').update({ title: newTitle }).eq('id', id)
+  }
+
   // ── Lists ───────────────────────────────────────────────────────────
   async function fetchLists(uid: string) {
     const shape = (data: any[] | null) =>
@@ -1288,6 +1297,7 @@ export default function ProfileClient({
             onToggleListMembership={handleToggleMembership}
             onCreateList={handleCreateList}
             onTogglePin={handleTogglePin}
+            onTitleUpdate={handleTitleUpdate}
             utmCampaign={username}
           />
         )

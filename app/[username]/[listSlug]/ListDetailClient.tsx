@@ -92,6 +92,14 @@ export function ListDetailClient({
     if (b) bulletsById.set(id, { ...b, note: newNote })
   }
 
+  // A hand-edited title wins outright at render time (lib/cardTitle), so
+  // whatever gets typed here is exactly what the card shows from now on.
+  const handleTitleUpdate = async (id: string, newTitle: string) => {
+    const b = bulletsById.get(id)
+    if (b) bulletsById.set(id, { ...b, title: newTitle })
+    await supabase.from('bookmarks').update({ title: newTitle }).eq('id', id)
+  }
+
   const handleToggleMembership = async (
     listId: string,
     bookmarkId: string,
@@ -419,6 +427,7 @@ export function ListDetailClient({
             onDelete={handleDelete}
             onToggleListMembership={handleToggleMembership}
             onCreateList={handleCreateList}
+            onTitleUpdate={handleTitleUpdate}
             utmCampaign={username}
           />
         )

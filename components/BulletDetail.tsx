@@ -4,11 +4,18 @@ import { useState, useEffect, useRef } from 'react'
 import { GemGlyph } from '@/components/GemGlyph'
 import { resizeImageToWebp } from '@/lib/imageResize'
 import { withBulletinUtm } from '@/lib/outboundUrl'
+import { formatCardTitle } from '@/lib/cardTitle'
 
-// Mymind-style detail view for a single bullet. Two panes: a large preview on the
-// left, and metadata on the right — lists and a delete action. Rendered as an
-// overlay; closes on backdrop click or Escape. Editing flows through the same
-// handlers the profile page uses, so changes persist and the grid stays in sync.
+// Detail view for a single bullet, per the ProjectX "Edit Bullet" frame: a
+// white panel over a grey scrim, image floating on the left inside fixed
+// insets (60 top, 40 sides), and the right pane leading with list membership.
+// Member rows shed with a ✕, other lists join on click, and the black row is a
+// typeahead — matching lists surface under it as "Add to this List", enter
+// creates a new one. The link-out chip anchors to the pane's bottom-left
+// corner regardless of image size; pin/delete live as small underlined links
+// in the foot with the saved-date tucked opposite. Rendered as an overlay;
+// closes on backdrop click or Escape. Editing flows through the same handlers
+// the profile page uses, so changes persist and the grid stays in sync.
 
 interface Bullet {
   id: string
@@ -41,6 +48,8 @@ interface BulletDetailProps {
   onToggleListMembership?: (listId: string, bookmarkId: string, add: boolean) => void
   onCreateList?: (name: string, bookmarkIds?: string[]) => Promise<string | null>
   onTogglePin?: (id: string, pin: boolean) => void
+  /** Persist a hand-edited title. Absent → the title is not clickable. */
+  onTitleUpdate?: (id: string, title: string) => void
   // utm_campaign for the visit link's click-out attribution (curator username).
   utmCampaign?: string | null
 }
@@ -63,6 +72,11 @@ function timeAgo(iso: string | null): string {
   return `${Math.floor(days / 365)} years ago`
 }
 
+// One list row: 48px, hairline border, 12px Mier with the +5% tracking the
+// design's small type carries everywhere.
+const rowClass =
+  'flex h-12 w-full shrink-0 items-center justify-between gap-3 rounded-[9px] border border-[#E0E0E0] bg-white px-[15px] text-xs font-medium tracking-[0.05em] text-black'
+
 export function BulletDetail({
   bullet,
   lists = [],
@@ -72,6 +86,7 @@ export function BulletDetail({
   onToggleListMembership,
   onCreateList,
   onTogglePin,
+  onTitleUpdate,
   utmCampaign,
 }: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -83,19 +98,40 @@ export function BulletDetail({
   const [imgMsg, setImgMsg] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const [newListName, setNewListName] = useState('')
+  // Title editing. The override sticks locally after a save so the heading
+  // updates instantly, without waiting for the parent's data to come round.
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
+  const [titleOverride, setTitleOverride] = useState<string | null>(null)
   // Names typed and sent, not yet confirmed. Pressing enter used to await the
   // whole round trip before so much as clearing the input, so the text just sat
   // there and nothing moved — no way to tell if it had worked, or whether to
   // press it again.
   const [pendingLists, setPendingLists] = useState<string[]>([])
   // A name stops counting as pending the instant the real list appears in
-  // `lists`, so the placeholder and the finished chip never overlap for a frame
+  // `lists`, so the placeholder and the finished row never overlap for a frame
   // in the window between the parent's state landing and the await resolving.
   const pendingNames = pendingLists.filter((n) => !lists.some((l) => l.name === n))
 
   const domain = getDomain(bullet.url)
+  const outbound = withBulletinUtm(bullet.url, utmCampaign)
+  // Same `Brand — what it is` normalization the card renders, so the modal
+  // never shows a rawer title than the card that opened it.
+  const displayTitle =
+    titleOverride ??
+    formatCardTitle({ title: bullet.title, description: bullet.description, url: bullet.url })
   // The owner's picture wins here for the same reason it wins on the card.
   const preview = (!imgError && (custom || bullet.screenshot_url || bullet.image_url)) || null
+
+  // Member lists lead, other lists trail as click-to-add rows.
+  const memberLists = lists.filter((l) => l.bookmark_ids.includes(bullet.id))
+  const otherLists = lists.filter((l) => !l.bookmark_ids.includes(bullet.id))
+  // Typeahead under the black row: lists whose name matches what's being
+  // typed, offered as "Add to this List" before creating a duplicate.
+  const query = newListName.trim().toLowerCase()
+  const matches = query
+    ? otherLists.filter((l) => l.name.toLowerCase().includes(query)).slice(0, 2)
+    : []
 
   const uploadImage = async (file: File) => {
     setImgMsg(null)
@@ -138,17 +174,51 @@ export function BulletDetail({
     }
   }
 
+  const createList = async () => {
+    const name = newListName.trim()
+    if (!name || !onCreateList) return
+    // Clear and show the pending row BEFORE awaiting, so the press has a
+    // visible consequence immediately.
+    setNewListName('')
+    setPendingLists((p) => [...p, name])
+    try {
+      // A null id means the create failed. Hand the typing back rather than
+      // swallowing it — retyping a list name because the network blipped is
+      // worse than seeing it reappear.
+      const id = await onCreateList(name, [bullet.id])
+      if (!id) setNewListName(name)
+    } catch {
+      setNewListName(name)
+    } finally {
+      setPendingLists((p) => p.filter((n) => n !== name))
+    }
+  }
+
+  const saveTitle = () => {
+    setEditingTitle(false)
+    const clean = titleDraft.trim()
+    if (!clean || clean === displayTitle || !onTitleUpdate) return
+    setTitleOverride(clean)
+    onTitleUpdate(bullet.id, clean)
+  }
+
   // Reset local state when switching to a different bullet.
   useEffect(() => {
     setConfirmingDelete(false)
     setImgError(false)
     setCustom(bullet.customImage ?? null)
     setImgMsg(null)
+    setEditingTitle(false)
+    setTitleOverride(null)
   }, [bullet.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Escape closes; lock body scroll while open.
+  // Escape closes; lock body scroll while open. Escape from inside an input
+  // (title edit, the new-list row) belongs to that input — it cancels the
+  // edit, not the whole modal.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return
       if (e.key === 'Escape') onClose()
     }
     document.addEventListener('keydown', onKey)
@@ -162,227 +232,295 @@ export function BulletDetail({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/40 backdrop-blur-sm p-4 sm:p-8"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-[#C6C6C6]/60 p-4 sm:p-8"
       onClick={onClose}
     >
       <div
-        className="relative flex w-full max-w-5xl max-h-[88vh] flex-col overflow-hidden rounded-xl border border-black/10 bg-paper shadow-2xl md:flex-row"
+        className="relative flex max-h-[88vh] w-full max-w-[1048px] flex-col overflow-hidden rounded-[20px] border border-[#E7E7E7] bg-white md:h-[672px] md:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Close */}
-        <button
-          onClick={onClose}
-          aria-label="close"
-          className="absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-paper/80 text-black/45 hover:text-ink hover:bg-paper transition-colors"
-        >
-          ✕
-        </button>
+        {/* Left — the image floating on white inside fixed insets: 60 top, 40
+            sides, with the chip zone reserved below. The panel is the constant;
+            the image takes its natural aspect inside it — full width, height by
+            aspect, capped and cropped only when taller than the well. */}
+        <div className="relative w-full md:w-1/2">
+          {/* Always anchored to the well's top-left — a short image leaves
+              white below it, never a gap above. */}
+          <div className="flex items-start justify-start px-10 pt-[60px] pb-[90px] md:absolute md:inset-x-10 md:top-[60px] md:bottom-[90px] md:p-0">
+            <div className="group relative w-full max-h-full overflow-hidden rounded-[20px] bg-[#F1F1F1]">
+              {preview ? (
+                <img
+                  src={preview}
+                  alt={displayTitle}
+                  className="max-h-[456px] w-full object-cover md:max-h-[522px]"
+                  onError={() => setImgError(true)}
+                />
+              ) : (
+                <div className="flex aspect-[4/3] w-full items-center justify-center">
+                  <GemGlyph className="h-12 w-12 text-black/20" />
+                </div>
+              )}
+              {/* Foot-fade into the panel white. */}
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-b from-white/0 to-white" />
 
-        {/* Left — preview */}
-        <div className="relative flex w-full items-center justify-center bg-card md:w-[58%]">
-          {preview ? (
-            <img
-              src={preview}
-              alt={bullet.title || domain}
-              className="h-56 w-full object-cover md:h-full md:max-h-[88vh]"
-              onError={() => setImgError(true)}
-            />
-          ) : (
-            <div className="flex h-56 w-full items-center justify-center md:h-full">
-              <GemGlyph className="h-12 w-12 text-ink/20" />
+              {/* Use your own picture — revealed on hover over the image. The
+                  card's image is normally chosen for it (og:image or
+                  screenshot) and this is the escape hatch for when both are
+                  wrong: a Maps link whose capture is Google's bot wall, a shop
+                  whose og is a bare wordmark. */}
+              <div className="absolute bottom-4 right-4 flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                {custom && (
+                  <button
+                    onClick={resetImage}
+                    disabled={imgBusy !== null}
+                    className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-medium tracking-[0.05em] text-black/60 transition-colors hover:text-black disabled:opacity-50"
+                  >
+                    {imgBusy === 'reset' ? 'Undoing…' : 'Use original'}
+                  </button>
+                )}
+                <label
+                  title={custom ? 'Replace image' : 'Use your own image'}
+                  className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/90 text-black/70 shadow-sm transition-colors hover:text-black"
+                >
+                  {imgBusy === 'upload' ? (
+                    <span className="h-3 w-3 animate-pulse rounded-full bg-black/40" aria-hidden />
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <rect x="3" y="3" width="18" height="18" rx="3" />
+                      <circle cx="9" cy="9" r="2" />
+                      <path d="m21 15-4.5-4.5L5 22" />
+                    </svg>
+                  )}
+                  <span className="sr-only">{custom ? 'Replace image' : 'Use your own image'}</span>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={imgBusy !== null}
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (f) uploadImage(f)
+                    }}
+                  />
+                </label>
+              </div>
             </div>
-          )}
-          {/* Use your own picture. The card's image is normally chosen for it —
-              og:image or screenshot — and this is the escape hatch for when both
-              are wrong: a Maps link whose capture is Google's bot wall, a shop
-              whose og is a bare wordmark. Sits opposite the visit pill so the
-              two actions on this pane don't crowd each other. */}
-          <div className="absolute bottom-4 right-4 flex items-center gap-2">
-            {custom && (
-              <button
-                onClick={resetImage}
-                disabled={imgBusy !== null}
-                className="rounded-full bg-paper/90 px-3 py-1.5 text-xs font-medium text-black/55 transition-colors hover:text-ink disabled:opacity-50"
-              >
-                {imgBusy === 'reset' ? 'Undoing…' : 'Use original'}
-              </button>
-            )}
-            <label className="cursor-pointer rounded-full bg-paper/90 px-3 py-1.5 text-xs font-medium text-black/70 transition-colors hover:text-ink">
-              {imgBusy === 'upload' ? 'Uploading…' : custom ? 'Replace image' : 'Use your own image'}
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={imgBusy !== null}
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) uploadImage(f)
-                }}
-              />
-            </label>
           </div>
 
+          {/* Link out — the black chip lives at the pane's bottom-left corner,
+              fixed there whatever size the image runs. Hover unfolds the
+              domain out of the pill. */}
+          <a
+            href={outbound}
+            target="_blank"
+            rel="noopener"
+            aria-label={`visit ${domain}`}
+            className="group/chip absolute bottom-[30px] left-[30px] flex h-[30px] min-w-[33px] items-center justify-center gap-1 rounded-[10px] bg-black px-2 text-white transition-all"
+          >
+            <span className="max-w-0 overflow-hidden whitespace-nowrap text-xs font-medium tracking-[0.05em] transition-[max-width] duration-200 group-hover/chip:max-w-[220px] group-hover/chip:pl-1">
+              {domain}
+            </span>
+            {/* The glyph's ink sits above the baseline while its box reserves
+                descender space below — dead-center box = optically high arrow.
+                The nudge re-centers the ink, not the box. */}
+            <span aria-hidden className="translate-y-[2px] text-sm leading-none">↗</span>
+          </a>
+
           {imgMsg && (
-            <p className="absolute bottom-14 right-4 max-w-[240px] rounded-md bg-paper/95 px-2 py-1 text-right text-xs text-[#a31f34]">
+            <p className="absolute bottom-[30px] left-[75px] max-w-[280px] rounded-md bg-white/95 px-2 py-1 text-xs text-[#a31f34]">
               {imgMsg}
             </p>
           )}
-
-          <a
-            href={withBulletinUtm(bullet.url, utmCampaign)}
-            target="_blank"
-            rel="noopener"
-            className="absolute bottom-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-paper hover:bg-ink/85 transition-colors"
-          >
-            {bullet.favicon_url && (
-              <img src={bullet.favicon_url} alt="" className="h-3.5 w-3.5 rounded-sm" />
-            )}
-            visit {domain}
-            <span aria-hidden>↗</span>
-          </a>
         </div>
 
-        {/* Right — meta */}
-        <div className="flex w-full flex-col overflow-y-auto p-6 md:w-[42%]">
-          <h2 className="font-sans text-xl font-normal leading-snug tracking-tight text-ink">
-            {bullet.title || domain}
-          </h2>
-          <p className="mt-1.5 text-xs uppercase tracking-[0.13em] text-black/45">
-            {timeAgo(bullet.created_at)}
-            {bullet.created_at && ' · '}
-            {domain}
-          </p>
+        {/* Right — title, then lists as the main event. Hairline divider
+            between the panes. */}
+        <div className="flex min-h-0 w-full flex-col border-t border-[#EDEDED] p-6 md:w-1/2 md:border-l md:border-t-0 md:p-10 md:pt-[60px]">
+          <div className="flex items-start justify-between gap-6">
+            {editingTitle ? (
+              <input
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={saveTitle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveTitle()
+                  if (e.key === 'Escape') setEditingTitle(false)
+                }}
+                autoFocus
+                className="w-full bg-transparent font-sans text-xl font-semibold leading-6 text-black focus:outline-none"
+              />
+            ) : (
+              <h2
+                onClick={
+                  onTitleUpdate
+                    ? () => {
+                        setTitleDraft(displayTitle)
+                        setEditingTitle(true)
+                      }
+                    : undefined
+                }
+                title={onTitleUpdate ? 'Click to edit' : undefined}
+                className={`font-sans text-xl font-semibold leading-6 text-black ${
+                  onTitleUpdate ? 'cursor-text decoration-black/20 hover:underline hover:underline-offset-4' : ''
+                }`}
+              >
+                {displayTitle}
+              </h2>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="close"
+              className="text-xs font-medium tracking-[0.05em] text-black transition-opacity hover:opacity-50"
+            >
+              ✕
+            </button>
+          </div>
+          <a
+            href={outbound}
+            target="_blank"
+            rel="noopener"
+            className="mt-2.5 self-start text-xs font-medium tracking-[0.05em] text-black hover:underline"
+          >
+            {domain} <span aria-hidden>→</span>
+          </a>
 
           {/* Lists */}
           {onToggleListMembership && (
-            <div className="mt-6">
-              <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-black/40">
-                lists
+            <div className="mt-auto flex min-h-0 flex-col pt-8">
+              <p className="mb-3 text-xs font-medium tracking-[0.05em] text-black">
+                Saved in these lists:
               </p>
-              {(lists.length > 0 || pendingNames.length > 0) && (
-                <div className="flex flex-wrap gap-1.5" aria-live="polite">
-                  {lists.map((l) => {
-                    const inList = l.bookmark_ids.includes(bullet.id)
-                    return (
-                      <button
-                        key={l.id}
-                        onClick={() => onToggleListMembership(l.id, bullet.id, !inList)}
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs transition-colors ${
-                          inList
-                            ? 'bg-ink text-paper'
-                            : 'border border-black/10 bg-white text-ink hover:border-ink/40'
-                        }`}
-                      >
-                        {inList && <span aria-hidden>✓</span>}
-                        {l.name}
-                      </button>
-                    )
-                  })}
-                  {/* The chip you are about to get, in the slot it will occupy,
-                      greyed until the server agrees. Carries the name rather
-                      than being a blank placeholder — it confirms what was
-                      typed, which is the actual question in the moment. */}
-                  {pendingNames.map((name) => (
-                    <span
-                      key={name}
-                      className="inline-flex animate-pulse items-center gap-1 rounded-full border border-black/10 bg-black/[0.04] px-2.5 py-1 text-xs text-black/40"
+              {/* Past three rows this scrolls, thin black thumb per the frame. */}
+              <div
+                className="relative flex max-h-[164px] flex-col gap-2.5 overflow-y-auto [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-black"
+                aria-live="polite"
+              >
+                {memberLists.map((l) => (
+                  <div key={l.id} className={rowClass}>
+                    <span className="truncate">{l.name}</span>
+                    <button
+                      onClick={() => onToggleListMembership(l.id, bullet.id, false)}
+                      aria-label={`remove from ${l.name}`}
+                      className="shrink-0 transition-opacity hover:opacity-50"
                     >
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              )}
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {/* The row you are about to get, in the slot it will occupy,
+                    greyed until the server agrees. Carries the name rather
+                    than being blank — it confirms what was typed, which is
+                    the actual question in the moment. */}
+                {pendingNames.map((name) => (
+                  <div key={name} className={`${rowClass} animate-pulse border-black/10 text-black/40`}>
+                    <span className="truncate">{name}</span>
+                  </div>
+                ))}
+                {/* Lists this bullet isn't in yet — clicking adds, no label
+                    needed; the missing ✕ is what marks them as not-yet. */}
+                {otherLists.map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => onToggleListMembership(l.id, bullet.id, true)}
+                    className={`${rowClass} text-left transition-colors hover:border-black/40`}
+                  >
+                    <span className="truncate">{l.name}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* New list — the black row is a typeahead: matching lists
+                  surface below it as "Add to this List" before a duplicate
+                  gets created; enter (or the button) makes a new one. */}
               {onCreateList && (
-                <input
-                  value={newListName}
-                  onChange={(e) => setNewListName(e.target.value)}
-                  onKeyDown={async (e) => {
-                    if (e.key !== 'Enter') return
-                    const name = newListName.trim()
-                    if (!name) return
-                    // Clear and show the pending chip BEFORE awaiting, so the
-                    // press has a visible consequence immediately.
-                    setNewListName('')
-                    setPendingLists((p) => [...p, name])
-                    try {
-                      // A null id means the create failed. Hand the typing back
-                      // rather than swallowing it — retyping a list name because
-                      // the network blipped is worse than seeing it reappear.
-                      const id = await onCreateList(name, [bullet.id])
-                      if (!id) setNewListName(name)
-                    } catch {
-                      setNewListName(name)
-                    } finally {
-                      setPendingLists((p) => p.filter((n) => n !== name))
-                    }
-                  }}
-                  placeholder="+ new list (press enter)"
-                  className="mt-2 w-full rounded-lg border border-black/10 bg-white px-3 py-2 text-sm focus:border-ink/50 focus:outline-none"
-                />
+                <>
+                  <div className="mt-2.5 flex h-12 w-full shrink-0 items-center justify-between gap-2.5 rounded-[9px] bg-black px-[15px]">
+                    <input
+                      value={newListName}
+                      onChange={(e) => setNewListName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') createList()
+                      }}
+                      placeholder="Or, add to new list"
+                      className="w-full bg-transparent text-xs font-medium tracking-[0.05em] text-white placeholder:text-white focus:outline-none"
+                    />
+                    <button
+                      onClick={createList}
+                      aria-label="create list"
+                      className="shrink-0 whitespace-nowrap text-xs font-medium tracking-[0.05em] text-white transition-opacity hover:opacity-60"
+                    >
+                      {query ? (
+                        <>
+                          Create New List <span aria-hidden>→</span>
+                        </>
+                      ) : (
+                        <span aria-hidden>→</span>
+                      )}
+                    </button>
+                  </div>
+                  {matches.map((l) => (
+                    <button
+                      key={l.id}
+                      onClick={() => {
+                        onToggleListMembership?.(l.id, bullet.id, true)
+                        setNewListName('')
+                      }}
+                      className={`${rowClass} mt-2.5 text-left transition-colors hover:border-black/40`}
+                    >
+                      <span className="truncate">{l.name}</span>
+                      <span className="shrink-0 text-black/60">Add to this List</span>
+                    </button>
+                  ))}
+                </>
               )}
             </div>
           )}
 
-          {/* Actions */}
-          <div className="mt-auto flex items-center justify-between pt-6">
-            {/* Pin to the top of the profile. The parent owns the state (the
-                grid resorts optimistically), so this just reads bullet.pinned_at
-                and asks for the opposite. */}
-            {onTogglePin && (
-              <button
-                onClick={() => onTogglePin(bullet.id, !bullet.pinned_at)}
-                className={`inline-flex items-center gap-1.5 text-sm transition-colors ${
-                  bullet.pinned_at ? 'text-ink hover:text-black/45' : 'text-black/45 hover:text-ink'
-                }`}
-              >
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill={bullet.pinned_at ? 'currentColor' : 'none'}
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden
-                >
-                  <path d="M9 3h6l-1 7 3 2.5V15H7v-2.5L10 10 9 3z" />
-                  <path d="M12 15v6" />
-                </svg>
-                {bullet.pinned_at ? 'pinned to top — unpin' : 'pin to top'}
-              </button>
-            )}
-            {confirmingDelete ? (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-black/45">delete this bullet?</span>
+          {/* Foot — pin and delete as quiet underlined links, the saved-date
+              tucked opposite. */}
+          <div className="flex items-center justify-between gap-4 pt-6 text-xs font-medium tracking-[0.05em] text-black">
+            <span className="flex items-center gap-[30px]">
+              {onTogglePin && (
                 <button
-                  onClick={() => {
-                    onDelete(bullet.id)
-                    onClose()
-                  }}
-                  className="rounded-full bg-red-600 px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+                  onClick={() => onTogglePin(bullet.id, !bullet.pinned_at)}
+                  className="underline underline-offset-2 transition-opacity hover:opacity-50"
                 >
-                  delete
+                  {bullet.pinned_at ? 'Unpin Bullet' : 'Pin Bullet'}
                 </button>
+              )}
+              {confirmingDelete ? (
+                <span className="flex items-center gap-2.5">
+                  <span className="text-black/45">Delete this bullet?</span>
+                  <button
+                    onClick={() => {
+                      onDelete(bullet.id)
+                      onClose()
+                    }}
+                    className="underline underline-offset-2 text-[#a31f34] transition-opacity hover:opacity-60"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setConfirmingDelete(false)}
+                    className="text-black/45 transition-opacity hover:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
                 <button
-                  onClick={() => setConfirmingDelete(false)}
-                  className="text-xs text-black/45 hover:text-ink"
+                  onClick={() => setConfirmingDelete(true)}
+                  className="underline underline-offset-2 transition-opacity hover:opacity-50"
                 >
-                  cancel
+                  Delete Bullet
                 </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => setConfirmingDelete(true)}
-                className="inline-flex items-center gap-1.5 text-sm text-black/45 hover:text-red-600 transition-colors"
-              >
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                  <path d="M3 6h18" />
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                </svg>
-                delete
-              </button>
+              )}
+            </span>
+            {bullet.created_at && (
+              <span className="shrink-0 font-normal text-black/30">
+                Saved {timeAgo(bullet.created_at)}
+              </span>
             )}
           </div>
         </div>
