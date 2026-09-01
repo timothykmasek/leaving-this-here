@@ -23,7 +23,7 @@ import { CopyTagline } from '@/components/CopyTagline'
 const LIST_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 const BULLET_COLS =
-  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
+  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, image_pref, is_private, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
 
 export default async function ListPage({
   params,

@@ -217,12 +217,17 @@ interface PrimaryCardProps {
   // utm_campaign for click-out attribution — the curator's username on profile
   // and list pages. Base utm_source/medium are appended either way.
   utmCampaign?: string | null
+  // Owner view of a secret bullet: a small lock chip so the owner can tell at a
+  // glance what visitors don't see. Callers pass it only for the owner — a
+  // visitor never receives private rows in the first place (RLS, migration 026).
+  privateMark?: boolean
 }
 
 export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
   cardType, imagePref, place: placeProp, product: productProp,
   customImage: customImageProp, listName, listHref, onOpen, utmCampaign,
+  privateMark,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const outboundUrl = withBulletinUtm(url, utmCampaign)
@@ -580,6 +585,31 @@ export const PrimaryCard = memo(function PrimaryCard({
               <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
           </button>
+        )}
+
+        {privateMark && (
+          // Secret bullet, owner view. Always visible (it's information, not a
+          // control) and top-RIGHT — the pencil owns top-left, the tag corner
+          // (price/rating/mark) owns bottom-left, disc/mic own bottom-right.
+          <span
+            aria-label="secret — only you can see this"
+            title="Secret — only you can see this"
+            className="absolute right-3 top-3 z-[2] flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm"
+          >
+            <svg
+              aria-hidden
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-3 w-3"
+            >
+              <rect x="5" y="11" width="14" height="9" rx="2" />
+              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+            </svg>
+          </span>
         )}
         </div>
 

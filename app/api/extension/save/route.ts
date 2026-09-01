@@ -111,7 +111,7 @@ function persistRemoteImage(bookmarkId: string, imageUrl: string | null | undefi
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, PATCH, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, content-type',
   'Access-Control-Max-Age': '86400',
 }
@@ -122,6 +122,50 @@ function json(body: unknown, status = 200) {
 
 export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
+// PATCH — flip a saved bullet's visibility (the popup's globe/lock toggle).
+// { bookmark_id, is_private } → { ok }. Token-scoped client, so RLS's
+// owner-only write policy is the authorization; a non-owner's update matches
+// zero rows and we report that rather than pretend it stuck.
+export async function PATCH(request: NextRequest) {
+  const authHeader = request.headers.get('authorization') || ''
+  const token = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : ''
+  if (!token) return json({ error: 'missing bearer token' }, 401)
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    }
+  )
+  const { data: { user }, error: userErr } = await supabase.auth.getUser(token)
+  if (userErr || !user) return json({ error: 'invalid or expired token' }, 401)
+
+  let body: any
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid json body' }, 400)
+  }
+  const bookmarkId = typeof body.bookmark_id === 'string' ? body.bookmark_id : null
+  if (!bookmarkId || typeof body.is_private !== 'boolean') {
+    return json({ error: 'bookmark_id and is_private required' }, 400)
+  }
+
+  const { data, error } = await supabase
+    .from('bookmarks')
+    .update({ is_private: body.is_private })
+    .eq('id', bookmarkId)
+    .eq('user_id', user.id)
+    .select('id')
+  if (error) return json({ error: error.message }, 400)
+  if (!data || data.length === 0) return json({ error: 'bookmark not found' }, 404)
+  return json({ ok: true })
 }
 
 export async function POST(request: NextRequest) {

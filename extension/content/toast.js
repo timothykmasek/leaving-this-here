@@ -1,202 +1,318 @@
-// On-page "Saved to your Bulletin" toast — injected into the active tab by the
-// background worker. Two stacked cards (design_handoff_save_to_bulletin):
-//   1. Confirmation card — a vertical loading bar + "Saving to your Bulletin…",
-//      flipping to a radio indicator + "Saved to your Bulletin" when the save
-//      lands.
-//   2. List card — mounts after the save, already open. No search field, no
-//      chevron, no colored dots: every option is just there. Lists we suggest
-//      for this page (tap to create + file), the user's existing lists (tap to
-//      file), and a persistent create row at the bottom.
+// On-page save card — injected into the active tab by the background worker.
+// The WHOLE save experience lives here now, mymind-style (Tim, 2026-09-01):
+// clicking the toolbar icon saves immediately and this floating rounded card
+// top-right is what you watch, not a popup.
 //
-// Design principle: saving is already complete; the list card is a low-friction
-// offer, never a requirement. The palette is deliberately neutral — quietness is
-// the point, so nothing here competes with the page underneath.
+// Three states, one-frame transitions between them:
+//   1. Saving — a compact grey bar: "Saving to Bulletin" + a breathing dot.
+//   2. Saved  — revealed ONLY once the save AND the ranked lists are both in
+//      hand, in one motion: title flips, the dot dissolves into the
+//      public/secret pill, the status line fades in, and the list picker
+//      (dot-grid ground, ≤3 rows visible, Create List hugging beneath)
+//      expands below. No intermediate "saved but empty" beat.
+//   3. Create List — slides in from the right at the same height: name field,
+//      "Make this list secret" toggle, the app's rounded-lg CTA.
 //
-// Injected via chrome.scripting.executeScript({ files: [...] }) so it runs as a
-// content script in the isolated world: it can use chrome.runtime messaging but
-// the page's own scripts can't see it. All UI lives in a shadow root so the
+// Dismissal: an idle timer after the reveal (paused while hovering or typing,
+// restarted by filing), Escape, or clicking anywhere outside the card.
+//
+// Injected via chrome.scripting.executeScript({ files: [...] }) so it runs as
+// a content script in the isolated world. All UI lives in a shadow root so the
 // host page's CSS never leaks in (or out).
 //
-// Protocol — background → toast (chrome.tabs.sendMessage):
+// Protocol — background → card (chrome.tabs.sendMessage):
 //   { type: 'ig-toast', state: 'saving' }
-//   { type: 'ig-toast', state: 'saved',     data: { id, title } }
+//   { type: 'ig-toast', state: 'saved',     data: { id, title, refreshed } }
 //   { type: 'ig-toast', state: 'duplicate', data: { id, title } }
 //   { type: 'ig-toast', state: 'signin' }
 //   { type: 'ig-toast', state: 'error',     data: { message } }
-// Protocol — toast → background (chrome.runtime.sendMessage):
-//   { type: 'ig-get-lists', bookmarkId? }             → { ok, lists, memberOf } | { error }
-//   { type: 'ig-suggest-lists', bookmarkId }          → { ok, names } | { error }
-//   { type: 'ig-create-list', name, bookmarkId }      → { ok, list, url } | { error }
-//   { type: 'ig-set-list', listId, bookmarkId, add }  → { ok } | { error }
+// Protocol — card → background (chrome.runtime.sendMessage):
+//   { type: 'ig-get-lists', bookmarkId }                   → { ok, lists, memberOf }
+//   { type: 'ig-create-list', name, bookmarkId, isPrivate } → { ok, list, url }
+//   { type: 'ig-set-list', listId, bookmarkId, add }        → { ok }
+//   { type: 'ig-set-visibility', bookmarkId, isPrivate }    → { ok }
 
 ;(() => {
-  // Guard against double-injection: reuse the existing controller if the user
-  // clicks again on the same page.
   if (window.__igToast) {
     window.__igToast.reset()
     return
   }
 
-  // Idle window before the toast dismisses itself, counted down by the bar along
-  // the confirmation card's bottom edge. Longer than a bare confirmation would
-  // need because the list card is an open invitation to read and file — hovering
-  // or typing pauses it, and filing restarts it (see armBar).
-  //
-  // Must be fed to CSS as a real value: `animation: barLoad var(--dismiss)` with
-  // --dismiss undefined is invalid at computed-value time, which silently
-  // resolves animation-name to `none`. That's what used to happen here, and
-  // since animationend is what dismisses, the toast never went away at all.
+  // Idle window before the card dismisses itself once revealed. Hover/typing
+  // pause it; filing restarts it.
   const DISMISS_MS = 8000
+  // Backstop only: never sit on "Saving…" forever if the list fetch stalls.
+  const REVEAL_TIMEOUT_MS = 8000
 
-  // Self-hosted brand serif (declared in manifest web_accessible_resources).
-  // Substituted for the handoff's EB Garamond to keep the extension buildless.
-  const FONT_CARDO = chrome.runtime.getURL('fonts/Cardo-Regular.woff2')
-  const FONT_CARDO_BOLD = chrome.runtime.getURL('fonts/Cardo-Bold.woff2')
+  // Brand fonts, same cuts as the web app (declared in web_accessible_resources).
+  const FONT_BOOK = chrome.runtime.getURL('fonts/MierA-Book.woff2')
+  const FONT_REGULAR = chrome.runtime.getURL('fonts/MierA-Regular.woff2')
 
   const host = document.createElement('div')
   host.id = 'internet-gems-toast-host'
-  // `all:initial` MUST come first — it resets every property, so the positioning
-  // after it survives. Put it last and it wipes out position:fixed.
+  // `all:initial` MUST come first — it resets every property, so the
+  // positioning after it survives.
   host.style.cssText =
     'all:initial;position:fixed;top:26px;right:26px;z-index:2147483647;'
   const root = host.attachShadow({ mode: 'open' })
 
   root.innerHTML = `
     <style>
-      @font-face { font-family:'Cardo'; src:url('${FONT_CARDO}') format('woff2'); font-weight:400; font-display:swap; }
-      @font-face { font-family:'Cardo'; src:url('${FONT_CARDO_BOLD}') format('woff2'); font-weight:700; font-display:swap; }
+      @font-face { font-family:'Mier A'; src:url('${FONT_BOOK}') format('woff2'); font-weight:400; font-display:swap; }
+      @font-face { font-family:'Mier A'; src:url('${FONT_REGULAR}') format('woff2'); font-weight:500; font-display:swap; }
       :host { all: initial; }
       * { box-sizing: border-box; }
       ::selection { background: #e4e2de; }
 
-      @keyframes toastIn { from { opacity:0; transform:translateY(8px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
-      @keyframes fadeUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-      /* Round 1 — indeterminate: a segment sweeping the card's width while the
-         save is in flight. We can't know how long that takes, so it loops.
-         Travels exactly edge to edge (-34% is fully off-left, 100% fully
-         off-right) and LINEAR on purpose: ease-in-out lingers at both ends,
-         which here are off-card, so the segment would park out of sight and
-         blink across the middle. */
-      @keyframes barSweep { from { left:-34%; } to { left:100%; } }
-      /* Round 2 — determinate: fills 0→100% over the pick-a-list window. */
-      @keyframes barLoad { from { width:0%; } to { width:100%; } }
-
-      .wrap {
-        width: 320px; display: flex; flex-direction: column; gap: 11px;
-        font-family: 'Cardo', 'EB Garamond', Georgia, serif;
+      @keyframes cardIn { from { opacity:0; transform:translateY(8px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
+      @keyframes breathe {
+        0%, 100% { transform: scale(1); opacity: 0.55; }
+        50%      { transform: scale(1.3); opacity: 1; }
       }
 
-      .card { background:#fff; border-radius:15px; box-shadow:0 12px 30px rgba(20,18,14,0.20); }
-      .conf {
-        position: relative; overflow: hidden; padding:15px 17px;
-        animation: toastIn 300ms cubic-bezier(0.2,0.8,0.2,1) both;
+      .card {
+        width: 340px;
+        font-family: 'Mier A', system-ui, sans-serif;
+        background: #fff;
+        border-radius: 20px;
+        box-shadow: 0 12px 30px rgba(20,18,14,0.22);
+        overflow: hidden;
+        animation: cardIn 300ms cubic-bezier(0.2,0.8,0.2,1) both;
       }
-
-      /* One bar along the BOTTOM edge of the confirmation card, running two
-         rounds back to back: it sweeps while the link saves, then counts down
-         the window to pick a list. The countdown's animationend is the single
-         source of truth for dismissal, so the countdown a user sees is exactly
-         the countdown that fires, and pausing the bar pauses the dismiss for
-         free. The sweep loops forever, so it can never fire animationend. */
-      .bar { position:absolute; left:0; bottom:0; height:3px; }
-      .bar[hidden] { display:none; }
-      .bar.sweep { width:34%; background:#b4b0aa; animation: barSweep 1.15s linear infinite; }
-      .bar.load  { width:0;   background:#cbc9c3; animation: barLoad var(--dismiss) linear both; }
-      .lists { overflow:hidden; padding-top:6px; animation: fadeUp .3s ease both; }
-      .lists[hidden] { display:none; }
-
-      /* ── confirmation card ── */
-      /* The indicator keeps its 30px slot in every state, so the copy never
-         shifts sideways when the save lands — the ring just gains its dot. */
-      .conf-row { display:flex; align-items:center; gap:13px; }
-
-      .radio { flex:none; width:30px; height:30px; border-radius:50%; background:#ececec; display:flex; align-items:center; justify-content:center; }
-      .radio .dot { width:12px; height:12px; border-radius:50%; background:#9a9a9a; }
-      .radio .warn { font-size:15px; line-height:1; color:#8a857c; }
-
-      .conf-text { font-size:19px; color:#1c1c1c; line-height:1.25; }
-      .conf-row.saving .conf-text { font-size:18px; color:#8a857c; }
-      .conf-sub { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:11px; color:#b0b0b0; line-height:1.45; padding:8px 0 0 43px; }
-      .conf-sub[hidden] { display:none; }
-
-      /* ── list card ── */
-      .group[hidden] { display:none; }
-      .label {
-        font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-        font-size:9px; letter-spacing:1.5px; color:#b0b0b0;
-        padding:9px 17px 3px; text-transform:uppercase;
+      .screens { position: relative; overflow: hidden; }
+      .screen-main {
+        display: flex; flex-direction: column; min-height: 0;
+        transition: transform 300ms cubic-bezier(0.2,0.8,0.2,1),
+                    min-height 300ms cubic-bezier(0.2,0.8,0.2,1);
       }
-      .divider { height:1px; background:#efefef; }
-      .divider[hidden] { display:none; }
+      .screens.show-create .screen-main { transform: translateX(-18%); min-height: 320px; }
+      .screen-create {
+        position: absolute; inset: 0;
+        display: flex; flex-direction: column;
+        background: #fff;
+        transform: translateX(100%);
+        transition: transform 300ms cubic-bezier(0.2,0.8,0.2,1);
+        visibility: hidden;
+      }
+      .screens.show-create .screen-create { transform: translateX(0); visibility: visible; }
 
-      .lrow { display:flex; align-items:center; gap:10px; padding:9px 17px; cursor:pointer; }
-      .lrow:hover { background:#faf7f4; }
-      .lrow .lname { flex:1; font-size:16px; color:#1c1c1c; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-      .lrow .lcheck { flex:none; width:16px; height:16px; color:#3a3a3a; display:flex; }
-      .lrow .lnew {
-        flex:none; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-        font-size:8px; letter-spacing:1px; color:#9a9a9a;
-        border:1px solid #dcdcdc; border-radius:4px; padding:2px 5px;
-      }
-      /* One-way expander that opens the rest of Your lists in place. */
-      .lmore { display:flex; align-items:center; gap:10px; padding:8px 17px 4px; cursor:pointer; color:#a4a49c; }
-      .lmore:hover { background:#faf7f4; }
-      .lmore[hidden] { display:none; }
-      .lmore .plus { font-size:16px; color:#a4a49c; }
-      .lmore .lmore-label { font-size:13px; }
+      /* ── header band ── */
+      .phead { flex: none; background: #f0f0f0; padding: 20px 22px 18px; }
+      .phead-top { display: flex; align-items: center; justify-content: space-between; min-height: 25px; }
+      .ptitle { margin: 0; font-weight: 400; font-size: 18px; line-height: 24px; color: #000; }
 
-      /* ── create row: a button that swaps into an inline input ── */
-      .create { background:#faf8f6; }
-      .create-btn { display:flex; align-items:center; gap:10px; padding:11px 17px; cursor:pointer; }
-      .create-row { display:flex; align-items:center; gap:10px; padding:9px 17px; }
-      .create-btn[hidden], .create-row[hidden] { display:none; }
-      .plus { flex:none; font-size:19px; line-height:1; color:#9a9a9a; }
-      .create-btn .clabel { font-size:16px; color:#1c1c1c; }
-      .create-input {
-        flex:1; min-width:0; border:none; outline:none; background:transparent;
-        font-family:'Cardo','EB Garamond',Georgia,serif; font-size:16px; color:#1c1c1c;
+      /* Top-right slot: breathing dot while saving → the pill once saved. */
+      .hslot { position: relative; flex: none; width: 50px; height: 25px; }
+      .hslot.off { visibility: hidden; }
+      .breath {
+        position: absolute; top: 4px; right: 0;
+        width: 17px; height: 17px; border-radius: 50%;
+        background: #d9d9d9;
+        animation: breathe 1.5s ease-in-out infinite;
+        transition: opacity 200ms ease;
       }
-      .create-input::placeholder { color:#b6b6b6; }
-      .ckey {
-        flex:none; font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
-        font-size:9px; letter-spacing:1px; color:#9a9a9a;
-        border:1px solid #dcdcdc; border-radius:6px; padding:3px 7px; cursor:pointer;
+      .revealed .breath { opacity: 0; animation-play-state: paused; }
+
+      .vis {
+        position: absolute; inset: 0;
+        display: flex; align-items: center;
+        padding: 2px; border: none; border-radius: 30px;
+        background: #e2e2e2; cursor: pointer;
+        opacity: 0; transform: scale(0.4); transform-origin: right center;
+        pointer-events: none;
+        transition: opacity 240ms ease, transform 280ms cubic-bezier(0.2,0.8,0.2,1);
       }
-      /* Darkens once the name is committable — the chip is the Enter affordance. */
-      .ckey.armed { color:#6b6b6b; border-color:#c4c4c4; }
+      .revealed .vis { opacity: 1; transform: scale(1); pointer-events: auto; }
+      .vis-thumb {
+        position: absolute; top: 2px; left: 2px;
+        width: 21px; height: 21px; border-radius: 50%;
+        background: #000;
+        transition: transform 220ms cubic-bezier(0.3,0.7,0.3,1.05);
+      }
+      .vis[aria-checked="true"] .vis-thumb { transform: translateX(25px); }
+      .vis-side {
+        position: relative; z-index: 1; flex: 1;
+        display: flex; align-items: center; justify-content: center;
+        height: 21px; color: #8a8a8a;
+        transition: color 200ms ease;
+      }
+      .vis-side svg { width: 13px; height: 13px; }
+      .vis[aria-checked="false"] .vis-side[data-side="public"],
+      .vis[aria-checked="true"] .vis-side[data-side="secret"] { color: #fff; }
+
+      /* Status line — folded away while saving, revealed with everything else. */
+      .pstatus {
+        display: flex; align-items: center; gap: 7px;
+        font-size: 12px; line-height: 16px; letter-spacing: 0.05em; color: #000;
+        max-height: 0; margin-top: 0; opacity: 0; transform: translateY(-3px);
+        overflow: hidden;
+        transition: opacity 260ms ease 80ms, transform 260ms ease 80ms,
+                    max-height 260ms ease, margin-top 260ms ease;
+      }
+      .pstatus.shown { max-height: 16px; margin-top: 13px; opacity: 1; transform: translateY(0); }
+      .pstatus.err .sword { font-weight: 500; }
+      .scheck { display: flex; color: #000; }
+      .scheck[hidden] { display: none; }
+      .scheck svg { width: 10px; height: 10px; }
+      .snote { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+      /* ── body: dot-grid ground, label + rows (≤3 visible) + create ── */
+      .pbody {
+        display: flex; flex-direction: column; min-height: 0;
+        background-image: radial-gradient(circle, #d9d9d9 1px, transparent 1px);
+        background-size: 32px 32px; background-position: 0 0;
+        max-height: 0; opacity: 0; overflow: hidden;
+        transition: max-height 360ms cubic-bezier(0.2,0.8,0.2,1), opacity 280ms ease 60ms;
+      }
+      .pbody.open { max-height: var(--body-h, 420px); opacity: 1; }
+      .slabel {
+        flex: none; padding: 16px 22px 10px;
+        font-size: 12px; line-height: 16px; letter-spacing: 0.05em; color: #000;
+      }
+      .rows { flex: none; max-height: 168px; overflow-y: auto; }
+      .rows::-webkit-scrollbar { width: 7px; }
+      .rows::-webkit-scrollbar-thumb {
+        background: #000; background-clip: padding-box;
+        border-left: 5px solid transparent; border-radius: 30px;
+      }
+      .lrow {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 0 22px; height: 56px;
+        border-bottom: 1px solid #f0f0f0; cursor: pointer;
+      }
+      .lrow:hover { background: rgba(0,0,0,0.02); }
+      .lname {
+        font-weight: 400; font-size: 15px; line-height: 22px; letter-spacing: 0.05em;
+        color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .dot {
+        flex: none; width: 17px; height: 17px; padding: 0;
+        border: none; border-radius: 50%; background: #d9d9d9;
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+      }
+      .dot::after {
+        content: ''; width: 9px; height: 9px; border-radius: 50%; background: #000;
+        transform: scale(0);
+        transition: transform 140ms cubic-bezier(0.3,0.7,0.3,1.2);
+      }
+      .lrow.on .dot::after, .dot[aria-checked="true"]::after { transform: scale(1); }
+      .rows-empty { padding: 4px 22px 0; font-size: 12px; letter-spacing: 0.05em; color: #8a8a8a; }
+
+      .create-open {
+        flex: none; padding: 16px 22px 20px;
+        border: none; background: none; text-align: left;
+        font-family: inherit; font-weight: 400; font-size: 15px; line-height: 22px;
+        letter-spacing: 0.05em; color: #000; cursor: pointer;
+      }
+      .create-open:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+      /* ── screen 2: create list ── */
+      .phead-sm { padding: 20px 22px 18px; }
+      .back {
+        display: flex; align-items: center; gap: 10px;
+        padding: 0; border: none; background: none; cursor: pointer;
+        color: #000; font-family: inherit;
+      }
+      .back svg { width: 18px; height: 18px; }
+      .back .ptitle { font-size: 18px; }
+      .cbody {
+        flex: 1; display: flex; flex-direction: column; min-height: 0;
+        padding: 20px 22px 22px;
+        background-image: radial-gradient(circle, #d9d9d9 1px, transparent 1px);
+        background-size: 32px 32px; background-position: 0 0;
+      }
+      .cfield {
+        flex: none; width: 100%; height: 46px; padding: 13px;
+        border: 1px solid #e0e0e0; border-radius: 9px; background: #fff;
+        font-family: inherit; font-weight: 400; font-size: 14px; line-height: 20px;
+        letter-spacing: 0.05em; color: #000; outline: none;
+      }
+      .cfield::placeholder { color: #9a9a9a; }
+      .cfield:focus { border-color: #000; }
+      .cspacer { flex: 1; min-height: 20px; }
+      .secret-row {
+        flex: none; display: flex; align-items: flex-start; justify-content: space-between;
+        gap: 12px; margin-bottom: 18px;
+      }
+      .secret-title { font-weight: 400; font-size: 15px; line-height: 22px; letter-spacing: 0.05em; color: #000; }
+      .secret-sub { margin-top: 2px; font-size: 12px; line-height: 16px; letter-spacing: 0.05em; color: #000; }
+      .secret-row .dot { margin-top: 3px; }
+      /* The app's CTA (design verdicts: rounded-lg, sentence case, gray-900). */
+      .cta {
+        flex: none; width: 100%; height: 40px;
+        border: none; border-radius: 8px; background: #111827;
+        font-family: inherit; font-weight: 500; font-size: 14px; line-height: 20px;
+        color: #fff; cursor: pointer;
+        transition: background 150ms ease;
+      }
+      .cta:hover { background: #1f2937; }
+      .cta:disabled { opacity: 0.5; cursor: default; }
     </style>
-    <div class="wrap" id="wrap" style="opacity:0">
-      <div class="card conf" id="conf">
-        <div class="bar" id="bar" hidden></div>
-        <div class="conf-row saving" id="confrow">
-          <span class="radio" id="ind"></span>
-          <div class="conf-text" id="msg">Saving to your Bulletin…</div>
-        </div>
-        <div class="conf-sub" id="sub" hidden></div>
-      </div>
 
-      <div class="card lists" id="lists" hidden>
-        <div class="group" id="group-yours" hidden>
-          <div class="label">Your lists</div>
-          <div id="rows-yours"></div>
-          <div class="lmore" id="yours-more" hidden><span class="plus">+</span><span class="lmore-label"></span></div>
-        </div>
-        <div class="group" id="group-suggested" hidden>
-          <div class="divider"></div>
-          <div class="label">Suggested new list</div>
-          <div id="rows-suggested"></div>
-        </div>
-        <div class="divider" id="div-create" hidden></div>
-        <div class="create">
-          <div class="create-btn" id="create-btn">
-            <span class="plus">+</span>
-            <span class="clabel">Create a new list</span>
+    <div class="card" id="card">
+      <div class="screens" id="screens">
+        <div class="screen-main" id="screen-main">
+          <header class="phead">
+            <div class="phead-top">
+              <h1 class="ptitle" id="ptitle">Saving to Bulletin</h1>
+              <div class="hslot" id="hslot">
+                <span class="breath"></span>
+                <button id="vis" class="vis" role="switch" aria-checked="false"
+                        aria-label="Make this save secret">
+                  <span class="vis-thumb"></span>
+                  <span class="vis-side" data-side="public">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="9"/>
+                      <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>
+                    </svg>
+                  </span>
+                  <span class="vis-side" data-side="secret">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="5" y="11" width="14" height="9" rx="2"/>
+                      <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+                    </svg>
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div class="pstatus" id="pstatus">
+              <span class="sword" id="sword">Saved</span>
+              <span class="scheck" id="scheck">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                     stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+              </span>
+              <span class="snote" id="snote"></span>
+            </div>
+          </header>
+
+          <div class="pbody" id="pbody">
+            <div class="slabel">Save to list</div>
+            <div class="rows" id="rows"></div>
+            <button class="create-open" id="btn-create">Create List</button>
           </div>
-          <div class="create-row" id="create-row" hidden>
-            <span class="plus">+</span>
-            <input class="create-input" id="create-input" placeholder="Name your list"
-                   autocomplete="off" spellcheck="false" />
-            <span class="ckey" id="ckey">ENTER</span>
+        </div>
+
+        <div class="screen-create" id="screen-create">
+          <header class="phead phead-sm">
+            <button class="back" id="btn-back" aria-label="Back">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
+                   stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+              <span class="ptitle">Create List</span>
+            </button>
+          </header>
+          <div class="cbody">
+            <input class="cfield" id="new-name" placeholder="List name"
+                   autocomplete="off" spellcheck="false" maxlength="80" />
+            <div class="cspacer"></div>
+            <div class="secret-row">
+              <div>
+                <div class="secret-title">Make this list secret</div>
+                <div class="secret-sub">Only you can see this list</div>
+              </div>
+              <button class="dot" id="secret-toggle" role="switch" aria-checked="false"
+                      aria-label="Make this list secret"></button>
+            </div>
+            <button class="cta" id="btn-do-create">Create</button>
           </div>
         </div>
       </div>
@@ -204,440 +320,281 @@
   `
 
   const el = (id) => root.getElementById(id)
-  const wrap = el('wrap')
-  const createInput = el('create-input')
+  const card = el('card')
+  const screens = el('screens')
+  const nameInput = el('new-name')
 
-  const CHECK_SVG =
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" ' +
-    'stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>'
+  const COPY = {
+    public: 'Anyone with your page can see this link',
+    secret: 'Only you can see this link',
+  }
 
   // ── state ──────────────────────────────────────────────────────────
   let bookmarkId = null
-  let hovering = false
-  let inputFocused = false
-  // The user's existing lists [{ id, name, slug }] and which ones hold this gem.
+  let isSecret = false
   let lists = []
   let memberOf = new Set()
-  // Lists we're proposing for this page. `listId` is null until the user taps
-  // one — that's when it becomes real. They stay in this group afterwards rather
-  // than jumping to "Your lists", so the row the user clicked doesn't move.
-  let suggested = []
   let creating = false
-  // Ids for optimistic rows that exist on screen before they exist server-side.
-  let pendingSeq = 0
-  // Your-lists starts collapsed to the top N (ranked); "+ N more" opens the rest
-  // once, in place — no collapse back.
-  let expanded = false
-  const YOURS_COLLAPSED = 3
-  // Reveal coordination: keep "Saving…" up until the ranked list AND the one
-  // suggestion are both ready, then flip to "Saved" and show the finished card in
-  // one motion — no unranked flash, no reshuffle, no "Saved" over a spinner. A
-  // timeout guards against a slow suggestion so we never hang on "Saving…".
   let revealed = false
-  let rankedReady = false
-  let suggestReady = false
   let revealTimer = null
-  let revealMsg = 'Saved to your Bulletin'
-  // Backstop only. The reveal normally waits for the ranked list AND the
-  // suggestion (maybeReveal); this just guarantees we never hang on "Saving…" if
-  // one of them truly stalls. Set high so it never clips the suggestion in normal
-  // operation — if it fires, something is actually wrong.
-  const REVEAL_TIMEOUT_MS = 8000
+  let revealMsg = 'Saved'
+  // A later save superseding this one: stamp every async response.
+  let saveSeq = 0
 
-  document.documentElement.appendChild(host)
-  requestAnimationFrame(() => { wrap.style.opacity = '1' })
-
-  // ── auto-dismiss ───────────────────────────────────────────────────
-  const bar = el('bar')
-  wrap.style.setProperty('--dismiss', `${DISMISS_MS}ms`)
-  // Only the countdown ends the toast. `barSweep` loops forever and never fires
-  // this, but name-check anyway so the two rounds can't be confused.
-  bar.addEventListener('animationend', (e) => {
-    if (e.animationName === 'barLoad') dismiss()
-  })
-
-  // Round 1 — the link is saving. Indeterminate: we don't know how long.
-  function sweepBar() {
-    bar.hidden = false
-    bar.className = 'bar sweep'
-    bar.style.animationPlayState = 'running'
-  }
-  // Round 2 — the link is saved; this is the user's window to pick a list.
-  function armBar() {
-    bar.hidden = false
-    bar.className = 'bar'
-    // Force reflow so re-adding .load restarts the countdown from 0.
-    void bar.offsetWidth
-    bar.className = 'bar load'
-    updateBarPause()
-  }
-  function stopBar() {
-    bar.className = 'bar'
-    bar.hidden = true
-  }
-  function updateBarPause() {
-    // Pause the countdown (and thus the dismiss) while the pointer is over the
-    // toast or the user is typing a list name.
-    bar.style.animationPlayState = hovering || inputFocused ? 'paused' : 'running'
+  // ── dismissal ──────────────────────────────────────────────────────
+  let idleTimer = null
+  let hovering = false
+  let typing = false
+  function armIdle(ms = DISMISS_MS) {
+    clearTimeout(idleTimer)
+    idleTimer = setTimeout(() => {
+      if (!hovering && !typing && !screens.classList.contains('show-create')) dismiss()
+      else armIdle() // still busy — check again in a while
+    }, ms)
   }
   function dismiss() {
-    wrap.style.transition = 'opacity .3s ease, transform .3s ease'
-    wrap.style.opacity = '0'
-    wrap.style.transform = 'translateY(-6px)'
+    clearTimeout(idleTimer)
+    clearTimeout(revealTimer)
+    card.style.transition = 'opacity .3s ease, transform .3s ease'
+    card.style.opacity = '0'
+    card.style.transform = 'translateY(-6px)'
     setTimeout(() => host.remove(), 320)
+    document.removeEventListener('pointerdown', onOutside, true)
+    document.removeEventListener('keydown', onKey, true)
     window.__igToast = null
   }
-
-  // Hovering anywhere in the toast pauses the countdown.
-  wrap.addEventListener('mouseenter', () => { hovering = true; updateBarPause() })
-  wrap.addEventListener('mouseleave', () => { hovering = false; updateBarPause() })
-
-  // ── confirmation card content ──────────────────────────────────────
-  function setMsg(msg) { el('msg').textContent = msg }
-  function setSub(text) {
-    const sub = el('sub')
-    if (text) { sub.textContent = text; sub.hidden = false }
-    else { sub.hidden = true }
+  card.addEventListener('mouseenter', () => { hovering = true })
+  card.addEventListener('mouseleave', () => { hovering = false })
+  // Click anywhere outside the card closes it (mymind behavior). The card
+  // itself is the only thing inside our host.
+  function onOutside(e) {
+    if (e.composedPath().includes(host)) return
+    dismiss()
   }
-  // The ring is empty while saving and gains its dot (or a warn glyph) once the
-  // save resolves. Motion lives in the bar at the card's bottom edge, not here.
-  function setConfState(kind) {
-    el('confrow').classList.toggle('saving', kind === 'saving')
-    el('ind').innerHTML =
-      kind === 'saving' ? '' : kind === 'warn' ? '<span class="warn">!</span>' : '<span class="dot"></span>'
+  function onKey(e) {
+    if (e.key === 'Escape') dismiss()
   }
+  document.addEventListener('pointerdown', onOutside, true)
+  document.addEventListener('keydown', onKey, true)
 
-  // ── list card ──────────────────────────────────────────────────────
-  function row({ name, checked, isNew, onClick }) {
-    const r = document.createElement('div')
-    r.className = 'lrow'
-    r.title = name
-    r.innerHTML =
-      '<span class="lname"></span>' +
-      (isNew ? '<span class="lnew">NEW</span>' : '') +
-      (checked ? `<span class="lcheck">${CHECK_SVG}</span>` : '')
-    r.querySelector('.lname').textContent = name
-    // Filing restarts the countdown — the user is still working.
-    r.addEventListener('click', (e) => { e.stopPropagation(); armBar(); onClick() })
-    return r
+  document.documentElement.appendChild(host)
+
+  // ── header stages ──────────────────────────────────────────────────
+  function setStatus(word, note, { check = true, err = false } = {}) {
+    el('sword').textContent = word
+    el('snote').textContent = note
+    el('scheck').hidden = !check
+    const s = el('pstatus')
+    s.classList.toggle('err', err)
+    s.classList.add('shown')
   }
 
-  function render() {
-    // Your lists — ranked, best on top. Show the top few; "+ N more" opens the
-    // rest in place. Renders once, already ranked, so it never reshuffles.
-    const yRows = el('rows-yours')
-    yRows.innerHTML = ''
-    const shown = expanded ? lists : lists.slice(0, YOURS_COLLAPSED)
-    for (const l of shown) {
-      yRows.appendChild(
-        row({
-          name: l.name,
-          checked: memberOf.has(l.id),
-          isNew: false,
-          onClick: () => toggleListMembership(l),
-        })
-      )
-    }
-    const more = lists.length - shown.length
-    const moreEl = el('yours-more')
-    if (!expanded && more > 0) {
-      moreEl.querySelector('.lmore-label').textContent = `${more} more list${more === 1 ? '' : 's'}`
-      moreEl.hidden = false
-    } else {
-      moreEl.hidden = true
-    }
-    el('group-yours').hidden = lists.length === 0
-
-    // Suggested new list — always exactly one (the top proposal), never a wall.
-    // A suggestion the user has acted on keeps its row but drops the NEW tag.
-    const sRows = el('rows-suggested')
-    sRows.innerHTML = ''
-    const one = suggested.slice(0, 1)
-    for (const s of one) {
-      sRows.appendChild(
-        row({
-          name: s.name,
-          // Check it the moment it's tapped, not when the create returns.
-          checked: s.pending || (!!s.listId && memberOf.has(s.listId)),
-          isNew: !s.listId && !s.pending,
-          onClick: () => toggleSuggested(s),
-        })
-      )
-    }
-    el('group-suggested').hidden = one.length === 0
-
-    // Only rule off the create row when there's something above it to separate.
-    el('div-create').hidden = one.length === 0 && lists.length === 0
-    el('create-btn').hidden = creating
-    el('create-row').hidden = !creating
-    el('ckey').classList.toggle('armed', createInput.value.trim().length > 0)
-  }
-
-  // ── create row ─────────────────────────────────────────────────────
-  el('create-btn').addEventListener('click', () => {
-    creating = true
-    render()
-    createInput.focus()
-  })
-
-  // "+ N more lists" — open the rest of Your lists in place, once. The user is
-  // still working, so keep the toast open.
-  el('yours-more').addEventListener('click', (e) => {
-    e.stopPropagation()
-    expanded = true
-    armBar()
-    render()
-  })
-  createInput.addEventListener('focus', () => { inputFocused = true; updateBarPause() })
-  createInput.addEventListener('blur', () => { inputFocused = false; armBar() })
-  createInput.addEventListener('input', () => render())
-  createInput.addEventListener('keydown', (e) => {
-    // Mid-IME-composition Enter commits the candidate word, not the list name.
-    if (e.isComposing || e.keyCode === 229) return
-    // keyCode is the fallback for setups that leave `key` unset.
-    if (e.key === 'Enter' || e.keyCode === 13) {
-      e.preventDefault()
-      commitNewList()
-    } else if (e.key === 'Escape' || e.keyCode === 27) {
-      e.preventDefault()
-      createInput.value = ''
-      creating = false
-      render()
-    }
-  })
-  el('ckey').addEventListener('click', () => commitNewList())
-
-  function closeCreateRow() {
-    createInput.value = ''
-    creating = false
-    render()
-  }
-
-  function commitNewList() {
-    const typed = createInput.value.trim()
-    if (!typed) return // empty names are ignored, per the handoff
-    // Typing the name of a list they already have files into it rather than
-    // minting a near-duplicate. This also matches the optimistic row below, so a
-    // second Enter on the same name can never start a second create.
-    const exact = lists.find((l) => l.name.toLowerCase() === typed.toLowerCase())
-    if (exact) {
-      if (!exact.pending && !memberOf.has(exact.id)) toggleListMembership(exact)
-      closeCreateRow()
-      return
-    }
-    // Show the filed row NOW rather than after the round-trip. The create takes
-    // a slug query + insert, and during that gap the old code left the typed
-    // name sitting in the box with no feedback — so Enter felt dead and a second
-    // press minted a second identical list.
-    const temp = { id: `pending-${++pendingSeq}`, name: typed, pending: true }
-    lists.unshift(temp)
-    memberOf.add(temp.id)
-    closeCreateRow()
-    armBar() // they're still working — restart the countdown
-
-    createList(
-      typed,
-      (list) => {
-        // Swap the placeholder for the real row, in place.
-        const i = lists.indexOf(temp)
-        if (i !== -1) lists[i] = list
-        memberOf.delete(temp.id)
-        memberOf.add(list.id)
-        render()
-      },
-      () => {
-        // Roll back and hand the name back so the typing isn't lost.
-        const i = lists.indexOf(temp)
-        if (i !== -1) lists.splice(i, 1)
-        memberOf.delete(temp.id)
-        createInput.value = typed
-        creating = true
-        render()
-        createInput.focus()
+  // ── visibility toggle ──────────────────────────────────────────────
+  el('vis').addEventListener('click', () => {
+    if (!bookmarkId) return
+    isSecret = !isSecret
+    renderVisibility()
+    armIdle()
+    chrome.runtime.sendMessage(
+      { type: 'ig-set-visibility', bookmarkId, isPrivate: isSecret },
+      (resp) => {
+        if (!resp || resp.error) {
+          isSecret = !isSecret
+          renderVisibility()
+        }
       }
     )
+  })
+  function renderVisibility() {
+    el('vis').setAttribute('aria-checked', String(isSecret))
+    setStatus(revealMsg, COPY[isSecret ? 'secret' : 'public'])
   }
 
-  // ── filing ─────────────────────────────────────────────────────────
-  // Optimistically toggle membership, then reconcile with the server.
-  function toggleListMembership(l) {
-    // A row still being created has no real id yet — the server would reject it.
-    if (!bookmarkId || l.pending) return
+  // ── list rows + body ───────────────────────────────────────────────
+  function renderRows() {
+    const rows = el('rows')
+    rows.innerHTML = ''
+    if (!lists.length) {
+      const p = document.createElement('div')
+      p.className = 'rows-empty'
+      p.textContent = 'No lists yet — create your first below.'
+      rows.appendChild(p)
+    }
+    for (const l of lists) {
+      const r = document.createElement('div')
+      r.className = 'lrow' + (memberOf.has(l.id) ? ' on' : '')
+      r.title = l.name
+      r.innerHTML = '<span class="lname"></span><span class="dot"></span>'
+      r.querySelector('.lname').textContent = l.name
+      r.addEventListener('click', () => toggleMembership(l, r))
+      rows.appendChild(r)
+    }
+    syncBodyHeight()
+  }
+  function syncBodyHeight() {
+    const body = el('pbody')
+    body.style.setProperty('--body-h', `${body.scrollHeight}px`)
+  }
+  function toggleMembership(l, rowEl) {
+    if (!bookmarkId) return
     const add = !memberOf.has(l.id)
     if (add) memberOf.add(l.id)
     else memberOf.delete(l.id)
-    render()
+    rowEl.classList.toggle('on', add)
+    armIdle() // still working
     chrome.runtime.sendMessage(
       { type: 'ig-set-list', listId: l.id, bookmarkId, add },
       (resp) => {
         if (!resp || resp.error) {
           if (add) memberOf.delete(l.id)
           else memberOf.add(l.id)
-          render()
+          rowEl.classList.toggle('on', !add)
         }
       }
     )
   }
 
-  // A suggested row is a list that doesn't exist yet. First tap creates it and
-  // files the gem; after that it toggles like any other list.
-  function toggleSuggested(s) {
-    if (!bookmarkId || s.pending) return
-    if (s.listId) return toggleListMembership({ id: s.listId, name: s.name })
-    s.pending = true
-    render() // check it immediately; reconcile when the create lands
-    createList(
-      s.name,
-      (list) => {
-        s.pending = false
-        s.listId = list.id
-        memberOf.add(list.id)
-        render()
-      },
-      () => {
-        s.pending = false
-        render()
-      }
-    )
-  }
+  // ── screens ────────────────────────────────────────────────────────
+  el('btn-create').addEventListener('click', () => {
+    nameInput.value = ''
+    el('secret-toggle').setAttribute('aria-checked', 'false')
+    el('btn-do-create').disabled = false
+    el('btn-do-create').textContent = 'Create'
+    screens.classList.add('show-create')
+    setTimeout(() => nameInput.focus({ preventScroll: true }), 310)
+  })
+  el('btn-back').addEventListener('click', () => {
+    screens.classList.remove('show-create')
+    armIdle()
+  })
+  el('secret-toggle').addEventListener('click', () => {
+    const t = el('secret-toggle')
+    t.setAttribute('aria-checked', String(t.getAttribute('aria-checked') !== 'true'))
+  })
+  nameInput.addEventListener('focus', () => { typing = true })
+  nameInput.addEventListener('blur', () => { typing = false })
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.isComposing || e.keyCode === 229) return
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitCreate()
+    } else if (e.key === 'Escape') {
+      // Escape in the field backs out of screen 2, not out of the card —
+      // stop it before the document-level close handler sees it.
+      e.preventDefault()
+      e.stopPropagation()
+      screens.classList.remove('show-create')
+      armIdle()
+    }
+  })
+  el('btn-do-create').addEventListener('click', commitCreate)
 
-  // Create + publish a list and file this bullet into it.
-  function createList(name, onOk, onErr) {
+  function commitCreate() {
+    const name = nameInput.value.trim()
+    if (!name || creating || !bookmarkId) return
+    const secret = el('secret-toggle').getAttribute('aria-checked') === 'true'
+
+    // Typing the name of a list they already have files into it rather than
+    // minting a near-duplicate (the server dedupes too).
+    const exact = lists.find((l) => l.name.toLowerCase() === name.toLowerCase())
+    if (exact) {
+      if (!memberOf.has(exact.id)) {
+        memberOf.add(exact.id)
+        chrome.runtime.sendMessage(
+          { type: 'ig-set-list', listId: exact.id, bookmarkId, add: true },
+          (resp) => { if (!resp || resp.error) { memberOf.delete(exact.id); renderRows() } }
+        )
+      }
+      renderRows()
+      screens.classList.remove('show-create')
+      armIdle()
+      return
+    }
+
+    creating = true
+    const btn = el('btn-do-create')
+    btn.disabled = true
+    btn.textContent = 'Creating…'
     chrome.runtime.sendMessage(
-      { type: 'ig-create-list', name, bookmarkId },
+      { type: 'ig-create-list', name, bookmarkId, isPrivate: secret },
       (resp) => {
-        if (resp && resp.ok && resp.list) onOk(resp.list)
-        else if (onErr) onErr()
+        creating = false
+        if (resp && resp.ok && resp.list) {
+          lists = [resp.list, ...lists.filter((l) => l.id !== resp.list.id)]
+          memberOf.add(resp.list.id)
+          renderRows()
+          screens.classList.remove('show-create')
+          armIdle()
+        } else {
+          btn.disabled = false
+          btn.textContent = 'Create'
+          nameInput.focus()
+        }
       }
     )
   }
 
-  // ── data ───────────────────────────────────────────────────────────
-  // Called twice per save: once on inject (no gem yet — just the names, so the
-  // card is ready the instant the bullet lands), then again once we have an id,
-  // which is what fills in the checkmarks for a bullet saved earlier.
-  function loadLists(forId) {
-    chrome.runtime.sendMessage({ type: 'ig-get-lists', bookmarkId: forId }, (resp) => {
-      if (resp && resp.ok && Array.isArray(resp.lists)) {
-        // Keep any optimistic rows the server hasn't heard about yet, or a
-        // refetch landing mid-create would make the new row vanish.
-        lists = [...lists.filter((l) => l.pending), ...resp.lists]
-        // Only trust server membership for the gem we asked about, and never let
-        // it clobber a toggle the user made while the request was in flight.
-        if (forId && forId === bookmarkId && Array.isArray(resp.memberOf)) {
-          for (const id of resp.memberOf) memberOf.add(id)
-        }
-        // A suggestion the server didn't know about may duplicate a list we've
-        // since loaded — drop it rather than show the same name twice.
-        const own = new Set(lists.map((l) => l.name.toLowerCase()))
-        suggested = suggested.filter((s) => s.listId || !own.has(s.name.toLowerCase()))
-        render()
-        // The id-based call is the ranked one — that's what the reveal waits for.
-        if (forId && forId === bookmarkId) { rankedReady = true; maybeReveal() }
-      }
-    })
+  // ── the one-frame reveal ───────────────────────────────────────────
+  // Saving → (save lands, ranked lists fetched) → everything at once.
+  function reveal() {
+    if (revealed) return
+    revealed = true
+    clearTimeout(revealTimer)
+    el('ptitle').textContent = 'Save to Bulletin'
+    card.classList.add('revealed')
+    renderVisibility() // status line: "Saved ✓ …"
+    renderRows()
+    el('pbody').classList.add('open')
+    armIdle()
   }
 
-  // Suggestions need the saved gem, so this can only run once the save lands.
-  // Off the critical path: the list card is already up and usable without them.
-  function loadSuggestions() {
-    if (!bookmarkId) return
-    const forId = bookmarkId
-    chrome.runtime.sendMessage({ type: 'ig-suggest-lists', bookmarkId }, (resp) => {
-      // A second save may have landed while Haiku was thinking.
-      if (forId !== bookmarkId) return
-      if (resp && resp.ok && Array.isArray(resp.names)) {
-        const own = new Set(lists.map((l) => l.name.toLowerCase()))
-        suggested = resp.names
-          .filter((n) => n && !own.has(n.toLowerCase()))
-          .slice(0, 1) // always exactly one
-          .map((name) => ({ name, listId: null, pending: false }))
-      }
-      // Mark ready even on an empty/failed result so the reveal never hangs on it.
-      suggestReady = true
-      render()
-      if (revealed && suggested.length) armBar() // a row appeared post-reveal — give time to read
-      maybeReveal()
-    })
-  }
-
-  // ── saved: reveal the list card ────────────────────────────────────
   function showSaved(msg, data) {
     revealMsg = msg
     bookmarkId = (data && data.id) || null
-    if (!bookmarkId) {
-      // Nothing to file into — just confirm and stop.
-      setConfState('saved')
-      setMsg(msg)
-      setSub('')
-      el('lists').hidden = true
-      armBar()
-      return
-    }
-    // Keep "Saving…" up (the sweep bar is still running); fetch the ranked lists
-    // and the one suggestion, then reveal the finished card in one motion — or on
-    // a timeout, so a slow suggestion can't leave us stuck on "Saving…".
-    memberOf = new Set()
-    revealed = false
-    rankedReady = false
-    suggestReady = false
-    if (revealTimer) clearTimeout(revealTimer)
-    revealTimer = setTimeout(doReveal, REVEAL_TIMEOUT_MS)
-    loadLists(bookmarkId)
-    loadSuggestions()
+    isSecret = false
+    const seq = ++saveSeq
+    if (!bookmarkId) return terminal(msg, '')
+    // Hold "Saving…" until the ranked lists are in hand, then reveal once.
+    clearTimeout(revealTimer)
+    revealTimer = setTimeout(reveal, REVEAL_TIMEOUT_MS)
+    chrome.runtime.sendMessage({ type: 'ig-get-lists', bookmarkId }, (resp) => {
+      if (seq !== saveSeq) return // a newer save superseded this one
+      if (resp && resp.ok && Array.isArray(resp.lists)) {
+        lists = resp.lists
+        memberOf = new Set(resp.memberOf || [])
+      }
+      reveal()
+    })
   }
 
-  // Flip "Saving…" → "Saved" and show the finished list card, once.
-  function doReveal() {
-    if (revealed) return
-    revealed = true
-    if (revealTimer) { clearTimeout(revealTimer); revealTimer = null }
-    setConfState('saved')
-    setMsg(revealMsg)
-    setSub('')
-    el('lists').hidden = false
-    render()
-    armBar()
-  }
-  function maybeReveal() {
-    // Reveal only when BOTH the ranked list and the one suggestion are in hand,
-    // so doReveal paints them together in a SINGLE render — no "lists appear,
-    // then a beat later the suggestion pops in" fast-follow. They finish at
-    // nearly the same time (both wait on the on-demand embed), so this costs
-    // almost nothing; the timeout below is a pure safety net for a real hang.
-    if (!revealed && rankedReady && suggestReady) doReveal()
+  // Terminal without the picker (duplicate / error / signin): title flips,
+  // dot stops, message in the status line, quiet dismiss.
+  function terminal(word, note, { err = false } = {}) {
+    el('ptitle').textContent = 'Save to Bulletin'
+    el('hslot').classList.add('off')
+    setStatus(word, note, { check: !err, err })
+    armIdle(6000)
   }
 
-  function showWarn(msg, sub) {
-    setConfState('warn')
-    setMsg(msg)
-    setSub(sub)
-    el('lists').hidden = true
-    armBar()
-  }
-
-  // ── controller exposed to background messages ──────────────────────
+  // ── controller ─────────────────────────────────────────────────────
   function reset() {
-    sweepBar()
+    ++saveSeq
+    clearTimeout(revealTimer)
+    clearTimeout(idleTimer)
     bookmarkId = null
+    isSecret = false
     lists = []
     memberOf = new Set()
-    suggested = []
     creating = false
-    expanded = false
     revealed = false
-    rankedReady = false
-    suggestReady = false
-    if (revealTimer) { clearTimeout(revealTimer); revealTimer = null }
-    createInput.value = ''
-    el('lists').hidden = true
-    setSub('')
-    setConfState('saving')
-    setMsg('Saving to your Bulletin…')
-    render()
-    // No prefetch: lists are only worth showing once they're RANKED, and ranking
-    // needs the saved id (below). A prefetch here would just be an unranked list
-    // waiting to be shown out of order.
+    card.classList.remove('revealed')
+    el('hslot').classList.remove('off')
+    el('pstatus').classList.remove('shown', 'err')
+    el('pbody').classList.remove('open')
+    screens.classList.remove('show-create')
+    el('ptitle').textContent = 'Saving to Bulletin'
+    el('vis').setAttribute('aria-checked', 'false')
+    nameInput.value = ''
   }
 
   window.__igToast = {
@@ -646,22 +603,16 @@
       if (state === 'saving') {
         reset()
       } else if (state === 'saved') {
-        showSaved(data && data.refreshed ? 'Updated in your Bulletin' : 'Saved to your Bulletin', data)
+        showSaved(data && data.refreshed ? 'Updated' : 'Saved', data)
       } else if (state === 'duplicate') {
         showSaved('Already in your Bulletin', data)
       } else if (state === 'signin') {
-        // Session expired mid-save — invite a re-sign-in, not the raw auth error.
-        showWarn('Session expired — sign in to save', 'Click the Bulletin icon to sign in again.')
+        terminal('Session expired', 'Click the Bulletin icon to sign in again.', { err: true })
       } else if (state === 'error') {
-        showWarn('Couldn’t save', (data && data.message) || 'Something went wrong — try again.')
+        terminal('Couldn’t save', (data && data.message) || 'Something went wrong — try again.', { err: true })
       }
     },
   }
-
-  // First injection in a tab doesn't go through reset(): start the saving sweep.
-  // Lists are fetched and ranked only once we have the saved id (showSaved), so
-  // there's nothing to prefetch here.
-  sweepBar()
 
   chrome.runtime.onMessage.addListener((m) => {
     if (m && m.type === 'ig-toast' && window.__igToast) {

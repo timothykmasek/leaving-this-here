@@ -61,6 +61,9 @@ const BULLETS = [
     screenshotUrl: null,
     faviconUrl: null,
     product: { priceFormatted: '€120', price: 120, currency: 'EUR' },
+    // A secret bullet (extension popup's globe/lock toggle) — the owner sees a
+    // lock chip top-right; visitors never receive the row at all (RLS, mig 026).
+    privateMark: true,
   },
   {
     id: 'fixture-3',

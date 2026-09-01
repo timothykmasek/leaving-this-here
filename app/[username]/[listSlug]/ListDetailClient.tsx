@@ -278,6 +278,7 @@ export function ListDetailClient({
                 customImage={b.customImage}
               onOpen={setSelectedId}
               utmCampaign={username}
+              privateMark={!!b.is_private}
             />
           ))}
         </Masonry>

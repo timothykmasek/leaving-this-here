@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bulletin \u2014 save anything",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "Save any page, image, or quote to Bulletin in one click.",
   "permissions": [
     "identity",

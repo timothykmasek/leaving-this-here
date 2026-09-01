@@ -35,7 +35,7 @@ import { forgetSuggestion } from '@/components/SuggestionShelf'
 const PROFILE_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 const BULLET_COLS =
-  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, pinned_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
+  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, is_private, created_at, pinned_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
 
 // Grid order: pinned bullets first (most recently pinned leading), then
 // reverse-chron — the same order the server queries in, reapplied locally
@@ -647,6 +647,7 @@ export default function ProfileClient({
             listHref={listByBookmark.get(b.id)?.href ?? null}
             onOpen={isOwner ? setSelectedId : undefined}
             utmCampaign={username}
+            privateMark={isOwner && !!b.is_private}
           />
         ))}
       </Masonry>

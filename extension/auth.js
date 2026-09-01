@@ -170,12 +170,12 @@ async function getValidAccessToken() {
   return session.access_token
 }
 
-// POST JSON to an extension API route with the bearer token, retrying once
+// Send JSON to an extension API route with the bearer token, retrying once
 // after a forced refresh if the token comes back rejected (401).
-async function apiPost(path, payload) {
+async function apiSend(method, path, payload) {
   const attempt = (token) =>
     fetch(`${CONFIG.API_BASE}${path}`, {
-      method: 'POST',
+      method,
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
@@ -199,6 +199,8 @@ async function apiPost(path, payload) {
   if (!res.ok) throw new Error(data.error || `request failed (${res.status})`)
   return data
 }
+
+const apiPost = (path, payload) => apiSend('POST', path, payload)
 
 // GET an extension API route with the bearer token, refreshing + retrying once
 // on a 401. Mirrors apiPost for read-only calls.
@@ -238,10 +240,27 @@ export async function getLists(bookmarkId) {
   return apiGet(`/api/extension/lists${qs}`)
 }
 
-// Create a new (published) list and optionally add a gem to it. Returns
+// Create a new list and optionally add a gem to it. Returns
 // { list: { id, name, slug }, url } — `url` is the live public page.
-export async function createList(name, bookmarkId) {
-  return apiPost('/api/extension/lists', { op: 'create', name, bookmark_id: bookmarkId })
+// `isPrivate` = the popup's "Make this list secret" toggle: the list shows on
+// the owner's logged-in view only.
+export async function createList(name, bookmarkId, isPrivate = false) {
+  return apiPost('/api/extension/lists', {
+    op: 'create',
+    name,
+    bookmark_id: bookmarkId,
+    is_private: !!isPrivate,
+  })
+}
+
+// Flip a saved bullet between public and secret (the popup's globe/lock
+// toggle). Secret = visible to the owner logged in, absent from the
+// logged-out view.
+export async function setBulletVisibility(bookmarkId, isPrivate) {
+  return apiSend('PATCH', '/api/extension/save', {
+    bookmark_id: bookmarkId,
+    is_private: !!isPrivate,
+  })
 }
 
 // Add or remove a gem from an existing list.

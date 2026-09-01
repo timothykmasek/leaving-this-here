@@ -210,6 +210,10 @@ export async function POST(request: NextRequest) {
   if (op === 'create') {
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) return json({ error: 'list name required' }, 400)
+    // Secret list (popup's "Make this list secret" toggle) → lists.is_private:
+    // visible on the owner's logged-in view, hidden from the logged-out view
+    // (RLS from migration 008 enforces the read side).
+    const isPrivate = body.is_private === true
 
     // Creating a list the user already has is a no-op on the list itself: reuse
     // it and just file the bullet. Without this, "create Testing" twice mints
@@ -243,7 +247,7 @@ export async function POST(request: NextRequest) {
 
       const r = await supabase
         .from('lists')
-        .insert({ user_id: userId, name, slug })
+        .insert({ user_id: userId, name, slug, is_private: isPrivate })
         .select('id, name, slug')
         .single()
       if (!r.error) { listRow = r.data as any; break }

@@ -1,5 +1,6 @@
 /* Self-hosted brand fonts (same files as the web app: app/fonts).
-   Cardo = reading serif (body/titles); Routed Gothic Wide = UI labels. */
+   Cardo = reading serif (body/titles); Routed Gothic Wide = UI labels.
+   (The Mier A cuts in fonts/ belong to the on-page save card, content/toast.js.) */
 @font-face {
   font-family: 'Cardo';
   src: url('fonts/Cardo-Regular.woff2') format('woff2');

@@ -1,3 +1,7 @@
+// Popup — auth only. While signed in the popup is cleared (background
+// syncPopup) and the icon click saves directly; the on-page card
+// (content/toast.js) is the whole save experience.
+
 import { getSession, signInWithPassword, signOut } from './auth.js'
 import { CONFIG } from './config.js'
 

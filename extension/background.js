@@ -1,13 +1,14 @@
 // Service worker — the extension's brain.
 //
 // Saving is mymind-style: a single left-click on the toolbar icon saves the
-// current page immediately and an on-page toast (content/toast.js) confirms it
-// and lets you edit tags inline. No popup, no preview, no "save" button.
+// current page immediately, and the on-page card (content/toast.js) is the
+// whole experience — saving state, public/secret toggle, ranked list picker,
+// Create List screen. No popup while signed in.
 //
 // To make the icon click fire here instead of opening a popup, we clear the
 // action popup while signed in (chrome.action.setPopup({popup:''})). When
-// signed out we restore popup.html so the click opens the Google sign-in. The
-// popup's only job is auth; everything else happens on the page.
+// signed out we restore popup.html so the click opens sign-in. The popup's
+// only job is auth; everything else happens on the page.
 
 import {
   saveGem,
@@ -17,6 +18,7 @@ import {
   getLists,
   createList,
   setListMembership,
+  setBulletVisibility,
   suggestListNames,
 } from './auth.js'
 import { CONFIG } from './config.js'
@@ -32,7 +34,8 @@ const MENU = {
 }
 
 // ── Popup state ─────────────────────────────────────────────────────
-// Signed in → no popup (click saves). Signed out → popup.html (click signs in).
+// Signed in → no popup (click saves + shows the on-page card). Signed out →
+// popup.html (click signs in).
 async function syncPopup() {
   const session = await getSession()
   await chrome.action.setPopup({ popup: session ? '' : 'popup.html' })
@@ -84,6 +87,12 @@ chrome.action.onClicked.addListener((tab) => {
 async function saveActiveTab(tab) {
   const session = await getSession()
   if (!session) return promptSignIn()
+  const payload = await buildPagePayload(tab)
+  await saveFlow(tab, payload)
+}
+
+// Everything a "save this page" needs, gathered from the live tab.
+async function buildPagePayload(tab) {
   const clientMeta = await readPageMeta(tab?.id)
   // Always capture the visible tab — it's the user's own rendered view (their
   // session/IP), so it bypasses the datacenter-IP block that defeats our server
@@ -92,7 +101,7 @@ async function saveActiveTab(tab) {
   // profile pages show the screenshot, articles/products keep their og, so the
   // shot is stored-but-unused there. Viewport/hero only — preview-grade.
   const clientShot = await captureTab(tab)
-  await saveFlow(tab, { url: tab?.url, title: tab?.title, clientMeta, clientShot })
+  return { url: tab?.url, title: tab?.title, clientMeta, clientShot }
 }
 
 // Known cookie-consent / newsletter-popup containers, by their STABLE vendor
@@ -620,8 +629,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true
   }
   if (msg?.type === 'ig-create-list') {
-    createList(msg.name, msg.bookmarkId)
+    createList(msg.name, msg.bookmarkId, msg.isPrivate)
       .then((r) => sendResponse({ ok: true, list: r.list, url: r.url }))
+      .catch((e) => sendResponse({ error: String(e.message || e) }))
+    return true
+  }
+  if (msg?.type === 'ig-set-visibility') {
+    setBulletVisibility(msg.bookmarkId, msg.isPrivate)
+      .then(() => sendResponse({ ok: true }))
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }
