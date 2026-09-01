@@ -698,8 +698,10 @@ export default function ProfileClient({
         {profile.is_preview && <PreviewBanner />}
         {isOwner && <WelcomeBanner />}
 
-        {/* Hero — centered identity block (name · bio · links · edit). */}
-        <div className="mb-8 sm:mb-10">
+        {/* Hero — centered identity block (name · bio · links · edit).
+            Margin below matches the list masthead's title→meta gap (~96px),
+            so both pages run the same 88 → hero → 96 → toolbar → 32 rhythm. */}
+        <div className="mb-10 sm:mb-24">
           <ProfileIdentity
             name={profile.display_name || profile.username}
             bio={profile.bio}
