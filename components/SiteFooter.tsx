@@ -70,19 +70,19 @@ export const SiteFooter = forwardRef<
           footer (list pages) reads identically to the reveal bar (profile feed)
           — no stacked-© variant that looked inconsistent across screens. */}
       <div className={`mx-auto flex ${widthClassName} flex-row items-center justify-between`}>
-        <span className="label whitespace-nowrap text-black/35">© 2026</span>
+        <span className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/35">© 2026</span>
         {/* Tight gap so © + every link fits one row on a 375px phone without any
             item wrapping onto a second line — three links when signed in. */}
         <nav className="flex items-center gap-5 sm:gap-8">
           {signedIn && (
-            <Link href="/import" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Import</Link>
+            <Link href="/import" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Import</Link>
           )}
-          <Link href="/privacy" className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink">Privacy</Link>
+          <Link href="/privacy" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Privacy</Link>
           <a
             href={CHROME_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="label whitespace-nowrap text-black/45 transition-colors hover:text-ink"
+            className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink"
           >
             Extension
           </a>
