@@ -44,9 +44,15 @@ function footFade(land: number): string {
   return `linear-gradient(180deg,${stops.join(',')},#FFFFFF 100%)`
 }
 
+// The handoff's own fade (Figma "Rectangle 5102"): a plain two-stop linear
+// over a fixed 45px band — no easing, ~40% the shipped band's height.
+const FIGMA_FADE = 'linear-gradient(180deg, rgba(255,255,255,0) 0%, #FFFFFF 100%)'
+
 export default function CardsPreview() {
   // Where the fade lands on solid white, % of the band. Shipped = 98.
   const [land, setLand] = useState(98)
+  // true → render the Figma 45px linear instead of the ramp; slider idles.
+  const [figma, setFigma] = useState(false)
   return (
     <main className="min-h-screen">
       <div className="mx-auto max-w-[1208px] px-6 py-16">
@@ -72,27 +78,40 @@ export default function CardsPreview() {
             max={98}
             step={1}
             value={land}
-            onChange={(e) => setLand(Number(e.target.value))}
-            className="w-[220px] accent-black"
+            onChange={(e) => { setFigma(false); setLand(Number(e.target.value)) }}
+            className={`w-[220px] accent-black ${figma ? 'opacity-30' : ''}`}
           />
-          <span className="w-[44px] font-sans text-[14px] font-[600] tabular-nums text-ink">{land}%</span>
+          <span className="w-[44px] font-sans text-[14px] font-[600] tabular-nums text-ink">{figma ? '—' : `${land}%`}</span>
           {[80, 98].map((v) => (
             <button
               key={v}
-              onClick={() => setLand(v)}
+              onClick={() => { setFigma(false); setLand(v) }}
               className={`rounded-full border px-3 py-1 font-sans text-[12px] tracking-[0.05em] transition-colors ${
-                land === v ? 'border-black bg-black text-white' : 'border-black/15 text-black/50 hover:border-black/40'
+                !figma && land === v ? 'border-black bg-black text-white' : 'border-black/15 text-black/50 hover:border-black/40'
               }`}
             >
               {v === 98 ? 'shipped (98)' : 'feedback (80)'}
             </button>
           ))}
+          <button
+            onClick={() => setFigma(true)}
+            className={`rounded-full border px-3 py-1 font-sans text-[12px] tracking-[0.05em] transition-colors ${
+              figma ? 'border-black bg-black text-white' : 'border-black/15 text-black/50 hover:border-black/40'
+            }`}
+          >
+            figma (45px linear)
+          </button>
         </div>
 
         {/* Masonry via CSS columns — cards vary in height by their mask aspect. */}
         <div
           className="[column-gap:24px] columns-2 sm:columns-3 lg:columns-4"
-          style={{ '--card-foot-fade': footFade(land) } as React.CSSProperties}
+          style={
+            {
+              '--card-foot-fade': figma ? FIGMA_FADE : footFade(land),
+              '--card-foot-fade-h': figma ? '45px' : '26%',
+            } as React.CSSProperties
+          }
         >
           {SAMPLES.map((b, i) => (
             <div key={i} className="mb-8 break-inside-avoid">

@@ -413,12 +413,13 @@ export const PrimaryCard = memo(function PrimaryCard({
           {hasFade && (
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-[26%]"
-              // The ramp lives behind a CSS variable so /preview/cards can
-              // retune it live on real cards without forking the component.
-              // The default IS the shipped curve — nothing reads differently
-              // in production.
+              className="pointer-events-none absolute inset-x-0 bottom-0"
+              // Ramp AND band height live behind CSS variables so
+              // /preview/cards can retune them live on real cards without
+              // forking the component. The defaults ARE the shipped values —
+              // nothing reads differently in production.
               style={{
+                height: 'var(--card-foot-fade-h, 26%)',
                 backgroundImage:
                   'var(--card-foot-fade, linear-gradient(180deg,rgba(255,255,255,0) 0%,rgba(255,255,255,0.03) 10%,rgba(255,255,255,0.10) 20%,rgba(255,255,255,0.22) 29%,rgba(255,255,255,0.35) 39%,rgba(255,255,255,0.50) 49%,rgba(255,255,255,0.65) 59%,rgba(255,255,255,0.78) 69%,rgba(255,255,255,0.90) 78%,rgba(255,255,255,0.97) 88%,#FFFFFF 98%,#FFFFFF 100%))',
               }}
