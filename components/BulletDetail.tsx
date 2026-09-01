@@ -73,9 +73,13 @@ function timeAgo(iso: string | null): string {
 }
 
 // One list row: 48px, hairline border, 12px Mier with the +5% tracking the
-// design's small type carries everywhere.
-const rowClass =
-  'flex h-12 w-full shrink-0 items-center justify-between gap-3 rounded-[9px] border border-[#E0E0E0] bg-white px-[15px] text-xs font-medium tracking-[0.05em] text-black'
+// design's small type carries everywhere. Member rows read at full weight;
+// rows the bullet is NOT in sit back — grey text, lighter border — so the
+// ✕/+ contrast isn't the only thing separating "saved in" from "could be".
+const rowBase =
+  'flex h-12 w-full shrink-0 items-center justify-between gap-3 rounded-[9px] border bg-white px-[15px] text-xs font-medium tracking-[0.05em]'
+const rowClass = `${rowBase} border-[#E0E0E0] text-black`
+const rowQuiet = `${rowBase} border-[#EAEAEA] text-black/50 transition-colors hover:border-black/40 hover:text-black`
 
 export function BulletDetail({
   bullet,
@@ -94,6 +98,10 @@ export function BulletDetail({
   // Wide images float mid-well; tall and square ones anchor to its top. Only
   // the loaded image knows which it is, so this lands onLoad.
   const [landscape, setLandscape] = useState(false)
+  // Whether the list well has rows hiding below the fold. Drives the foot-fade
+  // that replaced the scrollbar — the fade IS the scroll indicator.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [moreBelow, setMoreBelow] = useState(false)
   // The owner's own picture. Held locally so the preview updates the moment it
   // uploads, rather than waiting for the page's data to come round again.
   const [custom, setCustom] = useState<string | null>(bullet.customImage ?? null)
@@ -204,6 +212,16 @@ export function BulletDetail({
     setTitleOverride(clean)
     onTitleUpdate(bullet.id, clean)
   }
+
+  const updateScrollHint = () => {
+    const el = scrollRef.current
+    if (!el) return
+    setMoreBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 4)
+  }
+
+  // Rows come and go (adds, removes, pending creates) — re-measure whether
+  // anything still hides below the fold.
+  useEffect(updateScrollHint, [lists, pendingLists, newListName]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset local state when switching to a different bullet.
   useEffect(() => {
@@ -398,46 +416,68 @@ export function BulletDetail({
           {/* Lists */}
           {onToggleListMembership && (
             <div className="mt-auto flex min-h-0 flex-col pt-8">
+              {/* The header only claims what's true: no memberships yet means
+                  there's nothing this is "saved in". */}
               <p className="mb-3 text-xs font-medium tracking-[0.05em] text-black">
-                Saved in these lists:
+                {memberLists.length + pendingNames.length > 0
+                  ? 'Saved in these lists:'
+                  : 'Add to a list:'}
               </p>
-              {/* Past three rows this scrolls, thin black thumb per the frame. */}
-              <div
-                className="relative flex max-h-[164px] flex-col gap-2.5 overflow-y-auto [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-black"
-                aria-live="polite"
-              >
-                {memberLists.map((l) => (
-                  <div key={l.id} className={rowClass}>
-                    <span className="truncate">{l.name}</span>
+              {/* Past three rows this scrolls. No scrollbar — the foot-fade
+                  over the last visible row is the "more below" signal, and it
+                  lifts once the well is scrolled to its end. */}
+              <div className="relative min-h-0">
+                <div
+                  ref={scrollRef}
+                  onScroll={updateScrollHint}
+                  className="flex max-h-[164px] flex-col gap-2.5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                  aria-live="polite"
+                >
+                  {memberLists.map((l) => (
+                    <div key={l.id} className={rowClass}>
+                      <span className="truncate">{l.name}</span>
+                      <button
+                        onClick={() => onToggleListMembership(l.id, bullet.id, false)}
+                        aria-label={`remove from ${l.name}`}
+                        className="shrink-0 transition-opacity hover:opacity-50"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {/* The row you are about to get, in the slot it will occupy,
+                      greyed until the server agrees. Carries the name rather
+                      than being blank — it confirms what was typed, which is
+                      the actual question in the moment. */}
+                  {pendingNames.map((name) => (
+                    <div key={name} className={`${rowBase} animate-pulse border-black/10 text-black/40`}>
+                      <span className="truncate">{name}</span>
+                    </div>
+                  ))}
+                  {/* Lists this bullet isn't in yet, set back in grey with a +
+                      (the ✕'s mirror), under their own whispered divider so
+                      they never read as memberships. */}
+                  {otherLists.length > 0 && memberLists.length + pendingNames.length > 0 && (
+                    <p className="mt-1 text-xs font-medium tracking-[0.05em] text-black/35">
+                      Add to another:
+                    </p>
+                  )}
+                  {otherLists.map((l) => (
                     <button
-                      onClick={() => onToggleListMembership(l.id, bullet.id, false)}
-                      aria-label={`remove from ${l.name}`}
-                      className="shrink-0 transition-opacity hover:opacity-50"
+                      key={l.id}
+                      onClick={() => onToggleListMembership(l.id, bullet.id, true)}
+                      className={`${rowQuiet} text-left`}
                     >
-                      ✕
+                      <span className="truncate">{l.name}</span>
+                      <span className="shrink-0 text-sm leading-none" aria-hidden>
+                        +
+                      </span>
                     </button>
-                  </div>
-                ))}
-                {/* The row you are about to get, in the slot it will occupy,
-                    greyed until the server agrees. Carries the name rather
-                    than being blank — it confirms what was typed, which is
-                    the actual question in the moment. */}
-                {pendingNames.map((name) => (
-                  <div key={name} className={`${rowClass} animate-pulse border-black/10 text-black/40`}>
-                    <span className="truncate">{name}</span>
-                  </div>
-                ))}
-                {/* Lists this bullet isn't in yet — clicking adds, no label
-                    needed; the missing ✕ is what marks them as not-yet. */}
-                {otherLists.map((l) => (
-                  <button
-                    key={l.id}
-                    onClick={() => onToggleListMembership(l.id, bullet.id, true)}
-                    className={`${rowClass} text-left transition-colors hover:border-black/40`}
-                  >
-                    <span className="truncate">{l.name}</span>
-                  </button>
-                ))}
+                  ))}
+                </div>
+                {moreBelow && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-white/0 to-white" />
+                )}
               </div>
 
               {/* New list — the black row is a typeahead: matching lists
