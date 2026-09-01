@@ -529,7 +529,7 @@ export function BulletDetail({
 
           {/* Foot — pin and delete as quiet underlined links, the saved-date
               tucked opposite. */}
-          <div className="flex items-center justify-between gap-4 pt-6 text-xs font-medium tracking-[0.05em] text-black">
+          <div className="flex items-center justify-between gap-4 pt-10 text-xs font-medium tracking-[0.05em] text-black">
             <span className="flex items-center gap-[30px]">
               {onTogglePin && (
                 <button
