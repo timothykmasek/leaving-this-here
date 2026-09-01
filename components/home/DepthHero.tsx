@@ -61,6 +61,8 @@ type Body = {
   /** Accumulated depth travelled — per card, so a hover pauses only it. */
   depth: number
   paused: boolean
+  /** Narrow viewports fly half the fleet — 24 cards drown a phone screen. */
+  hidden: boolean
 }
 
 export function DepthHero() {
@@ -82,7 +84,34 @@ export function DepthHero() {
       phase: ((i * 7) % SLOTS.length) / SLOTS.length,
       depth: 0,
       paused: false,
+      hidden: false,
     }))
+
+    // The slot envelope and clear zone are authored for a desktop viewport.
+    // On a phone (±740px offsets, 390px screen) every card lives off-screen
+    // and the field reads as dead — so both scale to the viewport: offsets
+    // shrink toward the visible frame, and the clear zone shrinks with them
+    // (at 300px it would span the whole phone and pin every card invisible).
+    // A narrow screen also flies half the fleet at double the ambient speed:
+    // 24 cards drown a phone, and with no wheel to kick the loop the drift
+    // has to carry the liveliness by itself.
+    let sx = 1
+    let sy = 1
+    let clearZone = DEAD_ZONE
+    let speed = BASE_SPEED
+    const applyViewport = () => {
+      const narrow = window.innerWidth < 640
+      sx = Math.min(1, Math.max(0.3, window.innerWidth / 1440))
+      sy = Math.min(1, Math.max(0.55, window.innerHeight / 1000))
+      clearZone = Math.min(DEAD_ZONE, window.innerWidth * 0.42)
+      speed = narrow ? BASE_SPEED * 2.2 : BASE_SPEED
+      bodies.forEach((b, i) => {
+        b.hidden = narrow && i % 2 === 1
+        b.el.style.display = b.hidden ? 'none' : ''
+      })
+    }
+    applyViewport()
+    window.addEventListener('resize', applyViewport)
 
     const place = (b: Body) => {
       const z =
@@ -106,15 +135,18 @@ export function DepthHero() {
 
       // Clear zone: fade a card toward 0 when its projected footprint nears
       // the lockup, so cards clear it dynamically at every depth and scale.
-      const sf = PERSPECTIVE / (PERSPECTIVE - z)
-      const projX = b.x * sf
-      const projY = b.y * sf
-      const dist = Math.hypot(projX, projY)
-      const halfDiag = (Math.hypot(b.w, b.h) / 2) * sf
-      opacity *= Math.max(0, Math.min(1, (dist - DEAD_ZONE) / (halfDiag + 60)))
-
+      // Blur tracks the DEPTH fade only, from before the clear-zone multiply:
+      // a card held down by the clear zone should be transparent, not a
+      // permanent blur smear parked next to the lockup.
       const blur = (1 - Math.min(1, opacity)) * 6
-      b.el.style.transform = `translate3d(${b.x}px, ${b.y}px, ${z}px)`
+
+      const ex = b.x * sx
+      const ey = b.y * sy
+      const sf = PERSPECTIVE / (PERSPECTIVE - z)
+      const dist = Math.hypot(ex * sf, ey * sf)
+      const halfDiag = (Math.hypot(b.w, b.h) / 2) * sf
+      opacity *= Math.max(0, Math.min(1, (dist - clearZone) / (halfDiag + 60)))
+      b.el.style.transform = `translate3d(${ex}px, ${ey}px, ${z}px)`
       b.el.style.opacity = String(opacity)
       b.el.style.filter = blur > 0.2 ? `blur(${blur.toFixed(1)}px)` : 'none'
       // Paint order = depth order. Without this the browser flattens the 3D
@@ -128,7 +160,7 @@ export function DepthHero() {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       // One static frame: each card parked at its phase position.
       bodies.forEach(place)
-      return
+      return () => window.removeEventListener('resize', applyViewport)
     }
 
     const cleanups: (() => void)[] = []
@@ -166,9 +198,10 @@ export function DepthHero() {
     const step = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000)
       last = now
-      const advance = BASE_SPEED * dt + scrollVelocity * dt * 60
+      const advance = speed * dt + scrollVelocity * dt * 60
       scrollVelocity *= 0.96
       for (const b of bodies) {
+        if (b.hidden) continue
         if (!b.paused) b.depth += advance
         place(b)
       }
@@ -179,6 +212,7 @@ export function DepthHero() {
     return () => {
       cancelAnimationFrame(raf)
       cleanups.forEach((fn) => fn())
+      window.removeEventListener('resize', applyViewport)
       root.removeEventListener('wheel', onWheel)
       root.removeEventListener('touchstart', onTouchStart)
       root.removeEventListener('touchmove', onTouchMove)
@@ -206,7 +240,11 @@ export function DepthHero() {
     'transition-[border-color] duration-150 ease-out hover:border-black/[0.55]'
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-white">
+    // fixed inset-0, not h-[100dvh]: mobile Safari and in-app browsers
+    // resolve dvh against a viewport that isn't what's on screen (URL bar
+    // states), which floated the lockup high on phones. A fixed box IS the
+    // visual frame, whatever the browser chrome is doing.
+    <div className="fixed inset-0 overflow-hidden bg-white">
       <DotGridCanvas />
 
       {/* The perspective camera holding the drifting cards. z-0 makes it a
