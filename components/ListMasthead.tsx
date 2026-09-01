@@ -114,7 +114,10 @@ export function ListMasthead({
             }}
             autoFocus
             aria-label="List name"
-            className={`${titleClass} w-full bg-transparent focus:outline-none`}
+            // The native caret scales with the font — at poster size it's a
+            // 200px black wall. Ghosted to a quarter black it reads as an
+            // insertion point again.
+            className={`${titleClass} w-full bg-transparent caret-black/25 focus:outline-none`}
           />
         ) : (
           <h1
