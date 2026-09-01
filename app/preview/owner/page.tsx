@@ -451,6 +451,7 @@ function ShowDetail() {
     { id: 'l2', name: 'The fit check', bookmark_ids: [] },
   ])
   const [fail, setFail] = useState(false)
+  const [pinnedAt, setPinnedAt] = useState<string | null>(null)
 
   return (
     <div>
@@ -464,11 +465,12 @@ function ShowDetail() {
       </div>
       {open && (
         <BulletDetail
-          bullet={{ ...BULLETS[0], created_at: new Date('2026-08-07T00:00:00Z').toISOString(), note: null } as any}
+          bullet={{ ...BULLETS[0], created_at: new Date('2026-08-07T00:00:00Z').toISOString(), note: null, pinned_at: pinnedAt } as any}
           lists={lists}
           onClose={() => setOpen(false)}
           onNoteUpdate={() => {}}
           onDelete={() => setOpen(false)}
+          onTogglePin={(_id, pin) => setPinnedAt(pin ? new Date().toISOString() : null)}
           onToggleListMembership={(listId, bookmarkId, add) =>
             setLists((prev) =>
               prev.map((l) =>

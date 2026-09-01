@@ -8,7 +8,7 @@ import ProfileClient from './ProfileClient'
 // `raw_metadata` (a large JSON blob that's passed to PrimaryCard but never read)
 // so we don't drag it over the wire for every bullet.
 const BULLET_COLS =
-  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
+  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, created_at, pinned_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
 
 // How many of the newest bullets to server-render for instant first paint. A
 // seeded/power profile can have hundreds — SSR-ing all of them bloats the HTML
@@ -80,6 +80,11 @@ export default async function ProfilePage({
         .from('profiles')
         .select(`*, bookmarks(${BULLET_COLS}), lists(id, name, slug, is_private, description, created_at, list_bookmarks(bookmark_id))`)
         .eq('username', username)
+        // Pinned first (most recently pinned leading), then reverse-chron.
+        // Ordering must happen HERE, not client-side: only the newest
+        // INITIAL_BULLETS come down, and an old pinned bullet has to make
+        // that cut.
+        .order('pinned_at', { referencedTable: 'bookmarks', ascending: false, nullsFirst: false })
         .order('created_at', { referencedTable: 'bookmarks', ascending: false })
         .limit(INITIAL_BULLETS, { referencedTable: 'bookmarks' })
         .maybeSingle(),
@@ -108,6 +113,7 @@ export default async function ProfilePage({
             .from('bookmarks')
             .select(BULLET_COLS)
             .eq('user_id', profile.id)
+            .order('pinned_at', { ascending: false, nullsFirst: false })
             .order('created_at', { ascending: false })
             .limit(INITIAL_BULLETS),
           fetchLists(supabase, profile.id),

@@ -21,6 +21,8 @@ interface Bullet {
   favicon_url: string | null
   note: string | null
   created_at: string | null
+  /** Set = pinned to the top of the profile (migration 025). */
+  pinned_at?: string | null
 }
 
 interface List {
@@ -37,6 +39,7 @@ interface BulletDetailProps {
   onDelete: (id: string) => void
   onToggleListMembership?: (listId: string, bookmarkId: string, add: boolean) => void
   onCreateList?: (name: string, bookmarkIds?: string[]) => Promise<string | null>
+  onTogglePin?: (id: string, pin: boolean) => void
 }
 
 function getDomain(url: string): string {
@@ -65,6 +68,7 @@ export function BulletDetail({
   onDelete,
   onToggleListMembership,
   onCreateList,
+  onTogglePin,
 }: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [imgError, setImgError] = useState(false)
@@ -318,6 +322,33 @@ export function BulletDetail({
 
           {/* Actions */}
           <div className="mt-auto flex items-center justify-between pt-6">
+            {/* Pin to the top of the profile. The parent owns the state (the
+                grid resorts optimistically), so this just reads bullet.pinned_at
+                and asks for the opposite. */}
+            {onTogglePin && (
+              <button
+                onClick={() => onTogglePin(bullet.id, !bullet.pinned_at)}
+                className={`inline-flex items-center gap-1.5 text-sm transition-colors ${
+                  bullet.pinned_at ? 'text-ink hover:text-black/45' : 'text-black/45 hover:text-ink'
+                }`}
+              >
+                <svg
+                  width="15"
+                  height="15"
+                  viewBox="0 0 24 24"
+                  fill={bullet.pinned_at ? 'currentColor' : 'none'}
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden
+                >
+                  <path d="M9 3h6l-1 7 3 2.5V15H7v-2.5L10 10 9 3z" />
+                  <path d="M12 15v6" />
+                </svg>
+                {bullet.pinned_at ? 'pinned to top — unpin' : 'pin to top'}
+              </button>
+            )}
             {confirmingDelete ? (
               <div className="flex items-center gap-2 text-sm">
                 <span className="text-black/45">delete this bullet?</span>
