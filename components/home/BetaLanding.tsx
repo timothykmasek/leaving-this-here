@@ -142,7 +142,8 @@ export function BetaLanding() {
       />
 
       <p className="relative z-[1] text-[20px] font-normal leading-[1.3] text-black">
-        Bookmark in public (or don&rsquo;t).
+        Bookmark in public
+        <span className="mt-1 block text-[15px] text-black/70">(or don&rsquo;t).</span>
       </p>
 
       {submitted ? (
@@ -161,7 +162,7 @@ export function BetaLanding() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@email.com"
-            className="font-serif h-[46px] w-[260px] rounded-full border border-black/[0.15] bg-white px-[18px] text-[15px] text-black outline-none"
+            className="font-serif h-[46px] w-[260px] rounded-full border border-black/[0.15] bg-white px-[18px] text-[15px] text-black outline-none focus:border-black/40"
           />
           <button type="submit" className={pill}>
             Request Access

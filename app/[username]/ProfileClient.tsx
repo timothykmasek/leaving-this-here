@@ -843,8 +843,9 @@ export default function ProfileClient({
                 // Figma: 359x62, 1px #BCBCBC, radius 20, Mier A 600 14/20 #000,
                 // 20px inset. 14px is safe here despite iOS Safari's auto-zoom
                 // on sub-16px inputs — globals.css already floors every text
-                // control at 16px under 640px.
-                className="h-[62px] w-full max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-transparent px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black focus:outline-none"
+                // control at 16px under 640px. Placeholder lightened off the
+                // Figma spec so the hint reads as a hint, not typed text.
+                className="h-[62px] w-full max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-transparent px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40"
               />
             )}
 

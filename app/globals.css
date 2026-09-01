@@ -32,6 +32,23 @@
   box-sizing: border-box;
 }
 
+/* Keyboard focus, sitewide. :focus-visible only — for buttons and links the
+   ring shows on keyboard, never on mouse clicks, so it costs nothing visually.
+   The offset keeps the ring off rounded-full pills' curves. Text controls are
+   excluded: browsers count ANY focus into a text field as :focus-visible, and
+   inputs already carry their own focus border/ring treatments — an element
+   opting out beyond these must replace the affordance, not just remove it. */
+:focus-visible {
+  outline: 2px solid #2b2b2b; /* ink */
+  outline-offset: 2px;
+}
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable]:focus-visible {
+  outline: none;
+}
+
 body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif; /* Mier A — interface default */
   background-color: #ffffff; /* paper — editorial white */
