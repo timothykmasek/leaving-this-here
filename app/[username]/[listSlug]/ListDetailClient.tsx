@@ -62,14 +62,7 @@ export function ListDetailClient({
   const [memberIds, setMemberIds] = useState<string[]>(initialList.bookmark_ids)
   const [lists, setLists] = useState<List[]>(initialLists)
 
-  // Rename and description used to be two independent inline modes (a pencil
-  // by the title, click-the-paragraph for the description). In a centred
-  // masthead those read as clutter, so both live behind one Edit affordance.
-  const [editing, setEditing] = useState(false)
-  const [nameValue, setNameValue] = useState('')
-  const [descValue, setDescValue] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const bullets = memberIds
     .map((id) => bulletsById.get(id))
@@ -243,12 +236,6 @@ export function ListDetailClient({
     setList((prev) => ({ ...prev, name: clean }))
   }
 
-  const handleUpdateDescription = async (description: string) => {
-    const clean = description.trim()
-    await supabase.from('lists').update({ description: clean || null }).eq('id', list.id)
-    setList((prev) => ({ ...prev, description: clean || null }))
-  }
-
   const handleDeleteList = async () => {
     await supabase.from('lists').delete().eq('id', list.id)
     router.push(`/${username}`)
@@ -257,97 +244,19 @@ export function ListDetailClient({
 
   return (
     <>
-      {editing ? (
-        // Mirrors ListMasthead's metrics — left-aligned, name at Mier 20/600,
-        // description in the Cardo editorial slot — so switching into edit
-        // doesn't reflow the page around you. 6 rows because the description is
-        // now real prose, not the one-liner the old centred hero assumed.
-        <div className="pb-8 pt-2">
-          <input
-            autoFocus
-            value={nameValue}
-            onChange={(e) => setNameValue(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
-            aria-label="List name"
-            className="w-full max-w-[640px] border-b border-black/15 bg-transparent pb-1 font-sans text-[20px] font-[600] leading-[24px] text-ink focus:border-black/40 focus:outline-none"
-          />
-
-          <textarea
-            value={descValue}
-            onChange={(e) => setDescValue(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setEditing(false) }}
-            rows={6}
-            placeholder="What is this list for? Why these links, and who is it for?"
-            aria-label="List description"
-            className="mt-4 block w-full max-w-[640px] resize-y border-b border-black/15 bg-transparent pb-1 font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60 placeholder:text-black/30 focus:border-black/40 focus:outline-none"
-          />
-
-          <div className="mt-6 flex flex-wrap items-center gap-5">
-            {/* handleRename no-ops on an empty name, so without this the panel
-                would close having silently kept the old one. */}
-            <button
-              disabled={!nameValue.trim()}
-              onClick={async () => {
-                await handleRename(nameValue)
-                await handleUpdateDescription(descValue)
-                setEditing(false)
-              }}
-              className="label rounded-full bg-ink px-4 py-2 text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              Save
-            </button>
-            <button onClick={() => setEditing(false)} className="label text-ink/[0.45] transition-colors hover:text-ink">
-              Cancel
-            </button>
-            {confirmingDelete ? (
-              <span className="flex items-center gap-3">
-                <button onClick={handleDeleteList} className="label text-red-600 hover:underline">
-                  Delete for good
-                </button>
-                <button onClick={() => setConfirmingDelete(false)} className="label text-ink/[0.45] hover:text-ink">
-                  Keep
-                </button>
-              </span>
-            ) : (
-              <button
-                onClick={() => setConfirmingDelete(true)}
-                className="label text-ink/[0.45] transition-colors hover:text-red-600"
-              >
-                Delete list
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <ListMasthead
-          name={list.name}
-          description={list.description}
-          count={bullets.length}
-          ownerName={ownerName}
-          backHref={backHref}
-          backLabel="&larr; All lists"
-          isPrivate={list.is_private}
-          editControl={
-            // Same pencil, same 14px, as the profile's own edit affordance.
-            <button
-              onClick={() => {
-                setNameValue(list.name)
-                setDescValue(list.description || '')
-                setConfirmingDelete(false)
-                setEditing(true)
-              }}
-              aria-label="Edit list name and description"
-              title="Edit list name and description"
-              className="inline-flex text-current transition-colors hover:text-ink"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4z" />
-              </svg>
-            </button>
-          }
-        />
-      )}
+      {/* The masthead IS the editor now: the owner clicks the poster title to
+          rename in place, and delete rides the meta row behind a confirm. The
+          old panel (name input + description textarea + save row) went with
+          descriptions — one job left, done where the title already is. */}
+      <ListMasthead
+        name={list.name}
+        count={bullets.length}
+        backHref={backHref}
+        backLabel="&larr; All lists"
+        isPrivate={list.is_private}
+        onRename={handleRename}
+        onDelete={handleDeleteList}
+      />
 
       {bullets.length > 0 ? (
         <Masonry>

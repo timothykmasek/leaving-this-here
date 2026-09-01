@@ -1,23 +1,32 @@
 'use client'
 
-// The masthead for a list page, per the ProjectX list frame: the list's name
-// as a full-width editorial display — Cardo at poster scale, one line, running
-// off the right edge into white when it's long — over a quiet meta row (back
-// link left, bullet count right). The attribution ("A list by Tim Masek")
-// moved up into the header's centred tagline slot, descriptions dropped from
-// display entirely, and the cover band is retired — the name IS the identity
-// now. Legacy props (description, cover, strip) are still accepted so older
-// call sites compile, but nothing renders them.
+// The masthead for a list page, per the ProjectX list frame: the back link
+// leading, then the list's name as a full-width editorial display — Cardo at
+// poster scale, one line, running off the right edge into white when it's long
+// — over a quiet meta row (bullet count, and the owner's delete link on
+// hover). The attribution ("A list by Tim Masek") lives in the header's
+// centred tagline slot, descriptions dropped from display entirely, and the
+// cover band is retired — the name IS the identity now.
+//
+// Owner editing is the title itself: click the poster name, type, enter or
+// blur saves, escape cancels. The old edit panel (name input + description
+// textarea + save row) is gone — with descriptions off the page it had one
+// job left, and the title does that job in place. Legacy props (description,
+// cover, strip) are still accepted so older call sites compile, but nothing
+// renders them.
 //
 // Type:
 //   • name  → Cardo 400, clamp(52px→180px at 13.5vw), 1.22 leading, -7%
 //             tracking, black/70 — the frame's 180/220/-0.07em at desktop.
-//   • meta  → Mier 500 12/16 +0.05em black/56 — the card metadata voice, same
-//             as before; the back link keeps its existing BracketLabel dress.
+//   • meta  → Mier 500 12/16 +0.05em black/56 — the card metadata voice; the
+//             back link keeps its existing BracketLabel dress.
 
 import Link from 'next/link'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BracketLabel } from '@/components/BulletinHeader'
+
+const titleClass =
+  'whitespace-nowrap font-serif font-normal leading-[1.22] tracking-[-0.07em] text-black/70 text-[clamp(52px,13.5vw,180px)]'
 
 export function ListMasthead({
   name,
@@ -25,26 +34,31 @@ export function ListMasthead({
   backHref,
   backLabel,
   isPrivate = false,
-  editControl,
-  // Retired by the display masthead — accepted so call sites compile.
+  onRename,
+  onDelete,
+  // Retired — accepted so call sites compile.
   description: _description,
   ownerName: _ownerName,
   coverUrl: _coverUrl,
   stripThumbs: _stripThumbs,
   coverControl: _coverControl,
+  editControl: _editControl,
 }: {
   name: string
   count: number
   backHref: string
   backLabel: string
   isPrivate?: boolean
-  /** Owner's edit affordance for the list — the same pencil as before. */
-  editControl?: ReactNode
+  /** Persist a rename. Present → the poster title edits in place on click. */
+  onRename?: (name: string) => void
+  /** Delete the list. Present → a quiet confirm-guarded link in the meta row. */
+  onDelete?: () => void
   description?: string | null
   ownerName?: string
   coverUrl?: string | null
   stripThumbs?: string[]
   coverControl?: ReactNode
+  editControl?: ReactNode
 }) {
   // The right-edge fade only earns its place when the name actually runs past
   // the container — a short name ends in air, not in a dissolve.
@@ -60,6 +74,17 @@ export function ListMasthead({
     return () => ro.disconnect()
   }, [name])
 
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  const saveTitle = () => {
+    setEditing(false)
+    const clean = draft.trim()
+    if (!clean || clean === name || !onRename) return
+    onRename(clean)
+  }
+
   return (
     <header className="group pt-2">
       {/* Back link leads the masthead — you know where you are before the
@@ -72,17 +97,41 @@ export function ListMasthead({
       </Link>
 
       {/* Display title. One line always — length is handled by the fade, not
-          by wrapping, so the masthead's height never moves. */}
-      {/* Frame gives the title ~90px of air below the header and as much again
-          before the meta row — the spaciousness IS the composition. */}
+          by wrapping, so the masthead's height never moves. The frame gives it
+          ~90px of air above and again below — the spaciousness IS the
+          composition. For the owner it's also the rename control. */}
       <div className="relative mt-6 overflow-hidden sm:mt-12">
-        <h1
-          ref={titleRef}
-          className="whitespace-nowrap font-serif font-normal leading-[1.22] tracking-[-0.07em] text-black/70 text-[clamp(52px,13.5vw,180px)]"
-        >
-          {name}
-        </h1>
-        {overflowing && (
+        {editing ? (
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={saveTitle}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveTitle()
+              if (e.key === 'Escape') setEditing(false)
+            }}
+            autoFocus
+            aria-label="List name"
+            className={`${titleClass} w-full bg-transparent focus:outline-none`}
+          />
+        ) : (
+          <h1
+            ref={titleRef}
+            onClick={
+              onRename
+                ? () => {
+                    setDraft(name)
+                    setEditing(true)
+                  }
+                : undefined
+            }
+            title={onRename ? 'Click to rename' : undefined}
+            className={`${titleClass} ${onRename ? 'cursor-text' : ''}`}
+          >
+            {name}
+          </h1>
+        )}
+        {overflowing && !editing && (
           <div
             aria-hidden
             className="pointer-events-none absolute inset-y-0 right-0 w-[100px] bg-gradient-to-r from-white/0 to-white sm:w-[220px]"
@@ -90,18 +139,38 @@ export function ListMasthead({
         )}
       </div>
 
-      {/* Meta row: the count takes the slot the back link vacated, the
-          owner's pencil rides beside it on hover. */}
-      <div className="mt-10 flex items-center gap-2 pb-8 sm:mt-24">
-        <span className="font-sans text-[12px] font-medium leading-4 tracking-[0.05em] text-black/[0.56]">
+      {/* Meta row: the count, with the owner's delete link riding beside it on
+          hover — confirm-guarded inline, same pattern as the bullet modal. */}
+      <div className="mt-10 flex items-center gap-4 pb-8 font-sans text-[12px] font-medium leading-4 tracking-[0.05em] sm:mt-24">
+        <span className="text-black/[0.56]">
           {count} {count === 1 ? 'Bullet' : 'Bullets'}
           {isPrivate && ' · Private'}
         </span>
-        {editControl && (
-          <span className="flex items-center text-black/35 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100">
-            {editControl}
-          </span>
-        )}
+        {onDelete &&
+          (confirmingDelete ? (
+            <span className="flex items-center gap-2.5">
+              <span className="text-black/45">Delete this list?</span>
+              <button
+                onClick={onDelete}
+                className="text-[#a31f34] underline underline-offset-2 transition-opacity hover:opacity-60"
+              >
+                Delete
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                className="text-black/45 transition-opacity hover:opacity-60"
+              >
+                Cancel
+              </button>
+            </span>
+          ) : (
+            <button
+              onClick={() => setConfirmingDelete(true)}
+              className="text-black/35 underline underline-offset-2 opacity-100 transition-all hover:text-black/60 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+            >
+              Delete list
+            </button>
+          ))}
       </div>
     </header>
   )
