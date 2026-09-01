@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import type { EmbedInfo } from '@/lib/rich-embed'
+import { withBulletinUtm } from '@/lib/outboundUrl'
 
 // Inline player card for known platforms. YouTube/Vimeo are click-to-play
 // (no autoplay sprawl on page load); Spotify is always-live because the
@@ -70,7 +71,7 @@ export function YouTubeEmbed({
           />
         )}
       </div>
-      <a href={url} target="_blank" rel="noopener" className="block px-4 py-3 hover:bg-gray-50 transition-colors">
+      <a href={withBulletinUtm(url)} target="_blank" rel="noopener" className="block px-4 py-3 hover:bg-gray-50 transition-colors">
         <h3 className="font-semibold text-[14px] leading-snug text-gray-900 line-clamp-2 tracking-tight">
           {cleanTitle}
         </h3>
@@ -113,7 +114,7 @@ export function VimeoEmbed({
           />
         )}
       </div>
-      <a href={url} target="_blank" rel="noopener" className="block px-4 py-3 hover:bg-gray-50 transition-colors">
+      <a href={withBulletinUtm(url)} target="_blank" rel="noopener" className="block px-4 py-3 hover:bg-gray-50 transition-colors">
         <h3 className="font-semibold text-[14px] leading-snug text-gray-900 line-clamp-2 tracking-tight">
           {cleanTitle}
         </h3>
@@ -146,7 +147,7 @@ export function SpotifyEmbed({
           style={{ border: 0 }}
         />
       </div>
-      <a href={url} target="_blank" rel="noopener" className="block px-4 py-3 hover:bg-gray-50 transition-colors">
+      <a href={withBulletinUtm(url)} target="_blank" rel="noopener" className="block px-4 py-3 hover:bg-gray-50 transition-colors">
         <h3 className="font-semibold text-[14px] leading-snug text-gray-900 line-clamp-2 tracking-tight">
           {cleanTitle}
         </h3>

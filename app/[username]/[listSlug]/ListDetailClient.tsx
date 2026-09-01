@@ -387,6 +387,7 @@ export function ListDetailClient({
                 product={b.product}
                 customImage={b.customImage}
               onOpen={setSelectedId}
+              utmCampaign={username}
             />
           ))}
         </Masonry>
@@ -418,6 +419,7 @@ export function ListDetailClient({
             onDelete={handleDelete}
             onToggleListMembership={handleToggleMembership}
             onCreateList={handleCreateList}
+            utmCampaign={username}
           />
         )
       })()}

@@ -1,6 +1,7 @@
 import { GemGlyph } from '@/components/GemGlyph'
 import { CardThumb } from '@/components/CardThumb'
 import { cardImageCandidates } from '@/lib/cardImage'
+import { withBulletinUtm } from '@/lib/outboundUrl'
 
 // Fixed-size card for the homepage carousel — uniform 4:3 image (object-cover)
 // + a fixed-height title/domain footer, so every card is identical regardless
@@ -21,7 +22,7 @@ export function CarouselCard({ b }: { b: any }) {
 
   return (
     <a
-      href={b.url}
+      href={withBulletinUtm(b.url)}
       target="_blank"
       rel="noopener"
       className="block rounded-none border border-[#26221c]/30 bg-stone-50 shadow-[0_1px_3px_rgba(40,30,25,0.08)] transition-colors hover:border-[#26221c]/60"

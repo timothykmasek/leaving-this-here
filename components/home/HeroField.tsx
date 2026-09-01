@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { HERO_CARDS, HERO_LISTS, HERO_PROFILES, captionMask } from '@/lib/homeContent'
+import { withBulletinUtm } from '@/lib/outboundUrl'
 import Link from 'next/link'
 
 // ── Hero: the drifting field ────────────────────────────────────────────────
@@ -228,7 +229,7 @@ export function HeroField() {
         <a
           key={c.key}
           data-drift
-          href={c.href}
+          href={withBulletinUtm(c.href, 'home')}
           target="_blank"
           rel="noopener"
           className="absolute will-change-transform"

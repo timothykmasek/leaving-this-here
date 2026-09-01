@@ -5,6 +5,7 @@
 
 import { CardThumb } from '@/components/CardThumb'
 import { FaviconPlate } from '@/components/FaviconPlate'
+import { withBulletinUtm } from '@/lib/outboundUrl'
 
 interface LinkCardProps {
   url: string
@@ -31,7 +32,7 @@ export function LinkCard({ url, title, image, fallbackImage, faviconUrl, priorit
   const candidates = [image, fallbackImage].filter((s): s is string => !!s)
   return (
     <a
-      href={url}
+      href={withBulletinUtm(url)}
       target="_blank"
       rel="noopener"
       className="relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card ring-1 ring-black/[0.03] card-lift"

@@ -637,6 +637,7 @@ export default function ProfileClient({
             listName={listByBookmark.get(b.id)?.name ?? null}
             listHref={listByBookmark.get(b.id)?.href ?? null}
             onOpen={isOwner ? setSelectedId : undefined}
+            utmCampaign={username}
           />
         ))}
       </Masonry>
@@ -1100,6 +1101,7 @@ export default function ProfileClient({
                       faviconUrl={b.favicon_url}
                       cardType={b.card_type}
                       imagePref={b.image_pref}
+                      utmCampaign={username}
                     />
                     {/* Two answers to one question, both always visible — the
                         shape the suggestion shelf already uses. */}
@@ -1286,6 +1288,7 @@ export default function ProfileClient({
             onToggleListMembership={handleToggleMembership}
             onCreateList={handleCreateList}
             onTogglePin={handleTogglePin}
+            utmCampaign={username}
           />
         )
       })()}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { STEPS } from '@/lib/homeContent'
+import { withBulletinUtm } from '@/lib/outboundUrl'
 import { Featured } from '@/components/home/Featured'
 import Link from 'next/link'
 
@@ -32,7 +33,7 @@ const CAPTION_MASK = 'linear-gradient(90deg,#000 72%,transparent 100%)'
 function Slot({ index, height }: { index: number; height: number }) {
   const item = POOL[index]
   return (
-    <a href={item.href} target="_blank" rel="noopener" className="block">
+    <a href={withBulletinUtm(item.href, 'home')} target="_blank" rel="noopener" className="block">
       <span className="block overflow-hidden rounded-[20px] bg-card" style={{ height }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={item.src} alt="" className="block h-full w-full object-cover" />

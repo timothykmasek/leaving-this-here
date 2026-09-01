@@ -213,6 +213,7 @@ export default async function ListPage({
                 place={b.place}
                 product={b.product}
                 customImage={b.customImage}
+                utmCampaign={username}
               />
             ))}
           </Masonry>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { GemGlyph } from '@/components/GemGlyph'
 import { resizeImageToWebp } from '@/lib/imageResize'
+import { withBulletinUtm } from '@/lib/outboundUrl'
 
 // Mymind-style detail view for a single bullet. Two panes: a large preview on the
 // left, and metadata on the right — lists and a delete action. Rendered as an
@@ -40,6 +41,8 @@ interface BulletDetailProps {
   onToggleListMembership?: (listId: string, bookmarkId: string, add: boolean) => void
   onCreateList?: (name: string, bookmarkIds?: string[]) => Promise<string | null>
   onTogglePin?: (id: string, pin: boolean) => void
+  // utm_campaign for the visit link's click-out attribution (curator username).
+  utmCampaign?: string | null
 }
 
 function getDomain(url: string): string {
@@ -69,6 +72,7 @@ export function BulletDetail({
   onToggleListMembership,
   onCreateList,
   onTogglePin,
+  utmCampaign,
 }: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const [imgError, setImgError] = useState(false)
@@ -226,7 +230,7 @@ export function BulletDetail({
           )}
 
           <a
-            href={bullet.url}
+            href={withBulletinUtm(bullet.url, utmCampaign)}
             target="_blank"
             rel="noopener"
             className="absolute bottom-4 left-4 inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-paper hover:bg-ink/85 transition-colors"

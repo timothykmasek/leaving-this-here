@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { DEPTH_HERO_CARDS, captionMask } from '@/lib/homeContent'
+import { withBulletinUtm } from '@/lib/outboundUrl'
 
 import { DotGridCanvas } from './DotGridCanvas'
 
@@ -264,7 +265,7 @@ export function DepthHero() {
               data-depth-card
               data-w={w}
               data-h={h}
-              href={c.href}
+              href={withBulletinUtm(c.href, 'home')}
               target="_blank"
               rel="noopener"
               className="absolute left-1/2 top-1/2 block will-change-transform"

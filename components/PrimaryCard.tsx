@@ -5,6 +5,7 @@ import { cardImageCandidates } from '@/lib/cardImage'
 import { CardThumb } from '@/components/CardThumb'
 import { CardFallback } from '@/components/CardFallback'
 import { formatCardTitle, isObstacleCopy } from '@/lib/cardTitle'
+import { withBulletinUtm } from '@/lib/outboundUrl'
 import { resolveCategory, showsSourceMark, type Affordance } from '@/lib/cardFormat'
 import type { CardType } from '@/lib/cardType'
 import type { PlaceMeta } from '@/lib/placeLink'
@@ -186,14 +187,18 @@ interface PrimaryCardProps {
   // Owner view: adds a hover pencil that opens the bullet-detail modal. The card
   // itself always goes to the link. Requires `id`.
   onOpen?: (id: string) => void
+  // utm_campaign for click-out attribution — the curator's username on profile
+  // and list pages. Base utm_source/medium are appended either way.
+  utmCampaign?: string | null
 }
 
 export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
   cardType, imagePref, place: placeProp, product: productProp,
-  customImage: customImageProp, listName, listHref, onOpen,
+  customImage: customImageProp, listName, listHref, onOpen, utmCampaign,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
+  const outboundUrl = withBulletinUtm(url, utmCampaign)
   const fmt = resolveCategory(url, cardType)
   const cleanTitle = formatCardTitle({
     title, description, url, siteName: rawMetadata?.og?.site_name ?? null,
@@ -503,7 +508,7 @@ export const PrimaryCard = memo(function PrimaryCard({
               everything the pencil had nowhere to live but outside. It carries
               the title as its accessible name, since it has no text of its own. */}
           <a
-            href={url}
+            href={outboundUrl}
             target="_blank"
             rel="noopener"
             aria-label={shownTitle || domain}
@@ -556,7 +561,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             destination is worse than one. */}
         {titleLine && (
           <a
-            href={url}
+            href={outboundUrl}
             target="_blank"
             rel="noopener"
             aria-hidden
