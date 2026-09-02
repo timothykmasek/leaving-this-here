@@ -228,7 +228,7 @@ export default function OwnerPreview() {
 
       <Section
         title="List masthead — long name"
-        note="A long name never wraps and never resizes the masthead: it runs off the right edge and melts into white. The fade must only render when the name actually overflows."
+        note="A long name never wraps and never resizes the masthead: it drifts left in a slow seamless loop, melting into white at both edges. Hover pauses it (that's the rename moment); the marquee and fades must only engage when the name actually overflows."
       >
         <ListMasthead
           name="Rooms I think about when I cannot sleep at night"

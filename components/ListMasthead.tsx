@@ -64,14 +64,28 @@ export function ListMasthead({
   coverControl?: ReactNode
   editControl?: ReactNode
 }) {
-  // The right-edge fade only earns its place when the name actually runs past
-  // the container — a short name ends in air, not in a dissolve.
+  // Long names auto-scroll: when the name runs past the container the title
+  // becomes a slow seamless loop (the doubled-track marquee the list cards'
+  // strips already use), with edge fades so letters dissolve rather than get
+  // guillotined. A short name stays put and ends in air, not a dissolve.
+  //
+  // Overflow is measured against the SINGLE copy's width (copyRef), never the
+  // doubled track — measuring the track would keep reporting overflow after a
+  // resize makes the name fit, wedging the marquee on.
   const titleRef = useRef<HTMLHeadingElement>(null)
+  const copyRef = useRef<HTMLSpanElement>(null)
   const [overflowing, setOverflowing] = useState(false)
+  // Seconds per loop, set inline so every name travels at the same px/s.
+  const [loopSeconds, setLoopSeconds] = useState(20)
   useEffect(() => {
     const el = titleRef.current
     if (!el) return
-    const measure = () => setOverflowing(el.scrollWidth > el.clientWidth + 1)
+    const measure = () => {
+      const textWidth = copyRef.current?.offsetWidth ?? el.scrollWidth
+      setOverflowing(textWidth > el.clientWidth + 1)
+      // One loop travels one copy + the 0.6em gap; ~90px/s reads as a drift.
+      setLoopSeconds(Math.max(8, Math.round((textWidth * 1.05) / 90)))
+    }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
@@ -135,14 +149,38 @@ export function ListMasthead({
             title={onRename ? 'Click to rename' : undefined}
             className={`${titleClass} ${onRename ? 'cursor-text' : ''}`}
           >
-            {name}
+            {/* Doubled track (-50% translate = one seamless loop). The gap
+                lives on the copies (pr) so the loop point carries the same
+                air as the join. Hover pauses (see .title-marquee), which is
+                also when click-to-rename happens. */}
+            <span
+              className={overflowing ? 'title-marquee flex w-max' : undefined}
+              style={overflowing ? { animationDuration: `${loopSeconds}s` } : undefined}
+            >
+              <span ref={copyRef} className={overflowing ? 'shrink-0 pr-[0.6em]' : undefined}>
+                {name}
+              </span>
+              {overflowing && (
+                <span aria-hidden className="shrink-0 pr-[0.6em]">
+                  {name}
+                </span>
+              )}
+            </span>
           </h1>
         )}
         {overflowing && !editing && (
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 right-0 w-[100px] bg-gradient-to-r from-white/0 to-white sm:w-[220px]"
-          />
+          <>
+            {/* Both edges fade while the name loops — letters leave through
+                the left now, not just the right. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 left-0 w-[40px] bg-gradient-to-l from-white/0 to-white sm:w-[90px]"
+            />
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 w-[100px] bg-gradient-to-r from-white/0 to-white sm:w-[220px]"
+            />
+          </>
         )}
       </div>
 

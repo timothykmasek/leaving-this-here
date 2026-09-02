@@ -347,3 +347,20 @@ body > * {
     animation: none;
   }
 }
+
+/* List-page poster title when the name overruns the masthead (ListMasthead).
+   Same doubled-track/-50% geometry; duration set inline per name so long and
+   short names travel at the same px/s. Hover pauses — that's also the
+   click-to-rename moment. Reduced motion falls back to the static edge fade. */
+.title-marquee {
+  animation: bullet-marquee linear infinite;
+  will-change: transform;
+}
+.title-marquee:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-marquee {
+    animation: none;
+  }
+}
