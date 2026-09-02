@@ -21,6 +21,20 @@ import { isPlaceUrl, parsePlaceUrl } from '@/lib/placeLink'
 
 const PUBLIC_SLDS = new Set(['co', 'com', 'org', 'net', 'gov', 'edu', 'ac'])
 
+// Hosts whose label is not the brand: shorteners (youtu.be → "Youtu") and
+// brands living on opaque domains (ra.co → "Ra"). Checked against the exact
+// host, before the generic label-capitalization fallback.
+const BRAND_ALIAS: Record<string, string> = {
+  'youtu.be': 'YouTube',
+  't.co': 'X',
+  'amzn.to': 'Amazon',
+  'a.co': 'Amazon',
+  'fb.me': 'Facebook',
+  'goo.gl': 'Google',
+  'ra.co': 'Resident Advisor',
+  'nts.live': 'NTS',
+}
+
 // Titles that carry no information — fall back to the brand/domain instead.
 // Also filtered out per-segment: Shopify and friends serve datacenter fetchers
 // titles like "Your cart – Areaware", and the cart half is site state, not the
@@ -70,6 +84,8 @@ function brandMatch(seg: string, candidate: string | null | undefined): boolean 
 /** Brand from the host: the registrable label, title-cased. sunrun.com → "Sunrun". */
 function brandFromUrl(url: string): string | null {
   const host = getDomain(url)
+  const alias = BRAND_ALIAS[host]
+  if (alias) return alias
   const parts = host.split('.')
   if (parts.length < 2) return null
   let i = parts.length - 2
