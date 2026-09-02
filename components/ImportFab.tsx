@@ -49,15 +49,18 @@ export function ImportFab({
     // grid; it must not swallow clicks meant for the feed underneath, hence
     // pointer-events-none here and auto on the button itself.
     <div
-      className="pointer-events-none fixed inset-x-0 z-40 hidden sm:block"
+      className="pointer-events-none fixed inset-x-0 z-40"
       style={{ bottom: FOOTER_CLEARANCE }}
     >
       <div className={`mx-auto flex ${widthClassName} justify-end`}>
+        {/* On phones too, since the mobile search glass moved to the header and
+            freed this corner — the one thumb-reach spot with nothing in it.
+            56px there (the old mobile search circle's scale); 64 from sm up. */}
         <Link
           href="/import"
           aria-label="Import links"
           title="Import links"
-          className="group pointer-events-auto flex h-16 w-16 items-center justify-center rounded-[20px] transition-transform duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.04] active:scale-[0.98]"
+          className="group pointer-events-auto flex h-14 w-14 items-center justify-center rounded-[18px] transition-transform duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.04] active:scale-[0.98] sm:h-16 sm:w-16 sm:rounded-[20px]"
           style={{
             // Frosted, per the handoff: it takes its colour from whatever it's
             // over. The radial overlay is Figma's, approximated — the export's
