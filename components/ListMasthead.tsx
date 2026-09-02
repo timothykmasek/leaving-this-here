@@ -118,7 +118,10 @@ export function ListMasthead({
           by wrapping, so the masthead's height never moves. The frame gives it
           ~90px of air above and again below — the spaciousness IS the
           composition. For the owner it's also the rename control. */}
-      <div className="relative mt-6 overflow-hidden sm:mt-12">
+      {/* overflow-x only: the marquee needs horizontal clipping, but Cardo's
+          descenders (g, y, p) reach below the line box at poster scale and a
+          full overflow-hidden guillotines them. */}
+      <div className="relative mt-6 overflow-x-clip sm:mt-12">
         {editing ? (
           <input
             value={draft}
