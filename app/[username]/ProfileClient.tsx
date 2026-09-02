@@ -251,6 +251,21 @@ export default function ProfileClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Pull the feed fresh after the quick-add box lands a link, so the new card
+  // shows up at the top without a reload. Same query and same don't-clobber-
+  // an-active-search rule as the background full-load above.
+  const refreshBookmarks = async () => {
+    const { data } = await supabase
+      .from('bookmarks')
+      .select(BULLET_COLS)
+      .eq('user_id', initialProfile.id)
+      .order('pinned_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+    if (!data) return
+    setBookmarks(data)
+    setFiltered((prev) => (query.trim() ? prev : data))
+  }
+
   // Token + synonym fallback used when semantic search returns nothing.
   const SYNONYMS: Record<string, string[]> = {
     video: ['youtube', 'vimeo', 'film', 'movie'],
@@ -1405,7 +1420,7 @@ export default function ProfileClient({
           no footer at all — no privacy link, no extension link, nothing. The
           Import button below stays owner-only; it is an action, not chrome. */}
       <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />
-      {isOwner && <ImportFab widthClassName={PROFILE_GRID} />}
+      {isOwner && <ImportFab widthClassName={PROFILE_GRID} onSaved={refreshBookmarks} />}
     </main>
   )
 }
