@@ -45,10 +45,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Doorbell: email Tim on each genuinely new signup (duplicates stay silent).
-  // Sent from Resend's shared onboarding address because the domain isn't
-  // verified yet — which also means Resend will ONLY deliver to the account
-  // owner's own email, exactly this use case. Awaited (a serverless runtime
-  // may not finish a dangling promise after the response) but never fatal.
+  // Awaited (a serverless runtime may not finish a dangling promise after the
+  // response) but never fatal.
   if (!error && process.env.RESEND_API_KEY) {
     try {
       const { count } = await admin
@@ -62,7 +60,7 @@ export async function POST(req: NextRequest) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          from: 'Bulletin <onboarding@resend.dev>',
+          from: 'Bulletin <bulletin@yourbulletin.com>',
           to: 'timothykmasek@gmail.com',
           subject: `Beta request: ${email}`,
           text: `${email} just asked for beta access${nth}.`,

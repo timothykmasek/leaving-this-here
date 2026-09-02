@@ -30,6 +30,7 @@ function LoginPageInner() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [linkSent, setLinkSent] = useState(false)
   const [error, setError] = useState<string | null>(
     // Set by /auth/callback when the OAuth round-trip fails. invite_only is
     // Supabase refusing to mint an account (signups off, email not on the
@@ -77,6 +78,38 @@ function LoginPageInner() {
     if (error) setError(error.message)
   }
 
+  // The artifact's second lane: "or a link emailed to them". shouldCreateUser
+  // false keeps the gate honest — an email without an account gets the
+  // guest-list message, never a fresh auth user. Delivery runs through the
+  // Resend SMTP hookup (domain-verified), not Supabase's throttled mailer.
+  const handleMagicLink = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+      if (error) {
+        setError(
+          /signup|not allowed|not found/i.test(error.message)
+            ? 'That email isn’t on the guest list yet — Bulletin is invite-only right now.'
+            : error.message
+        )
+      } else {
+        setLinkSent(true)
+      }
+    } catch (err: any) {
+      setError(err.message || 'something went wrong')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <main className="flex min-h-screen flex-col">
       <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
@@ -93,6 +126,36 @@ function LoginPageInner() {
           >
             Continue with Google
           </button>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-black/10" /></div>
+            <div className="relative flex justify-center"><span className="label bg-paper px-3 text-black/35">or</span></div>
+          </div>
+
+          {linkSent ? (
+            <p className="text-center text-sm leading-relaxed text-black/55">
+              Check your inbox — we emailed <strong className="text-ink">{email}</strong> a
+              sign-in link.
+            </p>
+          ) : (
+            <form onSubmit={handleMagicLink} className="flex gap-2.5">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className={inputClass}
+                required
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="label shrink-0 whitespace-nowrap rounded-full border border-black/15 bg-white px-5 py-3 text-ink transition-colors hover:border-black/40 disabled:opacity-60"
+              >
+                Email me a link
+              </button>
+            </form>
+          )}
 
           {error && !showPw && <p className="mt-4 text-center text-sm text-[#a31f34]">{error}</p>}
 
