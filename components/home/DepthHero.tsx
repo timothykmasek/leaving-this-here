@@ -336,8 +336,7 @@ export function DepthHero() {
           className="block h-auto w-[min(220px,38vw)] sm:w-[min(280px,45vw)]"
         />
         <p className="text-[17px] font-normal leading-[1.3] text-black sm:text-[20px]">
-          Bookmark in public
-          <span className="mt-1 block text-[13px] text-black/70 sm:text-[15px]">(or don&rsquo;t).</span>
+          Links to keep. Lists to share.
         </p>
 
         {submitted ? (
