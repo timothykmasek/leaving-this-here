@@ -125,6 +125,18 @@ export default function ProfileClient({
   // Non-empty while the owner is searching — collapses the lists/recent layout
   // down to a flat results grid.
   const [query, setQuery] = useState('')
+  // Mobile-only search. On phones the 359px search box and the tab pill were
+  // crushing each other in one row, so under sm: search collapses to a glass
+  // in the header (actionExtra) that drops a full-width bar in below it.
+  // Desktop keeps the toolbar box. Closing clears the query so the grid
+  // returns — a hidden bar must not keep filtering the page.
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const mobileSearchRef = useRef<HTMLInputElement | null>(null)
+  useEffect(() => {
+    // preventScroll: an autofocus scroll is what clipped the /start logo —
+    // same gotcha here, the bar sits at the top so there's nothing to scroll to.
+    if (mobileSearchOpen) mobileSearchRef.current?.focus({ preventScroll: true })
+  }, [mobileSearchOpen])
   const [showAllLists, setShowAllLists] = useState(false)
   const [activeListId, setActiveListId] = useState<string | null>(null)
   // Profile view tab — Recent bullets vs the Lists collection grid. Seeded from
@@ -386,6 +398,24 @@ export default function ProfileClient({
     } catch {
       // keep the instant token results already on screen
     }
+  }
+
+  // One keystroke pipeline for both search inputs (desktop toolbar box, mobile
+  // drop-in bar): instant token filter now, debounced semantic re-rank after.
+  const handleSearchInput = (v: string) => {
+    setQuery(v)
+    if (v.trim()) setActiveListId(null)
+    // Any input change supersedes in-flight semantic requests (incl. clearing —
+    // a late response must not repopulate a cleared box).
+    searchSeq.current++
+    setFiltered(v.trim() ? tokenSearch(v) : bookmarks)
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    if (v.trim()) searchTimer.current = setTimeout(() => handleSearch(v), 250)
+  }
+
+  const closeMobileSearch = () => {
+    setMobileSearchOpen(false)
+    if (query) handleSearchInput('')
   }
 
   const handleSignOut = async () => {
@@ -689,6 +719,24 @@ export default function ProfileClient({
             : { label: 'Sign up', href: '/start' }
         }
         logoClassName="h-[32px] sm:h-[44px]"
+        // Mobile-only search glass beside "Log out" — toggles the drop-in bar
+        // below the header. Desktop keeps the toolbar's search box (hidden
+        // under sm:), so this disappears at the same breakpoint it appears.
+        actionExtra={
+          isOwner ? (
+            <button
+              onClick={() => (mobileSearchOpen ? closeMobileSearch() : setMobileSearchOpen(true))}
+              aria-label={mobileSearchOpen ? 'Close search' : 'Search your links'}
+              aria-expanded={mobileSearchOpen}
+              className="flex text-black/60 transition-colors hover:text-ink sm:hidden"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.5-3.5" />
+              </svg>
+            </button>
+          ) : null
+        }
         widthClassName={PROFILE_GRID}
         stickyLogo
         tagline={
@@ -706,13 +754,48 @@ export default function ProfileClient({
           desktop / ~48 mobile), so the profile, its Lists tab, and a list page
           all breathe on the same rhythm. */}
       <div className={`mx-auto ${PROFILE_GRID} pb-40 pt-12 sm:pt-[88px]`}>
+        {/* Mobile search bar — drops in right under the header when the glass
+            is tapped. Same dress as the desktop box, full width. The ✕ clears
+            AND closes. globals.css floors the input at 16px under 640px, so
+            iOS Safari won't zoom-jump on focus. */}
+        {isOwner && mobileSearchOpen && (
+          <div className="relative -mt-2 mb-8 sm:hidden">
+            <input
+              ref={mobileSearchRef}
+              type="search"
+              value={query}
+              placeholder="Search"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+              enterKeyHint="search"
+              aria-label="Search your links"
+              data-1p-ignore
+              data-lpignore="true"
+              onChange={(e) => handleSearchInput(e.target.value)}
+              className="h-[56px] w-full rounded-[20px] border border-[#BCBCBC] bg-transparent pl-5 pr-12 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40"
+            />
+            <button
+              onClick={closeMobileSearch}
+              aria-label="Close search"
+              className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-black/40 transition-colors hover:text-ink"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+          </div>
+        )}
         {profile.is_preview && <PreviewBanner />}
         {isOwner && <WelcomeBanner />}
 
         {/* Hero — centered identity block (name · bio · links · edit).
             Margin below matches the list masthead's title→meta gap (~96px),
-            so both pages run the same 88 → hero → 96 → toolbar → 32 rhythm. */}
-        <div className="mb-10 sm:mb-24">
+            so both pages run the same 88 → hero → 96 → toolbar → 32 rhythm.
+            Mobile gets 64px (was 40) — the identity block wants clear air
+            before the toolbar/cards start. */}
+        <div className="mb-16 sm:mb-24">
           <ProfileIdentity
             name={profile.display_name || profile.username}
             bio={profile.bio}
@@ -882,24 +965,12 @@ export default function ProfileClient({
                 aria-label="Search your links"
                 data-1p-ignore
                 data-lpignore="true"
-                onChange={(e) => {
-                  const v = e.target.value
-                  setQuery(v)
-                  if (v.trim()) setActiveListId(null)
-                  // Any input change supersedes in-flight semantic requests (incl.
-                  // clearing — a late response must not repopulate a cleared box).
-                  searchSeq.current++
-                  // Instant local filter on the keystroke; semantic re-rank lands after.
-                  setFiltered(v.trim() ? tokenSearch(v) : bookmarks)
-                  if (searchTimer.current) clearTimeout(searchTimer.current)
-                  if (v.trim()) searchTimer.current = setTimeout(() => handleSearch(v), 250)
-                }}
+                onChange={(e) => handleSearchInput(e.target.value)}
                 // Figma: 359x62, 1px #BCBCBC, radius 20, Mier A 600 14/20 #000,
-                // 20px inset. 14px is safe here despite iOS Safari's auto-zoom
-                // on sub-16px inputs — globals.css already floors every text
-                // control at 16px under 640px. Placeholder lightened off the
-                // Figma spec so the hint reads as a hint, not typed text.
-                className="h-[62px] w-full max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-transparent px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40"
+                // 20px inset. Desktop-only (hidden sm:block) — on phones search
+                // lives in the header glass + drop-in bar instead, and the tab
+                // pill gets this row to itself.
+                className="hidden h-[62px] w-full max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-transparent px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40 sm:block"
               />
             )}
 

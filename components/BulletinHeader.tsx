@@ -26,6 +26,7 @@ export function BracketLabel({
 
 export function BulletinHeader({
   action = { label: 'Sign up', href: '#' },
+  actionExtra,
   logoClassName = 'h-[44px]',
   tagline,
   widthClassName = 'max-w-[1208px] px-4 sm:px-6',
@@ -33,6 +34,9 @@ export function BulletinHeader({
 }: {
   // Pass `action={null}` for a logo-only header (e.g. auth pages).
   action?: { label: string; href?: string; onClick?: () => void } | null
+  // Optional control(s) rendered just before the action mark on the right —
+  // e.g. the profile's mobile search glass. Dressed by the caller.
+  actionExtra?: React.ReactNode
   logoClassName?: string
   // Optional centred tagline (e.g. "A home for Tim's links" on a profile). When
   // present the logo sits left instead of centred.
@@ -98,19 +102,24 @@ export function BulletinHeader({
         {/* dot-cornered registration mark — sits on the content's right edge via
             ml-auto, so it tracks the container's padding at any width (it used
             to be absolutely pinned to right-4/sm:right-6, which only matched
-            one of them). */}
-        {action && (action.onClick ? (
-          <button onClick={action.onClick} className="group ml-auto shrink-0">
-            {actionInner}
-          </button>
-        ) : (
-          // <Link>, not <a>: this points at an internal route (/start), and a
-          // plain anchor tears down the whole document and reloads the app
-          // instead of doing a client transition.
-          <Link href={action.href || '/'} className="group ml-auto shrink-0">
-            {actionInner}
-          </Link>
-        ))}
+            one of them). actionExtra rides just inside it. */}
+        {(action || actionExtra) && (
+          <span className="ml-auto flex shrink-0 items-center gap-4">
+            {actionExtra}
+            {action && (action.onClick ? (
+              <button onClick={action.onClick} className="group shrink-0">
+                {actionInner}
+              </button>
+            ) : (
+              // <Link>, not <a>: this points at an internal route (/start), and a
+              // plain anchor tears down the whole document and reloads the app
+              // instead of doing a client transition.
+              <Link href={action.href || '/'} className="group shrink-0">
+                {actionInner}
+              </Link>
+            ))}
+          </span>
+        )}
       </div>
 
       {/* The wordmark that actually stays put. Two things make the blend work,
