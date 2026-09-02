@@ -14,13 +14,14 @@
 //   npx tsx scripts/invite.ts --email jane@gmail.com --username jane --dry-run
 //   npx tsx scripts/invite.ts --email jane@gmail.com --username jane \
 //     --name "Jane Doe" --bio "…" --links jane-links.txt --list "Desk Research"
-//   npx tsx scripts/invite.ts --email jane@gmail.com --username jane --magic-link
 //
 // --links     file with one URL per line (blank lines and #comments ignored)
 // --list      public list to put ALL seeded links in (created if missing)
-// --magic-link  also print a one-click sign-in URL to paste into the invite
-//               email. Expires per the project's OTP expiry (default 1h) —
-//               Google login is the real door; this is a same-day courtesy.
+//
+// The invite email needs no special link: /login's two lanes are both live
+// (Google, or a self-serve emailed sign-in link). Admin-generated magic links
+// (generateLink action_link) were cut — that path was never proven end-to-end
+// and the self-serve lane is.
 //
 // Idempotent: an email that already has an account is reused, an existing
 // profile is updated (username must be theirs or free), already-saved urls
@@ -48,7 +49,6 @@ function arg(name: string): string | undefined {
   return i > -1 ? process.argv[i + 1] : undefined
 }
 const DRY = process.argv.includes('--dry-run')
-const WANT_MAGIC = process.argv.includes('--magic-link')
 
 const EMAIL = arg('email')?.trim().toLowerCase()
 const USERNAME = arg('username')?.trim().toLowerCase()
@@ -237,19 +237,10 @@ async function main() {
     console.log(`— would file ${links.length} links into list "${LIST_NAME}"`)
   }
 
-  if (WANT_MAGIC && !DRY) {
-    const { data, error } = await sb.auth.admin.generateLink({ type: 'magiclink', email: EMAIL! })
-    if (error) {
-      console.error(`magic link failed: ${error.message}`)
-    } else {
-      console.log(`\nmagic link (expires — send today, Google login is the durable door):`)
-      console.log(data.properties.action_link)
-    }
-  }
-
   if (!DRY) {
     console.log(`\ndone. their page: https://www.yourbulletin.com/${USERNAME}`)
-    console.log(`they sign in at https://www.yourbulletin.com/login with Google (${EMAIL}).`)
+    console.log(`they sign in at https://www.yourbulletin.com/login — Google (${EMAIL}),`)
+    console.log(`or they type that email there and get a sign-in link.`)
   }
 }
 
