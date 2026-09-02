@@ -24,13 +24,14 @@ export function Masonry({ children }: { children: ReactNode }) {
   const columns: ReactNode[][] = Array.from({ length: cols }, () => [])
   items.forEach((child, i) => columns[i % cols].push(child))
 
-  // Gaps: 40px between columns and 40px between cards — one interval in both
-  // axes, matching the page margin on the profile so the grid reads as evenly
-  // distributed rather than a block with arbitrary inner spacing.
+  // Gaps: one interval in both axes, MATCHING THE PAGE MARGIN at each
+  // breakpoint (16px under the profile's px-4, 40px under sm:px-10) so the
+  // grid reads as evenly distributed rather than a block with a fat inner
+  // gutter — on phones a fixed 40px gutter read wider than the 16px edges.
   return (
-    <div className="flex gap-x-[40px]">
+    <div className="flex gap-x-4 sm:gap-x-[40px]">
       {columns.map((col, i) => (
-        <div key={i} className="flex min-w-0 flex-1 flex-col gap-y-[40px]">
+        <div key={i} className="flex min-w-0 flex-1 flex-col gap-y-4 sm:gap-y-[40px]">
           {col}
         </div>
       ))}
