@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { INVITE_ONLY } from '@/lib/beta'
 import { BulletinHeader } from '@/components/BulletinHeader'
 import { SEED_LIBRARY, seedImageUrl, CATEGORY, INTERESTS, INTEREST_LABEL, type Interest } from '@/lib/seedLibrary'
 import { CHROME_STORE_URL as WEB_STORE_URL } from '@/lib/extension'
@@ -25,7 +26,7 @@ import { CHROME_STORE_URL as WEB_STORE_URL } from '@/lib/extension'
 
 const STORE_KEY = 'bulletin-onboarding'
 
-type Step = 'account' | 'username' | 'about' | 'interests' | 'picks' | 'building' | 'check-email' | 'ext'
+type Step = 'account' | 'username' | 'about' | 'interests' | 'picks' | 'building' | 'check-email' | 'ext' | 'invite-only'
 
 function titlecase(s: string): string {
   return s.replace(/[-_.]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim()
@@ -81,9 +82,17 @@ export default function StartPage() {
           router.replace(`/${profile.username}`)
           return
         }
-        setStep('username')
+        // During the beta, "authed + no profile" means not on the guest list
+        // (profiles are only minted by the invite script) — end the session
+        // rather than resuming a wizard that would mint them one.
+        if (INVITE_ONLY) {
+          await supabase.auth.signOut()
+          setStep('invite-only')
+        } else {
+          setStep('username')
+        }
       } else {
-        setStep('account')
+        setStep(INVITE_ONLY ? 'invite-only' : 'account')
       }
       setBooting(false)
     })()
@@ -173,6 +182,8 @@ export default function StartPage() {
           />
         ) : step === 'check-email' ? (
           <CheckEmail />
+        ) : step === 'invite-only' ? (
+          <InviteOnly />
         ) : (
           <Extension onDone={() => router.push(`/${username}`)} />
         )}
@@ -212,6 +223,63 @@ const primaryBtn =
 
 const fieldLabel = 'mb-1.5 block text-xs uppercase tracking-wider text-black/40'
 
+/* ── 00 · invite-only ─────────────────────────────────────────────────── */
+// The beta's front door for anyone the invite script hasn't let in yet:
+// shown instead of the wizard while INVITE_ONLY, and by Account if Supabase
+// ever rejects a signup outright. Same optimistic waitlist capture as the
+// landing page.
+
+function InviteOnly({ initialEmail = '' }: { initialEmail?: string }) {
+  const [email, setEmail] = useState(initialEmail)
+  const [requested, setRequested] = useState(false)
+
+  const requestAccess = (e: React.FormEvent) => {
+    e.preventDefault()
+    fetch('/api/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim() }),
+      keepalive: true,
+    }).catch(() => {})
+    setRequested(true)
+  }
+
+  return (
+    <div>
+      <Headline>Bulletin is invite-only right now.</Headline>
+      <Sub>
+        We&rsquo;re letting people in a few at a time. Leave your email and
+        we&rsquo;ll be in touch.
+      </Sub>
+
+      {requested ? (
+        <p className="mt-7 text-sm text-black/55">You&rsquo;re on the list.</p>
+      ) : (
+        <form onSubmit={requestAccess} className="mt-7 space-y-3">
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@email.com"
+            className={fieldClass}
+          />
+          <button type="submit" className={primaryBtn}>
+            request access →
+          </button>
+        </form>
+      )}
+
+      <p className="mt-6 text-sm text-black/40">
+        already invited?{' '}
+        <Link href="/login" className="text-ink underline underline-offset-4">
+          sign in
+        </Link>
+      </p>
+    </div>
+  )
+}
+
 /* ── 01 · account ─────────────────────────────────────────────────────── */
 
 function Account({
@@ -232,7 +300,6 @@ function Account({
   // manners for an uninvited visitor — swap the whole step for a soft
   // invite-only landing with the same waitlist capture as the homepage.
   const [inviteOnly, setInviteOnly] = useState(false)
-  const [requested, setRequested] = useState(false)
 
   const google = async () => {
     setError(null)
@@ -271,53 +338,8 @@ function Account({
     else onCheckEmail()
   }
 
-  const requestAccess = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Optimistic, same as the landing page: one forward path, no error state.
-    fetch('/api/waitlist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email.trim() }),
-      keepalive: true,
-    }).catch(() => {})
-    setRequested(true)
-  }
-
   if (inviteOnly) {
-    return (
-      <div>
-        <Headline>Bulletin is invite-only right now.</Headline>
-        <Sub>
-          We&rsquo;re letting people in a few at a time. Leave your email and
-          we&rsquo;ll be in touch.
-        </Sub>
-
-        {requested ? (
-          <p className="mt-7 text-sm text-black/55">You&rsquo;re on the list.</p>
-        ) : (
-          <form onSubmit={requestAccess} className="mt-7 space-y-3">
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@email.com"
-              className={fieldClass}
-            />
-            <button type="submit" className={primaryBtn}>
-              request access →
-            </button>
-          </form>
-        )}
-
-        <p className="mt-6 text-sm text-black/40">
-          already invited?{' '}
-          <Link href="/login" className="text-ink underline underline-offset-4">
-            sign in
-          </Link>
-        </p>
-      </div>
-    )
+    return <InviteOnly initialEmail={email} />
   }
 
   return (

@@ -3,6 +3,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 import { uniqueSlug } from '@/lib/slug'
 import { createBookmarkFromUrl } from '@/lib/createBookmark'
 import { SEED_LIBRARY, CATEGORY, seedImageUrl, type SeedLink } from '@/lib/seedLibrary'
+import { INVITE_ONLY } from '@/lib/beta'
 
 // POST /api/onboarding/setup — the build step of account-first onboarding.
 //
@@ -48,6 +49,13 @@ async function bakedSeedScreenshot(seed: SeedLink): Promise<string | null> {
 }
 
 export async function POST(request: NextRequest) {
+  // During the beta, profiles are only minted by scripts/invite.ts — this
+  // route would otherwise let a scripted signUp build itself a page around
+  // the invite gate (the UI never reaches it while INVITE_ONLY).
+  if (INVITE_ONLY) {
+    return NextResponse.json({ error: 'invite only' }, { status: 403 })
+  }
+
   const supabase = await createSupabaseServer()
   const {
     data: { user },

@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { INVITE_ONLY } from '@/lib/beta'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -49,6 +50,27 @@ export async function GET(request: Request) {
 
         if (profile) {
           return NextResponse.redirect(`${origin}/${profile.username}`)
+        }
+
+        // No profile = not on the guest list (profiles are only minted by
+        // scripts/invite.ts during the beta). Their sign-in still counts as
+        // knocking: file the email as a request (rings the doorbell, and the
+        // unique index absorbs repeats), then end the session so they aren't
+        // left half-authed in a product they can't enter.
+        if (INVITE_ONLY) {
+          if (user.email) {
+            try {
+              await fetch(`${origin}/api/waitlist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: user.email }),
+              })
+            } catch {
+              // the gate must close even if the doorbell doesn't ring
+            }
+          }
+          await supabase.auth.signOut()
+          return NextResponse.redirect(`${origin}/login?error=invite_only`)
         }
       }
       // No profile yet → onboarding. The account now exists (account is step 1
