@@ -1,6 +1,7 @@
 'use client'
 
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { useMinSm } from '@/lib/useMinSm'
 import { cardImageCandidates } from '@/lib/cardImage'
 import { CardThumb } from '@/components/CardThumb'
 import { CardFallback } from '@/components/CardFallback'
@@ -282,7 +283,14 @@ export const PrimaryCard = memo(function PrimaryCard({
 
   // The foot-fade only means anything over a real image; an imageless card
   // shows the favicon plate and has no photo to dissolve.
-  const hasFade = !place && candidates.length > 0
+  //
+  // Desktop-only (2026-09-02, Tim): on a phone's 2-col grid the cards are
+  // small enough that the dissolve was eating a real share of the picture, so
+  // under sm: the image runs clean to the plate's bottom edge. One boolean —
+  // every coordinated piece (plate bg, image mask, overlay, scrim, hairline
+  // branching) already keys off hasFade, so they all follow together.
+  const minSm = useMinSm()
+  const hasFade = !place && candidates.length > 0 && minSm
 
   const placePhoto =
     place && !place.photo && place.photoBox && screenshotUrl
@@ -514,11 +522,39 @@ export const PrimaryCard = memo(function PrimaryCard({
   const usableDescription = isObstacleCopy(description) ? '' : (description || '').trim()
   const fallbackCarriesTitle = !hasImage && usableDescription.length < 24
 
+  // Hover scroll-through for a cut-off title (2026-09-02, Tim): while the
+  // pointer is over the card, the line slides left until its tail is in view,
+  // and slides home on leave (see .card-title in globals.css). Measured HERE,
+  // lazily, on the first pointerenter/focus — not with a ResizeObserver per
+  // card, which would be a thousand observers on a power profile. The shift
+  // and a distance-proportional duration land as CSS vars; data-overflowing
+  // is what arms the CSS, so a short title never moves and never loses its
+  // left edge to the flipped mask.
+  const titleRef = useRef<HTMLParagraphElement | null>(null)
+  const primeTitleScroll = useCallback(() => {
+    const el = titleRef.current
+    const inner = el?.firstElementChild as HTMLElement | null
+    if (!el || !inner) return
+    const over = inner.scrollWidth - el.clientWidth
+    if (over > 1) {
+      el.dataset.overflowing = 'true'
+      el.style.setProperty('--title-shift', `${-over}px`)
+      // ~70px/s, clamped so a barely-cut title doesn't snap and a huge one
+      // doesn't crawl.
+      el.style.setProperty('--title-scroll-dur', `${Math.min(2.5, Math.max(0.45, over / 70)).toFixed(2)}s`)
+    } else {
+      delete el.dataset.overflowing
+    }
+  }, [])
+
   // A Place states its facts in the plate's own block — a caption underneath
   // would say the same words twice.
   const titleLine = cleanTitle && !place && !fallbackCarriesTitle ? (
-    <p className="relative z-10 mt-5 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56] [-webkit-mask-image:linear-gradient(to_right,#000_88%,transparent)] [mask-image:linear-gradient(to_right,#000_88%,transparent)]">
-      {cleanTitle}
+    <p
+      ref={titleRef}
+      className="card-title relative z-10 mt-5 overflow-hidden whitespace-nowrap font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/[0.56]"
+    >
+      <span>{cleanTitle}</span>
     </p>
   ) : null
 
@@ -527,7 +563,14 @@ export const PrimaryCard = memo(function PrimaryCard({
       {/* The card always goes to the original link — owner or not. Owners get the
           detail/edit view from the hover pencil below (a button can't nest inside
           the anchor, so it's an absolutely-positioned sibling). */}
-      <div className="group relative w-full">
+      <div
+        className="group relative w-full"
+        // Primes the title's scroll-through measurement the moment the card
+        // could need it — pointerenter covers mouse AND the touch tap that
+        // makes iOS apply :hover; onFocus covers keyboard travel.
+        onPointerEnter={primeTitleScroll}
+        onFocus={primeTitleScroll}
+      >
         {/* Everything that HANGS is inside .pin-hang — the plate, the link that
             covers it, and the owner's pencil. That containment is the point:
             globals.css records that tilting the plate while the pencil was an

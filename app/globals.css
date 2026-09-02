@@ -348,6 +348,36 @@ body > * {
   }
 }
 
+/* Card caption (PrimaryCard): one line, dissolving at the right edge instead
+   of a hard "…". When the pointer rests on the card AND the title is actually
+   longer than its box (data-overflowing + the CSS vars, set lazily by
+   PrimaryCard on pointerenter/focus), the line slides left until its tail is
+   in view — the fade flips to the left edge, where the cut now is — and
+   slides home on leave. A short title never moves and keeps no mask games. */
+.card-title {
+  -webkit-mask-image: linear-gradient(to right, #000 88%, transparent);
+  mask-image: linear-gradient(to right, #000 88%, transparent);
+}
+.card-title > span {
+  display: inline-block;
+  white-space: nowrap;
+  transition: transform var(--title-scroll-dur, 0.6s) cubic-bezier(0.33, 0, 0.2, 1);
+}
+.group:hover .card-title[data-overflowing],
+.group:focus-within .card-title[data-overflowing] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%);
+  mask-image: linear-gradient(to right, transparent, #000 12%);
+}
+.group:hover .card-title[data-overflowing] > span,
+.group:focus-within .card-title[data-overflowing] > span {
+  transform: translateX(var(--title-shift, 0px));
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-title > span {
+    transition: none;
+  }
+}
+
 /* List-page poster title when the name overruns the masthead (ListMasthead).
    Same doubled-track/-50% geometry; duration set inline per name so long and
    short names travel at the same px/s. Hover pauses — that's also the
