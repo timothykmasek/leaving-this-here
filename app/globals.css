@@ -259,8 +259,16 @@ body > * {
   transform-origin: calc(100% - var(--pin-inset)) var(--pin-inset);
   transition: transform 600ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
-.group:hover .pin-hang {
-  transform: rotate(-2.77deg);
+/* Hover-only where hover EXISTS (2026-09-02, Tim: no tilt on mobile). On
+   touch, the tap that opens a link also set sticky :hover — so the card you
+   just left tilted behind you, a glitch rather than physics. (hover: hover)
+   rather than a width breakpoint: a phone in landscape is wider than sm: but
+   still has no pointer to hang a card from. The keyboard rules below stay
+   unguarded — a tap never triggers :focus-visible. */
+@media (hover: hover) {
+  .group:hover .pin-hang {
+    transform: rotate(-2.77deg);
+  }
 }
 /* Keyboard focus, NOT :focus-within.
    
@@ -298,9 +306,13 @@ body > * {
   pointer-events: none;
   z-index: 3;
 }
-.group:hover .pin-tack {
-  opacity: 1;
-  transform: scale(1);
+/* Same (hover: hover) guard as the swing — the tack and the hang are one
+   gesture, and half of it appearing on tap is worse than none. */
+@media (hover: hover) {
+  .group:hover .pin-tack {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .group:has(:focus-visible) .pin-tack {
   opacity: 1;
