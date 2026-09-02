@@ -45,6 +45,9 @@ export async function GET(request: Request) {
     )
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
+    if (error) {
+      console.error('[auth/callback] exchange failed:', error.message)
+    }
 
     if (!error) {
       // Check if user already has a profile
