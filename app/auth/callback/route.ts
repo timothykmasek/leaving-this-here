@@ -12,8 +12,16 @@ export async function GET(request: Request) {
   // this instance". Surface that as the invite-only message, not a generic
   // failure.
   const errorDescription = searchParams.get('error_description') ?? ''
-  if (!code && /signup|not allowed/i.test(errorDescription)) {
-    return NextResponse.redirect(`${origin}/login?error=invite_only`)
+  if (!code) {
+    // The raw provider error is the only diagnostic for a failed round-trip —
+    // keep it in the function logs (vercel logs), the user gets the soft copy.
+    console.error(
+      '[auth/callback] code-less redirect:',
+      JSON.stringify(Object.fromEntries(searchParams.entries()))
+    )
+    if (/signup|not allowed/i.test(errorDescription)) {
+      return NextResponse.redirect(`${origin}/login?error=invite_only`)
+    }
   }
 
   if (code) {
