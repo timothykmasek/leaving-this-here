@@ -227,6 +227,12 @@ function Account({
   const [pw, setPw] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // With "Allow new users to sign up" off in Supabase, signUp is rejected
+  // with "Signups not allowed for this instance". Raw red text is terrible
+  // manners for an uninvited visitor — swap the whole step for a soft
+  // invite-only landing with the same waitlist capture as the homepage.
+  const [inviteOnly, setInviteOnly] = useState(false)
+  const [requested, setRequested] = useState(false)
 
   const google = async () => {
     setError(null)
@@ -248,6 +254,10 @@ function Account({
     })
     setBusy(false)
     if (error) {
+      if (/signup|not allowed/i.test(error.message)) {
+        setInviteOnly(true)
+        return
+      }
       setError(
         error.message.includes('rate') || error.message.includes('security')
           ? 'please wait a moment before trying again'
@@ -259,6 +269,55 @@ function Account({
     // turned ON, signUp returns no session and we fall back to check-email.
     if (data.session) onSession()
     else onCheckEmail()
+  }
+
+  const requestAccess = (e: React.FormEvent) => {
+    e.preventDefault()
+    // Optimistic, same as the landing page: one forward path, no error state.
+    fetch('/api/waitlist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim() }),
+      keepalive: true,
+    }).catch(() => {})
+    setRequested(true)
+  }
+
+  if (inviteOnly) {
+    return (
+      <div>
+        <Headline>Bulletin is invite-only right now.</Headline>
+        <Sub>
+          We&rsquo;re letting people in a few at a time. Leave your email and
+          we&rsquo;ll be in touch.
+        </Sub>
+
+        {requested ? (
+          <p className="mt-7 text-sm text-black/55">You&rsquo;re on the list.</p>
+        ) : (
+          <form onSubmit={requestAccess} className="mt-7 space-y-3">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@email.com"
+              className={fieldClass}
+            />
+            <button type="submit" className={primaryBtn}>
+              request access →
+            </button>
+          </form>
+        )}
+
+        <p className="mt-6 text-sm text-black/40">
+          already invited?{' '}
+          <Link href="/login" className="text-ink underline underline-offset-4">
+            sign in
+          </Link>
+        </p>
+      </div>
+    )
   }
 
   return (

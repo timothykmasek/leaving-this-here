@@ -6,6 +6,15 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
 
+  // With "Allow new users to sign up" off, an uninvited Google sign-in comes
+  // back with no code and an error_description like "Signups not allowed for
+  // this instance". Surface that as the invite-only message, not a generic
+  // failure.
+  const errorDescription = searchParams.get('error_description') ?? ''
+  if (!code && /signup|not allowed/i.test(errorDescription)) {
+    return NextResponse.redirect(`${origin}/login?error=invite_only`)
+  }
+
   if (code) {
     const cookieStore = cookies()
     const supabase = createServerClient(

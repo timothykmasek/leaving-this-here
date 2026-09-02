@@ -727,11 +727,12 @@ export default function ProfileClient({
         // the invitation is to make one. Keyed off currentUserId, not isOwner:
         // a signed-in visitor on someone else's profile isn't the owner either,
         // and was being told to sign in while already signed in.
-        // Straight to /start, which is where /login?mode=signup redirects anyway.
+        // During the private beta that means the landing page's request-access
+        // capture, not the /start wizard.
         action={
           currentUserId
             ? { label: 'Log out', onClick: handleSignOut }
-            : { label: 'Sign up', href: '/start' }
+            : { label: 'Sign up', href: '/' }
         }
         logoClassName="h-[32px] sm:h-[44px]"
         // Mobile-only search glass beside "Log out" — toggles the drop-in bar

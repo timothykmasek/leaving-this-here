@@ -35,10 +35,10 @@ export function PublicHeader({
       action={
         loggedIn
           ? { label: 'Log out', onClick: handleSignOut }
-          // A visitor reading someone's list has nothing to sign in to yet —
-          // the useful invitation is to make an account. /start is where
-          // /login?mode=signup redirects to anyway, so this skips the hop.
-          : { label: 'Sign up', href: '/start' }
+          // During the private beta "Sign up" means the landing page's
+          // request-access capture — the wizard can't finish for someone
+          // who isn't on the guest list.
+          : { label: 'Sign up', href: '/' }
       }
       logoClassName={logoClassName}
       tagline={tagline}
