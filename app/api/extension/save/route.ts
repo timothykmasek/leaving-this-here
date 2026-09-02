@@ -216,6 +216,10 @@ export async function POST(request: NextRequest) {
 
   const note: string | null =
     typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null
+  // The extension's sticky private default: save the bullet secret from the
+  // first write, so it's never publicly readable even between save and a
+  // follow-up PATCH. Fresh inserts only — a re-save keeps its existing value.
+  const isPrivate = body.is_private === true
   // For "save image" context-menu saves, the extension passes the image src.
   const imageOverride: string | null =
     typeof body.image_url === 'string' && body.image_url.trim()
@@ -263,7 +267,7 @@ export async function POST(request: NextRequest) {
       .from('bookmarks')
       .update({ title, description, image_url, favicon_url, card_type, raw_metadata: withProductFact(meta.raw, meta.product), url_key })
       .eq('id', existingId)
-      .select('id, title, image_url, favicon_url')
+      .select('id, title, image_url, favicon_url, is_private')
       .single()
     if (refreshErr || !refreshed) {
       return json({ error: 'already saved', alreadySaved: true }, 409)
@@ -324,9 +328,10 @@ export async function POST(request: NextRequest) {
       favicon_url,
       note,
       card_type,
+      is_private: isPrivate,
       raw_metadata: meta.raw,
     })
-    .select('id, title, image_url, favicon_url')
+    .select('id, title, image_url, favicon_url, is_private')
     .single()
 
   if (insertErr) {

@@ -113,9 +113,12 @@
       }
       .revealed .breath { opacity: 0; animation-play-state: paused; }
 
+      /* space-between + fixed 21px sides: each icon's center lands exactly on
+         the 21px thumb's center at both ends of its travel (flex halves were
+         23px wide, parking the globe ~1px off the black circle). */
       .vis {
         position: absolute; inset: 0;
-        display: flex; align-items: center;
+        display: flex; align-items: center; justify-content: space-between;
         padding: 2px; border: none; border-radius: 30px;
         background: #e2e2e2; cursor: pointer;
         opacity: 0; transform: scale(0.4); transform-origin: right center;
@@ -131,7 +134,7 @@
       }
       .vis[aria-checked="true"] .vis-thumb { transform: translateX(25px); }
       .vis-side {
-        position: relative; z-index: 1; flex: 1;
+        position: relative; z-index: 1; flex: none; width: 21px;
         display: flex; align-items: center; justify-content: center;
         height: 21px; color: #8a8a8a;
         transition: color 200ms ease;
@@ -342,6 +345,19 @@
   let revealMsg = 'Saved'
   // A later save superseding this one: stamp every async response.
   let saveSeq = 0
+  // Lists are prefetched the moment the card injects, in PARALLEL with the
+  // save (they don't depend on it — no ranking, no membership for a fresh
+  // save), so the reveal is gated on the save alone in the common case.
+  // null = still in flight; a function = the reveal waiting on it.
+  let prefetched = null
+  let onPrefetch = null
+  function prefetchLists() {
+    prefetched = null
+    chrome.runtime.sendMessage({ type: 'ig-get-lists' }, (resp) => {
+      prefetched = (resp && resp.ok && Array.isArray(resp.lists)) ? resp.lists : []
+      if (onPrefetch) { const f = onPrefetch; onPrefetch = null; f() }
+    })
+  }
 
   // ── dismissal ──────────────────────────────────────────────────────
   let idleTimer = null
@@ -553,20 +569,36 @@
   function showSaved(msg, data) {
     revealMsg = msg
     bookmarkId = (data && data.id) || null
-    isSecret = false
+    // The save may have been born secret (sticky private default) — the pill
+    // and the status copy open in that state.
+    isSecret = !!(data && data.isPrivate)
     const seq = ++saveSeq
     if (!bookmarkId) return terminal(msg, '')
-    // Hold "Saving…" until the ranked lists are in hand, then reveal once.
     clearTimeout(revealTimer)
     revealTimer = setTimeout(reveal, REVEAL_TIMEOUT_MS)
-    chrome.runtime.sendMessage({ type: 'ig-get-lists', bookmarkId }, (resp) => {
-      if (seq !== saveSeq) return // a newer save superseded this one
-      if (resp && resp.ok && Array.isArray(resp.lists)) {
-        lists = resp.lists
-        memberOf = new Set(resp.memberOf || [])
-      }
+    if (data && data.refreshed) {
+      // A re-save is already filed places — fetch membership before revealing
+      // so its checked rows are right from the first frame.
+      chrome.runtime.sendMessage({ type: 'ig-get-lists', bookmarkId }, (resp) => {
+        if (seq !== saveSeq) return
+        if (resp && resp.ok && Array.isArray(resp.lists)) {
+          lists = resp.lists
+          memberOf = new Set(resp.memberOf || [])
+        }
+        reveal()
+      })
+      return
+    }
+    // Fresh save: it belongs to no list yet, so the prefetched names are all
+    // we need — reveal now, or the moment the prefetch lands.
+    memberOf = new Set()
+    const useprefetch = () => {
+      if (seq !== saveSeq) return
+      lists = prefetched || []
       reveal()
-    })
+    }
+    if (prefetched !== null) useprefetch()
+    else onPrefetch = useprefetch
   }
 
   // Terminal without the picker (duplicate / error / signin): title flips,
@@ -583,6 +615,8 @@
     ++saveSeq
     clearTimeout(revealTimer)
     clearTimeout(idleTimer)
+    onPrefetch = null
+    prefetchLists() // re-warm — a list created since injection should show
     bookmarkId = null
     isSecret = false
     lists = []
@@ -621,4 +655,8 @@
       window.__igToast.apply(m.state, m.data)
     }
   })
+
+  // First injection starts in the saving state by markup — warm the list names
+  // now so the reveal waits on the save alone.
+  prefetchLists()
 })()

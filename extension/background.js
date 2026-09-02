@@ -547,6 +547,20 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   await saveFlow(tab, payload)
 })
 
+// ── Sticky private default ──────────────────────────────────────────
+// Flipping a save to secret makes secret the default for the NEXT 2 saves
+// (3 secret saves in a row), then it reverts to public on its own. Flipping
+// any save back to public resets the default immediately. The counter is the
+// number of upcoming saves that should still default to secret.
+const PRIVATE_STREAK_KEY = 'ig_private_streak'
+async function getPrivateStreak() {
+  const { [PRIVATE_STREAK_KEY]: n } = await chrome.storage.local.get(PRIVATE_STREAK_KEY)
+  return Math.max(0, Number(n) || 0)
+}
+async function setPrivateStreak(n) {
+  await chrome.storage.local.set({ [PRIVATE_STREAK_KEY]: Math.max(0, n) })
+}
+
 // ── The save flow shared by every entry point ───────────────────────
 async function saveFlow(tab, payload) {
   const tabId = tab?.id
@@ -554,13 +568,22 @@ async function saveFlow(tab, payload) {
   // never feels dead while metadata + tagging run server-side.
   const injected = tabId != null ? await injectToast(tabId) : false
 
+  // Apply the sticky private default at save time, so a secret save is born
+  // secret (the server writes is_private on the insert) — never public for
+  // even a moment between save and a follow-up toggle.
+  const streak = await getPrivateStreak()
+  if (streak > 0) payload.is_private = true
+
   try {
     const result = await saveGem(payload)
     const bm = result?.bookmark || {}
     const refreshed = !!result?.refreshed
+    // A fresh save consumed one of the streak's remaining defaults. A re-save
+    // doesn't — it kept its existing visibility, whatever that was.
+    if (streak > 0 && !refreshed) await setPrivateStreak(streak - 1)
     if (injected) {
       // `refreshed` = re-save updated the existing card in place.
-      toast(tabId, 'saved', { id: bm.id, title: bm.title, refreshed })
+      toast(tabId, 'saved', { id: bm.id, title: bm.title, refreshed, isPrivate: !!bm.is_private })
     } else {
       notify(refreshed ? 'Updated' : 'Saved', bm.title || 'Added to your collection.')
     }
@@ -636,7 +659,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg?.type === 'ig-set-visibility') {
     setBulletVisibility(msg.bookmarkId, msg.isPrivate)
-      .then(() => sendResponse({ ok: true }))
+      .then(async () => {
+        // A deliberate flip steers the sticky default: to secret → the next 2
+        // saves default secret too; back to public → the default resets now.
+        await setPrivateStreak(msg.isPrivate ? 2 : 0)
+        sendResponse({ ok: true })
+      })
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }

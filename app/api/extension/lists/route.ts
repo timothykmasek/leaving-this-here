@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { uniqueSlug } from '@/lib/slug'
-import { embed, bookmarkToEmbedText } from '@/lib/embed'
-import { type Vec, parseVec, cosine, centroid } from '@/lib/vec'
 
 // Lists API for the Chrome extension.
 //
@@ -73,9 +71,11 @@ export async function GET(request: NextRequest) {
     .eq('user_id', a.userId)
     .order('created_at', { ascending: false })
   if (error) return json({ error: error.message }, 400)
-  // DB order is newest-first; that's the fallback order for anything ranking
-  // can't score (empty lists, or when there's no target vector).
-  let lists: ListRow[] = data || []
+  // Newest-first, and that's it. This endpoint used to centroid-rank the lists
+  // against the bullet (embedding it on demand when fresh) — a full Voyage
+  // round-trip sitting between "saved" and the card's reveal. Tim's ruling
+  // 2026-09-02: saves must be fast; ranking is not worth the wait.
+  const lists: ListRow[] = data || []
 
   const bookmarkId = new URL(request.url).searchParams.get('bookmark_id')
   if (!bookmarkId || lists.length === 0) return json({ lists, member_of: [] })
@@ -90,105 +90,7 @@ export async function GET(request: NextRequest) {
   if (memErr) return json({ error: memErr.message }, 400)
   const memberOf = (mem || []).map((m) => m.list_id)
 
-  // Rank the existing lists by how well this bullet fits each one's theme, so
-  // the toast leads with "this belongs here" instead of newest-first. Best
-  // effort: any miss (no vector, no embedded members) leaves DB order intact.
-  if (lists.length >= 2) {
-    try {
-      lists = await rankListsForBookmark(a.supabase, a.userId, bookmarkId, lists)
-    } catch {
-      // Ranking is a nicety — never fail the list card over it.
-    }
-  }
-
   return json({ lists, member_of: memberOf })
-}
-
-// Reorder `lists` so the ones whose theme best matches this bullet come first.
-// Signal mirrors the list-page ambient shelf, inverted: instead of ranking
-// bullets against one list's centroid, we rank each list's centroid against one
-// bullet. Lists with no embedded members can't be scored and keep DB order,
-// appended after the ranked ones.
-async function rankListsForBookmark(
-  supabase: SupabaseClient,
-  userId: string,
-  bookmarkId: string,
-  lists: ListRow[]
-): Promise<ListRow[]> {
-  // Target vector for the bullet. Prefer its stored embedding (re-saves,
-  // backfilled items); on a fresh save that column is still null — embed-on-save
-  // is fire-and-forget — so embed the text on demand rather than degrade to date
-  // order in the common case. Same 'document' space as the stored vectors.
-  const { data: bm } = await supabase
-    .from('bookmarks')
-    .select('title, description, url, embedding')
-    .eq('id', bookmarkId)
-    .single()
-  if (!bm) return lists
-
-  // The member-vector scan doesn't need the target vector, so kick it off now and
-  // let it run concurrently with the on-demand embed below (the slow part). Both
-  // are awaited together, shaving the query time off the critical path.
-  const listIds = lists.map((l) => l.id)
-  const vecsByListP = fetchMemberVecs(supabase, listIds)
-
-  let target: Vec | null = parseVec(bm.embedding)
-  if (!target) {
-    const text = bookmarkToEmbedText({
-      title: bm.title,
-      description: bm.description,
-      url: bm.url,
-    })
-    if (!text.trim()) { await vecsByListP.catch(() => {}); return lists }
-    const [v] = await embed([text], 'document')
-    target = v
-  }
-  if (!target || !target.length) { await vecsByListP.catch(() => {}); return lists }
-
-  const vecsByList = await vecsByListP
-
-  // Score each list by cosine(bullet, list centroid). No embedded members → no
-  // score; those fall through to DB order behind everything ranked.
-  const scored: { list: ListRow; score: number }[] = []
-  const unscored: ListRow[] = []
-  for (const l of lists) {
-    const c = centroid(vecsByList.get(l.id) || [])
-    if (!c) {
-      unscored.push(l)
-      continue
-    }
-    scored.push({ list: l, score: cosine(target, c) })
-  }
-  scored.sort((x, y) => y.score - x.score)
-
-  return [...scored.map((s) => s.list), ...unscored]
-}
-
-// All member embeddings for these lists, grouped into per-list vector bags.
-// Paginate — PostgREST caps at 1000 rows/req. Independent of the target vector,
-// so it runs concurrently with the on-demand embed rather than after it.
-async function fetchMemberVecs(
-  supabase: SupabaseClient,
-  listIds: string[]
-): Promise<Map<string, Vec[]>> {
-  const vecsByList = new Map<string, Vec[]>()
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase
-      .from('list_bookmarks')
-      .select('list_id, bookmarks(embedding)')
-      .in('list_id', listIds)
-      .range(from, from + 999)
-    if (error) throw error
-    for (const r of data || []) {
-      const v = parseVec((r as any).bookmarks?.embedding)
-      if (!v || !v.length) continue
-      const bag = vecsByList.get((r as any).list_id) || []
-      bag.push(v)
-      vecsByList.set((r as any).list_id, bag)
-    }
-    if (!data || data.length < 1000) break
-  }
-  return vecsByList
 }
 
 export async function POST(request: NextRequest) {

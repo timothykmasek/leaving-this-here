@@ -1,154 +1,158 @@
-/* Self-hosted brand fonts (same files as the web app: app/fonts).
-   Cardo = reading serif (body/titles); Routed Gothic Wide = UI labels.
-   (The Mier A cuts in fonts/ belong to the on-page save card, content/toast.js.) */
+/* Sign-in popup — restyled to the on-page save card's language (2026-09-02):
+   Mier A Book, the card's field + CTA shapes, dot-grid ground, no uppercase
+   tracking. The wordmark image is the only non-Mier element.
+   Fonts are the same files the card loads (extension/fonts). */
 @font-face {
-  font-family: 'Cardo';
-  src: url('fonts/Cardo-Regular.woff2') format('woff2');
+  font-family: 'Mier A';
+  src: url('fonts/MierA-Book.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 @font-face {
-  font-family: 'Cardo';
-  src: url('fonts/Cardo-Bold.woff2') format('woff2');
-  font-weight: 700;
+  font-family: 'Mier A';
+  src: url('fonts/MierA-Regular.woff2') format('woff2');
+  font-weight: 500;
   font-style: normal;
   font-display: swap;
-}
-@font-face {
-  font-family: 'Routed Gothic Wide';
-  src: url('fonts/RoutedGothicWide-Regular.woff2') format('woff2');
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-}
-
-:root {
-  /* Editorial palette — white / grey / darker-grey, matching the web app. */
-  --paper: #ffffff;     /* page canvas */
-  --ink: #2b2b2b;       /* primary text */
-  --muted: #8a8a8a;     /* secondary text (≈ ink/50) */
-  --card: #f1f1f1;      /* surfaces */
-  --line: rgba(43, 43, 43, 0.12);
 }
 
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  width: 320px;
-  font-family: 'Cardo', Georgia, 'Times New Roman', serif;
-  background: var(--paper);
-  color: var(--ink);
+  width: 340px;
+  font-family: 'Mier A', system-ui, sans-serif;
+  background: #fff;
+  color: #000;
 }
 
-/* The `.label` spec from the web app: Routed Gothic Wide, uppercase, tracked. */
-.label,
-.primary,
-.link {
-  font-family: 'Routed Gothic Wide', ui-monospace, monospace;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-}
-
-.view { padding: 18px; }
 .hidden { display: none !important; }
 .center { text-align: center; }
-.muted { color: var(--muted); font-size: 14px; line-height: 1.5; margin: 10px 0 16px; }
-.muted.small { font-size: 13px; margin-top: 0; }
 
-/* Wordmark — the BULLETIN letterpress logo (same asset as the web app). */
-.logo { display: block; height: 34px; width: auto; margin-bottom: 4px; }
-.logo-sm { display: block; height: 20px; width: auto; }
+/* Header band — same grey as the save card's. */
+.phead {
+  background: #f0f0f0;
+  padding: 20px 22px 18px;
+}
+.logo { display: block; height: 30px; width: auto; }
 
-.topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 14px;
+/* Body — the card's dot-grid ground. */
+.pbody {
+  padding: 18px 22px 22px;
+  background-image: radial-gradient(circle, #d9d9d9 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: 0 0;
 }
 
-.primary {
+.muted {
+  margin: 0 0 16px;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  color: #8a8a8a;
+}
+
+/* Email + password — the card's field shape. */
+#form-email { display: flex; flex-direction: column; gap: 8px; }
+.cfield {
   width: 100%;
-  padding: 12px 14px;
+  height: 46px;
+  padding: 13px;
+  border: 1px solid #e0e0e0;
+  border-radius: 9px;
+  background: #fff;
+  font-family: inherit;
+  font-weight: 400;
+  font-size: 14px;
+  line-height: 20px;
+  letter-spacing: 0.05em;
+  color: #000;
+  outline: none;
+}
+.cfield::placeholder { color: #9a9a9a; }
+.cfield:focus { border-color: #000; }
+
+/* The app's CTA (rounded-lg, gray-900, sentence case). */
+.cta {
+  width: 100%;
+  height: 40px;
+  margin-top: 2px;
   border: none;
-  border-radius: 999px;
-  background: var(--ink);
+  border-radius: 8px;
+  background: #111827;
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 14px;
+  line-height: 20px;
   color: #fff;
-  font-size: 11px;
   cursor: pointer;
-  transition: opacity 0.15s ease;
+  transition: background 150ms ease;
 }
-.primary:hover { opacity: 0.88; }
-.primary:disabled { opacity: 0.5; cursor: default; }
+.cta:hover { background: #1f2937; }
+.cta:disabled { opacity: 0.5; cursor: default; }
 
-/* Ghost variant — Google sits below the primary email sign-in. */
-.primary.ghost {
-  background: var(--paper);
-  color: var(--ink);
-  border: 1px solid var(--line);
+/* Ghost variant — Google below the primary email sign-in. */
+.cta.ghost {
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  color: #000;
 }
-.primary.ghost:hover { opacity: 1; background: var(--card); }
+.cta.ghost:hover { background: #fafafa; border-color: #b9b9b9; }
 
-/* Email + password fields. */
-#form-email { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.field {
-  width: 100%;
-  padding: 11px 13px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--paper);
-  color: var(--ink);
-  font-family: 'Cardo', Georgia, serif;
-  font-size: 15px;
-}
-.field::placeholder { color: var(--muted); }
-.field:focus { outline: none; border-color: var(--ink); }
-#form-email .primary { margin-top: 2px; }
-
-/* "or" divider between email and Google. */
+/* "or" divider — quiet, lowercase. */
 .divider {
   display: flex;
   align-items: center;
   gap: 10px;
   margin: 14px 0;
-  color: var(--muted);
+  color: #9a9a9a;
 }
 .divider::before,
 .divider::after {
   content: '';
   flex: 1;
   height: 1px;
-  background: var(--line);
+  background: #ececec;
 }
-.divider span {
-  font-family: 'Routed Gothic Wide', ui-monospace, monospace;
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  font-size: 10px;
+.divider span { font-size: 11px; letter-spacing: 0.05em; }
+
+.link-inline { color: #000; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.link-inline:hover { opacity: 0.6; }
+
+.signup-line {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.05em;
+  color: #8a8a8a;
 }
 
-.link-inline { color: var(--ink); text-decoration: underline; cursor: pointer; }
-.link-inline:hover { opacity: 0.7; }
-
-/* Give the sign-up line room to breathe under the Google button.
-   Needs to out-specify `.muted.small { margin-top: 0 }` above. */
-.muted.small.signup-line { margin-top: 18px; }
-
+/* Signed-in view (rarely seen) + inline feedback. */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.logo-sm { display: block; height: 18px; width: auto; }
 .link {
   background: none;
   border: none;
-  color: var(--muted);
-  font-size: 10px;
-  cursor: pointer;
   padding: 0;
+  font-family: inherit;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+  color: #8a8a8a;
+  cursor: pointer;
 }
-.link:hover { color: var(--ink); text-decoration: underline; }
+.link:hover { color: #000; text-decoration: underline; text-underline-offset: 2px; }
 
 .hint {
-  font-size: 13px;
   margin: 12px 0 0;
-  line-height: 1.4;
+  font-size: 12px;
+  line-height: 16px;
+  letter-spacing: 0.05em;
 }
-.hint.ok { color: var(--ink); }
-.hint.err { color: var(--ink); font-weight: 700; }
+.hint.ok { color: #000; }
+.hint.err { color: #a31f34; }
