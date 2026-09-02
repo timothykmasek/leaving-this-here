@@ -44,5 +44,37 @@ export async function POST(req: NextRequest) {
     console.error('[waitlist] insert failed:', error.message)
   }
 
+  // Doorbell: email Tim on each genuinely new signup (duplicates stay silent).
+  // Sent from Resend's shared onboarding address because the domain isn't
+  // verified yet — which also means Resend will ONLY deliver to the account
+  // owner's own email, exactly this use case. Awaited (a serverless runtime
+  // may not finish a dangling promise after the response) but never fatal.
+  if (!error && process.env.RESEND_API_KEY) {
+    try {
+      const { count } = await admin
+        .from('waitlist')
+        .select('*', { count: 'exact', head: true })
+      const nth = count ? ` — #${count} on the list` : ''
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: 'Bulletin <onboarding@resend.dev>',
+          to: 'timothykmasek@gmail.com',
+          subject: `Beta request: ${email}`,
+          text: `${email} just asked for beta access${nth}.`,
+        }),
+      })
+      if (!res.ok) {
+        console.error('[waitlist] notify failed:', res.status, await res.text())
+      }
+    } catch (e) {
+      console.error('[waitlist] notify failed:', e)
+    }
+  }
+
   return NextResponse.json({ ok: true })
 }
