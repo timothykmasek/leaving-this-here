@@ -39,14 +39,14 @@ body {
 
 /* Body — the card's dot-grid ground. */
 .pbody {
-  padding: 18px 22px 22px;
+  padding: 16px 22px 28px;
   background-image: radial-gradient(circle, #d9d9d9 1px, transparent 1px);
   background-size: 32px 32px;
   background-position: 0 0;
 }
 
 .muted {
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   font-size: 12px;
   line-height: 16px;
   letter-spacing: 0.05em;
@@ -105,7 +105,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 14px 0;
+  margin: 10px 0;
   color: #9a9a9a;
 }
 .divider::before,
@@ -121,7 +121,7 @@ body {
 .link-inline:hover { opacity: 0.6; }
 
 .signup-line {
-  margin: 16px 0 0;
+  margin: 14px 0 0;
   font-size: 12px;
   line-height: 16px;
   letter-spacing: 0.05em;
