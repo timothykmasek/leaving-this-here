@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { DEPTH_HERO_CARDS, captionMask } from '@/lib/homeContent'
 import { withBulletinUtm } from '@/lib/outboundUrl'
 
@@ -249,6 +250,19 @@ export function DepthHero() {
     // visual frame, whatever the browser chrome is doing.
     <div className="fixed inset-0 overflow-hidden bg-white">
       <DotGridCanvas />
+
+      {/* Someone already invited should never hunt for the door: a quiet
+          Sign in on the header's usual corner, dressed exactly like the
+          BulletinHeader action mark. z-20 keeps it above the card field
+          (a z-0 stacking context) and the z-10 lockup overlay. */}
+      <Link
+        href="/login"
+        className="group absolute right-4 top-6 z-20 sm:right-6 sm:top-7"
+      >
+        <span className="font-sans text-[14px] font-[400] leading-5 tracking-[0.05em] text-black/60 transition-colors group-hover:text-ink">
+          Sign in
+        </span>
+      </Link>
 
       {/* The perspective camera holding the drifting cards. z-0 makes it a
           stacking context, so the cards' own depth-sorted z-indexes (up to
