@@ -53,8 +53,8 @@ body {
   color: #8a8a8a;
 }
 
-/* Email + password — the card's field shape. */
-#form-email { display: flex; flex-direction: column; gap: 8px; }
+/* Emailed-code lane — the card's field shape. */
+#form-email, #form-code { display: flex; flex-direction: column; gap: 8px; }
 .cfield {
   width: 100%;
   height: 46px;
@@ -72,6 +72,9 @@ body {
 }
 .cfield::placeholder { color: #9a9a9a; }
 .cfield:focus { border-color: #000; }
+/* The 6-digit code reads better spaced out. */
+.cfield.code { text-align: center; letter-spacing: 0.35em; }
+.cfield.code::placeholder { letter-spacing: 0.05em; }
 
 /* The app's CTA (rounded-lg, gray-900, sentence case). */
 .cta {
@@ -92,7 +95,7 @@ body {
 .cta:hover { background: #1f2937; }
 .cta:disabled { opacity: 0.5; cursor: default; }
 
-/* Ghost variant — Google below the primary email sign-in. */
+/* Ghost variant — the email lane below the primary Google sign-in. */
 .cta.ghost {
   background: #fff;
   border: 1px solid #e0e0e0;
@@ -147,6 +150,8 @@ body {
   cursor: pointer;
 }
 .link:hover { color: #000; text-decoration: underline; text-underline-offset: 2px; }
+/* "use a different email" under the code field. */
+.link.center { width: 100%; margin-top: 4px; }
 
 .hint {
   margin: 12px 0 0;

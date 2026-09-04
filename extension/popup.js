@@ -2,7 +2,7 @@
 // syncPopup) and the icon click saves directly; the on-page card
 // (content/toast.js) is the whole save experience.
 
-import { getSession, signInWithPassword, signOut } from './auth.js'
+import { getSession, requestEmailCode, verifyEmailCode, signOut } from './auth.js'
 import { CONFIG } from './config.js'
 
 const views = {
@@ -27,19 +27,40 @@ async function setPopupFor(session) {
   await chrome.action.setPopup({ popup: session ? '' : 'popup.html' })
 }
 
-// ── Sign in: email + password ───────────────────────────────────────
-// Stays in the popup (no external window), so we can show inline feedback and
-// save the current page before closing — same UX the Google flow couldn't keep.
+// ── Sign in: emailed code ───────────────────────────────────────────
+// Two steps in place: email → we send the code → the code field swaps in.
+// Stays in the popup (no external window), so unlike the Google flow it can
+// show inline "signed in ✓" feedback and save the page before closing.
 document.getElementById('form-email').addEventListener('submit', async (e) => {
   e.preventDefault()
   const hint = document.getElementById('signin-hint')
-  const btn = document.getElementById('btn-email-signin')
+  const btn = document.getElementById('btn-email-code')
   const email = document.getElementById('email').value.trim()
-  const password = document.getElementById('password').value
   hint.classList.add('hidden')
   btn.disabled = true
   try {
-    await signInWithPassword(email, password)
+    await requestEmailCode(email)
+    document.getElementById('form-email').classList.add('hidden')
+    document.getElementById('form-code').classList.remove('hidden')
+    setHint(hint, `code sent to ${email} — check your inbox`, 'ok')
+    document.getElementById('code').focus()
+  } catch (err) {
+    setHint(hint, String(err.message || err), 'err')
+  } finally {
+    btn.disabled = false
+  }
+})
+
+document.getElementById('form-code').addEventListener('submit', async (e) => {
+  e.preventDefault()
+  const hint = document.getElementById('signin-hint')
+  const btn = document.getElementById('btn-code-signin')
+  const email = document.getElementById('email').value.trim()
+  const code = document.getElementById('code').value
+  hint.classList.add('hidden')
+  btn.disabled = true
+  try {
+    await verifyEmailCode(email, code)
     await setPopupFor(true)
     setHint(hint, 'signed in ✓ — saving this page…', 'ok')
     chrome.runtime.sendMessage({ type: 'ig-save-current-tab' }).catch(() => {})
@@ -48,6 +69,14 @@ document.getElementById('form-email').addEventListener('submit', async (e) => {
     btn.disabled = false
     setHint(hint, String(err.message || err), 'err')
   }
+})
+
+// Back out of the code step (wrong address, or just resend to the same one).
+document.getElementById('btn-code-back').addEventListener('click', () => {
+  document.getElementById('form-code').classList.add('hidden')
+  document.getElementById('form-email').classList.remove('hidden')
+  document.getElementById('code').value = ''
+  document.getElementById('signin-hint').classList.add('hidden')
 })
 
 // ── Sign in: Google ─────────────────────────────────────────────────

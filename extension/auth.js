@@ -64,28 +64,55 @@ export async function signIn() {
   return session
 }
 
-// Sign in with email + password. Bulletin accounts can be created with a
-// password on the web (app/login), so the extension must accept them too —
-// Google is not the only provider. We hit GoTrue's password grant directly
-// (same REST surface we already use for token refresh), keeping the extension
-// buildless. Runs entirely in the popup with no external window, so unlike the
-// Google flow it can show inline "signed in ✓" feedback before closing.
-export async function signInWithPassword(email, password) {
-  const res = await fetch(
-    `${CONFIG.SUPABASE_URL}/auth/v1/token?grant_type=password`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: CONFIG.SUPABASE_ANON_KEY,
-      },
-      body: JSON.stringify({ email, password }),
+// ── Emailed-code sign-in (the extension's version of /login's magic link) ──
+// A clicked magic link opens a browser tab and can't hand its session to a
+// popup, so the extension uses the code that rides in the same email: request
+// an OTP for the address, the user types the emailed one-time code, and /auth/v1/verify
+// returns the same session shape the token refresh already handles. Buildless —
+// same raw GoTrue REST surface as everything else here.
+
+// Ask GoTrue to email a sign-in code. create_user false keeps the gate honest
+// (mirrors /login): an address without an account errors instead of minting a
+// fresh auth user.
+export async function requestEmailCode(email) {
+  const res = await fetch(`${CONFIG.SUPABASE_URL}/auth/v1/otp`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: CONFIG.SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ email, create_user: false }),
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    const raw = data.error_description || data.msg || data.error || ''
+    if (/signup|not allowed|not found/i.test(raw)) {
+      throw new Error('that email isn’t on the guest list yet — Bulletin is invite-only right now')
     }
-  )
+    if (/security purposes|rate/i.test(raw)) {
+      throw new Error('please wait a moment before requesting another code')
+    }
+    throw new Error(raw || 'couldn’t send the code — try again')
+  }
+}
+
+// Exchange the emailed one-time code (8 digits on this project) for a session.
+export async function verifyEmailCode(email, code) {
+  const res = await fetch(`${CONFIG.SUPABASE_URL}/auth/v1/verify`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: CONFIG.SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify({ type: 'email', email, token: code.trim() }),
+  })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
+    const raw = data.error_description || data.msg || data.error || ''
     throw new Error(
-      data.error_description || data.msg || data.error || 'sign-in failed'
+      /expired|invalid/i.test(raw)
+        ? 'that code didn’t match — check the newest email, or resend'
+        : raw || 'sign-in failed'
     )
   }
   const session = {
