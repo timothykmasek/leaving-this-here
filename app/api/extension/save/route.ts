@@ -111,7 +111,7 @@ function persistRemoteImage(bookmarkId: string, imageUrl: string | null | undefi
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, PATCH, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, content-type',
   'Access-Control-Max-Age': '86400',
 }
@@ -124,10 +124,13 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
 
-// PATCH — flip a saved bullet's visibility (the popup's globe/lock toggle).
-// { bookmark_id, is_private } → { ok }. Token-scoped client, so RLS's
-// owner-only write policy is the authorization; a non-owner's update matches
-// zero rows and we report that rather than pretend it stuck.
+// PATCH — two owner-scoped follow-ups to a save:
+//   { bookmark_id, is_private }  → flip visibility (the card's globe/lock pill)
+//   { bookmark_id, client_shot } → the out-of-band screenshot upload. The save
+//     request no longer carries the capture (it would wait on the camera and
+//     haul base64); the extension sends it here once the id exists.
+// Token-scoped client, so RLS's owner-only policy is the authorization; a
+// non-owner matches zero rows and we report that rather than pretend it stuck.
 export async function PATCH(request: NextRequest) {
   const authHeader = request.headers.get('authorization') || ''
   const token = authHeader.toLowerCase().startsWith('bearer ')
@@ -153,13 +156,70 @@ export async function PATCH(request: NextRequest) {
     return json({ error: 'invalid json body' }, 400)
   }
   const bookmarkId = typeof body.bookmark_id === 'string' ? body.bookmark_id : null
-  if (!bookmarkId || typeof body.is_private !== 'boolean') {
-    return json({ error: 'bookmark_id and is_private required' }, 400)
+  if (!bookmarkId) return json({ error: 'bookmark_id required' }, 400)
+
+  if (typeof body.client_shot === 'string' && body.client_shot.startsWith('data:image/')) {
+    // Ownership + card_type in one read (the token client's RLS scopes it).
+    const { data: row, error: rowErr } = await supabase
+      .from('bookmarks')
+      .select('id, card_type')
+      .eq('id', bookmarkId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (rowErr) return json({ error: rowErr.message }, 400)
+    if (!row) return json({ error: 'bookmark not found' }, 404)
+    waitUntil(persistClientShot(row.id, body.client_shot, row.card_type))
+    return json({ ok: true })
+  }
+
+  if (typeof body.is_private !== 'boolean') {
+    return json({ error: 'is_private or client_shot required' }, 400)
   }
 
   const { data, error } = await supabase
     .from('bookmarks')
     .update({ is_private: body.is_private })
+    .eq('id', bookmarkId)
+    .eq('user_id', user.id)
+    .select('id')
+  if (error) return json({ error: error.message }, 400)
+  if (!data || data.length === 0) return json({ error: 'bookmark not found' }, 404)
+  return json({ ok: true })
+}
+
+// DELETE — undo a save (the toast's undo icon). { bookmark_id } → { ok }.
+// Token-scoped client + explicit user_id match, same authorization story as
+// PATCH: a non-owner's delete matches zero rows and reports not-found.
+export async function DELETE(request: NextRequest) {
+  const authHeader = request.headers.get('authorization') || ''
+  const token = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : ''
+  if (!token) return json({ error: 'missing bearer token' }, 401)
+
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    }
+  )
+  const { data: { user }, error: userErr } = await supabase.auth.getUser(token)
+  if (userErr || !user) return json({ error: 'invalid or expired token' }, 401)
+
+  let body: any
+  try {
+    body = await request.json()
+  } catch {
+    return json({ error: 'invalid json body' }, 400)
+  }
+  const bookmarkId = typeof body.bookmark_id === 'string' ? body.bookmark_id : null
+  if (!bookmarkId) return json({ error: 'bookmark_id required' }, 400)
+
+  const { data, error } = await supabase
+    .from('bookmarks')
+    .delete()
     .eq('id', bookmarkId)
     .eq('user_id', user.id)
     .select('id')
@@ -226,8 +286,14 @@ export async function POST(request: NextRequest) {
       ? body.image_url.trim()
       : null
 
-  // 4. Enrich: fetch + parse metadata server-side
-  const meta = await extractMetadata(url)
+  // The card's title links to the saver's page — fetch the username in
+  // parallel with everything below; awaited only at response time.
+  const profilePromise = supabase
+    .from('profiles')
+    .select('username')
+    .eq('id', user.id)
+    .single()
+    .then(({ data }) => data?.username ?? null, () => null)
 
   // Client-read og (from the extension, in the user's logged-in browser) wins
   // over the server fetch: paywalled/bot-blocked sites that 401/403 our server
@@ -238,6 +304,46 @@ export async function POST(request: NextRequest) {
   const cmTitle = typeof cm.title === 'string' && cm.title.trim() ? cm.title.trim() : null
   const cmImage = typeof cm.image === 'string' && cm.image.trim() ? cm.image.trim() : null
   const cmDesc = typeof cm.description === 'string' && cm.description.trim() ? cm.description.trim() : null
+
+  // 4. Enrich: fetch + parse metadata server-side. This fetch of the page was
+  //    the save's whole tail latency (slow retail sites take seconds; the fetch
+  //    allows 15). When the client already read a solid title + image, the
+  //    response doesn't need the server's copy — give it a short budget and,
+  //    if it loses, finish out-of-band below (favicon + raw_metadata update).
+  //    Saves without client meta still wait: the server fetch is all they have.
+  const richClient = !!(cmTitle && cmImage)
+  const metaPromise = extractMetadata(url)
+  let lateMeta: typeof metaPromise | null = null
+  let meta: Awaited<typeof metaPromise>
+  if (richClient) {
+    const settled = await Promise.race([
+      metaPromise,
+      new Promise<null>((r) => setTimeout(() => r(null), 1500)),
+    ])
+    if (settled) {
+      meta = settled
+    } else {
+      lateMeta = metaPromise
+      meta = { title: null, description: null, image: null, favicon: null, raw: {}, product: null, book: null } as Awaited<typeof metaPromise>
+    }
+  } else {
+    meta = await metaPromise
+  }
+  // Backfill what the stub couldn't supply once the real fetch lands. Never
+  // touches title/image/card_type — the client meta owns those on this path.
+  const backfillLateMeta = (bookmarkId: string) => {
+    if (!lateMeta) return
+    waitUntil(
+      lateMeta
+        .then((m) =>
+          supabase
+            .from('bookmarks')
+            .update({ favicon_url: m.favicon, raw_metadata: withProductFact(m.raw, m.product) })
+            .eq('id', bookmarkId)
+        )
+        .catch(() => {})
+    )
+  }
 
   // Client og BEATS the raw tab title: body.title is document.title, which
   // carries junk like "(9+) Instagram" (the tab's unread badge) and goes stale
@@ -300,7 +406,8 @@ export async function POST(request: NextRequest) {
         : null
     if (dupShot) waitUntil(persistClientShot(refreshed.id, dupShot, card_type))
     persistRemoteImage(refreshed.id, image_url)
-    return json({ bookmark: refreshed, refreshed: true })
+    backfillLateMeta(refreshed.id)
+    return json({ bookmark: refreshed, refreshed: true, username: await profilePromise })
   }
 
   // Near-dupe / exact re-save guard: if this user already has a bullet whose
@@ -402,5 +509,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  return json({ ok: true, bookmark: inserted })
+  backfillLateMeta(inserted.id)
+
+  return json({ ok: true, bookmark: inserted, username: await profilePromise })
 }

@@ -97,9 +97,28 @@
       .screens.show-create .screen-create { transform: translateX(0); visibility: visible; }
 
       /* ── header band ── */
-      .phead { flex: none; background: #f0f0f0; padding: 20px 22px 18px; }
+      .phead { flex: none; background: #f6f6f6; padding: 20px 22px 18px; }
       .phead-top { display: flex; align-items: center; justify-content: space-between; min-height: 25px; }
-      .ptitle { margin: 0; font-weight: 400; font-size: 18px; line-height: 24px; color: #000; }
+      .ptitle { margin: 0; font-weight: 500; font-size: 18px; line-height: 24px; color: #000; }
+      .ptitle a {
+        display: inline-flex; align-items: center; gap: 5px;
+        color: #000; text-decoration: none;
+      }
+      .ptitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
+      .ptitle a svg { width: 15px; height: 15px; flex: none; }
+      /* Undo — quiet text at the right end of the status line, only there
+         once the save landed. Speaks the card's hover language: underline. */
+      .undo {
+        flex: none; margin-left: auto; padding: 0;
+        border: none; background: none;
+        font-family: inherit; font-size: 12px; line-height: 16px;
+        letter-spacing: 0.05em; color: #8a8a8a; cursor: pointer;
+        opacity: 0; pointer-events: none;
+        transition: opacity 240ms ease, color 150ms ease;
+      }
+      .revealed .undo { opacity: 1; pointer-events: auto; }
+      .undo:hover { color: #000; text-decoration: underline; text-underline-offset: 2px; }
+      .undo:disabled { opacity: 0.35; pointer-events: none; }
 
       /* Top-right slot: breathing dot while saving → the pill once saved. */
       .hslot { position: relative; flex: none; width: 50px; height: 25px; }
@@ -107,7 +126,7 @@
       .breath {
         position: absolute; top: 4px; right: 0;
         width: 17px; height: 17px; border-radius: 50%;
-        background: #d9d9d9;
+        background: #e4e4e4;
         animation: breathe 1.5s ease-in-out infinite;
         transition: opacity 200ms ease;
       }
@@ -120,7 +139,7 @@
         position: absolute; inset: 0;
         display: flex; align-items: center; justify-content: space-between;
         padding: 2px; border: none; border-radius: 30px;
-        background: #e2e2e2; cursor: pointer;
+        background: #ececec; cursor: pointer;
         opacity: 0; transform: scale(0.4); transform-origin: right center;
         pointer-events: none;
         transition: opacity 240ms ease, transform 280ms cubic-bezier(0.2,0.8,0.2,1);
@@ -154,15 +173,20 @@
       }
       .pstatus.shown { max-height: 16px; margin-top: 13px; opacity: 1; transform: translateY(0); }
       .pstatus.err .sword { font-weight: 500; }
-      .scheck { display: flex; color: #000; }
+      /* The tick sits in a soft green chip. */
+      .scheck {
+        display: flex; align-items: center; justify-content: center;
+        width: 16px; height: 16px; border-radius: 50%;
+        background: #ddf2e3; color: #1a7f37;
+      }
       .scheck[hidden] { display: none; }
-      .scheck svg { width: 10px; height: 10px; }
+      .scheck svg { width: 9px; height: 9px; }
       .snote { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
       /* ── body: dot-grid ground, label + rows (≤3 visible) + create ── */
       .pbody {
         display: flex; flex-direction: column; min-height: 0;
-        background-image: radial-gradient(circle, #d9d9d9 1px, transparent 1px);
+        background-image: radial-gradient(circle, #e4e4e4 1px, transparent 1px);
         background-size: 32px 32px; background-position: 0 0;
         max-height: 0; opacity: 0; overflow: hidden;
         transition: max-height 360ms cubic-bezier(0.2,0.8,0.2,1), opacity 280ms ease 60ms;
@@ -181,16 +205,17 @@
       .lrow {
         display: flex; align-items: center; justify-content: space-between; gap: 12px;
         padding: 0 22px; height: 56px;
-        border-bottom: 1px solid #f0f0f0; cursor: pointer;
+        border-bottom: 1px solid #f4f4f4; cursor: pointer;
       }
-      .lrow:hover { background: rgba(0,0,0,0.02); }
+      /* Hover speaks in underline, not a grey wash (Tim, 2026-09-04). */
+      .lrow:hover .lname { text-decoration: underline; text-underline-offset: 3px; }
       .lname {
-        font-weight: 400; font-size: 15px; line-height: 22px; letter-spacing: 0.05em;
+        font-weight: 500; font-size: 15px; line-height: 22px; letter-spacing: 0.05em;
         color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
       .dot {
         flex: none; width: 17px; height: 17px; padding: 0;
-        border: none; border-radius: 50%; background: #d9d9d9;
+        border: none; border-radius: 50%; background: #e4e4e4;
         display: flex; align-items: center; justify-content: center; cursor: pointer;
       }
       .dot::after {
@@ -221,7 +246,7 @@
       .cbody {
         flex: 1; display: flex; flex-direction: column; min-height: 0;
         padding: 20px 22px 22px;
-        background-image: radial-gradient(circle, #d9d9d9 1px, transparent 1px);
+        background-image: radial-gradient(circle, #e4e4e4 1px, transparent 1px);
         background-size: 32px 32px; background-position: 0 0;
       }
       .cfield {
@@ -259,7 +284,7 @@
         <div class="screen-main" id="screen-main">
           <header class="phead">
             <div class="phead-top">
-              <h1 class="ptitle" id="ptitle">Saving to Bulletin</h1>
+              <h1 class="ptitle" id="ptitle">Saving to your Bulletin</h1>
               <div class="hslot" id="hslot">
                 <span class="breath"></span>
                 <button id="vis" class="vis" role="switch" aria-checked="false"
@@ -287,6 +312,7 @@
                      stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
               </span>
               <span class="snote" id="snote"></span>
+              <button class="undo" id="undo" aria-label="Undo this save">Undo</button>
             </div>
           </header>
 
@@ -330,13 +356,30 @@
   const nameInput = el('new-name')
 
   const COPY = {
-    public: 'Anyone with your page can see this link',
-    secret: 'Only you can see this link',
+    public: 'Visible on your page',
+    secret: 'Only you can see this',
   }
 
   // ── state ──────────────────────────────────────────────────────────
   let bookmarkId = null
+  let profileUrl = null
   let isSecret = false
+  // Optimistic reveal: the card shows "Saved ✓" the moment it opens, while the
+  // real save is still in flight. Anything the user does before the bookmark id
+  // arrives (file into a list, flip secret, undo) queues here and flushes the
+  // moment the confirm lands. The user never feels the gap.
+  let pending = []
+  let userToggledVis = false
+  let undone = false
+  function withId(fn) {
+    if (bookmarkId) fn(bookmarkId)
+    else pending.push(fn)
+  }
+  function flushPending(id) {
+    const q = pending
+    pending = []
+    for (const fn of q) fn(id)
+  }
   let lists = []
   let memberOf = new Set()
   let creating = false
@@ -398,6 +441,27 @@
   document.documentElement.appendChild(host)
 
   // ── header stages ──────────────────────────────────────────────────
+  // Once saved, the title is a live link to the user's page (underline on
+  // hover + a small ↗) — or plain text if the save response had no username.
+  function setTitleSaved() {
+    const t = el('ptitle')
+    if (profileUrl) {
+      t.innerHTML = ''
+      const a = document.createElement('a')
+      a.href = profileUrl
+      a.target = '_blank'
+      a.rel = 'noopener'
+      a.textContent = 'Saved to your Bulletin'
+      a.insertAdjacentHTML(
+        'beforeend',
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>'
+      )
+      t.appendChild(a)
+    } else {
+      t.textContent = 'Saved to your Bulletin'
+    }
+  }
+
   function setStatus(word, note, { check = true, err = false } = {}) {
     el('sword').textContent = word
     el('snote').textContent = note
@@ -407,20 +471,49 @@
     s.classList.add('shown')
   }
 
+  // ── undo ───────────────────────────────────────────────────────────
+  // Deletes the bullet outright and folds the card down to a quiet "Removed".
+  el('undo').addEventListener('click', () => {
+    const btn = el('undo')
+    if (btn.disabled) return
+    btn.disabled = true
+    undone = true
+    // Fold the card down right away — the delete itself rides the queue, so an
+    // undo clicked before the save even confirmed still lands (create → delete).
+    card.classList.remove('revealed')
+    el('hslot').classList.add('off')
+    el('pbody').classList.remove('open')
+    el('ptitle').textContent = 'Save to your Bulletin'
+    setStatus('Removed', 'This link is off your page', { check: false })
+    armIdle(2500)
+    withId((id) => {
+      bookmarkId = null
+      chrome.runtime.sendMessage({ type: 'ig-delete-bullet', bookmarkId: id }, (resp) => {
+        if (!resp || resp.error) {
+          setStatus('Couldn’t undo', 'It’s still on your page', { check: false, err: true })
+          armIdle(4000)
+        }
+      })
+    })
+  })
+
   // ── visibility toggle ──────────────────────────────────────────────
   el('vis').addEventListener('click', () => {
-    if (!bookmarkId) return
     isSecret = !isSecret
+    userToggledVis = true
     renderVisibility()
     armIdle()
-    chrome.runtime.sendMessage(
-      { type: 'ig-set-visibility', bookmarkId, isPrivate: isSecret },
-      (resp) => {
-        if (!resp || resp.error) {
-          isSecret = !isSecret
-          renderVisibility()
+    const want = isSecret
+    withId((id) =>
+      chrome.runtime.sendMessage(
+        { type: 'ig-set-visibility', bookmarkId: id, isPrivate: want },
+        (resp) => {
+          if (!resp || resp.error) {
+            isSecret = !want
+            renderVisibility()
+          }
         }
-      }
+      )
     )
   })
   function renderVisibility() {
@@ -454,21 +547,22 @@
     body.style.setProperty('--body-h', `${body.scrollHeight}px`)
   }
   function toggleMembership(l, rowEl) {
-    if (!bookmarkId) return
     const add = !memberOf.has(l.id)
     if (add) memberOf.add(l.id)
     else memberOf.delete(l.id)
     rowEl.classList.toggle('on', add)
     armIdle() // still working
-    chrome.runtime.sendMessage(
-      { type: 'ig-set-list', listId: l.id, bookmarkId, add },
-      (resp) => {
-        if (!resp || resp.error) {
-          if (add) memberOf.delete(l.id)
-          else memberOf.add(l.id)
-          rowEl.classList.toggle('on', !add)
+    withId((id) =>
+      chrome.runtime.sendMessage(
+        { type: 'ig-set-list', listId: l.id, bookmarkId: id, add },
+        (resp) => {
+          if (!resp || resp.error) {
+            if (add) memberOf.delete(l.id)
+            else memberOf.add(l.id)
+            rowEl.classList.toggle('on', !add)
+          }
         }
-      }
+      )
     )
   }
 
@@ -509,7 +603,7 @@
 
   function commitCreate() {
     const name = nameInput.value.trim()
-    if (!name || creating || !bookmarkId) return
+    if (!name || creating) return
     const secret = el('secret-toggle').getAttribute('aria-checked') === 'true'
 
     // Typing the name of a list they already have files into it rather than
@@ -518,9 +612,11 @@
     if (exact) {
       if (!memberOf.has(exact.id)) {
         memberOf.add(exact.id)
-        chrome.runtime.sendMessage(
-          { type: 'ig-set-list', listId: exact.id, bookmarkId, add: true },
-          (resp) => { if (!resp || resp.error) { memberOf.delete(exact.id); renderRows() } }
+        withId((id) =>
+          chrome.runtime.sendMessage(
+            { type: 'ig-set-list', listId: exact.id, bookmarkId: id, add: true },
+            (resp) => { if (!resp || resp.error) { memberOf.delete(exact.id); renderRows() } }
+          )
         )
       }
       renderRows()
@@ -533,22 +629,24 @@
     const btn = el('btn-do-create')
     btn.disabled = true
     btn.textContent = 'Creating…'
-    chrome.runtime.sendMessage(
-      { type: 'ig-create-list', name, bookmarkId, isPrivate: secret },
-      (resp) => {
-        creating = false
-        if (resp && resp.ok && resp.list) {
-          lists = [resp.list, ...lists.filter((l) => l.id !== resp.list.id)]
-          memberOf.add(resp.list.id)
-          renderRows()
-          screens.classList.remove('show-create')
-          armIdle()
-        } else {
-          btn.disabled = false
-          btn.textContent = 'Create'
-          nameInput.focus()
+    withId((id) =>
+      chrome.runtime.sendMessage(
+        { type: 'ig-create-list', name, bookmarkId: id, isPrivate: secret },
+        (resp) => {
+          creating = false
+          if (resp && resp.ok && resp.list) {
+            lists = [resp.list, ...lists.filter((l) => l.id !== resp.list.id)]
+            memberOf.add(resp.list.id)
+            renderRows()
+            screens.classList.remove('show-create')
+            armIdle()
+          } else {
+            btn.disabled = false
+            btn.textContent = 'Create'
+            nameInput.focus()
+          }
         }
-      }
+      )
     )
   }
 
@@ -558,7 +656,7 @@
     if (revealed) return
     revealed = true
     clearTimeout(revealTimer)
-    el('ptitle').textContent = 'Save to Bulletin'
+    setTitleSaved()
     card.classList.add('revealed')
     renderVisibility() // status line: "Saved ✓ …"
     renderRows()
@@ -566,19 +664,71 @@
     armIdle()
   }
 
+  // Optimistic open: full card, "Saved ✓", prefetched lists — before the save
+  // confirms. Only the sticky-private default is known at this point.
+  function showOptimistic(data) {
+    revealMsg = 'Saved'
+    bookmarkId = null
+    profileUrl = null
+    isSecret = !!(data && data.isPrivate)
+    const seq = ++saveSeq
+    memberOf = new Set()
+    clearTimeout(revealTimer)
+    revealTimer = setTimeout(reveal, REVEAL_TIMEOUT_MS)
+    const useprefetch = () => {
+      if (seq !== saveSeq) return
+      lists = prefetched || []
+      reveal()
+    }
+    if (prefetched !== null) useprefetch()
+    else onPrefetch = useprefetch
+  }
+
+  // The save confirmed (or, without a prior optimistic open, the legacy path:
+  // reveal now). Late truths fold in quietly: the title becomes a live link,
+  // queued actions flush against the real id, a re-save pulls its memberships.
   function showSaved(msg, data) {
     revealMsg = msg
     bookmarkId = (data && data.id) || null
-    // The save may have been born secret (sticky private default) — the pill
-    // and the status copy open in that state.
-    isSecret = !!(data && data.isPrivate)
+    profileUrl = (data && data.profileUrl) || null
+    if (!bookmarkId) {
+      pending = []
+      return terminal(msg, '')
+    }
+    // The server's visibility is the pre-queue truth — don't clobber a flip
+    // the user made while the save was in flight (it's queued right behind).
+    if (!userToggledVis) isSecret = !!(data && data.isPrivate)
     const seq = ++saveSeq
-    if (!bookmarkId) return terminal(msg, '')
+
+    if (revealed) {
+      // Optimistic card already open — this is the confirm.
+      if (undone) {
+        // The user already undid this save — the fold stays; the flush
+        // performs the queued delete against the id that just arrived.
+        flushPending(bookmarkId)
+        return
+      }
+      setTitleSaved()
+      renderVisibility()
+      flushPending(bookmarkId)
+      if (data && data.refreshed) {
+        // A re-save is already filed places — pull memberships; checked rows
+        // pop in a beat late, which beats holding the whole card for them.
+        chrome.runtime.sendMessage({ type: 'ig-get-lists', bookmarkId }, (resp) => {
+          if (seq !== saveSeq) return
+          if (resp && resp.ok && Array.isArray(resp.lists)) {
+            lists = resp.lists
+            for (const id of resp.memberOf || []) memberOf.add(id)
+            renderRows()
+          }
+        })
+      }
+      return
+    }
+
     clearTimeout(revealTimer)
     revealTimer = setTimeout(reveal, REVEAL_TIMEOUT_MS)
     if (data && data.refreshed) {
-      // A re-save is already filed places — fetch membership before revealing
-      // so its checked rows are right from the first frame.
       chrome.runtime.sendMessage({ type: 'ig-get-lists', bookmarkId }, (resp) => {
         if (seq !== saveSeq) return
         if (resp && resp.ok && Array.isArray(resp.lists)) {
@@ -589,8 +739,6 @@
       })
       return
     }
-    // Fresh save: it belongs to no list yet, so the prefetched names are all
-    // we need — reveal now, or the moment the prefetch lands.
     memberOf = new Set()
     const useprefetch = () => {
       if (seq !== saveSeq) return
@@ -604,7 +752,13 @@
   // Terminal without the picker (duplicate / error / signin): title flips,
   // dot stops, message in the status line, quiet dismiss.
   function terminal(word, note, { err = false } = {}) {
-    el('ptitle').textContent = 'Save to Bulletin'
+    // May arrive after an optimistic reveal (the in-flight save failed) —
+    // fold the picker back down and drop anything the user queued against it.
+    pending = []
+    revealed = false
+    card.classList.remove('revealed')
+    el('pbody').classList.remove('open')
+    el('ptitle').textContent = 'Save to your Bulletin'
     el('hslot').classList.add('off')
     setStatus(word, note, { check: !err, err })
     armIdle(6000)
@@ -618,17 +772,22 @@
     onPrefetch = null
     prefetchLists() // re-warm — a list created since injection should show
     bookmarkId = null
+    profileUrl = null
     isSecret = false
+    pending = []
+    userToggledVis = false
+    undone = false
     lists = []
     memberOf = new Set()
     creating = false
     revealed = false
     card.classList.remove('revealed')
     el('hslot').classList.remove('off')
+    el('undo').disabled = false
     el('pstatus').classList.remove('shown', 'err')
     el('pbody').classList.remove('open')
     screens.classList.remove('show-create')
-    el('ptitle').textContent = 'Saving to Bulletin'
+    el('ptitle').textContent = 'Saving to your Bulletin'
     el('vis').setAttribute('aria-checked', 'false')
     nameInput.value = ''
   }
@@ -638,6 +797,9 @@
     apply(state, data) {
       if (state === 'saving') {
         reset()
+      } else if (state === 'optimistic') {
+        reset()
+        showOptimistic(data)
       } else if (state === 'saved') {
         showSaved(data && data.refreshed ? 'Updated' : 'Saved', data)
       } else if (state === 'duplicate') {
@@ -651,8 +813,15 @@
   }
 
   chrome.runtime.onMessage.addListener((m) => {
-    if (m && m.type === 'ig-toast' && window.__igToast) {
+    if (!m || m.type !== 'ig-toast') return
+    if (window.__igToast) {
       window.__igToast.apply(m.state, m.data)
+    } else if (m.state === 'saved' && m.data && m.data.id) {
+      // The card was dismissed while the save was still in flight — flush any
+      // actions the user queued (filed a list, flipped secret, undid) so a
+      // quick dismiss can't eat their click. flushPending self-empties, so a
+      // second stale listener finds nothing to double-send.
+      flushPending(m.data.id)
     }
   })
 

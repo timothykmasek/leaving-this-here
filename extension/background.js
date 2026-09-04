@@ -12,6 +12,8 @@
 
 import {
   saveGem,
+  deleteBullet,
+  sendClientShot,
   getSession,
   signIn,
   signOut,
@@ -87,21 +89,15 @@ chrome.action.onClicked.addListener((tab) => {
 async function saveActiveTab(tab) {
   const session = await getSession()
   if (!session) return promptSignIn()
-  const payload = await buildPagePayload(tab)
-  await saveFlow(tab, payload)
-}
-
-// Everything a "save this page" needs, gathered from the live tab.
-async function buildPagePayload(tab) {
+  // The screenshot rides OUT-OF-BAND: capture starts now, in parallel with the
+  // save, and uploads separately once the bookmark id exists — the save request
+  // stays skinny (no half-megabyte base64 blob) and never waits on the camera.
+  // Capturing the user's own tab still matters where it happens (top-of-page
+  // saves): their session/IP bypasses the datacenter block that defeats the
+  // server screenshot on paywalled/bot-blocked sites.
+  const shotPromise = captureTab(tab)
   const clientMeta = await readPageMeta(tab?.id)
-  // Always capture the visible tab — it's the user's own rendered view (their
-  // session/IP), so it bypasses the datacenter-IP block that defeats our server
-  // screenshot, and it's mymind-grade for landing pages. We send BOTH this and
-  // the og image; the server's pickCardImage picks per card_type — landing/
-  // profile pages show the screenshot, articles/products keep their og, so the
-  // shot is stored-but-unused there. Viewport/hero only — preview-grade.
-  const clientShot = await captureTab(tab)
-  return { url: tab?.url, title: tab?.title, clientMeta, clientShot }
+  await saveFlow(tab, { url: tab?.url, title: tab?.title, clientMeta }, shotPromise)
 }
 
 // Known cookie-consent / newsletter-popup containers, by their STABLE vendor
@@ -280,6 +276,23 @@ async function captureTab(tab) {
   let changed = false
   let polluted = false
 
+  // Mid-page saves skip the capture entirely. The old behavior jumped to the
+  // top, stripped overlays, shot, and jumped back — which reads as the page
+  // reloading (Tim: "it refreshes my browser"). A save must never move the
+  // user's page, so scrolled-deep saves lean on og:image / the server
+  // screenshot instead, and the strip below can never trigger a visible jump.
+  if (tabId != null) {
+    try {
+      const [{ result: scrollY } = {}] = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => window.scrollY || document.documentElement.scrollTop || 0,
+      })
+      if ((scrollY || 0) > 100) return null
+    } catch {
+      /* fall through — the strip/capture below has its own guards */
+    }
+  }
+
   if (tabId != null) {
     try {
       const [{ result } = {}] = await chrome.scripting.executeScript({
@@ -398,8 +411,14 @@ async function readPageMeta(tabId) {
             try { return new URL(a).pathname.replace(/\/+$/, '') === new URL(b).pathname.replace(/\/+$/, '') } catch { return true }
           }
           if (!meta.title || (meta.ogUrl && !samePath(meta.ogUrl, location.href))) {
-            const r = await fetch(location.href, { credentials: 'include' })
+            // Hard 800ms budget: this refetch fires on every SPA-stale page
+            // (Instagram, X, …) and used to hold the whole save hostage to a
+            // slow origin. Blowing the budget just means the tab title leads.
+            const ctrl = new AbortController()
+            const bomb = setTimeout(() => ctrl.abort(), 800)
+            const r = await fetch(location.href, { credentials: 'include', signal: ctrl.signal })
             const doc2 = new DOMParser().parseFromString(await r.text(), 'text/html')
+            clearTimeout(bomb)
             const fresh = extract(doc2)
             if (fresh.title || fresh.image) {
               for (const k of ['title', 'image', 'description', 'siteName']) {
@@ -524,27 +543,23 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   // Page/selection saves are "this page" → attach client-read og. Image saves
   // keep their explicit srcUrl (the server lets imageOverride win), but still
   // benefit from the client title.
+  // Start the capture (where wanted) before the meta read, so both run while
+  // the save is being assembled. For a link save (info.linkUrl) the target
+  // isn't what's on screen, and an image save's src IS the picture — no shot.
+  const wantShot =
+    info.menuItemId === MENU.SELECTION ||
+    (info.menuItemId === MENU.PAGE && !info.linkUrl)
+  const shotPromise = wantShot ? captureTab(tab) : null
   const clientMeta = await readPageMeta(tab?.id)
   let payload
   if (info.menuItemId === MENU.IMAGE) {
-    // Explicit image save — the src IS the picture; no page screenshot wanted.
     payload = { url: info.pageUrl || tab?.url, title: tab?.title, image_url: info.srcUrl, clientMeta }
   } else if (info.menuItemId === MENU.SELECTION) {
-    // Selection is always on the current, visible page → hero shot is valid.
-    payload = { url: info.pageUrl || tab?.url, title: tab?.title, note: info.selectionText, clientMeta, clientShot: await captureTab(tab) }
+    payload = { url: info.pageUrl || tab?.url, title: tab?.title, note: info.selectionText, clientMeta }
   } else {
-    // MENU.PAGE fires on both a page and a right-clicked link. Only capture the
-    // visible tab when we're saving THIS page — for a link save (info.linkUrl),
-    // the target isn't what's on screen, so a shot would be the wrong page.
-    const savingCurrentPage = !info.linkUrl
-    payload = {
-      url: info.linkUrl || info.pageUrl || tab?.url,
-      title: tab?.title,
-      clientMeta,
-      ...(savingCurrentPage ? { clientShot: await captureTab(tab) } : {}),
-    }
+    payload = { url: info.linkUrl || info.pageUrl || tab?.url, title: tab?.title, clientMeta }
   }
-  await saveFlow(tab, payload)
+  await saveFlow(tab, payload, shotPromise)
 })
 
 // ── Sticky private default ──────────────────────────────────────────
@@ -562,10 +577,8 @@ async function setPrivateStreak(n) {
 }
 
 // ── The save flow shared by every entry point ───────────────────────
-async function saveFlow(tab, payload) {
+async function saveFlow(tab, payload, shotPromise = null) {
   const tabId = tab?.id
-  // Show the toast immediately (it starts in a "Saving…" state) so the click
-  // never feels dead while metadata + tagging run server-side.
   const injected = tabId != null ? await injectToast(tabId) : false
 
   // Apply the sticky private default at save time, so a secret save is born
@@ -574,18 +587,34 @@ async function saveFlow(tab, payload) {
   const streak = await getPrivateStreak()
   if (streak > 0) payload.is_private = true
 
+  // Optimistic reveal: the card opens fully — "Saved ✓", lists, pill — the
+  // moment it injects, while the save is still in flight. Anything the user
+  // does queues in the card and flushes when the confirm below delivers the
+  // bookmark id; a failure flips the card to its error state instead.
+  if (injected) toast(tabId, 'optimistic', { isPrivate: streak > 0 })
+
   try {
     const result = await saveGem(payload)
     const bm = result?.bookmark || {}
     const refreshed = !!result?.refreshed
+    // The card's title links to the user's live page ("Saved to your Bulletin ↗").
+    const profileUrl = result?.username ? `${CONFIG.API_BASE}/${result.username}` : null
     // A fresh save consumed one of the streak's remaining defaults. A re-save
     // doesn't — it kept its existing visibility, whatever that was.
     if (streak > 0 && !refreshed) await setPrivateStreak(streak - 1)
     if (injected) {
       // `refreshed` = re-save updated the existing card in place.
-      toast(tabId, 'saved', { id: bm.id, title: bm.title, refreshed, isPrivate: !!bm.is_private })
+      toast(tabId, 'saved', { id: bm.id, title: bm.title, refreshed, isPrivate: !!bm.is_private, profileUrl })
     } else {
       notify(refreshed ? 'Updated' : 'Saved', bm.title || 'Added to your collection.')
+    }
+    // The out-of-band screenshot: upload once both the shot and the id exist.
+    // Fire-and-forget — the card never waits on this, and a failed upload just
+    // leaves the server screenshot fallback to cover the card.
+    if (shotPromise && bm.id) {
+      shotPromise
+        .then((shot) => (shot ? sendClientShot(bm.id, shot) : null))
+        .catch(() => {})
     }
   } catch (err) {
     const msg = String(err.message || err)
@@ -670,6 +699,12 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
   if (msg?.type === 'ig-set-list') {
     setListMembership(msg.listId, msg.bookmarkId, msg.add)
+      .then(() => sendResponse({ ok: true }))
+      .catch((e) => sendResponse({ error: String(e.message || e) }))
+    return true
+  }
+  if (msg?.type === 'ig-delete-bullet') {
+    deleteBullet(msg.bookmarkId)
       .then(() => sendResponse({ ok: true }))
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true

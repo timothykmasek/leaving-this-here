@@ -258,6 +258,21 @@ export async function saveGem(payload) {
   return apiPost('/api/extension/save', payload)
 }
 
+// Undo a save — deletes the bullet outright (the toast's undo icon, moments
+// after saving; nothing else calls this).
+export async function deleteBullet(bookmarkId) {
+  return apiSend('DELETE', '/api/extension/save', { bookmark_id: bookmarkId })
+}
+
+// Upload the out-of-band screenshot for a just-saved bullet. Separate from the
+// save so the save request never carries (or waits on) the base64 payload.
+export async function sendClientShot(bookmarkId, dataUrl) {
+  return apiSend('PATCH', '/api/extension/save', {
+    bookmark_id: bookmarkId,
+    client_shot: dataUrl,
+  })
+}
+
 // ── Lists ───────────────────────────────────────────────────────────
 // The signed-in user's lists: [{ id, name, slug }].
 // The user's lists. Pass a bookmarkId to also get `member_of` — the ids of the
