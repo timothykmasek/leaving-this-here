@@ -466,6 +466,33 @@ export default function ProfileClient({
     setFiltered((prev) => prev.filter((b) => b.id !== id))
   }
 
+  // Bulk select-and-delete (owner only). While selecting, every card gets a
+  // full-cover overlay that toggles membership instead of following the link —
+  // one query deletes the lot. RLS scopes the .in() to the owner's own rows,
+  // so a stray id in the set can't touch anyone else's bullets.
+  const [selecting, setSelecting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const toggleSelect = (id: string) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  const exitSelect = () => {
+    setSelecting(false)
+    setSelectedIds(new Set())
+  }
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds)
+    if (!ids.length) return
+    if (!window.confirm(`Delete ${ids.length} bullet${ids.length > 1 ? 's' : ''}? This can't be undone.`)) return
+    await supabase.from('bookmarks').delete().in('id', ids)
+    ids.forEach(forgetSuggestion)
+    setBookmarks((prev) => prev.filter((b) => !selectedIds.has(b.id)))
+    setFiltered((prev) => prev.filter((b) => !selectedIds.has(b.id)))
+    exitSelect()
+  }
+
   // Pin/unpin a bullet to the top of the profile. Optimistic: the card moves
   // the moment the button is pressed, then the row persists. `filtered` only
   // resorts when there's no live search — search order is relevance, and a pin
@@ -683,8 +710,8 @@ export default function ProfileClient({
     <>
       <Masonry>
         {items.slice(0, visibleCount).map((b) => (
+          <div key={b.id} className="relative">
           <PrimaryCard
-            key={b.id}
             id={b.id}
             url={b.url}
             title={b.title}
@@ -704,6 +731,31 @@ export default function ProfileClient({
             utmCampaign={username}
             privateMark={isOwner && !!b.is_private}
           />
+          {/* Select-mode cover: sits above the card's own link overlay (z-1)
+              and pencil (z-2) so a click can only toggle, never navigate. */}
+          {selecting && (
+            <button
+              type="button"
+              onClick={() => toggleSelect(b.id)}
+              aria-pressed={selectedIds.has(b.id)}
+              aria-label={selectedIds.has(b.id) ? 'Deselect bullet' : 'Select bullet'}
+              className={`absolute inset-0 z-[5] rounded-[20px] transition ${
+                selectedIds.has(b.id)
+                  ? 'bg-white/25 ring-2 ring-ink ring-offset-2'
+                  : 'hover:bg-white/15 ring-1 ring-black/10'
+              }`}
+            >
+              <span
+                aria-hidden
+                className={`absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full text-[13px] shadow-sm ${
+                  selectedIds.has(b.id) ? 'bg-ink text-white' : 'bg-white/90 text-black/30'
+                }`}
+              >
+                ✓
+              </span>
+            </button>
+          )}
+          </div>
         ))}
       </Masonry>
       {items.length > visibleCount && (
@@ -986,7 +1038,10 @@ export default function ProfileClient({
                 // 20px inset. Desktop-only (hidden sm:block) — on phones search
                 // lives in the header glass + drop-in bar instead, and the tab
                 // pill gets this row to itself.
-                className="hidden h-[62px] w-full max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-transparent px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40 sm:block"
+                // min-w-0 lets the input actually compress when the row is
+                // tight (an input's intrinsic min-width otherwise wins and
+                // shoves the Select button off the container's right edge).
+                className="hidden h-[62px] w-full min-w-0 max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-transparent px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40 sm:block"
               />
             )}
 
@@ -1002,6 +1057,11 @@ export default function ProfileClient({
                 same three-dot tick used on a card's list line. Hidden while
                 searching. */}
             {!query.trim() && (
+              // Explicit max-w on this wrapper, not min-w-0: the tab strip
+              // sizes itself with w-full, which inside a content-sized wrapper
+              // is circular and collapses the strip to min-content. 371 (strip)
+              // + 16 (gap) + ~53 (Select) = 440.
+              <div className={`flex w-full items-center gap-4 ${isOwner ? 'max-w-[440px]' : 'max-w-[371px]'} shrink justify-end sm:shrink-0`}>
               <div className="relative flex h-[62px] w-full max-w-[371px] shrink items-center rounded-[20px] border border-[#EBEBEB] p-[5px] sm:shrink-0">
                 {/* One pill that slides, rather than a background toggling on
                     each segment. The strip carries 5px of padding, so a segment
@@ -1042,7 +1102,45 @@ export default function ProfileClient({
                   )
                 })}
               </div>
+              {/* Owner's bulk-select toggle — rides beside the tabs so the
+                  strip itself keeps its designed flush-right seat. */}
+              {isOwner && activeTab === 'recent' && (
+                <button
+                  type="button"
+                  onClick={() => (selecting ? exitSelect() : setSelecting(true))}
+                  className={`shrink-0 font-sans text-[14px] font-[600] leading-5 transition-colors ${
+                    selecting ? 'text-ink' : 'text-black/30 hover:text-black/50'
+                  }`}
+                >
+                  {selecting ? 'Done' : 'Select'}
+                </button>
+              )}
+              </div>
             )}
+          </div>
+        )}
+
+        {/* Floating bulk-action bar — appears only in select mode. */}
+        {selecting && (
+          <div className="fixed bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-4 rounded-[20px] border border-black/10 bg-white px-5 py-3 shadow-lg">
+            <span className="font-sans text-[14px] font-[600] tabular-nums">
+              {selectedIds.size} selected
+            </span>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={selectedIds.size === 0}
+              className="rounded-lg bg-ink px-4 py-2 font-sans text-[14px] font-[600] text-white transition-opacity disabled:opacity-30"
+            >
+              Delete
+            </button>
+            <button
+              type="button"
+              onClick={exitSelect}
+              className="font-sans text-[14px] font-[600] text-black/40 transition-colors hover:text-ink"
+            >
+              Cancel
+            </button>
           </div>
         )}
 
