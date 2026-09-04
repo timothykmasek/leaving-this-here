@@ -114,16 +114,17 @@ async function ensureProfile(): Promise<string> {
     console.log(`— would create auth user + profile @${USERNAME}`)
     return '00000000-0000-0000-0000-000000000000'
   }
-  const email = `${USERNAME}@seed.leavingthishere.local`
-  const password = 'seedseed-' + Math.random().toString(36).slice(2, 12)
-  const { data, error } = await sb.auth.admin.createUser({ email, password, email_confirm: true })
+  // Bulletin is passwordless, so a persona needs a deliverable inbox for
+  // /login's emailed sign-in link — plus-addressing lands it in Tim's gmail.
+  const email = `timothykmasek+${USERNAME}@gmail.com`
+  const { data, error } = await sb.auth.admin.createUser({ email, email_confirm: true })
   if (error) throw new Error(`createUser: ${error.message}`)
   const id = data.user!.id
   const { error: pe } = await sb
     .from('profiles')
     .insert({ id, username: USERNAME, display_name: DISPLAY, bio: BIO })
   if (pe) throw new Error(`profile insert: ${pe.message}`)
-  console.log(`✓ created @${USERNAME} (${id}) — login ${email} / ${password}`)
+  console.log(`✓ created @${USERNAME} (${id}) — sign in via the email lane at /login (${email})`)
   return id
 }
 

@@ -13,7 +13,7 @@ import { CHROME_STORE_URL as WEB_STORE_URL } from '@/lib/extension'
 // step after it runs with a real session — none of the localStorage-across-auth
 // gymnastics the old magic-first flow needed.
 //
-//   1. account   Google | email + password        → authenticated
+//   1. account   Google | emailed sign-in link    → authenticated
 //   2. username  yourbulletin.com/<handle>          → live availability
 //   3. about     display name + bio                 → typed, no AI
 //   4. pick 3    seed-library grid (real cards)      → real bookmarks
@@ -137,11 +137,7 @@ export default function StartPage() {
             <Ring />
           </div>
         ) : step === 'account' ? (
-          <Account
-            supabase={supabase}
-            onSession={() => setStep('username')}
-            onCheckEmail={() => setStep('check-email')}
-          />
+          <Account supabase={supabase} onCheckEmail={() => setStep('check-email')} />
         ) : step === 'username' ? (
           <Username value={handle} onChange={setHandle} onNext={() => setStep('about')} />
         ) : step === 'about' ? (
@@ -284,20 +280,17 @@ function InviteOnly({ initialEmail = '' }: { initialEmail?: string }) {
 
 function Account({
   supabase,
-  onSession,
   onCheckEmail,
 }: {
   supabase: ReturnType<typeof createClient>
-  onSession: () => void
   onCheckEmail: () => void
 }) {
   const [email, setEmail] = useState('')
-  const [pw, setPw] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  // With "Allow new users to sign up" off in Supabase, signUp is rejected
-  // with "Signups not allowed for this instance". Raw red text is terrible
-  // manners for an uninvited visitor — swap the whole step for a soft
+  // With "Allow new users to sign up" off in Supabase, the OTP signup is
+  // rejected with a "Signups not allowed" style message. Raw red text is
+  // terrible manners for an uninvited visitor — swap the whole step for a soft
   // invite-only landing with the same waitlist capture as the homepage.
   const [inviteOnly, setInviteOnly] = useState(false)
 
@@ -310,14 +303,21 @@ function Account({
     if (error) setError(error.message)
   }
 
+  // Passwordless: the email lane sends a sign-in link that creates the
+  // account (shouldCreateUser true — /login's version of this call is the
+  // gate-keeping one with it false). Clicking the link lands on
+  // /auth/callback, which sends an authed no-profile user back here to resume
+  // at the username step.
   const emailSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setBusy(true)
     setError(null)
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password: pw,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     })
     setBusy(false)
     if (error) {
@@ -332,10 +332,7 @@ function Account({
       )
       return
     }
-    // Confirmation OFF → instant session → continue in-page. If it's ever
-    // turned ON, signUp returns no session and we fall back to check-email.
-    if (data.session) onSession()
-    else onCheckEmail()
+    onCheckEmail()
   }
 
   if (inviteOnly) {
@@ -372,18 +369,9 @@ function Account({
           placeholder="you@email.com"
           className={fieldClass}
         />
-        <input
-          type="password"
-          required
-          minLength={6}
-          value={pw}
-          onChange={(e) => setPw(e.target.value)}
-          placeholder="create a password"
-          className={fieldClass}
-        />
         {error && <p className="text-sm text-red-600">{error}</p>}
         <button type="submit" disabled={busy} className={primaryBtn}>
-          {busy ? 'creating…' : 'create account →'}
+          {busy ? 'sending…' : 'email me a sign-in link →'}
         </button>
       </form>
 
@@ -845,14 +833,14 @@ function Building({
   )
 }
 
-/* ── check-email (fallback only, if confirmation is ever turned on) ─────── */
+/* ── check-email (the email lane always lands here) ───────────────────── */
 
 function CheckEmail() {
   return (
     <div className="pt-6 text-center">
       <Headline>Check your email.</Headline>
       <Sub>
-        We sent a confirmation link. Click it and you&rsquo;ll come right back to finish your page.
+        We sent a sign-in link. Click it and you&rsquo;ll come right back to finish your page.
       </Sub>
       <p className="mt-3 text-xs text-black/40">check spam if you don&rsquo;t see it.</p>
     </div>
