@@ -337,19 +337,25 @@ export const PrimaryCard = memo(function PrimaryCard({
           // bottom edge either. Hover lift still applies — a deliberate raise
           // isn't in conflict with the melt. (A Place has no fade at all.)
           hasFade ? 'card-lift-flat' : ''
-        } ${
-          // The foot-fade painted into the plate's OWN background as well.
-          // bg-card is a separate paint layer under the image, and the browser
-          // antialiases each layer against the corner clip independently — so
-          // on retina a sub-pixel grey rim of bg-card survives at the bottom
-          // corners even though everything above it has faded white. With the
-          // background itself white at the foot, the corner AA blends white on
-          // white: no layer left to fringe. Not on a Place card, whose plate
-          // ends in a facts block, not the fade.
-          hasFade && !place
-            ? 'bg-[linear-gradient(180deg,rgba(255,255,255,0)_92%,#FFFFFF_96%)]'
-            : ''
         }`}
+        // The foot-fade painted into the plate's OWN background as well.
+        // bg-card is a separate paint layer under the image, and the browser
+        // antialiases each layer against the corner clip independently — so
+        // on retina a sub-pixel grey rim of bg-card survives at the bottom
+        // corners even though everything above it has faded white. With the
+        // background itself white at the foot, the corner AA blends white on
+        // white: no layer left to fringe. Not on a Place card, whose plate
+        // ends in a facts block, not the fade. Behind a variable so
+        // /preview/cards can keep it in step with a retuned mask; the default
+        // IS the shipped value.
+        style={
+          hasFade && !place
+            ? {
+                backgroundImage:
+                  'var(--card-plate-fade, linear-gradient(180deg,rgba(255,255,255,0) 92%,#FFFFFF 96%))',
+              }
+            : undefined
+        }
       >
         {/* Own stacking context so the affordance pins to the IMAGE, not the
             plate — a Place card puts a text block below the image. */}
@@ -365,9 +371,16 @@ export const PrimaryCard = memo(function PrimaryCard({
               wrapper: the price chip and source mark sit in the masked zone
               and must not fade with it. */}
           <div
-            className={
+            // Behind --card-mask so /preview/cards can retune where the image
+            // is erased, live. The default IS the shipped ramp.
+            style={
               hasFade && !place
-                ? '[-webkit-mask-image:linear-gradient(180deg,#000_90%,transparent_96%)] [mask-image:linear-gradient(180deg,#000_90%,transparent_96%)]'
+                ? {
+                    WebkitMaskImage:
+                      'var(--card-mask, linear-gradient(180deg,#000 90%,transparent 96%))',
+                    maskImage:
+                      'var(--card-mask, linear-gradient(180deg,#000 90%,transparent 96%))',
+                  }
                 : undefined
             }
           >
@@ -432,9 +445,9 @@ export const PrimaryCard = memo(function PrimaryCard({
               // forking the component. The defaults ARE the shipped values —
               // nothing reads differently in production.
               style={{
-                height: 'var(--card-foot-fade-h, 26%)',
+                height: 'var(--card-foot-fade-h, 16%)',
                 backgroundImage:
-                  'var(--card-foot-fade, linear-gradient(180deg,rgba(255,255,255,0) 0%,rgba(255,255,255,0.03) 10%,rgba(255,255,255,0.10) 20%,rgba(255,255,255,0.22) 29%,rgba(255,255,255,0.35) 39%,rgba(255,255,255,0.50) 49%,rgba(255,255,255,0.65) 59%,rgba(255,255,255,0.78) 69%,rgba(255,255,255,0.90) 78%,rgba(255,255,255,0.97) 88%,#FFFFFF 98%,#FFFFFF 100%))',
+                  'var(--card-foot-fade, linear-gradient(180deg,rgba(255,255,255,0) 0%,rgba(255,255,255,1) 100%))',
               }}
             />
           )}
@@ -464,7 +477,13 @@ export const PrimaryCard = memo(function PrimaryCard({
         {lightEdges && hasFade && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#EBEBEB] [-webkit-mask-image:linear-gradient(180deg,#000_90%,transparent_96%)] [mask-image:linear-gradient(180deg,#000_90%,transparent_96%)]"
+            className="pointer-events-none absolute inset-0 rounded-[20px] border border-[#EBEBEB]"
+            style={{
+              WebkitMaskImage:
+                'var(--card-mask, linear-gradient(180deg,#000 90%,transparent 96%))',
+              maskImage:
+                'var(--card-mask, linear-gradient(180deg,#000 90%,transparent 96%))',
+            }}
           />
         )}
 

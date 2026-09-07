@@ -238,8 +238,11 @@ export function DepthHero() {
 
   // Phone tier runs ~15% smaller across the lockup (logo, tagline, pill);
   // sm:+ keeps the shipped desktop sizes exactly.
+  // Mier A Book — fonts.ts registers Book at 400 (the family's lightest cut;
+  // there is no Light file). Matches the Sign-in mark's voice, incl. the +5%
+  // tracking Mier carries at small sizes everywhere else.
   const pill =
-    'font-serif text-[14px] sm:text-[15px] inline-flex h-[40px] sm:h-[46px] items-center justify-center whitespace-nowrap ' +
+    'font-sans font-[400] tracking-[0.05em] text-[14px] sm:text-[15px] inline-flex h-[40px] sm:h-[46px] items-center justify-center whitespace-nowrap ' +
     'rounded-full border border-black/[0.28] bg-white px-6 sm:px-7 text-black ' +
     'transition-[border-color] duration-150 ease-out hover:border-black/[0.55]'
 
