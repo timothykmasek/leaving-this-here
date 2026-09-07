@@ -30,6 +30,11 @@ const LINK_ICONS: Record<string, ReactNode> = {
       <circle cx="17.6" cy="6.4" r="1.1" fill="currentColor" stroke="none" />
     </svg>
   ),
+  substack: (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden>
+      <path d="M22.539 8.242H1.46V5.406h21.08v2.836zM1.46 10.812V24L12 18.11 22.539 24V10.812H1.46zM22.539 0H1.46v2.836h21.08V0z" />
+    </svg>
+  ),
 }
 
 export function ProfileIdentity({
@@ -54,6 +59,7 @@ export function ProfileIdentity({
     [
       ['twitter', 'x', l.twitter],
       ['instagram', 'instagram', l.instagram],
+      ['substack', 'substack', l.substack],
       ['linkedin', 'linkedin', l.linkedin],
       ['website', 'website', l.website],
     ] as [string, string, string | undefined][]
