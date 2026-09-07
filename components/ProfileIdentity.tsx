@@ -3,11 +3,12 @@
 // Shared by the profile hero and the public list page so landing on
 // /username/<slug> keeps the same author context.
 import type { ReactNode } from 'react'
+import { detectPlatform, normalizeProfileLinks } from '@/lib/profileLinks'
 
 // Small monochrome glyphs for each link — same grey as the surrounding text
 // (they inherit currentColor), matching the quiet UI motif, not coloured logos.
-const LINK_ICONS: Record<string, ReactNode> = {
-  twitter: (
+export const LINK_ICONS: Record<string, ReactNode> = {
+  x: (
     <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden>
       <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
     </svg>
@@ -35,6 +36,16 @@ const LINK_ICONS: Record<string, ReactNode> = {
       <path d="M22.539 8.242H1.46V5.406h21.08v2.836zM1.46 10.812V24L12 18.11 22.539 24V10.812H1.46zM22.539 0H1.46v2.836h21.08V0z" />
     </svg>
   ),
+  tiktok: (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden>
+      <path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-3.02.37-.63.41-1.11 1.04-1.36 1.75-.21.51-.15 1.07-.14 1.61.24 1.64 1.82 3.02 3.5 2.87 1.12-.01 2.19-.66 2.77-1.61.19-.33.4-.67.41-1.06.1-1.79.06-3.57.07-5.36.01-4.03-.01-8.05.02-12.07z" />
+    </svg>
+  ),
+  youtube: (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden>
+      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+    </svg>
+  ),
 }
 
 export function ProfileIdentity({
@@ -50,20 +61,15 @@ export function ProfileIdentity({
   // "Latest Bullet: …" line (owner's most recent save, in the viewer's local
   // time). Rendered as the bottom editorial line under the bio.
   latestBullet?: string | null
-  links?: Record<string, string> | null
+  // Legacy fixed-key object OR the editor's ordered url array — both render.
+  links?: Record<string, string> | string[] | null
   // Optional owner control rendered beneath the links (edit-profile pencil).
   trailing?: ReactNode
 }) {
-  const l = links || {}
-  const entries = (
-    [
-      ['twitter', 'x', l.twitter],
-      ['instagram', 'instagram', l.instagram],
-      ['substack', 'substack', l.substack],
-      ['linkedin', 'linkedin', l.linkedin],
-      ['website', 'website', l.website],
-    ] as [string, string, string | undefined][]
-  ).filter((e) => e[2])
+  const entries = normalizeProfileLinks(links).map((url) => ({
+    url,
+    platform: detectPlatform(url),
+  }))
 
   return (
     <div className="group flex flex-col items-center gap-3 text-center">
@@ -84,15 +90,15 @@ export function ProfileIdentity({
         <div className="mt-1 flex items-center gap-4 text-black/40">
           {entries.map((e) => (
             <a
-              key={e[0]}
-              href={e[2]}
+              key={e.url}
+              href={e.url}
               target="_blank"
               rel="noopener noreferrer"
-              aria-label={e[1]}
-              title={e[1]}
+              aria-label={e.platform}
+              title={e.platform}
               className="inline-flex transition-colors hover:text-ink"
             >
-              {LINK_ICONS[e[0]]}
+              {LINK_ICONS[e.platform] ?? LINK_ICONS.website}
             </a>
           ))}
         </div>

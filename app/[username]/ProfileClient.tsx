@@ -10,7 +10,8 @@ import { Masonry } from '@/components/Masonry'
 import { CopyTagline } from '@/components/CopyTagline'
 import { BulletinHeader } from '@/components/BulletinHeader'
 import { CollectionCard } from '@/components/CollectionCard'
-import { ProfileIdentity } from '@/components/ProfileIdentity'
+import { ProfileIdentity, LINK_ICONS } from '@/components/ProfileIdentity'
+import { coerceUrl, detectPlatform, linkLabel, normalizeProfileLinks } from '@/lib/profileLinks'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
@@ -115,7 +116,10 @@ export default function ProfileClient({
   // "Latest Bullet: …" line — formatted in the viewer's LOCAL time, so computed
   // client-side (in the effect below) to avoid an SSR/client hydration mismatch.
   const [latestBulletLabel, setLatestBulletLabel] = useState<string | null>(null)
-  const [editLinks, setEditLinks] = useState<any>({})
+  // Links edit as an ORDERED url list (any platform — icon is detected at
+  // render). newLink is the dashed add-row's draft.
+  const [editLinkList, setEditLinkList] = useState<string[]>([])
+  const [newLink, setNewLink] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileSaveError, setProfileSaveError] = useState<string | null>(null)
   // Which bullet's detail modal is open (owner view). Looked up from `bookmarks`
@@ -827,7 +831,8 @@ export default function ProfileClient({
                     setEditName(profile.display_name || '')
                     const [l1 = '', l2 = ''] = (profile.bio || '').split('\n')
                     setEditBio(l1); setEditBio2(l2)
-                    setEditLinks(profile.links || {})
+                    setEditLinkList(normalizeProfileLinks(profile.links))
+                    setNewLink('')
                   }}
                   aria-label="Edit profile"
                   title="Edit profile"
@@ -844,83 +849,96 @@ export default function ProfileClient({
             }
           />
 
-          {/* Edit profile form */}
+          {/* Edit profile form — the gray plate under the identity block.
+              Links are a free-form ordered list: paste any url, the platform
+              icon is detected at render (instagram, tiktok, whatever). */}
           {editingProfile && (
-            <div className="bg-gray-50 rounded-lg border border-gray-100 p-6 mb-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">name</label>
-                <input
-                  type="text"
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  placeholder={profile.username}
-                  maxLength={60}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="mx-auto mt-8 max-w-2xl rounded-[24px] bg-[#F4F4F4] p-5 text-left sm:p-8">
+              <label className="mb-2 block font-sans text-[14px] font-[500] text-black/40">name</label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                placeholder={profile.username}
+                maxLength={60}
+                className="w-full rounded-[16px] border border-[#E3E3E3] bg-white px-5 py-3.5 font-sans text-[15px] font-[500] text-ink placeholder:text-black/30 focus:border-black/40 focus:outline-none"
+              />
+              <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">line 1</label>
+                  <label className="mb-2 block font-sans text-[14px] font-[500] text-black/40">line 1</label>
                   <input
                     type="text"
                     value={editBio}
                     onChange={(e) => setEditBio(e.target.value)}
                     placeholder="Venture Designer @ Founders Factory"
                     maxLength={80}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                    className="w-full rounded-[16px] border border-[#E3E3E3] bg-white px-5 py-3.5 font-sans text-[15px] font-[500] text-ink placeholder:text-black/30 focus:border-black/40 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">line 2</label>
+                  <label className="mb-2 block font-sans text-[14px] font-[500] text-black/40">line 2</label>
                   <input
                     type="text"
                     value={editBio2}
                     onChange={(e) => setEditBio2(e.target.value)}
                     placeholder="Exited Founder of 1-800-D2C"
                     maxLength={80}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                    className="w-full rounded-[16px] border border-[#E3E3E3] bg-white px-5 py-3.5 font-sans text-[15px] font-[500] text-ink placeholder:text-black/30 focus:border-black/40 focus:outline-none"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">x.com link</label>
-                  <input
-                    type="url"
-                    value={editLinks.twitter || ''}
-                    onChange={(e) => setEditLinks({ ...editLinks, twitter: e.target.value })}
-                    placeholder="https://x.com/yourname"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">linkedin link</label>
-                  <input
-                    type="url"
-                    value={editLinks.linkedin || ''}
-                    onChange={(e) => setEditLinks({ ...editLinks, linkedin: e.target.value })}
-                    placeholder="https://linkedin.com/in/yourname"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">website</label>
-                  <input
-                    type="url"
-                    value={editLinks.website || ''}
-                    onChange={(e) => setEditLinks({ ...editLinks, website: e.target.value })}
-                    placeholder="https://yoursite.com"
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                  />
-                </div>
+              <label className="mb-2 mt-5 block font-sans text-[14px] font-[500] text-black/40">links</label>
+              <div className="space-y-3">
+                {editLinkList.map((url, i) => (
+                  <div
+                    key={`${url}-${i}`}
+                    className="flex items-center gap-3 rounded-[16px] border border-[#E3E3E3] bg-white px-4 py-3.5"
+                  >
+                    <span className="shrink-0 text-black/70">
+                      {LINK_ICONS[detectPlatform(url)] ?? LINK_ICONS.website}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-sans text-[15px] font-[500] text-ink">
+                      {linkLabel(url)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setEditLinkList((prev) => prev.filter((_, j) => j !== i))}
+                      aria-label={`Remove ${linkLabel(url)}`}
+                      className="shrink-0 p-1 text-black/30 transition-colors hover:text-ink"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                        <path d="M6 6l12 12M18 6L6 18" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+                <input
+                  type="text"
+                  value={newLink}
+                  onChange={(e) => setNewLink(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return
+                    e.preventDefault()
+                    const url = coerceUrl(newLink)
+                    if (!url) return
+                    setEditLinkList((prev) => (prev.includes(url) ? prev : [...prev, url]))
+                    setNewLink('')
+                  }}
+                  placeholder="+ add link (paste a url, hit enter)"
+                  enterKeyHint="done"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="w-full rounded-[16px] border border-dashed border-black/20 bg-transparent px-5 py-3.5 font-sans text-[15px] font-[500] text-ink placeholder:text-black/35 focus:border-black/40 focus:outline-none"
+                />
               </div>
               {profileSaveError && (
-                <p className="text-xs text-red-500">{profileSaveError}</p>
+                <p className="mt-4 font-sans text-[13px] text-red-500">{profileSaveError}</p>
               )}
-              <div className="flex gap-2 justify-end">
+              <div className="mt-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-end sm:gap-6">
                 <button
                   onClick={() => { setEditingProfile(false); setProfileSaveError(null) }}
-                  className="px-4 py-2 text-sm text-gray-500 hover:text-gray-900"
+                  className="order-2 text-center font-sans text-[15px] font-[500] text-black/40 transition-colors hover:text-ink sm:order-1"
                 >
                   cancel
                 </button>
@@ -933,10 +951,13 @@ export default function ProfileClient({
                     const cleanName = editName.trim() || null
                     // Two bio lines → one newline-separated string (drops blanks).
                     const joinedBio = [editBio.trim(), editBio2.trim()].filter(Boolean).join('\n') || null
-                    const cleanLinks: any = {}
-                    if (editLinks.twitter?.trim()) cleanLinks.twitter = editLinks.twitter.trim()
-                    if (editLinks.linkedin?.trim()) cleanLinks.linkedin = editLinks.linkedin.trim()
-                    if (editLinks.website?.trim()) cleanLinks.website = editLinks.website.trim()
+                    // A valid url still sitting in the add-row rides along —
+                    // "type it and hit save" shouldn't silently drop it.
+                    const draft = coerceUrl(newLink)
+                    const cleanLinks =
+                      draft && !editLinkList.includes(draft)
+                        ? [...editLinkList, draft]
+                        : editLinkList
 
                     let { error } = await supabase
                       .from('profiles')
@@ -970,9 +991,9 @@ export default function ProfileClient({
                     setEditingProfile(false)
                     setSavingProfile(false)
                   }}
-                  className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
+                  className="order-1 rounded-full bg-ink px-8 py-3.5 font-sans text-[15px] font-[600] text-white transition-opacity hover:opacity-90 disabled:opacity-50 sm:order-2"
                 >
-                  {savingProfile ? 'saving...' : 'save'}
+                  {savingProfile ? 'saving…' : 'save'}
                 </button>
               </div>
             </div>

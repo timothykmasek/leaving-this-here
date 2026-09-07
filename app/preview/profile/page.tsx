@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client'
 import { LinkCard } from '@/components/LinkCard'
 import { BulletinHeader, BracketLabel } from '@/components/BulletinHeader'
 import { pickCardImage } from '@/lib/cardImage'
+import { detectPlatform, normalizeProfileLinks } from '@/lib/profileLinks'
 
 const USERNAME = 'tim'
 const MAX_CARDS = 24
@@ -73,11 +74,8 @@ export default function ProfilePreview() {
     }
   }
 
-  // profile link labels for the strip
-  const links = profile?.links || {}
-  const linkLabels = ['linkedin', 'website', 'twitter', 'instagram']
-    .filter((k) => links[k])
-    .map((k) => (k === 'twitter' ? 'x' : k))
+  // profile link labels for the strip (handles legacy object + url array)
+  const linkLabels = normalizeProfileLinks(profile?.links).map(detectPlatform)
 
   if (loading) {
     return (
