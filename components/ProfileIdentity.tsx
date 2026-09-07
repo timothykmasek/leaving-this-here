@@ -23,6 +23,13 @@ const LINK_ICONS: Record<string, ReactNode> = {
       <path d="M3 12h18M12 3c2.5 2.6 3.6 5.7 3.6 9s-1.1 6.4-3.6 9c-2.5-2.6-3.6-5.7-3.6-9s1.1-6.4 3.6-9z" />
     </svg>
   ),
+  instagram: (
+    <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
+      <rect x="2" y="2" width="20" height="20" rx="5.5" />
+      <circle cx="12" cy="12" r="4.2" />
+      <circle cx="17.6" cy="6.4" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  ),
 }
 
 export function ProfileIdentity({
@@ -46,6 +53,7 @@ export function ProfileIdentity({
   const entries = (
     [
       ['twitter', 'x', l.twitter],
+      ['instagram', 'instagram', l.instagram],
       ['linkedin', 'linkedin', l.linkedin],
       ['website', 'website', l.website],
     ] as [string, string, string | undefined][]
