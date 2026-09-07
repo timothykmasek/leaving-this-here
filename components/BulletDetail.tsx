@@ -539,8 +539,10 @@ export function BulletDetail({
           {/* Foot — pin and delete as quiet underlined links, the saved-date
               tucked opposite. */}
           <div className="flex items-center justify-between gap-4 pt-10 text-xs font-medium tracking-[0.05em] text-black">
-            <span className="flex items-center gap-[30px]">
-              {onTogglePin && (
+            {/* While the delete confirm is up, Pin/Private step aside — the
+                question gets the whole line instead of wrapping it. */}
+            <span className="flex items-center gap-[30px] whitespace-nowrap">
+              {!confirmingDelete && onTogglePin && (
                 <button
                   onClick={() => {
                     setPinned(!pinned)
@@ -551,7 +553,7 @@ export function BulletDetail({
                   {pinned ? 'Unpin Bullet' : 'Pin Bullet'}
                 </button>
               )}
-              {onToggleVisibility && (
+              {!confirmingDelete && onToggleVisibility && (
                 <button
                   onClick={() => {
                     setIsPrivate(!isPrivate)
