@@ -45,7 +45,16 @@ export async function GET(req: NextRequest) {
     type: 'magiclink',
     email: `${u}@seed.bulletin.local`,
   })
-  const link = data?.properties?.action_link
-  if (error || !link) return new NextResponse('link error', { status: 500 })
-  return NextResponse.redirect(link)
+  const tokenHash = data?.properties?.hashed_token
+  if (error || !tokenHash) return new NextResponse('link error', { status: 500 })
+
+  // Route through /auth/confirm (verifyOtp → cookies) rather than GoTrue's
+  // implicit /verify link: only the cookie session is visible to the
+  // server-rendered profile, which is what gates the owner controls. Land
+  // straight on the persona's own page so the edit affordances are right there.
+  const confirm = new URL(`${req.nextUrl.origin}/auth/confirm`)
+  confirm.searchParams.set('token_hash', tokenHash)
+  confirm.searchParams.set('type', data?.properties?.verification_type || 'magiclink')
+  confirm.searchParams.set('next', `/${u}`)
+  return NextResponse.redirect(confirm)
 }
