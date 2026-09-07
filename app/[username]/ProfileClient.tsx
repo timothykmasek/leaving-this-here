@@ -15,6 +15,7 @@ import { coerceUrl, detectPlatform, linkLabel, normalizeProfileLinks } from '@/l
 import { BulletDetail } from '@/components/BulletDetail'
 import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
+import { ExtensionNudge } from '@/components/ExtensionNudge'
 import { PreviewBanner } from '@/components/PreviewBanner'
 import { ImportFab } from '@/components/ImportFab'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
@@ -1004,6 +1005,12 @@ export default function ProfileClient({
         {/* Controls — main feed only; hidden inside a list. Tabs sit on the
             right in both views (consistent position). Owner also gets the search
             on the left (justify-between); visitor has tabs alone (justify-end). */}
+        {/* Install nudge — sits right above the toolbar row. Only when
+            detection is SURE the extension is missing, and not while the save
+            panel (which carries its own extension pitch) is open. */}
+        {isOwner && !saveOpen && !activeList && (
+          <ExtensionNudge extInstalled={extInstalled} />
+        )}
         {!activeList && (
           <div className={`mb-6 flex items-center gap-4 sm:mb-8 ${isOwner ? 'justify-between' : 'justify-end'}`}>
             {isOwner && (
