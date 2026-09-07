@@ -101,6 +101,16 @@ export function ListDetailClient({
     await supabase.from('bookmarks').update({ is_private: isPrivate }).eq('id', id)
   }
 
+  // Custom outbound link (affiliate etc, migration 027).
+  const handleOutboundUpdate = async (id: string, outbound: string | null) => {
+    const b = bulletsById.get(id)
+    if (b) bulletsById.set(id, { ...b, outbound_url: outbound })
+    const { error } = await supabase.from('bookmarks').update({ outbound_url: outbound }).eq('id', id)
+    if (error && /outbound_url/i.test(error.message || '')) {
+      console.warn('bookmarks.outbound_url column missing — apply migrations/027_outbound_url.sql in the Supabase SQL editor')
+    }
+  }
+
   // A hand-edited title wins outright at render time (lib/cardTitle), so
   // whatever gets typed here is exactly what the card shows from now on.
   const handleTitleUpdate = async (id: string, newTitle: string) => {
@@ -296,6 +306,7 @@ export function ListDetailClient({
                 customImage={b.customImage}
               onOpen={setSelectedId}
               utmCampaign={username}
+              outboundOverride={b.outbound_url}
               privateMark={!!b.is_private}
             />
           ))}
@@ -331,6 +342,7 @@ export function ListDetailClient({
             onTogglePin={handleTogglePin}
             onToggleVisibility={handleToggleVisibility}
             onTitleUpdate={handleTitleUpdate}
+            onOutboundUpdate={handleOutboundUpdate}
             utmCampaign={username}
           />
         )

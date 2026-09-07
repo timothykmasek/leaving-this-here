@@ -6,7 +6,7 @@ import { cardImageCandidates } from '@/lib/cardImage'
 import { CardThumb } from '@/components/CardThumb'
 import { CardFallback } from '@/components/CardFallback'
 import { formatCardTitle, isObstacleCopy } from '@/lib/cardTitle'
-import { withBulletinUtm } from '@/lib/outboundUrl'
+import { resolveOutbound } from '@/lib/outboundUrl'
 import { resolveCategory, showsSourceMark, type Affordance } from '@/lib/cardFormat'
 import type { CardType } from '@/lib/cardType'
 import type { PlaceMeta } from '@/lib/placeLink'
@@ -218,6 +218,9 @@ interface PrimaryCardProps {
   // utm_campaign for click-out attribution — the curator's username on profile
   // and list pages. Base utm_source/medium are appended either way.
   utmCampaign?: string | null
+  // Curator's custom outbound link (affiliate etc., bookmarks.outbound_url).
+  // Wins over `url` for the click, verbatim — no utms appended.
+  outboundOverride?: string | null
   // Owner view of a secret bullet: a small lock chip so the owner can tell at a
   // glance what visitors don't see. Callers pass it only for the owner — a
   // visitor never receives private rows in the first place (RLS, migration 026).
@@ -228,10 +231,10 @@ export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
   cardType, imagePref, place: placeProp, product: productProp,
   customImage: customImageProp, listName, listHref, onOpen, utmCampaign,
-  privateMark,
+  outboundOverride, privateMark,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
-  const outboundUrl = withBulletinUtm(url, utmCampaign)
+  const outboundUrl = resolveOutbound(url, outboundOverride, utmCampaign)
   const fmt = resolveCategory(url, cardType)
   const cleanTitle = formatCardTitle({
     title, description, url, siteName: rawMetadata?.og?.site_name ?? null,

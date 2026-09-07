@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { GemGlyph } from '@/components/GemGlyph'
 import { resizeImageToWebp } from '@/lib/imageResize'
-import { withBulletinUtm } from '@/lib/outboundUrl'
+import { resolveOutbound } from '@/lib/outboundUrl'
+import { coerceUrl } from '@/lib/profileLinks'
 import { formatCardTitle } from '@/lib/cardTitle'
 
 // Detail view for a single bullet, per the ProjectX "Edit Bullet" frame: a
@@ -33,6 +34,8 @@ interface Bullet {
   pinned_at?: string | null
   /** Secret bullet — owner sees it, logged-out visitors don't (migration 026). */
   is_private?: boolean
+  /** Curator's custom outbound link — affiliate codes etc. (migration 027). */
+  outbound_url?: string | null
 }
 
 interface List {
@@ -54,6 +57,8 @@ interface BulletDetailProps {
   onToggleVisibility?: (id: string, isPrivate: boolean) => void
   /** Persist a hand-edited title. Absent → the title is not clickable. */
   onTitleUpdate?: (id: string, title: string) => void
+  /** Persist a custom outbound link (null clears it). Absent → no field. */
+  onOutboundUpdate?: (id: string, outbound: string | null) => void
   // utm_campaign for the visit link's click-out attribution (curator username).
   utmCampaign?: string | null
 }
@@ -96,6 +101,7 @@ export function BulletDetail({
   onTogglePin,
   onToggleVisibility,
   onTitleUpdate,
+  onOutboundUpdate,
   utmCampaign,
 }: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
@@ -133,8 +139,41 @@ export function BulletDetail({
   // in the window between the parent's state landing and the await resolving.
   const pendingNames = pendingLists.filter((n) => !lists.some((l) => l.name === n))
 
+  // Custom outbound link. savedOutbound mirrors the persisted value so the
+  // visit link flips the moment a save lands; the draft is the input's text.
+  const [savedOutbound, setSavedOutbound] = useState<string | null>(bullet.outbound_url ?? null)
+  const [outboundDraft, setOutboundDraft] = useState(bullet.outbound_url ?? '')
+  const [outboundInvalid, setOutboundInvalid] = useState(false)
+  // Collapsed by default — most bullets never get one. Opens from the foot's
+  // "Custom Link", the same quiet idiom as Pin/Private/Delete.
+  const [editingOutbound, setEditingOutbound] = useState(false)
+  // Returns whether the draft landed (saved, cleared, or unchanged) — an
+  // invalid url keeps the editor open instead of silently closing on it.
+  const commitOutbound = (): boolean => {
+    const raw = outboundDraft.trim()
+    if (!raw) {
+      setOutboundInvalid(false)
+      if (savedOutbound !== null) {
+        setSavedOutbound(null)
+        onOutboundUpdate?.(bullet.id, null)
+      }
+      return true
+    }
+    const coerced = coerceUrl(raw)
+    if (!coerced) {
+      setOutboundInvalid(true)
+      return false
+    }
+    setOutboundDraft(coerced)
+    if (coerced !== savedOutbound) {
+      setSavedOutbound(coerced)
+      onOutboundUpdate?.(bullet.id, coerced)
+    }
+    return true
+  }
+
   const domain = getDomain(bullet.url)
-  const outbound = withBulletinUtm(bullet.url, utmCampaign)
+  const outbound = resolveOutbound(bullet.url, savedOutbound, utmCampaign)
   // Same `Brand — what it is` normalization the card renders, so the modal
   // never shows a rawer title than the card that opened it.
   const displayTitle =
@@ -539,9 +578,45 @@ export function BulletDetail({
           {/* Foot — pin and delete as quiet underlined links, the saved-date
               tucked opposite. */}
           <div className="flex items-center justify-between gap-4 pt-10 text-xs font-medium tracking-[0.05em] text-black">
-            {/* While the delete confirm is up, Pin/Private step aside — the
-                question gets the whole line instead of wrapping it. */}
-            <span className="flex items-center gap-[30px] whitespace-nowrap">
+            {/* Custom outbound link editor — takes the whole line, exactly
+                like the delete confirm. Clicks route through this url while
+                the card keeps showing the clean domain (affiliate codes etc,
+                migration 027). Empty = cleared. */}
+            {editingOutbound ? (
+              <span className="flex w-full items-center gap-2.5">
+                <input
+                  value={outboundDraft}
+                  onChange={(e) => {
+                    setOutboundDraft(e.target.value)
+                    setOutboundInvalid(false)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && commitOutbound()) setEditingOutbound(false)
+                    if (e.key === 'Escape') setEditingOutbound(false)
+                  }}
+                  placeholder="Clicks go to your own link (affiliate etc) — paste it, or clear to undo"
+                  autoFocus
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  aria-label="Custom outbound link"
+                  className={`h-9 w-full min-w-0 flex-1 rounded-[9px] border bg-white px-3 text-xs font-medium tracking-[0.05em] text-black placeholder:text-black/35 focus:outline-none ${
+                    outboundInvalid
+                      ? 'border-[#a31f34]'
+                      : 'border-[#EAEAEA] focus:border-black/40'
+                  }`}
+                />
+                <button
+                  onClick={() => {
+                    if (commitOutbound()) setEditingOutbound(false)
+                  }}
+                  className="shrink-0 underline underline-offset-2 transition-opacity hover:opacity-50"
+                >
+                  Done
+                </button>
+              </span>
+            ) : (
+            <span className="flex items-center gap-4 whitespace-nowrap sm:gap-[30px]">
               {!confirmingDelete && onTogglePin && (
                 <button
                   onClick={() => {
@@ -562,6 +637,17 @@ export function BulletDetail({
                   className="underline underline-offset-2 transition-opacity hover:opacity-50"
                 >
                   {isPrivate ? 'Make Public' : 'Make Private'}
+                </button>
+              )}
+              {/* Desktop-only: a fourth link overflows a phone-width foot,
+                  and pasting affiliate urls is desk work anyway. An override
+                  set on desktop still routes mobile clicks. */}
+              {!confirmingDelete && onOutboundUpdate && (
+                <button
+                  onClick={() => setEditingOutbound(!editingOutbound)}
+                  className="hidden underline underline-offset-2 transition-opacity hover:opacity-50 sm:block"
+                >
+                  Custom Link
                 </button>
               )}
               {confirmingDelete ? (
@@ -592,8 +678,11 @@ export function BulletDetail({
                 </button>
               )}
             </span>
-            {bullet.created_at && (
-              <span className="shrink-0 font-normal text-black/30">
+            )}
+            {/* Phones never had room for links + date (it overflowed by ~40px
+                pre-Custom-Link too) — the actions win, the metadata yields. */}
+            {!editingOutbound && bullet.created_at && (
+              <span className="hidden shrink-0 font-normal text-black/30 sm:inline">
                 Saved {timeAgo(bullet.created_at)}
               </span>
             )}

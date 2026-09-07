@@ -3,6 +3,25 @@
 // Applied at RENDER only — stored URLs stay clean. url_key normalization
 // strips other people's trackers on the way IN; this adds ours on the way
 // OUT, and the two must never meet: never persist a URL this returns.
+// Where a click on a saved bullet actually goes. A curator's custom outbound
+// link (bookmarks.outbound_url — affiliate codes etc., migration 027) wins
+// over the canonical url, and is passed through VERBATIM: no bulletin utms on
+// top of someone's affiliate tracking. http(s) only — anything else falls
+// back to the canonical url.
+export function resolveOutbound(
+  url: string,
+  override?: string | null,
+  campaign?: string | null
+): string {
+  if (override) {
+    try {
+      const u = new URL(override)
+      if (u.protocol === 'http:' || u.protocol === 'https:') return override
+    } catch {}
+  }
+  return withBulletinUtm(url, campaign)
+}
+
 export function withBulletinUtm(url: string, campaign?: string | null): string {
   try {
     const u = new URL(url)

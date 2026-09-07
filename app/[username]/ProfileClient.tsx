@@ -37,7 +37,7 @@ import { forgetSuggestion } from '@/components/SuggestionShelf'
 const PROFILE_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 const BULLET_COLS =
-  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, is_private, created_at, pinned_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
+  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, is_private, outbound_url, created_at, pinned_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
 
 // Grid order: pinned bullets first (most recently pinned leading), then
 // reverse-chron — the same order the server queries in, reapplied locally
@@ -497,6 +497,18 @@ export default function ProfileClient({
     await supabase.from('bookmarks').update({ is_private: isPrivate }).eq('id', id)
   }
 
+  // Custom outbound link (affiliate etc). Optimistic; the card's href flips
+  // immediately because outboundOverride reads from state.
+  const handleOutboundUpdate = async (id: string, outbound: string | null) => {
+    const patch = (list: any[]) => list.map((b) => (b.id === id ? { ...b, outbound_url: outbound } : b))
+    setBookmarks(patch)
+    setFiltered(patch)
+    const { error } = await supabase.from('bookmarks').update({ outbound_url: outbound }).eq('id', id)
+    if (error && /outbound_url/i.test(error.message || '')) {
+      console.warn('bookmarks.outbound_url column missing — apply migrations/027_outbound_url.sql in the Supabase SQL editor')
+    }
+  }
+
   const handleNoteUpdate = async (id: string, newNote: string | null) => {
     const { error } = await supabase.from('bookmarks').update({ note: newNote }).eq('id', id)
     if (error && /note/i.test(error.message || '')) {
@@ -708,6 +720,7 @@ export default function ProfileClient({
             listHref={listByBookmark.get(b.id)?.href ?? null}
             onOpen={isOwner ? setSelectedId : undefined}
             utmCampaign={username}
+            outboundOverride={b.outbound_url}
             privateMark={isOwner && !!b.is_private}
           />
           </div>
@@ -1459,6 +1472,7 @@ export default function ProfileClient({
             onTogglePin={handleTogglePin}
             onToggleVisibility={handleToggleVisibility}
             onTitleUpdate={handleTitleUpdate}
+            onOutboundUpdate={handleOutboundUpdate}
             utmCampaign={username}
           />
         )

@@ -27,6 +27,9 @@ const BULLETS = [
     title: 'Left Lane Capital — Large ambitions, early',
     description: 'Growth equity for internet companies.',
     card_type: 'bare',
+    // Demo: a custom outbound link — the card shows leftlane.com, the click
+    // goes here (migration 027).
+    outbound_url: 'https://go.example-affiliates.com/x8f3?dest=leftlane.com&tag=tim-20',
     created_at: '2026-09-01T09:53:00Z',
   },
   {
