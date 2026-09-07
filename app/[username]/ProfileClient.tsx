@@ -792,7 +792,7 @@ export default function ProfileClient({
               data-1p-ignore
               data-lpignore="true"
               onChange={(e) => handleSearchInput(e.target.value)}
-              className="h-[56px] w-full rounded-[20px] border border-[#BCBCBC] bg-transparent pl-5 pr-12 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40"
+              className="h-[56px] w-full rounded-[20px] border border-[#BCBCBC] bg-white pl-5 pr-12 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40"
             />
             <button
               onClick={closeMobileSearch}
@@ -1006,7 +1006,7 @@ export default function ProfileClient({
                 // min-w-0 lets the input actually compress when the row is
                 // tight (an input's intrinsic min-width otherwise wins and
                 // shoves the tab strip off the container's right edge).
-                className="hidden h-[62px] w-full min-w-0 max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-transparent px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40 sm:block"
+                className="hidden h-[62px] w-full min-w-0 max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-white px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40 sm:block"
               />
             )}
 
@@ -1026,7 +1026,7 @@ export default function ProfileClient({
               // sizes itself with w-full, which inside a content-sized wrapper
               // is circular and collapses the strip to min-content.
               <div className="flex w-full items-center gap-4 max-w-[371px] shrink justify-end sm:shrink-0">
-              <div className="relative flex h-[62px] w-full max-w-[371px] shrink items-center rounded-[20px] border border-[#EBEBEB] p-[5px] sm:shrink-0">
+              <div className="relative flex h-[62px] w-full max-w-[371px] shrink items-center rounded-[20px] border border-[#EBEBEB] bg-white p-[5px] sm:shrink-0">
                 {/* One pill that slides, rather than a background toggling on
                     each segment. The strip carries 5px of padding, so a segment
                     is calc(50% - 5px) — which is also the pill's own width,
