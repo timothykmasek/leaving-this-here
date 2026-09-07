@@ -109,6 +109,7 @@ export default function ProfileClient({
   // page from the user's own browser); this panel points them to it.
   const [saveOpen, setSaveOpen] = useState(isOwner && initialBookmarks.length === 0)
   const [editingProfile, setEditingProfile] = useState(false)
+  const [editName, setEditName] = useState('')
   const [editBio, setEditBio] = useState('')
   const [editBio2, setEditBio2] = useState('')
   // "Latest Bullet: …" line — formatted in the viewer's LOCAL time, so computed
@@ -874,6 +875,7 @@ export default function ProfileClient({
                 <button
                   onClick={() => {
                     setEditingProfile(true)
+                    setEditName(profile.display_name || '')
                     const [l1 = '', l2 = ''] = (profile.bio || '').split('\n')
                     setEditBio(l1); setEditBio2(l2)
                     setEditLinks(profile.links || {})
@@ -896,6 +898,17 @@ export default function ProfileClient({
           {/* Edit profile form */}
           {editingProfile && (
             <div className="bg-gray-50 rounded-lg border border-gray-100 p-6 mb-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">name</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder={profile.username}
+                  maxLength={60}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
+                />
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">line 1</label>
@@ -967,6 +980,8 @@ export default function ProfileClient({
                   onClick={async () => {
                     setSavingProfile(true)
                     setProfileSaveError(null)
+                    // Blank name → null, so the header falls back to @username.
+                    const cleanName = editName.trim() || null
                     // Two bio lines → one newline-separated string (drops blanks).
                     const joinedBio = [editBio.trim(), editBio2.trim()].filter(Boolean).join('\n') || null
                     const cleanLinks: any = {}
@@ -977,6 +992,7 @@ export default function ProfileClient({
                     let { error } = await supabase
                       .from('profiles')
                       .update({
+                        display_name: cleanName,
                         bio: joinedBio,
                         links: cleanLinks,
                       })
@@ -985,7 +1001,7 @@ export default function ProfileClient({
                     if (error && /links/i.test(error.message || '')) {
                       const retry = await supabase
                         .from('profiles')
-                        .update({ bio: joinedBio })
+                        .update({ display_name: cleanName, bio: joinedBio })
                         .eq('id', profile.id)
                       error = retry.error
                       if (!error) {
@@ -1001,7 +1017,7 @@ export default function ProfileClient({
                       return
                     }
 
-                    setProfile({ ...profile, bio: joinedBio, links: cleanLinks })
+                    setProfile({ ...profile, display_name: cleanName, bio: joinedBio, links: cleanLinks })
                     setEditingProfile(false)
                     setSavingProfile(false)
                   }}
