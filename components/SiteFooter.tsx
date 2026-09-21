@@ -77,6 +77,7 @@ export const SiteFooter = forwardRef<
           {signedIn && (
             <Link href="/import" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Import</Link>
           )}
+          <Link href="/claude" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Claude</Link>
           <Link href="/privacy" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Privacy</Link>
           <a
             href={CHROME_STORE_URL}

@@ -14,6 +14,12 @@ const nextConfig = {
       { protocol: 'http', hostname: '**' },
     ],
   },
+  // The Claude connector URL people paste is yourbulletin.com/mcp — a rewrite,
+  // not a redirect, because MCP clients POST and some won't replay a POST
+  // through a 3xx. The route itself lives at app/api/mcp.
+  async rewrites() {
+    return [{ source: '/mcp', destination: '/api/mcp' }]
+  },
   // /setup and /bookmarklet were orphaned legacy from before extension-only
   // saving (flagged for cleanup in 0e6b698, removed 2026-08-29). Old links and
   // crawlers land on onboarding instead of a 404.
