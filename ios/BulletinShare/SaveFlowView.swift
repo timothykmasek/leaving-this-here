@@ -56,7 +56,7 @@ struct SaveFlowView: View {
                 HStack(spacing: 10) {
                     ProgressView()
                     Text("Saving…")
-                        .font(.system(size: 15, design: .serif))
+                        .font(.cardo(15))
                         .foregroundStyle(Color.ink.opacity(0.55))
                 }
                 .frame(maxWidth: .infinity)
@@ -64,7 +64,7 @@ struct SaveFlowView: View {
 
             case .failed(let message):
                 Text(message)
-                    .font(.system(size: 15, design: .serif))
+                    .font(.cardo(15))
                     .foregroundStyle(Color.ink.opacity(0.65))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 8)
@@ -72,10 +72,10 @@ struct SaveFlowView: View {
 
             case .ready(let state):
                 Text(state.alreadySaved ? "Already in your bulletin." : "In your bulletin.")
-                    .font(.system(size: 22, design: .serif))
+                    .font(.cardo(22))
                     .foregroundStyle(Color.ink)
                 Text(state.domain)
-                    .font(.system(size: 13, design: .serif))
+                    .font(.cardo(13))
                     .foregroundStyle(Color.ink.opacity(0.4))
                     .padding(.top, 2)
 
@@ -102,7 +102,7 @@ struct SaveFlowView: View {
     private func doneButton(label: String) -> some View {
         Button(action: done) {
             Text(label)
-                .font(.system(size: 15, weight: .semibold))
+                .font(.mierDemi(15))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(Color.ink, in: RoundedRectangle(cornerRadius: 10))
@@ -118,7 +118,7 @@ struct SaveFlowView: View {
         } label: {
             HStack {
                 Text(list.name)
-                    .font(.system(size: 15))
+                    .font(.mier(15))
                     .foregroundStyle(Color.ink.opacity(0.8))
                 Spacer()
                 Image(systemName: isMember ? "checkmark.circle.fill" : "circle")
@@ -137,10 +137,10 @@ struct SaveFlowView: View {
                     ProgressView().controlSize(.small)
                 } else {
                     Image(systemName: "plus")
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.mierDemi(12))
                 }
                 Text(name)
-                    .font(.system(size: 15))
+                    .font(.mier(15))
                 Spacer()
             }
             .foregroundStyle(Color.ink.opacity(0.55))

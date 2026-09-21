@@ -22,6 +22,14 @@
 	<string>1</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>MierA-Book.ttf</string>
+		<string>MierA-DemiBold.ttf</string>
+		<string>Cardo-Regular.ttf</string>
+		<string>Cardo-Italic.ttf</string>
+		<string>Cardo-Bold.ttf</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UISupportedInterfaceOrientations</key>

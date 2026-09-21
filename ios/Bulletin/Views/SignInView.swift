@@ -16,12 +16,12 @@ struct SignInView: View {
                 Spacer()
 
                 Text("Bulletin")
-                    .font(.system(size: 40, weight: .regular))
+                    .font(.mier(40))
                     .kerning(-0.8)
                     .foregroundStyle(Color.ink)
 
                 Text("Links to keep. Lists to share.")
-                    .font(.system(size: 17, design: .serif))
+                    .font(.cardo(17))
                     .foregroundStyle(Color.ink.opacity(0.55))
                     .padding(.top, 10)
 
@@ -31,7 +31,7 @@ struct SignInView: View {
                     HStack(spacing: 8) {
                         if busy { ProgressView().tint(.white) }
                         Text(busy ? "Signing in…" : "Continue with Google")
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.mierDemi(16))
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 15)
@@ -44,7 +44,7 @@ struct SignInView: View {
 
                 if let error {
                     Text(error)
-                        .font(.system(size: 14, design: .serif))
+                        .font(.cardo(14))
                         .foregroundStyle(Color.ink.opacity(0.55))
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 44)
@@ -55,7 +55,7 @@ struct SignInView: View {
                 Spacer()
 
                 Text("Private beta — sign in with an invited account.")
-                    .font(.system(size: 13, design: .serif))
+                    .font(.cardo(13))
                     .foregroundStyle(Color.ink.opacity(0.35))
                     .padding(.bottom, 28)
             }

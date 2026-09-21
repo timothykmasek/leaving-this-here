@@ -21,7 +21,7 @@ struct HomeView: View {
                     header
                     if let error {
                         Text(error)
-                            .font(.system(size: 14, design: .serif))
+                            .font(.cardo(14))
                             .foregroundStyle(Color.ink.opacity(0.5))
                             .padding(.top, 32)
                             .frame(maxWidth: .infinity)
@@ -48,11 +48,11 @@ struct HomeView: View {
             if let username = session.current?.username,
                let url = URL(string: "\(Config.siteURL)/\(username)") {
                 Link("Open on the web", destination: url)
-                    .font(.system(size: 13, design: .serif))
+                    .font(.cardo(13))
                     .foregroundStyle(Color.ink.opacity(0.45))
             }
             Button("Sign out") { session.signOut() }
-                .font(.system(size: 13, design: .serif))
+                .font(.cardo(13))
                 .foregroundStyle(Color.ink.opacity(0.45))
         }
         .padding(.top, 12)
@@ -63,7 +63,7 @@ struct HomeView: View {
             HStack(spacing: 8) {
                 ForEach(lists) { list in
                     Text(list.name)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.mier(13))
                         .foregroundStyle(Color.ink.opacity(0.7))
                         .padding(.horizontal, 12)
                         .padding(.vertical, 7)
@@ -133,7 +133,7 @@ struct BulletCard: View {
 
                 // PrimaryCard title voice: sans 14/400, +0.05em, black 56%.
                 Text(bullet.cardTitle)
-                    .font(.system(size: 14, weight: .regular))
+                    .font(.mier(14))
                     .kerning(0.7)
                     .foregroundStyle(Color.black.opacity(0.56))
                     .lineLimit(1)
@@ -143,7 +143,7 @@ struct BulletCard: View {
                 // The web's editorial line (serif, ink 55%); domain stands in
                 // until finds carries per-bullet list membership.
                 Text(domain)
-                    .font(.system(size: 13, design: .serif))
+                    .font(.cardo(13))
                     .foregroundStyle(Color.ink.opacity(0.55))
                     .lineLimit(1)
                     .padding(.top, 3)

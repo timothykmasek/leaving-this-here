@@ -31,6 +31,12 @@ targets:
         UILaunchScreen: {}                # bare launch screen; paper white
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         ITSAppUsesNonExemptEncryption: false
+        UIAppFonts:
+          - MierA-Book.ttf
+          - MierA-DemiBold.ttf
+          - Cardo-Regular.ttf
+          - Cardo-Italic.ttf
+          - Cardo-Bold.ttf
     entitlements:
       path: Bulletin/Bulletin.entitlements
       properties:
@@ -51,10 +57,17 @@ targets:
       - BulletinShare
       - Bulletin/Core                     # Config/Session/API shared with the app
       - Bulletin/Resources/bulletin-logo.png
+      - Bulletin/Resources/Fonts
     info:
       path: BulletinShare/Info.plist
       properties:
         CFBundleDisplayName: Bulletin
+        UIAppFonts:
+          - MierA-Book.ttf
+          - MierA-DemiBold.ttf
+          - Cardo-Regular.ttf
+          - Cardo-Italic.ttf
+          - Cardo-Bold.ttf
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
