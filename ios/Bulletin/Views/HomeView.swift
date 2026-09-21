@@ -11,7 +11,6 @@ struct HomeView: View {
     @State private var loading = true
     @State private var error: String?
 
-    private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
     var body: some View {
         ZStack {
@@ -74,14 +73,23 @@ struct HomeView: View {
         .padding(.top, 20)
     }
 
+    // Masonry, the web way: two independent columns split by index, each card
+    // at its image's natural aspect — no equal-height rows.
     private var grid: some View {
-        LazyVGrid(columns: columns, spacing: 22) {
-            ForEach(bullets) { bullet in
-                BulletCard(bullet: bullet)
-            }
+        HStack(alignment: .top, spacing: 14) {
+            masonryColumn(bullets.enumerated().filter { $0.offset % 2 == 0 }.map(\.element))
+            masonryColumn(bullets.enumerated().filter { $0.offset % 2 == 1 }.map(\.element))
         }
         .padding(.top, 16)
         .padding(.bottom, 40)
+    }
+
+    private func masonryColumn(_ items: [API.Bullet]) -> some View {
+        LazyVStack(alignment: .leading, spacing: 22) {
+            ForEach(items) { bullet in
+                BulletCard(bullet: bullet)
+            }
+        }
     }
 
     private func load() async {
@@ -99,29 +107,32 @@ struct HomeView: View {
     }
 }
 
-// Card styling follows the mobile web profile: a borderless rounded image
-// sitting straight on the dot ground, sans title below, serif detail line —
-// no boxed white cards.
+// PrimaryCard, ported by measurement: natural-aspect plate at 20px radius
+// with the hairline #EBEBEB border, muted sans title, Cardo list line with
+// the three-dot tick. Outbound clicks carry render-time bulletin utms.
 struct BulletCard: View {
     let bullet: API.Bullet
+
+    // Natural image aspect, discovered on load; 4:3 stands in until then.
+    // Clamped so one extreme screenshot can't produce a skyscraper card.
+    @State private var aspect: CGFloat = 4.0 / 3.0
+    @State private var image: UIImage?
 
     private var domain: String {
         URL(string: bullet.url)?.host?.replacingOccurrences(of: "www.", with: "") ?? bullet.url
     }
 
     var body: some View {
-        Link(destination: URL(string: bullet.url) ?? Config.siteURL) {
+        Link(destination: withBulletinUtm(bullet.url) ?? Config.siteURL) {
             VStack(alignment: .leading, spacing: 0) {
-                // The plate owns the layout; the image only paints inside it.
-                // (A bare scaledToFill AsyncImage claims its intrinsic width
-                // and blows the grid columns past the screen edge.)
-                // PrimaryCard spec: 20px radius, hairline #EBEBEB border.
-                Color.cardGrey
-                    .frame(height: 124)
+                Color.clear
+                    .aspectRatio(aspect, contentMode: .fit)
                     .overlay(
-                        AsyncImage(url: bullet.cardImage.flatMap(URL.init)) { phase in
-                            if case .success(let image) = phase {
-                                image.resizable().scaledToFill()
+                        Group {
+                            if let image {
+                                Image(uiImage: image).resizable().scaledToFill()
+                            } else {
+                                Color.cardGrey
                             }
                         }
                     )
@@ -140,14 +151,34 @@ struct BulletCard: View {
                     .multilineTextAlignment(.leading)
                     .padding(.top, 12)
 
-                // The web's editorial line (serif, ink 55%); domain stands in
-                // until finds carries per-bullet list membership.
-                Text(domain)
-                    .font(.cardo(13))
-                    .foregroundStyle(Color.ink.opacity(0.55))
-                    .lineLimit(1)
-                    .padding(.top, 3)
+                // List line (Cardo + three-dot tick), domain when unfiled.
+                HStack(spacing: 7) {
+                    if bullet.listName != nil {
+                        VStack(spacing: 2) {
+                            ForEach(0..<3) { _ in
+                                Circle().frame(width: 2, height: 2)
+                            }
+                        }
+                        .opacity(0.6)
+                    }
+                    Text(bullet.listName ?? domain)
+                        .font(.cardo(14))
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Color.ink.opacity(0.55))
+                .padding(.top, 5)
             }
         }
+        .task(id: bullet.cardImage) { await loadImage() }
+    }
+
+    private func loadImage() async {
+        guard image == nil,
+              let raw = bullet.cardImage, let url = URL(string: raw),
+              let (data, _) = try? await URLSession.shared.data(from: url),
+              let ui = UIImage(data: data), ui.size.height > 0
+        else { return }
+        image = ui
+        aspect = min(max(ui.size.width / ui.size.height, 0.66), 2.2)
     }
 }

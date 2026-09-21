@@ -17,9 +17,16 @@ enum API {
         // degrades to raw fields against an older deploy.
         let display_title: String?
         let display_image: String?
+        let lists: [ListRef]?
+
+        struct ListRef: Decodable, Hashable {
+            let name: String
+            let slug: String
+        }
 
         var cardTitle: String { display_title ?? title ?? url }
         var cardImage: String? { display_image ?? image_url }
+        var listName: String? { lists?.first?.name }
     }
 
     struct List: Decodable, Identifiable {

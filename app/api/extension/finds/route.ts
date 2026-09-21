@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
   const { data: bookmarks, error: fetchErr, count } = await supabase
     .from('bookmarks')
     .select(
-      'id, url, title, description, image_url, screenshot_url, favicon_url, card_type, image_pref, created_at, site_name:raw_metadata->og->>site_name, custom_image:raw_metadata->>customImage',
+      'id, url, title, description, image_url, screenshot_url, favicon_url, card_type, image_pref, created_at, site_name:raw_metadata->og->>site_name, custom_image:raw_metadata->>customImage, list_bookmarks(lists(name, slug))',
       { count: 'exact' },
     )
     .eq('user_id', user.id)
@@ -85,6 +85,12 @@ export async function GET(request: NextRequest) {
     display_image: pickCardImage(
       b.url, b.image_url, b.screenshot_url, b.card_type, b.image_pref, b.custom_image,
     ),
+    // The card's list line, same as the web grid. Owner-scoped endpoint, so
+    // private lists are the owner's own to see.
+    lists: (b.list_bookmarks || [])
+      .map((m: any) => m.lists)
+      .filter(Boolean)
+      .map((l: any) => ({ name: l.name, slug: l.slug })),
   }))
 
   return json({
