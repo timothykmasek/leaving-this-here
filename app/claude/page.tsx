@@ -19,9 +19,11 @@ export const metadata: Metadata = {
     'Connect Bulletin to Claude: every link you save becomes context your AI can draw on.',
 }
 
-const STEPS: [string, React.ReactNode][] = [
+// The copy box rides under step 02 — the URL appears at the moment the reader
+// needs it, not before the steps that lead there.
+const STEPS: [string, React.ReactNode, boolean?][] = [
   ['01', <>In Claude, open <strong className="font-[600] text-ink">Settings → Connectors</strong>.</>],
-  ['02', <>Add a custom connector and paste the URL above.</>],
+  ['02', <>Add a custom connector and paste in this URL:</>, true],
   ['03', <>Approve on Bulletin&rsquo;s consent screen. Done&thinsp;&mdash;&thinsp;ask Claude about anything you&rsquo;ve saved.</>],
 ]
 
@@ -56,22 +58,21 @@ export default function ClaudePage() {
           </p>
         </div>
 
-        {/* Connector URL */}
-        <div className="mt-14">
-          <div className="mb-3 font-sans text-[12px] font-[600] uppercase tracking-[0.14em] text-black/40">
-            Connector URL
-          </div>
-          <CopyConnectorUrl url={CONNECTOR_URL} />
-        </div>
-
-        {/* Setup steps */}
-        <ol className="mt-12 space-y-6">
-          {STEPS.map(([n, body]) => (
-            <li key={n} className="flex items-baseline gap-5">
-              <span className="shrink-0 font-sans text-[13px] font-[600] tracking-[0.08em] text-black/35">
-                {n}
-              </span>
-              <span className="font-serif text-[17px] leading-[1.5] text-black/70">{body}</span>
+        {/* Setup steps, with the connector URL under the step that uses it */}
+        <ol className="mt-14 space-y-6">
+          {STEPS.map(([n, body, withUrl]) => (
+            <li key={n}>
+              <div className="flex items-baseline gap-5">
+                <span className="w-7 shrink-0 font-sans text-[13px] font-[600] tracking-[0.08em] text-black/35">
+                  {n}
+                </span>
+                <span className="font-serif text-[17px] leading-[1.5] text-black/70">{body}</span>
+              </div>
+              {withUrl && (
+                <div className="mt-4 sm:ml-12">
+                  <CopyConnectorUrl url={CONNECTOR_URL} />
+                </div>
+              )}
             </li>
           ))}
         </ol>
