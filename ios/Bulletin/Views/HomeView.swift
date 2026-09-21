@@ -16,11 +16,16 @@ struct HomeView: View {
     @State private var results: [API.Bullet]?
     @State private var searching = false
 
-    @State private var showPasteSheet = false
+    @State private var pasteURL: PasteTarget?
+
+    struct PasteTarget: Identifiable {
+        let url: String
+        var id: String { url }
+    }
 
     var body: some View {
         NavigationStack {
-            ZStack(alignment: .bottomTrailing) {
+            ZStack(alignment: .bottom) {
                 DotGround()
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
@@ -49,7 +54,12 @@ struct HomeView: View {
                 }
                 .refreshable { await load() }
 
-                pasteFab
+                ImportFab { url in
+                    pasteURL = PasteTarget(url: url)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
             .navigationBarHidden(true)
             .navigationDestination(for: API.List.self) { list in
@@ -62,9 +72,13 @@ struct HomeView: View {
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { Task { await load() } }
         }
-        .sheet(isPresented: $showPasteSheet, onDismiss: { Task { await load() } }) {
-            PasteSaveSheet()
-                .presentationDetents([.medium])
+        .sheet(item: $pasteURL, onDismiss: { Task { await load() } }) { target in
+            ZStack {
+                DotGround()
+                SaveCeremonyView(url: target.url) { pasteURL = nil }
+                    .padding(.horizontal, 24)
+            }
+            .presentationDetents([.medium])
         }
     }
 
@@ -148,22 +162,6 @@ struct HomeView: View {
             }
         }
         .padding(.top, 16)
-    }
-
-    // Paste-to-save — the mobile twin of the web's + quick paste bar.
-    private var pasteFab: some View {
-        Button {
-            showPasteSheet = true
-        } label: {
-            Image(systemName: "plus")
-                .font(.system(size: 22, weight: .medium))
-                .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
-                .background(Color.ink, in: Circle())
-                .shadow(color: .black.opacity(0.25), radius: 12, y: 5)
-        }
-        .padding(.trailing, 20)
-        .padding(.bottom, 24)
     }
 
     private func load() async {

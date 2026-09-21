@@ -248,7 +248,35 @@ export function isObstacleCopy(text: string | null | undefined): boolean {
   )
 }
 
-export function formatCardTitle({ title, description, url, siteName }: CardTitleInput): string {
+// Stored titles can carry HTML entities (Instagram's og:title is full of
+// numeric ones — "Nike (&#064;nike) &#x2022; …"). Decoded at render like every
+// other title repair: no backfill, every stored bullet heals everywhere.
+function decodeHtmlEntities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => {
+      const code = parseInt(hex, 16)
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _
+    })
+    .replace(/&#(\d+);/g, (_, dec) => {
+      const code = parseInt(dec, 10)
+      return Number.isFinite(code) ? String.fromCodePoint(code) : _
+    })
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&bull;/g, '•')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–')
+}
+
+export function formatCardTitle(input: CardTitleInput): string {
+  const { url } = input
+  const title = input.title ? decodeHtmlEntities(input.title) : input.title
+  const description = input.description ? decodeHtmlEntities(input.description) : input.description
+  const siteName = input.siteName ? decodeHtmlEntities(input.siteName) : input.siteName
   const pl = placeTitle(url, title)
   if (pl) return pl
   const ig = instagramTitle(url, title, description)
