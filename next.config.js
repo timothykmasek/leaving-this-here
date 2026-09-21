@@ -18,7 +18,17 @@ const nextConfig = {
   // not a redirect, because MCP clients POST and some won't replay a POST
   // through a 3xx. The route itself lives at app/api/mcp.
   async rewrites() {
-    return [{ source: '/mcp', destination: '/api/mcp' }]
+    return [
+      { source: '/mcp', destination: '/api/mcp' },
+      // Personal (OAuth-gated) mount + its RFC 9728 metadata. The well-known
+      // path rides a rewrite because app-router routes can't live under a
+      // dot-directory.
+      { source: '/mcp/me', destination: '/api/mcp/me' },
+      {
+        source: '/.well-known/oauth-protected-resource/mcp/me',
+        destination: '/api/mcp/me/metadata',
+      },
+    ]
   },
   // /setup and /bookmarklet were orphaned legacy from before extension-only
   // saving (flagged for cleanup in 0e6b698, removed 2026-08-29). Old links and

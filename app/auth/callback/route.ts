@@ -7,6 +7,12 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
 
+  // Optional post-auth destination (e.g. /oauth/consent mid-connector-flow).
+  // Same-site relative paths only — "//evil.com" parses as protocol-relative,
+  // so it's excluded along with absolute URLs.
+  const rawNext = searchParams.get('next') || ''
+  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : null
+
   // With "Allow new users to sign up" off, an uninvited Google sign-in comes
   // back with no code and an error_description like "Signups not allowed for
   // this instance". Surface that as the invite-only message, not a generic
@@ -60,7 +66,7 @@ export async function GET(request: Request) {
           .single()
 
         if (profile) {
-          return NextResponse.redirect(`${origin}/${profile.username}`)
+          return NextResponse.redirect(`${origin}${next || `/${profile.username}`}`)
         }
 
         // No profile = not on the guest list (profiles are only minted by

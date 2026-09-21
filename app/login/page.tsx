@@ -50,11 +50,17 @@ function LoginPageInner() {
     if (searchParams?.get('mode') === 'signup') router.replace('/')
   }, [searchParams, router])
 
+  // Where to land after auth (e.g. back on /oauth/consent mid-connector-flow).
+  // Rides through /auth/callback, which only honors same-site paths.
+  const next = searchParams?.get('next')
+  const callbackUrl = () =>
+    `${window.location.origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
+
   const handleGoogleAuth = async () => {
     setError(null)
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl() },
     })
     if (error) setError(error.message)
   }
@@ -72,7 +78,7 @@ function LoginPageInner() {
         email: email.trim(),
         options: {
           shouldCreateUser: false,
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: callbackUrl(),
         },
       })
       if (error) {

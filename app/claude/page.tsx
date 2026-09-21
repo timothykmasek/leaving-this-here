@@ -8,7 +8,10 @@ import { CopyConnectorUrl } from './CopyConnectorUrl'
 // a tweet or the claim email), so it reads editorial, not developer-docs.
 // The connector itself is app/api/mcp, served at /mcp via rewrite.
 
-const CONNECTOR_URL = 'https://www.yourbulletin.com/mcp'
+// The personal mount: adding it walks the user through Bulletin's OAuth
+// consent, then Claude is signed in as them. The anonymous /mcp mount stays
+// for people without an account (footnote below).
+const CONNECTOR_URL = 'https://www.yourbulletin.com/mcp/me'
 
 export const metadata: Metadata = {
   title: 'Bulletin × Claude',
@@ -19,7 +22,7 @@ export const metadata: Metadata = {
 const STEPS: [string, React.ReactNode][] = [
   ['01', <>In Claude, open <strong className="font-[600] text-ink">Settings → Connectors</strong>.</>],
   ['02', <>Add a custom connector and paste the URL above.</>],
-  ['03', <>Done. Ask Claude about anything you&rsquo;ve saved.</>],
+  ['03', <>Approve on Bulletin&rsquo;s consent screen. Done&thinsp;&mdash;&thinsp;ask Claude about anything you&rsquo;ve saved.</>],
 ]
 
 export default function ClaudePage() {
@@ -75,9 +78,11 @@ export default function ClaudePage() {
 
         {/* Footnote-weight mentions, not sections. */}
         <p className="mt-14 border-t border-black/[0.06] pt-6 font-serif text-[14px] leading-[1.6] text-black/40">
-          Works for any published list too&thinsp;&mdash;&thinsp;connect a
-          curator you follow and Claude can read their picks. Read-only: Claude
-          can&rsquo;t save, edit or delete anything.
+          No Bulletin account? Add{' '}
+          <code className="font-mono text-[12.5px]">yourbulletin.com/mcp</code>{' '}
+          instead&thinsp;&mdash;&thinsp;it reads any published bulletin, no
+          sign-in. Either way it&rsquo;s read-only: Claude can&rsquo;t save,
+          edit or delete anything.
         </p>
       </div>
 
