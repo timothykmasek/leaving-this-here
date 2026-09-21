@@ -113,31 +113,40 @@ struct BulletCard: View {
         Link(destination: URL(string: bullet.url) ?? Config.siteURL) {
             VStack(alignment: .leading, spacing: 0) {
                 // The plate owns the layout; the image only paints inside it.
-                // A bare scaledToFill AsyncImage claims its intrinsic width
-                // and blows the grid columns past the screen edge.
+                // (A bare scaledToFill AsyncImage claims its intrinsic width
+                // and blows the grid columns past the screen edge.)
+                // PrimaryCard spec: 20px radius, hairline #EBEBEB border.
                 Color.cardGrey
-                    .frame(height: 118)
+                    .frame(height: 124)
                     .overlay(
-                        AsyncImage(url: bullet.image_url.flatMap(URL.init)) { phase in
+                        AsyncImage(url: bullet.cardImage.flatMap(URL.init)) { phase in
                             if case .success(let image) = phase {
                                 image.resizable().scaledToFill()
                             }
                         }
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 20)
+                            .stroke(Color(red: 0xEB / 255, green: 0xEB / 255, blue: 0xEB / 255), lineWidth: 1)
+                    )
 
-                Text(bullet.title ?? domain)
-                    .font(.system(size: 15, weight: .regular))
-                    .foregroundStyle(Color.ink)
+                // PrimaryCard title voice: sans 14/400, +0.05em, black 56%.
+                Text(bullet.cardTitle)
+                    .font(.system(size: 14, weight: .regular))
+                    .kerning(0.7)
+                    .foregroundStyle(Color.black.opacity(0.56))
                     .lineLimit(1)
                     .multilineTextAlignment(.leading)
-                    .padding(.top, 10)
+                    .padding(.top, 12)
 
+                // The web's editorial line (serif, ink 55%); domain stands in
+                // until finds carries per-bullet list membership.
                 Text(domain)
                     .font(.system(size: 13, design: .serif))
-                    .foregroundStyle(Color.ink.opacity(0.45))
+                    .foregroundStyle(Color.ink.opacity(0.55))
                     .lineLimit(1)
-                    .padding(.top, 2)
+                    .padding(.top, 3)
             }
         }
     }

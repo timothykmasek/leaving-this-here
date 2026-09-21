@@ -12,6 +12,14 @@ enum API {
         let image_url: String?
         let favicon_url: String?
         let created_at: String?
+        // Server-rendered display fields (finds route): the web's
+        // formatCardTitle voice and pickCardImage choice. Optional so the app
+        // degrades to raw fields against an older deploy.
+        let display_title: String?
+        let display_image: String?
+
+        var cardTitle: String { display_title ?? title ?? url }
+        var cardImage: String? { display_image ?? image_url }
     }
 
     struct List: Decodable, Identifiable {
