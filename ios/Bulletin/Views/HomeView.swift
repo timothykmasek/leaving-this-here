@@ -11,7 +11,7 @@ struct HomeView: View {
     @State private var loading = true
     @State private var error: String?
 
-    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    private let columns = [GridItem(.flexible(), spacing: 14), GridItem(.flexible(), spacing: 14)]
 
     var body: some View {
         ZStack {
@@ -42,11 +42,8 @@ struct HomeView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Bulletin")
-                .font(.system(size: 28, weight: .regular))
-                .kerning(-0.5)
-                .foregroundStyle(Color.ink)
+        HStack(alignment: .center) {
+            Wordmark(height: 30)
             Spacer()
             if let username = session.current?.username,
                let url = URL(string: "\(Config.siteURL)/\(username)") {
@@ -78,7 +75,7 @@ struct HomeView: View {
     }
 
     private var grid: some View {
-        LazyVGrid(columns: columns, spacing: 12) {
+        LazyVGrid(columns: columns, spacing: 22) {
             ForEach(bullets) { bullet in
                 BulletCard(bullet: bullet)
             }
@@ -102,6 +99,9 @@ struct HomeView: View {
     }
 }
 
+// Card styling follows the mobile web profile: a borderless rounded image
+// sitting straight on the dot ground, sans title below, serif detail line —
+// no boxed white cards.
 struct BulletCard: View {
     let bullet: API.Bullet
 
@@ -112,36 +112,33 @@ struct BulletCard: View {
     var body: some View {
         Link(destination: URL(string: bullet.url) ?? Config.siteURL) {
             VStack(alignment: .leading, spacing: 0) {
-                AsyncImage(url: bullet.image_url.flatMap(URL.init)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    default:
-                        Color.cardGrey
-                    }
-                }
-                .frame(height: 130)
-                .clipped()
+                // The plate owns the layout; the image only paints inside it.
+                // A bare scaledToFill AsyncImage claims its intrinsic width
+                // and blows the grid columns past the screen edge.
+                Color.cardGrey
+                    .frame(height: 118)
+                    .overlay(
+                        AsyncImage(url: bullet.image_url.flatMap(URL.init)) { phase in
+                            if case .success(let image) = phase {
+                                image.resizable().scaledToFill()
+                            }
+                        }
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(bullet.title ?? domain)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(Color.ink)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                    Text(domain)
-                        .font(.system(size: 11, design: .serif))
-                        .foregroundStyle(Color.ink.opacity(0.4))
-                        .lineLimit(1)
-                }
-                .padding(10)
+                Text(bullet.title ?? domain)
+                    .font(.system(size: 15, weight: .regular))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
+                    .multilineTextAlignment(.leading)
+                    .padding(.top, 10)
+
+                Text(domain)
+                    .font(.system(size: 13, design: .serif))
+                    .foregroundStyle(Color.ink.opacity(0.45))
+                    .lineLimit(1)
+                    .padding(.top, 2)
             }
-            .background(Color.white, in: RoundedRectangle(cornerRadius: 14))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(Color.black.opacity(0.06), lineWidth: 1)
-            )
-            .shadow(color: .black.opacity(0.05), radius: 8, y: 3)
         }
     }
 }

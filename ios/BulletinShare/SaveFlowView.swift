@@ -27,15 +27,24 @@ struct SaveFlowView: View {
     @State private var ready: Ready?
     @State private var creatingSuggested = false
 
+    // The extension is presented as a full opaque sheet (the system doesn't
+    // show the host app behind custom share UIs), so instead of faking a
+    // scrim we own the sheet: Bulletin paper with the dot grid, wordmark on
+    // top, content on the ground — the mobile-web look.
     var body: some View {
-        VStack {
-            Spacer()
-            card
-                .padding(.horizontal, 20)
-            Spacer().frame(height: 40)
+        ZStack {
+            DotGround()
+            VStack(alignment: .leading, spacing: 0) {
+                Wordmark(height: 30)
+                    .padding(.top, 26)
+                    .frame(maxWidth: .infinity)
+                Spacer()
+                card
+                    .padding(.horizontal, 26)
+                Spacer()
+                Spacer()
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.18).ignoresSafeArea())
         .task { await run() }
     }
 
@@ -143,6 +152,9 @@ struct SaveFlowView: View {
     // MARK: - Flow
 
     private func run() async {
+        // The extension process outlives individual shares; never trust the
+        // singleton's state from a previous invocation.
+        Session.shared.reloadFromDisk()
         guard Session.shared.isSignedIn else {
             phase = .failed("You're signed out. Open Bulletin to sign in, then share again.")
             return

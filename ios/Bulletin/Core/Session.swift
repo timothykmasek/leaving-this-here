@@ -35,7 +35,16 @@ final class Session: NSObject, ObservableObject {
 
     var isSignedIn: Bool { current != nil }
 
+    /// Re-read the session from the shared container. The share extension
+    /// calls this on every invocation: iOS keeps the extension process alive
+    /// between shares, so a singleton loaded before the user signed in (or
+    /// out) in the main app would otherwise serve that stale state forever.
+    func reloadFromDisk() { load() }
+
     private func load() {
+        // A fresh suite instance each read: cfprefsd can serve a stale cache
+        // on a long-lived instance when another process wrote the key.
+        let defaults = UserDefaults(suiteName: Config.appGroup) ?? self.defaults
         guard let data = defaults.data(forKey: storageKey),
               let session = try? JSONDecoder().decode(StoredSession.self, from: data)
         else { return }
