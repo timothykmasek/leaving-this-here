@@ -32,6 +32,17 @@ export async function POST(request: NextRequest) {
       ? await supabase.auth.oauth.approveAuthorization(authorizationId)
       : await supabase.auth.oauth.denyAuthorization(authorizationId)
 
+  // Which params ride the return trip — diagnostic for the client-side
+  // "state: Field required" class of failure (vercel logs; never the values).
+  if (data?.redirect_url) {
+    try {
+      const u = new URL(data.redirect_url)
+      console.log(
+        `[oauth/decision] ${decision} → ${u.origin}${u.pathname} params: ${[...u.searchParams.keys()].join(',') || 'NONE'}`,
+      )
+    } catch {}
+  }
+
   if (error || !data?.redirect_url) {
     // Expired/duplicate authorization — land back on the consent page, which
     // renders the explanatory error state for a dead authorization_id.

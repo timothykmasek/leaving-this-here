@@ -55,9 +55,14 @@ export default async function ConsentPage({
     )
   }
 
-  // Consent was already granted for this client — no second ask.
+  // Consent was already granted for this client — no second ask, but the
+  // return trip still has to go through approveAuthorization: details.
+  // redirect_uri is the client's BARE callback, and bouncing there without
+  // the freshly-minted code (and the client's own `state` echoed back)
+  // strands the client with "state: Field required".
   if (details.redirect_uri) {
-    redirect(details.redirect_uri)
+    const { data: approved } = await supabase.auth.oauth.approveAuthorization(authorizationId)
+    redirect(approved?.redirect_url || details.redirect_uri)
   }
 
   return (
