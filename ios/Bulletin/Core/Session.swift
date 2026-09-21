@@ -1,0 +1,186 @@
+import Foundation
+import AuthenticationServices
+
+// Session — Supabase auth for a native client, mirroring the Chrome
+// extension's implicit flow (the pattern that already survived the
+// chromiumapp redirect-URL gotcha): open the hosted Google flow, catch the
+// tokens on a custom-scheme redirect, refresh with the refresh token.
+//
+// Tokens live in App Group UserDefaults so the share extension can save
+// without its own sign-in. TODO before TestFlight: move to a shared-access
+// Keychain item — UserDefaults is fine for the simulator era, not for a
+// device in the wild.
+
+struct StoredSession: Codable {
+    var accessToken: String
+    var refreshToken: String
+    var expiresAt: Date
+    var email: String?
+    var username: String?
+}
+
+final class Session: NSObject, ObservableObject {
+    static let shared = Session()
+
+    @Published private(set) var current: StoredSession?
+
+    private let defaults = UserDefaults(suiteName: Config.appGroup)!
+    private let storageKey = "bulletin.session.v1"
+    private var webAuth: ASWebAuthenticationSession?
+
+    override private init() {
+        super.init()
+        load()
+    }
+
+    var isSignedIn: Bool { current != nil }
+
+    private func load() {
+        guard let data = defaults.data(forKey: storageKey),
+              let session = try? JSONDecoder().decode(StoredSession.self, from: data)
+        else { return }
+        current = session
+    }
+
+    private func persist(_ session: StoredSession?) {
+        if let session, let data = try? JSONEncoder().encode(session) {
+            defaults.set(data, forKey: storageKey)
+        } else {
+            defaults.removeObject(forKey: storageKey)
+        }
+        current = session
+    }
+
+    func signOut() { persist(nil) }
+
+    // MARK: - Sign-in (Google via Supabase hosted flow)
+
+    @MainActor
+    func signInWithGoogle() async throws {
+        var components = URLComponents(
+            url: Config.supabaseURL.appendingPathComponent("auth/v1/authorize"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [
+            .init(name: "provider", value: "google"),
+            .init(name: "redirect_to", value: Config.authRedirect),
+        ]
+
+        let callbackURL: URL = try await withCheckedThrowingContinuation { continuation in
+            let auth = ASWebAuthenticationSession(
+                url: components.url!,
+                callbackURLScheme: Config.authCallbackScheme
+            ) { url, error in
+                if let url { continuation.resume(returning: url) }
+                else { continuation.resume(throwing: error ?? SessionError.cancelled) }
+            }
+            auth.presentationContextProvider = self
+            auth.prefersEphemeralWebBrowserSession = false
+            self.webAuth = auth
+            auth.start()
+        }
+
+        // Tokens ride the fragment: bulletin://auth-callback#access_token=…
+        guard let fragment = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)?.fragment else {
+            throw SessionError.badCallback
+        }
+        var params: [String: String] = [:]
+        for pair in fragment.split(separator: "&") {
+            let kv = pair.split(separator: "=", maxSplits: 1)
+            guard kv.count == 2 else { continue }
+            params[String(kv[0])] = String(kv[1]).removingPercentEncoding
+        }
+        guard let access = params["access_token"], let refresh = params["refresh_token"] else {
+            // An uninvited Google account comes back with an error instead of
+            // tokens (signups are off — the invite gate).
+            if let desc = params["error_description"]?.replacingOccurrences(of: "+", with: " ") {
+                throw SessionError.server(desc)
+            }
+            throw SessionError.badCallback
+        }
+        let expiresIn = Double(params["expires_in"] ?? "3600") ?? 3600
+        var session = StoredSession(
+            accessToken: access,
+            refreshToken: refresh,
+            expiresAt: Date().addingTimeInterval(expiresIn),
+            email: nil,
+            username: nil
+        )
+        persist(session)
+
+        // Hydrate identity; a failure here doesn't invalidate the sign-in.
+        if let me = try? await API.finds(limit: 1) { session.username = me.username }
+        if let email = try? await fetchEmail(access: access) { session.email = email }
+        persist(session)
+    }
+
+    private func fetchEmail(access: String) async throws -> String? {
+        var request = URLRequest(url: Config.supabaseURL.appendingPathComponent("auth/v1/user"))
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(access)", forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: request)
+        struct U: Decodable { let email: String? }
+        return (try? JSONDecoder().decode(U.self, from: data))?.email
+    }
+
+    // MARK: - Token freshness
+
+    /// A valid access token, refreshed through Supabase when within a minute
+    /// of expiry. The share extension calls this before every save.
+    func freshAccessToken() async throws -> String {
+        guard var session = current else { throw SessionError.signedOut }
+        if session.expiresAt.timeIntervalSinceNow > 60 { return session.accessToken }
+
+        var request = URLRequest(
+            url: Config.supabaseURL.appendingPathComponent("auth/v1/token")
+                .appending(queryItems: [.init(name: "grant_type", value: "refresh_token")])
+        )
+        request.httpMethod = "POST"
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder().encode(["refresh_token": session.refreshToken])
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            persist(nil)   // refresh token burned or revoked → back to sign-in
+            throw SessionError.signedOut
+        }
+        struct Refreshed: Decodable {
+            let access_token: String
+            let refresh_token: String
+            let expires_in: Double
+        }
+        let fresh = try JSONDecoder().decode(Refreshed.self, from: data)
+        session.accessToken = fresh.access_token
+        session.refreshToken = fresh.refresh_token
+        session.expiresAt = Date().addingTimeInterval(fresh.expires_in)
+        persist(session)
+        return session.accessToken
+    }
+
+    func noteUsername(_ username: String?) {
+        guard var session = current, let username, session.username != username else { return }
+        session.username = username
+        persist(session)
+    }
+}
+
+enum SessionError: LocalizedError {
+    case cancelled, badCallback, signedOut
+    case server(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .cancelled: return "Sign-in was cancelled."
+        case .badCallback: return "Sign-in didn't go through — mind trying again?"
+        case .signedOut: return "You're signed out. Open Bulletin to sign in."
+        case .server(let message): return message
+        }
+    }
+}
+
+extension Session: ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        ASPresentationAnchor()
+    }
+}
