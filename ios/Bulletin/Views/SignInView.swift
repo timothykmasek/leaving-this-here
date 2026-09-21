@@ -1,13 +1,20 @@
 import SwiftUI
+import AuthenticationServices
 
-// Sign-in — the front door, in the site's voice: dot ground, wordmark-weight
-// lockup, one Google button (the invite gate lives server-side; an uninvited
-// account gets the same soft copy as the web). System fonts stand in for
-// Mier A / Cardo until the licensed files are bundled.
+// Sign-in — the front door, in the site's voice: dot ground, lockup, Google
+// + Apple (the App Store requires Apple's button once Google is offered).
+// The invite gate lives server-side; an uninvited account gets the same soft
+// copy as the web. A long-press on the beta footnote opens the password door
+// — no visible UI, it exists for App Review's demo credentials.
 struct SignInView: View {
     @EnvironmentObject private var session: Session
     @State private var busy = false
     @State private var error: String?
+    @State private var appleNonce: (raw: String, hashed: String)?
+
+    @State private var reviewerDoor = false
+    @State private var reviewerEmail = ""
+    @State private var reviewerPassword = ""
 
     var body: some View {
         ZStack {
@@ -26,7 +33,7 @@ struct SignInView: View {
                     .padding(.top, 10)
 
                 Button {
-                    Task { await signIn() }
+                    Task { await run { try await session.signInWithGoogle() } }
                 } label: {
                     HStack(spacing: 8) {
                         if busy { ProgressView().tint(.white) }
@@ -41,6 +48,49 @@ struct SignInView: View {
                 .disabled(busy)
                 .padding(.horizontal, 44)
                 .padding(.top, 44)
+
+                SignInWithAppleButton(.continue) { request in
+                    let nonce = Session.makeNonce()
+                    appleNonce = nonce
+                    request.requestedScopes = [.email]
+                    request.nonce = nonce.hashed
+                } onCompletion: { result in
+                    guard case .success(let authorization) = result,
+                          let nonce = appleNonce else { return }
+                    Task {
+                        await run { try await session.signInWithApple(authorization: authorization, rawNonce: nonce.raw) }
+                    }
+                }
+                .signInWithAppleButtonStyle(.black)
+                .frame(height: 50)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 44)
+                .padding(.top, 12)
+
+                if reviewerDoor {
+                    VStack(spacing: 8) {
+                        TextField("Email", text: $reviewerEmail)
+                            .keyboardType(.emailAddress)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        SecureField("Password", text: $reviewerPassword)
+                        Button("Sign in") {
+                            Task {
+                                await run {
+                                    try await session.signInWithPassword(
+                                        email: reviewerEmail.trimmingCharacters(in: .whitespaces),
+                                        password: reviewerPassword
+                                    )
+                                }
+                            }
+                        }
+                        .font(.mierDemi(14))
+                    }
+                    .font(.mier(15))
+                    .textFieldStyle(.roundedBorder)
+                    .padding(.horizontal, 44)
+                    .padding(.top, 16)
+                }
 
                 if let error {
                     Text(error)
@@ -58,15 +108,18 @@ struct SignInView: View {
                     .font(.cardo(13))
                     .foregroundStyle(Color.ink.opacity(0.35))
                     .padding(.bottom, 28)
+                    .onLongPressGesture(minimumDuration: 1.2) {
+                        reviewerDoor.toggle()
+                    }
             }
         }
     }
 
-    private func signIn() async {
+    private func run(_ signIn: @escaping () async throws -> Void) async {
         busy = true
         error = nil
         do {
-            try await session.signInWithGoogle()
+            try await signIn()
         } catch SessionError.cancelled {
             // No error copy for a user-dismissed sheet.
         } catch {

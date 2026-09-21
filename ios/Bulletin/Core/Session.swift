@@ -118,6 +118,35 @@ final class Session: NSObject, ObservableObject {
             throw SessionError.badCallback
         }
         let expiresIn = Double(params["expires_in"] ?? "3600") ?? 3600
+        try await adopt(access: access, refresh: refresh, expiresIn: expiresIn)
+    }
+
+    // MARK: - Password door (the App Review demo account — no visible UI
+    // beyond the long-press path on the sign-in screen)
+
+    @MainActor
+    func signInWithPassword(email: String, password: String) async throws {
+        var request = URLRequest(
+            url: Config.supabaseURL.appendingPathComponent("auth/v1/token")
+                .appending(queryItems: [.init(name: "grant_type", value: "password")])
+        )
+        request.httpMethod = "POST"
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["email": email, "password": password])
+        let (data, response) = try await URLSession.shared.data(for: request)
+        struct Grant: Decodable { let access_token: String?; let refresh_token: String?; let expires_in: Double? }
+        let grant = try? JSONDecoder().decode(Grant.self, from: data)
+        guard (response as? HTTPURLResponse)?.statusCode == 200,
+              let access = grant?.access_token, let refresh = grant?.refresh_token else {
+            throw SessionError.server("Those credentials didn't work.")
+        }
+        try await adopt(access: access, refresh: refresh, expiresIn: grant?.expires_in ?? 3600)
+    }
+
+    /// Common landing for every auth door: store the tokens, then hydrate
+    /// identity (a failure there doesn't invalidate the sign-in).
+    func adopt(access: String, refresh: String, expiresIn: Double) async throws {
         var session = StoredSession(
             accessToken: access,
             refreshToken: refresh,
@@ -126,8 +155,6 @@ final class Session: NSObject, ObservableObject {
             username: nil
         )
         persist(session)
-
-        // Hydrate identity; a failure here doesn't invalidate the sign-in.
         if let me = try? await API.finds(limit: 1) { session.username = me.username }
         if let email = try? await fetchEmail(access: access) { session.email = email }
         persist(session)
