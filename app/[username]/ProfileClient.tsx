@@ -113,7 +113,6 @@ export default function ProfileClient({
   const [editingProfile, setEditingProfile] = useState(false)
   const [editName, setEditName] = useState('')
   const [editBio, setEditBio] = useState('')
-  const [editBio2, setEditBio2] = useState('')
   // "Latest Bullet: …" line — formatted in the viewer's LOCAL time, so computed
   // client-side (in the effect below) to avoid an SSR/client hydration mismatch.
   const [latestBulletLabel, setLatestBulletLabel] = useState<string | null>(null)
@@ -843,8 +842,10 @@ export default function ProfileClient({
                   onClick={() => {
                     setEditingProfile(true)
                     setEditName(profile.display_name || '')
-                    const [l1 = '', l2 = ''] = (profile.bio || '').split('\n')
-                    setEditBio(l1); setEditBio2(l2)
+                    // Legacy two-line bios open as one middot-joined line.
+                    setEditBio(
+                      (profile.bio || '').split('\n').map((l) => l.trim()).filter(Boolean).join(' · ')
+                    )
                     setEditLinkList(normalizeProfileLinks(profile.links))
                     setNewLink('')
                   }}
@@ -877,30 +878,15 @@ export default function ProfileClient({
                 maxLength={60}
                 className="w-full rounded-[16px] border border-[#E3E3E3] bg-white px-5 py-3.5 font-sans text-[15px] font-[500] text-ink placeholder:text-black/30 focus:border-black/40 focus:outline-none"
               />
-              <div className="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-4">
-                <div>
-                  <label className="mb-2 block font-sans text-[14px] font-[500] text-black/40">line 1</label>
-                  <input
-                    type="text"
-                    value={editBio}
-                    onChange={(e) => setEditBio(e.target.value)}
-                    placeholder="Venture Designer @ Founders Factory"
-                    maxLength={80}
-                    className="w-full rounded-[16px] border border-[#E3E3E3] bg-white px-5 py-3.5 font-sans text-[15px] font-[500] text-ink placeholder:text-black/30 focus:border-black/40 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="mb-2 block font-sans text-[14px] font-[500] text-black/40">line 2</label>
-                  <input
-                    type="text"
-                    value={editBio2}
-                    onChange={(e) => setEditBio2(e.target.value)}
-                    placeholder="Exited Founder of 1-800-D2C"
-                    maxLength={80}
-                    className="w-full rounded-[16px] border border-[#E3E3E3] bg-white px-5 py-3.5 font-sans text-[15px] font-[500] text-ink placeholder:text-black/30 focus:border-black/40 focus:outline-none"
-                  />
-                </div>
-              </div>
+              <label className="mb-2 mt-5 block font-sans text-[14px] font-[500] text-black/40">description</label>
+              <input
+                type="text"
+                value={editBio}
+                onChange={(e) => setEditBio(e.target.value)}
+                placeholder="Venture Designer @ Founders Factory"
+                maxLength={120}
+                className="w-full rounded-[16px] border border-[#E3E3E3] bg-white px-5 py-3.5 font-sans text-[15px] font-[500] text-ink placeholder:text-black/30 focus:border-black/40 focus:outline-none"
+              />
               <label className="mb-2 mt-5 block font-sans text-[14px] font-[500] text-black/40">links</label>
               <div className="space-y-3">
                 {editLinkList.map((url, i) => (
@@ -963,8 +949,7 @@ export default function ProfileClient({
                     setProfileSaveError(null)
                     // Blank name → null, so the header falls back to @username.
                     const cleanName = editName.trim() || null
-                    // Two bio lines → one newline-separated string (drops blanks).
-                    const joinedBio = [editBio.trim(), editBio2.trim()].filter(Boolean).join('\n') || null
+                    const joinedBio = editBio.trim() || null
                     // A valid url still sitting in the add-row rides along —
                     // "type it and hit save" shouldn't silently drop it.
                     const draft = coerceUrl(newLink)

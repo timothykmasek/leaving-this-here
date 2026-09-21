@@ -56,7 +56,8 @@ export function ProfileIdentity({
   trailing,
 }: {
   name: string
-  // Bio — up to two short lines, stored newline-separated.
+  // Bio — one short line. Legacy two-line (newline-separated) bios are
+  // collapsed to a middot-joined single line at render.
   bio?: string | null
   // "Latest Bullet: …" line (owner's most recent save, in the viewer's local
   // time). Rendered as the bottom editorial line under the bio.
@@ -71,16 +72,22 @@ export function ProfileIdentity({
     platform: detectPlatform(url),
   }))
 
+  // Legacy bios were written as two statements on two lines — the middot
+  // keeps them as separate things (same convention as clampDescription).
+  const bioLine = bio
+    ? bio.split('\n').map((l) => l.trim()).filter(Boolean).join(' · ')
+    : null
+
   return (
     <div className="group flex flex-col items-center gap-3 text-center">
       {/* Name — Mier Headline/Large */}
       <h1 className="font-sans text-[20px] font-[600] leading-[24px] text-ink">{name}</h1>
 
-      {/* Bio (up to 2 lines) + the auto "Latest Bullet" line, as one tight
+      {/* Bio (one line) + the auto "Latest Bullet" line, as one tight
           editorial block — Cardo, centred. */}
-      {(bio || latestBullet) && (
+      {(bioLine || latestBullet) && (
         <div className="flex max-w-md flex-col items-center font-serif text-[14px] leading-[22px] tracking-[-0.01em] text-black/60">
-          {bio && <p className="whitespace-pre-line">{bio}</p>}
+          {bioLine && <p>{bioLine}</p>}
           {latestBullet && <p>{latestBullet}</p>}
         </div>
       )}
