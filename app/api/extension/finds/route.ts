@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { formatCardTitle } from '@/lib/cardTitle'
-import { pickCardImage } from '@/lib/cardImage'
+import { DISPLAY_BULLET_COLS, mapDisplayBullet } from '@/lib/displayBullet'
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -53,10 +52,7 @@ export async function GET(request: NextRequest) {
 
   const { data: bookmarks, error: fetchErr, count } = await supabase
     .from('bookmarks')
-    .select(
-      'id, url, title, description, image_url, screenshot_url, favicon_url, card_type, image_pref, created_at, site_name:raw_metadata->og->>site_name, custom_image:raw_metadata->>customImage, list_bookmarks(lists(name, slug))',
-      { count: 'exact' },
-    )
+    .select(`${DISPLAY_BULLET_COLS}, list_bookmarks(lists(name, slug))`, { count: 'exact' })
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
@@ -65,33 +61,7 @@ export async function GET(request: NextRequest) {
     return json({ error: fetchErr.message }, 400)
   }
 
-  // Native clients render what this endpoint returns verbatim, so the web's
-  // render-time brains run here: formatCardTitle (the `Brand — what it is`
-  // voice) and pickCardImage (og vs screenshot vs custom). One implementation,
-  // every client — never port these to Swift.
-  const finds = (bookmarks || []).map((b: any) => ({
-    id: b.id,
-    url: b.url,
-    title: b.title,
-    image_url: b.image_url,
-    favicon_url: b.favicon_url,
-    created_at: b.created_at,
-    display_title: formatCardTitle({
-      title: b.title,
-      description: b.description,
-      url: b.url,
-      siteName: b.site_name ?? null,
-    }),
-    display_image: pickCardImage(
-      b.url, b.image_url, b.screenshot_url, b.card_type, b.image_pref, b.custom_image,
-    ),
-    // The card's list line, same as the web grid. Owner-scoped endpoint, so
-    // private lists are the owner's own to see.
-    lists: (b.list_bookmarks || [])
-      .map((m: any) => m.lists)
-      .filter(Boolean)
-      .map((l: any) => ({ name: l.name, slug: l.slug })),
-  }))
+  const finds = (bookmarks || []).map(mapDisplayBullet)
 
   return json({
     ok: true,

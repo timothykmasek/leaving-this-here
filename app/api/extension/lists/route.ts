@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { uniqueSlug } from '@/lib/slug'
+import { DISPLAY_BULLET_COLS, mapDisplayBullet } from '@/lib/displayBullet'
 
 // Lists API for the Chrome extension.
 //
@@ -64,6 +65,32 @@ type ListRow = { id: string; name: string; slug: string }
 export async function GET(request: NextRequest) {
   const a = await authed(request)
   if ('error' in a) return a.error
+
+  // ?list_id= → one list in full, bullets in display form (the app's list
+  // page). Owner-scoped like everything here.
+  const listId = new URL(request.url).searchParams.get('list_id')
+  if (listId) {
+    const { data: list, error: listErr } = await a.supabase
+      .from('lists')
+      .select('id, name, slug, description')
+      .eq('user_id', a.userId)
+      .eq('id', listId)
+      .single()
+    if (listErr || !list) return json({ error: 'list not found' }, 404)
+
+    const { data: members, error: memberErr } = await a.supabase
+      .from('list_bookmarks')
+      .select(`added_at, bookmarks(${DISPLAY_BULLET_COLS})`)
+      .eq('list_id', list.id)
+      .order('added_at', { ascending: false })
+    if (memberErr) return json({ error: memberErr.message }, 400)
+
+    const bullets = (members || [])
+      .map((m: any) => m.bookmarks)
+      .filter(Boolean)
+      .map(mapDisplayBullet)
+    return json({ list, bullets })
+  }
 
   const { data, error } = await a.supabase
     .from('lists')

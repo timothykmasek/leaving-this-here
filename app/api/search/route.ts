@@ -1,6 +1,20 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { embed } from '@/lib/embed'
+
+// Token-scoped client for bearer callers (the iOS app) — RLS sees the caller,
+// mirroring /api/extension/*.
+function createTokenClient(token: string) {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  )
+}
 
 // Longest query we'll embed. Search queries are short by nature; anything
 // beyond this is either an accident (pasted document) or someone burning our
@@ -47,18 +61,32 @@ const RESULT_COUNT = 24
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const user_id = body?.user_id
     const query =
       typeof body?.query === 'string' ? body.query.trim().slice(0, MAX_QUERY_CHARS) : ''
-    if (!query || !user_id) {
-      return NextResponse.json({ error: 'missing query or user_id' }, { status: 400 })
+    if (!query) {
+      return NextResponse.json({ error: 'missing query' }, { status: 400 })
     }
 
-    const supabase = await createSupabaseServer()
-    const { data: { user } } = await supabase.auth.getUser()
+    // Two auth doors: the web sends its session cookie; the iOS app sends a
+    // bearer token (same pattern as /api/extension/*) and may omit user_id to
+    // mean "my own bullets".
+    const authHeader = req.headers.get('authorization') || ''
+    const token = authHeader.toLowerCase().startsWith('bearer ')
+      ? authHeader.slice(7).trim()
+      : ''
+    let user: { id: string } | null = null
+    let supabase
+    if (token) {
+      supabase = createTokenClient(token)
+      user = (await supabase.auth.getUser(token)).data.user
+    } else {
+      supabase = await createSupabaseServer()
+      user = (await supabase.auth.getUser()).data.user
+    }
     if (!user) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
+    const user_id = body?.user_id || user.id
     const isOwner = user.id === user_id
 
     // Embed the query using the `query` input type for better recall
