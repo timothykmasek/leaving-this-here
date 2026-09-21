@@ -166,7 +166,17 @@ struct SaveFlowView: View {
         let domain = URL(string: shared.url)?.host?.replacingOccurrences(of: "www.", with: "") ?? shared.url
 
         do {
-            let saved = try await API.save(url: shared.url, title: shared.title)
+            // Lift page context from the device's own network position before
+            // saving — the phone's IP sees pages the server's datacenter
+            // fetch gets walled off (Instagram-class sites).
+            var title = shared.title
+            var meta = shared.clientMeta
+            if meta["title"] == nil || meta["image"] == nil {
+                let probe = await PageProbe.fetch(shared.url)
+                title = title ?? probe.title
+                meta.merge(probe.meta) { current, _ in current }
+            }
+            let saved = try await API.save(url: shared.url, title: title, clientMeta: meta)
             let bookmarkId = saved.bookmark.id
             // One paint: both follow-ups land before anything shows.
             async let listsTask = API.lists(bookmarkId: bookmarkId)

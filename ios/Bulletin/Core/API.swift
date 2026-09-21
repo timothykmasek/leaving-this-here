@@ -107,9 +107,10 @@ enum API {
     // MARK: - Endpoints
 
     @discardableResult
-    static func save(url: String, title: String? = nil) async throws -> SaveResponse {
+    static func save(url: String, title: String? = nil, clientMeta: [String: String] = [:]) async throws -> SaveResponse {
         var body: [String: Any] = ["url": url]
         if let title, !title.isEmpty { body["title"] = title }
+        if !clientMeta.isEmpty { body["clientMeta"] = clientMeta }
         let data = try await request("api/extension/save", method: "POST", body: body)
         let saved = try JSONDecoder().decode(SaveResponse.self, from: data)
         Session.shared.noteUsername(saved.username)

@@ -72,6 +72,11 @@ targets:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
           NSExtensionAttributes:
+            # NOTE: no NSExtensionJavaScriptPreprocessingFile. Tried and
+            # reverted: declaring it makes Safari send ONLY a plist item whose
+            # load dies in an XPC error on the simulator, losing even the URL.
+            # Page context comes from PageProbe (an in-extension fetch from
+            # the device's own IP) which also covers non-Safari hosts.
             NSExtensionActivationRule:
               NSExtensionActivationSupportsWebURLWithMaxCount: 1
               NSExtensionActivationSupportsWebPageWithMaxCount: 1

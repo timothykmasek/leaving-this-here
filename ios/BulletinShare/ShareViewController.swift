@@ -31,39 +31,47 @@ final class ShareViewController: UIViewController {
     }
 }
 
-// Extracts the shared URL (+ page title when the host app provides one).
+// Extracts the shared URL plus whatever page context the host app provides.
 struct SharePayload {
     let extensionContext: NSExtensionContext?
 
-    func resolve() async -> (url: String, title: String?)? {
+    struct Resolved {
+        var url: String
+        var title: String?          // document.title → save body.title
+        var clientMeta: [String: String]  // og tags → save body.clientMeta
+    }
+
+    func resolve() async -> Resolved? {
         guard let items = extensionContext?.inputItems as? [NSExtensionItem] else { return nil }
-        // Safari puts the page title in attributedContentText; the server's
-        // metadata extraction fills any gaps, same as a bare extension save.
-        let title = items.compactMap { $0.attributedContentText?.string }
-            .first { !$0.isEmpty }
+
+        var url: String?
+        var title: String?
+        var meta: [String: String] = [:]
 
         for item in items {
             for provider in item.attachments ?? [] {
-                if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                    if let url = try? await provider.loadItem(forTypeIdentifier: UTType.url.identifier) as? URL,
-                       url.scheme?.hasPrefix("http") == true {
-                        return (url.absoluteString, title)
+                // Plain URL shares (every non-browser app).
+                if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier),
+                   let loaded = try? await provider.loadItem(forTypeIdentifier: UTType.url.identifier) as? URL,
+                   loaded.scheme?.hasPrefix("http") == true {
+                    url = url ?? loaded.absoluteString
+                }
+                // Links shared as text (some apps), or a bare text title.
+                if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier),
+                   let text = try? await provider.loadItem(forTypeIdentifier: UTType.plainText.identifier) as? String {
+                    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if let asURL = URL(string: trimmed), asURL.scheme?.hasPrefix("http") == true {
+                        url = url ?? trimmed
                     }
                 }
             }
-        }
-        // Fallback: plain text that is a URL (some apps share links as text).
-        for item in items {
-            for provider in item.attachments ?? [] {
-                if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                    if let text = try? await provider.loadItem(forTypeIdentifier: UTType.plainText.identifier) as? String,
-                       let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines)),
-                       url.scheme?.hasPrefix("http") == true {
-                        return (url.absoluteString, title)
-                    }
-                }
+            if title == nil, let t = item.attributedTitle?.string ?? item.attributedContentText?.string,
+               !t.isEmpty, !t.hasPrefix("http") {
+                title = t
             }
         }
-        return nil
+
+        guard let url else { return nil }
+        return Resolved(url: url, title: title, clientMeta: meta)
     }
 }
