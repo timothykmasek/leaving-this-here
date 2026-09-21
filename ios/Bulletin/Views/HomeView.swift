@@ -1,43 +1,71 @@
 import SwiftUI
 
-// Home — deliberately thin for v0.1: recent saves in a two-column grid and a
-// pointer to the full bulletin on the web. The app's hero is the share
-// extension; this screen is proof of life, not the museum. (The native
-// masonry with per-type cards is the v0.2 investment.)
+// Home — recent saves in the web's masonry, list chips into list pages,
+// semantic search over the pill, and the paste-to-save fab. The share
+// extension stays the hero; this is the companion surface.
 struct HomeView: View {
     @EnvironmentObject private var session: Session
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var bullets: [API.Bullet] = []
     @State private var lists: [API.List] = []
     @State private var loading = true
     @State private var error: String?
 
+    @State private var query = ""
+    @State private var results: [API.Bullet]?
+    @State private var searching = false
+
+    @State private var showPasteSheet = false
 
     var body: some View {
-        ZStack {
-            DotGround()
-            ScrollView {
-                VStack(alignment: .leading, spacing: 0) {
-                    header
-                    if let error {
-                        Text(error)
-                            .font(.cardo(14))
-                            .foregroundStyle(Color.ink.opacity(0.5))
-                            .padding(.top, 32)
-                            .frame(maxWidth: .infinity)
-                    } else if loading {
-                        ProgressView()
-                            .padding(.top, 64)
-                            .frame(maxWidth: .infinity)
-                    } else {
-                        if !lists.isEmpty { listStrip }
-                        grid
+        NavigationStack {
+            ZStack(alignment: .bottomTrailing) {
+                DotGround()
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 0) {
+                        header
+                        searchPill
+                        if let error {
+                            Text(error)
+                                .font(.cardo(14))
+                                .foregroundStyle(Color.ink.opacity(0.5))
+                                .padding(.top, 32)
+                                .frame(maxWidth: .infinity)
+                        } else if loading {
+                            ProgressView()
+                                .padding(.top, 64)
+                                .frame(maxWidth: .infinity)
+                        } else if let results {
+                            searchResults(results)
+                        } else {
+                            if !lists.isEmpty { listStrip }
+                            BulletGrid(bullets: bullets)
+                                .padding(.top, 16)
+                                .padding(.bottom, 96)
+                        }
                     }
+                    .padding(.horizontal, 16)
                 }
-                .padding(.horizontal, 16)
+                .refreshable { await load() }
+
+                pasteFab
             }
-            .refreshable { await load() }
+            .navigationBarHidden(true)
+            .navigationDestination(for: API.List.self) { list in
+                ListDetailView(list: list)
+            }
         }
         .task { await load() }
+        // A save from the share sheet should be on screen when the user
+        // comes back — silent refresh, no spinner over existing content.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await load() } }
+        }
+        .sheet(isPresented: $showPasteSheet, onDismiss: { Task { await load() } }) {
+            PasteSaveSheet()
+                .presentationDetents([.medium])
+        }
     }
 
     private var header: some View {
@@ -57,39 +85,85 @@ struct HomeView: View {
         .padding(.top, 12)
     }
 
+    // The search pill — Cardo placeholder like the web's "Search my mind"
+    // moment, semantic under the hood (/api/search, bearer door).
+    private var searchPill: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13))
+                .foregroundStyle(Color.ink.opacity(0.35))
+            TextField("Search your bulletin…", text: $query)
+                .font(.cardo(15))
+                .autocorrectionDisabled()
+                .textInputAutocapitalization(.never)
+                .submitLabel(.search)
+                .onSubmit { Task { await search() } }
+            if searching {
+                ProgressView().controlSize(.small)
+            } else if results != nil || !query.isEmpty {
+                Button {
+                    query = ""
+                    results = nil
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(Color.ink.opacity(0.25))
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color.white, in: Capsule())
+        .overlay(Capsule().stroke(Color.black.opacity(0.08), lineWidth: 1))
+        .padding(.top, 16)
+    }
+
+    @ViewBuilder
+    private func searchResults(_ results: [API.Bullet]) -> some View {
+        if results.isEmpty {
+            Text("Nothing in your bulletin matches that.")
+                .font(.cardo(15))
+                .foregroundStyle(Color.ink.opacity(0.5))
+                .padding(.top, 40)
+                .frame(maxWidth: .infinity)
+        } else {
+            BulletGrid(bullets: results)
+                .padding(.top, 20)
+                .padding(.bottom, 96)
+        }
+    }
+
     private var listStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 ForEach(lists) { list in
-                    Text(list.name)
-                        .font(.mier(13))
-                        .foregroundStyle(Color.ink.opacity(0.7))
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 7)
-                        .background(Color.cardGrey, in: Capsule())
+                    NavigationLink(value: list) {
+                        Text(list.name)
+                            .font(.mier(13))
+                            .foregroundStyle(Color.ink.opacity(0.7))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Color.cardGrey, in: Capsule())
+                    }
                 }
             }
         }
-        .padding(.top, 20)
-    }
-
-    // Masonry, the web way: two independent columns split by index, each card
-    // at its image's natural aspect — no equal-height rows.
-    private var grid: some View {
-        HStack(alignment: .top, spacing: 14) {
-            masonryColumn(bullets.enumerated().filter { $0.offset % 2 == 0 }.map(\.element))
-            masonryColumn(bullets.enumerated().filter { $0.offset % 2 == 1 }.map(\.element))
-        }
         .padding(.top, 16)
-        .padding(.bottom, 40)
     }
 
-    private func masonryColumn(_ items: [API.Bullet]) -> some View {
-        LazyVStack(alignment: .leading, spacing: 22) {
-            ForEach(items) { bullet in
-                BulletCard(bullet: bullet)
-            }
+    // Paste-to-save — the mobile twin of the web's + quick paste bar.
+    private var pasteFab: some View {
+        Button {
+            showPasteSheet = true
+        } label: {
+            Image(systemName: "plus")
+                .font(.system(size: 22, weight: .medium))
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(Color.ink, in: Circle())
+                .shadow(color: .black.opacity(0.25), radius: 12, y: 5)
         }
+        .padding(.trailing, 20)
+        .padding(.bottom, 24)
     }
 
     private func load() async {
@@ -101,84 +175,21 @@ struct HomeView: View {
             lists = listsResponse.lists
             error = nil
         } catch {
-            self.error = error.localizedDescription
+            // Keep stale content on a background-refresh failure; only lead
+            // with the error when there's nothing to show instead.
+            if bullets.isEmpty { self.error = error.localizedDescription }
         }
         loading = false
     }
-}
 
-// PrimaryCard, ported by measurement: natural-aspect plate at 20px radius
-// with the hairline #EBEBEB border, muted sans title, Cardo list line with
-// the three-dot tick. Outbound clicks carry render-time bulletin utms.
-struct BulletCard: View {
-    let bullet: API.Bullet
-
-    // Natural image aspect, discovered on load; 4:3 stands in until then.
-    // Clamped so one extreme screenshot can't produce a skyscraper card.
-    @State private var aspect: CGFloat = 4.0 / 3.0
-    @State private var image: UIImage?
-
-    private var domain: String {
-        URL(string: bullet.url)?.host?.replacingOccurrences(of: "www.", with: "") ?? bullet.url
-    }
-
-    var body: some View {
-        Link(destination: withBulletinUtm(bullet.url) ?? Config.siteURL) {
-            VStack(alignment: .leading, spacing: 0) {
-                Color.clear
-                    .aspectRatio(aspect, contentMode: .fit)
-                    .overlay(
-                        Group {
-                            if let image {
-                                Image(uiImage: image).resizable().scaledToFill()
-                            } else {
-                                Color.cardGrey
-                            }
-                        }
-                    )
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color(red: 0xEB / 255, green: 0xEB / 255, blue: 0xEB / 255), lineWidth: 1)
-                    )
-
-                // PrimaryCard title voice: sans 14/400, +0.05em, black 56%.
-                Text(bullet.cardTitle)
-                    .font(.mier(14))
-                    .kerning(0.7)
-                    .foregroundStyle(Color.black.opacity(0.56))
-                    .lineLimit(1)
-                    .multilineTextAlignment(.leading)
-                    .padding(.top, 12)
-
-                // List line (Cardo + three-dot tick), domain when unfiled.
-                HStack(spacing: 7) {
-                    if bullet.listName != nil {
-                        VStack(spacing: 2) {
-                            ForEach(0..<3) { _ in
-                                Circle().frame(width: 2, height: 2)
-                            }
-                        }
-                        .opacity(0.6)
-                    }
-                    Text(bullet.listName ?? domain)
-                        .font(.cardo(14))
-                        .lineLimit(1)
-                }
-                .foregroundStyle(Color.ink.opacity(0.55))
-                .padding(.top, 5)
-            }
+    private func search() async {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else {
+            results = nil
+            return
         }
-        .task(id: bullet.cardImage) { await loadImage() }
-    }
-
-    private func loadImage() async {
-        guard image == nil,
-              let raw = bullet.cardImage, let url = URL(string: raw),
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let ui = UIImage(data: data), ui.size.height > 0
-        else { return }
-        image = ui
-        aspect = min(max(ui.size.width / ui.size.height, 0.66), 2.2)
+        searching = true
+        results = (try? await API.search(q)) ?? []
+        searching = false
     }
 }

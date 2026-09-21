@@ -6,10 +6,10 @@ import AuthenticationServices
 // chromiumapp redirect-URL gotcha): open the hosted Google flow, catch the
 // tokens on a custom-scheme redirect, refresh with the refresh token.
 //
-// Tokens live in App Group UserDefaults so the share extension can save
-// without its own sign-in. TODO before TestFlight: move to a shared-access
-// Keychain item — UserDefaults is fine for the simulator era, not for a
-// device in the wild.
+// Tokens live in the shared Keychain (KeychainStore, App Group as the
+// access group) so the share extension can save without its own sign-in.
+// Sessions written by pre-Keychain builds migrate from App Group
+// UserDefaults on first load, then the plaintext copy is destroyed.
 
 struct StoredSession: Codable {
     var accessToken: String
@@ -42,20 +42,30 @@ final class Session: NSObject, ObservableObject {
     func reloadFromDisk() { load() }
 
     private func load() {
-        // A fresh suite instance each read: cfprefsd can serve a stale cache
-        // on a long-lived instance when another process wrote the key.
+        if let data = KeychainStore.data(forKey: storageKey),
+           let session = try? JSONDecoder().decode(StoredSession.self, from: data) {
+            current = session
+            return
+        }
+        // Pre-Keychain builds kept the session in App Group UserDefaults —
+        // migrate it once and destroy the plaintext copy. (Fresh suite
+        // instance: cfprefsd can serve a stale cache cross-process.)
         let defaults = UserDefaults(suiteName: Config.appGroup) ?? self.defaults
-        guard let data = defaults.data(forKey: storageKey),
-              let session = try? JSONDecoder().decode(StoredSession.self, from: data)
-        else { return }
-        current = session
+        if let data = defaults.data(forKey: storageKey),
+           let session = try? JSONDecoder().decode(StoredSession.self, from: data) {
+            KeychainStore.set(data, forKey: storageKey)
+            defaults.removeObject(forKey: storageKey)
+            current = session
+        } else {
+            current = nil
+        }
     }
 
     private func persist(_ session: StoredSession?) {
         if let session, let data = try? JSONEncoder().encode(session) {
-            defaults.set(data, forKey: storageKey)
+            KeychainStore.set(data, forKey: storageKey)
         } else {
-            defaults.removeObject(forKey: storageKey)
+            KeychainStore.remove(forKey: storageKey)
         }
         current = session
     }

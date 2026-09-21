@@ -29,7 +29,7 @@ enum API {
         var listName: String? { lists?.first?.name }
     }
 
-    struct List: Decodable, Identifiable {
+    struct List: Decodable, Identifiable, Hashable {
         let id: String
         let name: String
         let slug: String
@@ -160,5 +160,33 @@ enum API {
         let page = try JSONDecoder().decode(FindsPage.self, from: data)
         Session.shared.noteUsername(page.username)
         return page
+    }
+
+    struct ListDetail: Decodable {
+        struct Meta: Decodable {
+            let id: String
+            let name: String
+            let slug: String
+            let description: String?
+        }
+        let list: Meta
+        let bullets: [Bullet]
+    }
+
+    static func listDetail(listId: String) async throws -> ListDetail {
+        let data = try await request("api/extension/lists",
+                                     query: [.init(name: "list_id", value: listId)])
+        return try JSONDecoder().decode(ListDetail.self, from: data)
+    }
+
+    struct SearchResults: Decodable {
+        // /api/search returns raw RPC rows — no display fields; the card
+        // falls back to title/image_url, which is fine for result cards.
+        let bookmarks: [Bullet]
+    }
+
+    static func search(_ query: String) async throws -> [Bullet] {
+        let data = try await request("api/search", method: "POST", body: ["query": query])
+        return try JSONDecoder().decode(SearchResults.self, from: data).bookmarks
     }
 }
