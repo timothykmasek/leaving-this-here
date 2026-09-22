@@ -108,10 +108,9 @@ export default async function ListPage({
 
   const owner = profile.display_name || profile.username
 
-  // The back link returns to the profile's LISTS tab specifically, which is why
-  // ProfileClient reads ?tab= — landing on Recent Bullets after leaving a list
-  // is the wrong place.
-  const backHref = `/${username}?tab=lists`
+  // Back to the profile — lists sit at the top of the page now (no tabs), so
+  // the plain profile URL lands you right on them.
+  const backHref = `/${username}`
 
   // Thumbs for the masthead's default cover band — the image each bullet's CARD
   // renders, via the same pickCardImage the cards use, so the band is built from

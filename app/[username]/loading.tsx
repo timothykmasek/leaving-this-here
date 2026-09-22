@@ -38,11 +38,24 @@ export default function Loading() {
           </div>
         </div>
 
-        {/* Tab strip — right-aligned, at the real pill's own metrics. */}
-        <div className="mb-6 flex items-center justify-end sm:mb-8">
-          <div className="h-[62px] w-full max-w-[371px] animate-pulse rounded-[20px] border border-[#EBEBEB] bg-black/[0.02]" />
+        {/* Lists section — heading bar, then a row of collection-card
+            shapes at the real grid's metrics. */}
+        <div className="mb-12 sm:mb-20">
+          <div className="mb-8 h-6 w-24 animate-pulse rounded bg-black/[0.06] sm:mb-16" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div
+                key={i}
+                className={`aspect-[295/393] w-full animate-pulse rounded-[20px] bg-black/[0.03] ${
+                  i >= 2 ? 'hidden sm:block' : ''
+                } ${i >= 3 ? 'sm:hidden lg:block' : ''}`}
+              />
+            ))}
+          </div>
         </div>
 
+        {/* Recent bullets section — heading bar, then the masonry. */}
+        <div className="mb-8 h-6 w-44 animate-pulse rounded bg-black/[0.06] sm:mb-16" />
         <MasonrySkeleton />
       </div>
     </main>

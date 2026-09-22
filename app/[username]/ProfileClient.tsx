@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { formatTimestampLabel } from '@/lib/timestampLabel'
 import { PrimaryCard } from '@/components/PrimaryCard'
@@ -144,11 +144,6 @@ export default function ProfileClient({
   }, [mobileSearchOpen])
   const [showAllLists, setShowAllLists] = useState(false)
   const [activeListId, setActiveListId] = useState<string | null>(null)
-  // Profile view tab — Recent bullets vs the Lists collection grid. Seeded from
-  // ?tab= so a list page's "All lists" back link can return you to the tab you
-  // actually came from; the tab stays client state after that (switching tabs
-  // doesn't push history — this is an entry point, not a route).
-  const searchParams = useSearchParams()
   // Owner only, and quietly: a failure here should cost nothing but the drawer.
   useEffect(() => {
     if (!isOwner) return
@@ -164,20 +159,16 @@ export default function ProfileClient({
     }
   }, [isOwner])
 
-  const [activeTab, setActiveTab] = useState<'recent' | 'lists'>(
-    searchParams?.get('tab') === 'lists' ? 'lists' : 'recent'
-  )
   // How many bullets the grid currently reveals (see renderBulletGrid). Grows as
   // the scroll sentinel appears; resets to one page whenever the visible set
-  // changes (search, tab switch, entering/leaving a list) so we never render a
-  // huge grid up front.
+  // changes (search, entering/leaving a list) so we never render a huge grid
+  // up front.
   const [visibleCount, setVisibleCount] = useState(RENDER_PAGE)
   useEffect(() => {
     setVisibleCount(RENDER_PAGE)
-    // Leave the dead-links drawer too. It renders instead of the grid, so
-    // switching to Recent Bullets while it is open would show neither.
+    // Leave the dead-links drawer too — it renders instead of the sections.
     setReviewingDead(false)
-  }, [query, activeTab, activeListId])
+  }, [query, activeListId])
   // Debounce timer for the search — one request per pause, not per keystroke
   // (the embedding API is rate-limited, so per-keystroke calls 429 instantly).
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -1000,19 +991,18 @@ export default function ProfileClient({
 
         </div>
 
-        {/* Controls — main feed only; hidden inside a list. Tabs sit on the
-            right in both views (consistent position). Owner also gets the search
-            on the left (justify-between); visitor has tabs alone (justify-end). */}
+        {/* Controls — main feed only; hidden inside a list. Tabs are gone:
+            Lists and Recent Bullets stack as sections below, so this row is
+            just the owner's search (visitors get no row at all). */}
         {/* Install nudge — sits right above the toolbar row. Only when
             detection is SURE the extension is missing, and not while the save
             panel (which carries its own extension pitch) is open. */}
         {isOwner && !saveOpen && !activeList && (
           <ExtensionNudge extInstalled={extInstalled} />
         )}
-        {!activeList && (
-          <div className={`mb-6 flex items-center gap-4 sm:mb-8 ${isOwner ? 'justify-between' : 'justify-end'}`}>
-            {isOwner && (
-              <input
+        {!activeList && isOwner && (
+          <div className="hidden sm:block sm:mb-8">
+            <input
                 type="search"
                 value={query}
                 placeholder="Search"
@@ -1027,73 +1017,9 @@ export default function ProfileClient({
                 onChange={(e) => handleSearchInput(e.target.value)}
                 // Figma: 359x62, 1px #BCBCBC, radius 20, Mier A 600 14/20 #000,
                 // 20px inset. Desktop-only (hidden sm:block) — on phones search
-                // lives in the header glass + drop-in bar instead, and the tab
-                // pill gets this row to itself.
-                // min-w-0 lets the input actually compress when the row is
-                // tight (an input's intrinsic min-width otherwise wins and
-                // shoves the tab strip off the container's right edge).
+                // lives in the header glass + drop-in bar instead.
                 className="hidden h-[62px] w-full min-w-0 max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-white px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40 sm:block"
               />
-            )}
-
-            {/* View tabs — Figma Group 100667: a single 371x62 container,
-                1px #EBEBEB, radius 20, 5px padding; the SELECTED segment is a
-                52px-tall #F3F3F3 pill at radius 15 — outer radius minus the
-                5px inset, so the two curves run concentric instead of the
-                inner one out-rounding the frame. (Was two separate #f3f3f3
-                blocks with corner registration dots.)
-
-                Each tab carries its own glyph rather than the dots marking
-                selection: a filled dot for Recent Bullets, and for Lists the
-                same three-dot tick used on a card's list line. Hidden while
-                searching. */}
-            {!query.trim() && (
-              // Explicit max-w on this wrapper, not min-w-0: the tab strip
-              // sizes itself with w-full, which inside a content-sized wrapper
-              // is circular and collapses the strip to min-content.
-              <div className="flex w-full items-center gap-4 max-w-[371px] shrink justify-end sm:shrink-0">
-              <div className="relative flex h-[62px] w-full max-w-[371px] shrink items-center rounded-[20px] border border-[#EBEBEB] bg-white p-[5px] sm:shrink-0">
-                {/* One pill that slides, rather than a background toggling on
-                    each segment. The strip carries 5px of padding, so a segment
-                    is calc(50% - 5px) — which is also the pill's own width,
-                    hence translateX(100%) lands it exactly on segment two
-                    (verified: 975px, the Lists segment's left edge).
-
-                    Easing matches .card-lift's. */}
-                <span
-                  aria-hidden
-                  className="absolute left-[5px] top-[5px] h-[52px] w-[calc(50%-5px)] rounded-[15px] bg-[#F3F3F3] transition-transform duration-[280ms] ease-[cubic-bezier(0.22,0.61,0.36,1)] motion-reduce:transition-none"
-                  style={{ transform: activeTab === 'lists' ? 'translateX(100%)' : 'translateX(0)' }}
-                />
-                {([['recent', 'Recent Bullets'], ['lists', 'Lists']] as const).map(([tab, label]) => {
-                  const on = activeTab === tab
-                  return (
-                    <button
-                      key={tab}
-                      onClick={() => setActiveTab(tab)}
-                      className={`relative z-10 flex h-[52px] min-w-0 flex-1 items-center justify-center gap-[7px] rounded-[15px] font-sans text-[14px] font-[600] leading-5 transition-colors ${
-                        on ? 'text-ink' : 'text-black/30 hover:text-black/50'
-                      }`}
-                    >
-                      {tab === 'recent' ? (
-                        // Flex centers the dot on the line box, but the label's
-                        // visual middle is its cap height, a hair above that —
-                        // the nudge centers the dot on the R, not the box.
-                        <span aria-hidden className="h-[7px] w-[7px] shrink-0 -translate-y-[1px] rounded-full bg-current" />
-                      ) : (
-                        <span aria-hidden className="flex shrink-0 flex-col items-center justify-center gap-[2px]">
-                          <span className="h-[2px] w-[2px] rounded-full bg-current" />
-                          <span className="h-[2px] w-[2px] rounded-full bg-current" />
-                          <span className="h-[2px] w-[2px] rounded-full bg-current" />
-                        </span>
-                      )}
-                      <span className="truncate">{label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -1139,23 +1065,23 @@ export default function ProfileClient({
           </>
         )}
 
-        {/* ── Home: RECENT BULLETS grid or LISTS collection grid (tab-gated) ── */}
+        {/* ── Home: LISTS section stacked above RECENT BULLETS (tabs are
+            gone — Figma 1049:80264). Each section carries a Headline/Large
+            heading (Mier A 600 20/24): "Your …" to the owner, "Their …" to a
+            visitor. A visitor with no lists gets no Lists section at all —
+            a heading over an empty state advertises an absence. ── */}
         {!activeList && !query.trim() && !reviewingDead && (
-          activeTab === 'recent' ? (
-            bookmarks.length > 0 ? (
-              renderBulletGrid(filtered)
-            ) : (
-              <div className="py-16 text-center">
-                <p className="label text-black/40">No bullets yet</p>
-              </div>
-            )
-          ) : (
-            (isOwner || lists.length > 0) ? (
-              // Equal columns that fill the width at every breakpoint — a fixed-
-              // width auto-fill grid left-packed the cards and left a big empty
-              // gap on the right at mid-wide viewports. One gap value both
-              // ways, so rows and columns read as the same grid.
-              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
+          <>
+          {(isOwner || lists.length > 0) && (
+          <section className="mb-12 sm:mb-20">
+            <h2 className="mb-8 font-sans text-[20px] font-[600] leading-[24px] text-ink sm:mb-16">
+              {isOwner ? 'Your Lists' : 'Their Lists'}
+            </h2>
+            {/* Equal columns that fill the width at every breakpoint — a fixed-
+                width auto-fill grid left-packed the cards and left a big empty
+                gap on the right at mid-wide viewports. One gap value both
+                ways, so rows and columns read as the same grid. */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
                 {/* owner: a card-shaped "New list" affordance (also the empty state) */}
                 {isOwner && (
                   creatingList ? (
@@ -1222,29 +1148,47 @@ export default function ProfileClient({
                       : { onClick: () => setActiveListId(l.id) })}
                   />
                 ))}
-              </div>
+            </div>
+
+            {/* Dead links — a line under the lists, not a card among them:
+                a card claims a slot in the grid's rhythm and reads as a
+                collection you might open for pleasure. This only appears
+                where you are already looking at how your links are
+                organised — and only when there is something to say. */}
+            {isOwner && !!deadBullets?.length && (
+              <button
+                onClick={() => setReviewingDead(true)}
+                className="label mt-10 text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"
+              >
+                {deadBullets.length} {deadBullets.length === 1 ? 'link looks' : 'links look'} dead &middot; review
+              </button>
+            )}
+          </section>
+          )}
+
+          <section>
+            <h2 className="mb-8 font-sans text-[20px] font-[600] leading-[24px] text-ink sm:mb-16">
+              {isOwner ? 'Your Recent Bullets' : 'Their Recent Bullets'}
+            </h2>
+            {bookmarks.length > 0 ? (
+              renderBulletGrid(filtered)
             ) : (
               <div className="py-16 text-center">
-                <p className="label text-black/40">No lists yet</p>
+                <p className="label text-black/40">No bullets yet</p>
               </div>
-            )
-          )
+            )}
+          </section>
+          </>
         )}
 
-        {/* ── Dead links ──────────────────────────────────────────────────
-            A line under the lists, not a card among them and not a count on
-            the tab row: a card claims a slot in the grid's rhythm and reads
-            as a collection you might open for pleasure, and a count on the
-            tab row follows you around whether or not you are tidying. This
-            only appears where you are already looking at how your links are
-            organised — and only when there is something to say.
+        {/* ── Dead links review drawer — replaces both sections while open
+            (entered from the line under the lists grid).
 
             "Confirmed gone" means two failed sweeps on separate days. A 403
             never counts: across Tim's whole library the sweeper found 46 of
             those against 33 genuine 404s, so a checker that treated them the
             same would invite you to delete more live links than dead ones. */}
-        {!activeList && !query.trim() && activeTab === 'lists' && isOwner && !!deadBullets?.length && (
-          reviewingDead ? (
+        {!activeList && !query.trim() && reviewingDead && isOwner && !!deadBullets?.length && (
             <div>
               <button
                 onClick={() => setReviewingDead(false)}
@@ -1290,14 +1234,6 @@ export default function ProfileClient({
                 ))}
               </Masonry>
             </div>
-          ) : (
-            <button
-              onClick={() => setReviewingDead(true)}
-              className="label mt-10 text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"
-            >
-              {deadBullets.length} {deadBullets.length === 1 ? 'link looks' : 'links look'} dead &middot; review
-            </button>
-          )
         )}
 
         {/* ── List detail ── */}
