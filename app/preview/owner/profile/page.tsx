@@ -7,6 +7,7 @@
 // Safe to delete.
 
 import { Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import ProfileClient from '@/app/[username]/ProfileClient'
 
 const OWNER_ID = 'preview-owner'
@@ -73,17 +74,26 @@ const LISTS = [
   },
 ]
 
+// ?empty=1 renders the fresh-account state: no bullets, no lists — the
+// onboarding surface (Create New List card, save panel empty copy).
+function Preview() {
+  const empty = useSearchParams()?.get('empty') === '1'
+  return (
+    <ProfileClient
+      username="tim"
+      initialProfile={PROFILE}
+      initialBookmarks={empty ? [] : BULLETS}
+      initialLists={empty ? [] : LISTS}
+      currentUserId={OWNER_ID}
+      mightHaveMore={false}
+    />
+  )
+}
+
 export default function OwnerProfilePreview() {
   return (
     <Suspense>
-      <ProfileClient
-        username="tim"
-        initialProfile={PROFILE}
-        initialBookmarks={BULLETS}
-        initialLists={LISTS}
-        currentUserId={OWNER_ID}
-        mightHaveMore={false}
-      />
+      <Preview />
     </Suspense>
   )
 }
