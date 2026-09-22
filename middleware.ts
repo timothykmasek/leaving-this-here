@@ -23,6 +23,17 @@ export async function middleware(request: NextRequest) {
     request.headers.get('purpose') === 'prefetch'
   if (isPrefetch) return response
 
+  // No session cookie, no auth call. getUser() below is a network round trip
+  // to Supabase Auth (Tokyo) on EVERY page request, and for a signed-out
+  // reader — anyone arriving from a shared list link — there is nothing to
+  // validate or refresh. Supabase's cookies are named `sb-<ref>-auth-token`
+  // (chunked as `.0`, `.1`, … when long); if none is present the visitor is
+  // anonymous and the page renders as such. Signed-in traffic is unchanged.
+  const hasSession = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith('sb-') && c.name.includes('-auth-token'))
+  if (!hasSession) return response
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
