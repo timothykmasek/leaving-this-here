@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next'
 import { serif, sans } from './fonts'
 import { Header } from '@/components/Header'
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from '@/lib/meta'
-import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 
 export const viewport: Viewport = {
@@ -46,10 +45,6 @@ export default function RootLayout({
       <body className="dot-ground text-ink">
         <Header />
         {children}
-        {/* Real-visitor timings per route in Vercel's Speed Insights tab —
-            the baseline for the speed work (2026-09-22). One tiny script;
-            nothing on the page changes. */}
-        <SpeedInsights />
       </body>
     </html>
   )
