@@ -17,12 +17,13 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { ListMasthead } from '@/components/ListMasthead'
 import { SuggestionShelf, forgetSuggestion } from '@/components/SuggestionShelf'
-import { ImportFab } from '@/components/ImportFab'
+import { ImportFab, type ImportFabHandle } from '@/components/ImportFab'
+import { CreateListCard } from '@/components/CreateListCard'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SiteFooter } from '@/components/SiteFooter'
 import { Masonry } from '@/components/Masonry'
@@ -183,6 +184,20 @@ const OWNER_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 export default function OwnerPreview() {
   const [opened, setOpened] = useState<string | null>(null)
+  // The dock and the lists it can publish to — fixtures, minted in memory so
+  // the Create New List flow can be walked end to end without a database.
+  const fabRef = useRef<ImportFabHandle>(null)
+  const [fixtureLists, setFixtureLists] = useState([
+    { id: 'l1', name: 'VCs / Investors' },
+    { id: 'l2', name: 'Agencies & Studios' },
+    { id: 'l3', name: 'Green Energy' },
+  ])
+  const mintList = async (name: string) => {
+    await new Promise((r) => setTimeout(r, 600))
+    const id = `fixture-${Date.now()}`
+    setFixtureLists((prev) => [...prev, { id, name }])
+    return id
+  }
 
   return (
     <main className="mx-auto max-w-[1100px] px-6 pb-40 pt-16">
@@ -291,6 +306,16 @@ export default function OwnerPreview() {
       </Section>
 
       <Section
+        title="Create New List — a door into the dock"
+        note="The card used to turn into a form (an input with Create and Cancel inside the plate) and then drop you into the empty list it had made. Now it opens the dock at the name step; Enter creates the list and stacks the two doors under a Created shelf, with the new list pre-picked in the publish picker. The picker itself grows a + New list row at its foot, like the extension's, so upload-first works too. Left: a list with nothing in it yet — the + sits on the strip's midline, not the plate's centre."
+      >
+        <div className="grid grid-cols-2 gap-x-[40px] gap-y-[40px] sm:grid-cols-3 lg:grid-cols-4">
+          <CollectionCard name="Empty list" count={0} thumbs={[]} />
+          <CreateListCard onClick={() => fabRef.current?.newList()} />
+        </div>
+      </Section>
+
+      <Section
         title="Dead links — where the count lives, and what it opens"
         note="A line under the LISTS grid, and behind it the cards with nothing on them but the question — per Tim. A count on the tab row would have followed you across both tabs whether or not you were tidying; this only appears where you are already looking at how your links are organised. A line rather than a card, even an outlined one: a card claims a slot in the grid\'s rhythm and reads as a collection you might open for pleasure, and this is a maintenance door — findable, otherwise invisible. Owner-only, and absent entirely when nothing is dead."
       >
@@ -306,7 +331,7 @@ export default function OwnerPreview() {
         </p>
       </Section>
 
-      <ImportFab widthClassName={OWNER_GRID} />
+      <ImportFab ref={fabRef} widthClassName={OWNER_GRID} lists={fixtureLists} onCreateList={mintList} />
       <SiteFooter reveal revealed widthClassName={OWNER_GRID} />
     </main>
   )

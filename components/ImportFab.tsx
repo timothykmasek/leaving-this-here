@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 // The owner's persistent "add a link" dock — a frosted + tile bottom-right
@@ -14,6 +14,15 @@ import { createClient } from '@/lib/supabase/client'
 //   Bulk Import →  file dialog (Upload CSV)  →  [ Uploaded · file.csv ]
 //                                                  [ (list picker panel) ]
 //                                                  [ Publish to these lists ⌄ ]
+//   New list    →  [ Name your list | ]         →  [ Created · Name ]
+//   (from the profile's Create New List card)      [ Add Bullet +  ]
+//                                                  [ Bulk Import   ]
+//                                                  …then either door as usual,
+//                                                  with the new list pre-picked.
+//
+// The list picker can also mint a list on the spot ("+ New list" at its foot),
+// the way the extension's can — so the reverse door works too: upload first,
+// then name the list it goes into.
 //
 // Both flows converge on the same list picker: 18px rings, filled dot when
 // selected, multi-select. The single-link flow saves first and applies list
@@ -127,27 +136,48 @@ type Flow =
   | { kind: 'bulk'; fileName: string; urls: string[] }
   | { kind: 'bulk-running'; fileName: string; urls: string[]; done: number }
   | { kind: 'bulk-done'; saved: number; skipped: number; failed: number }
+  // New list: the name input, then the created shelf over the two doors.
+  | { kind: 'name'; busy: boolean; message: string | null }
+  | { kind: 'created' }
 
-export function ImportFab({
-  widthClassName = 'max-w-[1720px] px-4 sm:px-10',
-  // The owner's lists, for the "Publish to these lists" picker.
-  lists = [],
-  // Called after links land, so the feed refreshes without a reload.
-  onSaved,
-  // Called after list membership changes, so list counts refresh.
-  onListsChanged,
-}: {
-  widthClassName?: string
-  lists?: { id: string; name: string }[]
-  onSaved?: () => void
-  onListsChanged?: () => void
-}) {
+// What the profile's Create New List card calls: open the dock straight into
+// the name step.
+export type ImportFabHandle = { newList: () => void }
+
+export const ImportFab = forwardRef<
+  ImportFabHandle,
+  {
+    widthClassName?: string
+    lists?: { id: string; name: string }[]
+    onSaved?: () => void
+    onListsChanged?: () => void
+    onCreateList?: (name: string) => Promise<string | null>
+  }
+>(function ImportFab(
+  {
+    widthClassName = 'max-w-[1720px] px-4 sm:px-10',
+    // The owner's lists, for the "Publish to these lists" picker.
+    lists = [],
+    // Called after links land, so the feed refreshes without a reload.
+    onSaved,
+    // Called after list membership changes, so list counts refresh.
+    onListsChanged,
+    // Mints a list (slug, description) and resolves its id, or null. Owned by
+    // the profile because the lists state lives there; without it the dock
+    // simply has no new-list affordances.
+    onCreateList,
+  },
+  ref,
+) {
   const supabase = createClient()
   const [open, setOpen] = useState(false)
   const [flow, setFlow] = useState<Flow>({ kind: 'menu' })
   const [value, setValue] = useState('')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // The list this session was born to fill (Create New List → name → here).
+  // Pre-picked in every picker until the dock folds.
+  const [preset, setPreset] = useState<{ id: string; name: string } | null>(null)
   const inputRef = useRef<HTMLInputElement | null>(null)
   const fileRef = useRef<HTMLInputElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -156,8 +186,19 @@ export function ImportFab({
   const running = flow.kind === 'bulk-running'
 
   useEffect(() => {
-    if (open && flow.kind === 'paste') inputRef.current?.focus({ preventScroll: true })
+    if (open && (flow.kind === 'paste' || flow.kind === 'name')) inputRef.current?.focus({ preventScroll: true })
   }, [open, flow.kind])
+
+  useImperativeHandle(ref, () => ({
+    newList() {
+      setOpen(true)
+      setFlow({ kind: 'name', busy: false, message: null })
+      setValue('')
+      setPickerOpen(false)
+      setSelected(new Set())
+      setPreset(null)
+    },
+  }), [])
 
   useEffect(() => () => { if (messageTimer.current) clearTimeout(messageTimer.current) }, [])
 
@@ -167,6 +208,7 @@ export function ImportFab({
     setValue('')
     setPickerOpen(false)
     setSelected(new Set())
+    setPreset(null)
     if (messageTimer.current) clearTimeout(messageTimer.current)
   }
 
@@ -221,8 +263,15 @@ export function ImportFab({
         onSaved?.()
         // Saved → the pill becomes the list-publish step (mock state F).
         setFlow({ kind: 'published', bulletId: body.id })
-        setSelected(new Set())
         setPickerOpen(false)
+        if (preset) {
+          // Born from Create New List: file it there straight away.
+          setSelected(new Set([preset.id]))
+          await supabase.from('list_bookmarks').insert({ list_id: preset.id, bookmark_id: body.id })
+          onListsChanged?.()
+        } else {
+          setSelected(new Set())
+        }
       } else if (res.ok && body.skipped) {
         setValue('')
         settleMessage('Already on your Bulletin')
@@ -255,7 +304,7 @@ export function ImportFab({
     reader.onload = () => {
       const urls = extractUrls(String(reader.result || ''))
       setFlow({ kind: 'bulk', fileName: file.name, urls })
-      setSelected(new Set())
+      setSelected(preset ? new Set([preset.id]) : new Set())
       setPickerOpen(false)
     }
     reader.readAsText(file)
@@ -308,6 +357,30 @@ export function ImportFab({
     })
   }
 
+  // ── New list ──────────────────────────────────────────────────────────────
+  const submitName = async (raw: string) => {
+    if (flow.kind !== 'name' || flow.busy || !onCreateList) return
+    const name = raw.trim()
+    if (!name) return
+    setFlow({ kind: 'name', busy: true, message: null })
+    let id: string | null = null
+    try { id = await onCreateList(name) } catch { id = null }
+    if (!id) {
+      setFlow({ kind: 'name', busy: false, message: 'That list didn’t take' })
+      if (messageTimer.current) clearTimeout(messageTimer.current)
+      messageTimer.current = setTimeout(() => {
+        setFlow((f) => (f.kind === 'name' ? { kind: 'name', busy: false, message: null } : f))
+        inputRef.current?.focus({ preventScroll: true })
+      }, MESSAGE_MS)
+      return
+    }
+    setValue('')
+    setPreset({ id, name })
+    setSelected(new Set([id]))
+    setPickerOpen(false)
+    setFlow({ kind: 'created' })
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="pointer-events-none fixed inset-x-0 z-40" style={{ bottom: FOOTER_CLEARANCE }}>
@@ -337,21 +410,81 @@ export function ImportFab({
                 <span aria-hidden className="absolute right-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full" style={{ background: GLYPH }} />
               </Pill>
             )}
-            {(flow.kind === 'menu' || flow.kind === 'paste' || flow.kind === 'published') && (
+            {(flow.kind === 'menu' || flow.kind === 'paste' || flow.kind === 'published' || flow.kind === 'name' || flow.kind === 'created') && (
               <div className="flex min-w-0 flex-1 flex-col items-stretch sm:flex-none">
                 {flow.kind === 'published' && (
                   <>
                     <Row top>
-                      <span className={`${ROW_TEXT} text-ink`}>Saved!</span>
+                      <span className={`${ROW_TEXT} min-w-0 truncate text-ink`}>
+                        Saved!
+                        {preset && <span className="text-black/30"> · in {preset.name}</span>}
+                      </span>
                     </Row>
                     {pickerOpen && (
                       <ListPanel
                         lists={lists}
                         selected={selected}
                         onToggle={(id) => toggleListForBullet(id, flow.bulletId)}
+                        onCreate={onCreateList}
                       />
                     )}
                   </>
+                )}
+                {/* The name step — the paste input's twin, asking for words
+                    instead of a link. Enter creates; Escape folds the dock. */}
+                {flow.kind === 'name' && (
+                  <div className="relative h-[60px] w-full overflow-hidden rounded-[10px] sm:w-[300px]" style={FROST_STYLE}>
+                    {flow.message ? (
+                      <span className={`flex h-full items-center px-5 ${PILL_LABEL} text-black/60`}>
+                        {flow.message}
+                      </span>
+                    ) : (
+                      <input
+                        ref={inputRef}
+                        type="text"
+                        value={value}
+                        disabled={flow.busy}
+                        placeholder="Name your list"
+                        autoComplete="off"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        enterKeyHint="done"
+                        aria-label="Name the new list"
+                        data-1p-ignore
+                        data-lpignore="true"
+                        onChange={(e) => setValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') submitName(value) }}
+                        className={`h-full w-full bg-transparent px-5 font-serif text-[16px] tracking-[-0.02em] text-ink outline-none placeholder:text-black/40 sm:text-[14px] ${
+                          flow.busy ? 'animate-pulse text-black/40' : ''
+                        }`}
+                      />
+                    )}
+                  </div>
+                )}
+                {/* Created: the shelf, then the two doors stacked beneath it.
+                    Either one runs the ordinary flow with the new list
+                    already picked; folding the dock here is fine too — the
+                    list exists and its card is already in the grid. */}
+                {flow.kind === 'created' && preset && (
+                  <div className="flex w-full flex-col sm:w-[300px]">
+                    <Row top>
+                      <span className={`${ROW_TEXT} min-w-0 truncate text-ink`}>
+                        Created<span className="text-black/30"> · {preset.name}</span>
+                      </span>
+                    </Row>
+                    <StackedAction onClick={() => { setFlow({ kind: 'paste', busy: false, message: null }); setPickerOpen(false) }}>
+                      <span className={PILL_LABEL}>Add Bullet +</span>
+                      <span aria-hidden className="absolute right-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full" style={{ background: GLYPH }} />
+                    </StackedAction>
+                    <StackedAction last onClick={() => fileRef.current?.click()}>
+                      <span className={PILL_LABEL}>Bulk Import</span>
+                      <span aria-hidden className="absolute right-5 top-1/2 flex -translate-y-1/2 items-center gap-[6px]">
+                        {[0, 1, 2].map((i) => (
+                          <span key={i} className="h-1 w-1 rounded-full" style={{ background: GLYPH }} />
+                        ))}
+                      </span>
+                    </StackedAction>
+                  </div>
                 )}
                 {flow.kind === 'menu' && (
                   <Pill onClick={() => setFlow({ kind: 'paste', busy: false, message: null })} className="w-full sm:w-[200px]">
@@ -411,8 +544,10 @@ export function ImportFab({
               </div>
             )}
 
-            {/* ── Right slot: Bulk Import → Uploaded/picker/publish ── */}
-            {flow.kind === 'menu' || flow.kind === 'paste' || flow.kind === 'published' ? (
+            {/* ── Right slot: Bulk Import → Uploaded/picker/publish. Absent
+                while a list is being named or has just been created — the
+                doors live inside that column until one is chosen. ── */}
+            {flow.kind === 'name' || flow.kind === 'created' ? null : flow.kind === 'menu' || flow.kind === 'paste' || flow.kind === 'published' ? (
               <Pill
                 onClick={() => fileRef.current?.click()}
                 className="w-full min-w-0 flex-1 sm:w-[200px] sm:flex-none"
@@ -454,7 +589,7 @@ export function ImportFab({
                       </span>
                     </Row>
                     {pickerOpen && (
-                      <ListPanel lists={lists} selected={selected} onToggle={toggleStaged} />
+                      <ListPanel lists={lists} selected={selected} onToggle={toggleStaged} onCreate={onCreateList} />
                     )}
                     <PublishPill
                       stacked
@@ -516,7 +651,7 @@ export function ImportFab({
       />
     </div>
   )
-}
+})
 
 // A 60px frosted pill (radius 10): label left at the 20px inset (Figma's
 // `calc(50% - w/2 + 281px)` resolves to x=910 on a pill at 890 — inset, not
@@ -600,6 +735,31 @@ function PublishPill({
   )
 }
 
+// A 60px action row under a shelf: the stacked pill's opaque plate, squared
+// where it meets its neighbours, rounded only at the stack's foot, with a
+// hairline between siblings so two plates read as two rows.
+function StackedAction({
+  children,
+  onClick,
+  last,
+}: {
+  children: React.ReactNode
+  onClick: () => void
+  last?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`relative flex h-[60px] items-center justify-start px-5 text-left ${
+        last ? 'rounded-b-[10px] border-t border-black/[0.06]' : ''
+      }`}
+      style={STACKED_STYLE}
+    >
+      {children}
+    </button>
+  )
+}
+
 // A solid-white 60px row (the Uploaded / Saved! shelf above a pill).
 function Row({ top, children }: { top?: boolean; children: React.ReactNode }) {
   return (
@@ -615,18 +775,38 @@ function Row({ top, children }: { top?: boolean; children: React.ReactNode }) {
 
 // The list picker — white panel, one row per list, 18px ring on the right
 // (filled dot = selected). Multi-select; capped and scrollable past ~4 rows.
+// With `onCreate`, a "+ New list" row at the foot mints one in place (the
+// extension's picker does the same) and hands its id back through onToggle,
+// so it lands selected in whichever flow opened the panel.
 function ListPanel({
   lists,
   selected,
   onToggle,
+  onCreate,
 }: {
   lists: { id: string; name: string }[]
   selected: Set<string>
   onToggle: (id: string) => void
+  onCreate?: (name: string) => Promise<string | null>
 }) {
+  const [creating, setCreating] = useState(false)
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const submit = async () => {
+    const clean = name.trim()
+    if (!clean || !onCreate || busy) return
+    setBusy(true)
+    let id: string | null = null
+    try { id = await onCreate(clean) } catch { id = null }
+    setBusy(false)
+    if (!id) return
+    setName('')
+    setCreating(false)
+    onToggle(id)
+  }
   return (
     <div className="max-h-[174px] overflow-y-auto border-x border-[#E0E0E0] bg-white">
-      {lists.length === 0 ? (
+      {lists.length === 0 && !onCreate ? (
         <p className={`px-5 py-4 font-sans text-[12px] font-[400] leading-4 tracking-[0.05em] text-black/30`}>
           No lists yet
         </p>
@@ -653,6 +833,36 @@ function ListPanel({
             </button>
           )
         })
+      )}
+      {onCreate && (
+        creating ? (
+          <div className={`flex items-center px-5 py-[13px] ${lists.length > 0 ? 'border-t border-black/[0.06]' : ''}`}>
+            <input
+              autoFocus
+              value={name}
+              disabled={busy}
+              placeholder="New list name"
+              autoComplete="off"
+              spellCheck={false}
+              enterKeyHint="done"
+              aria-label="Name the new list"
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') submit()
+                // Escape backs out of the row, not the dock.
+                else if (e.key === 'Escape') { e.stopPropagation(); setCreating(false); setName('') }
+              }}
+              className={`${ROW_TEXT} w-full bg-transparent text-ink outline-none placeholder:text-black/30 ${busy ? 'animate-pulse text-black/40' : ''}`}
+            />
+          </div>
+        ) : (
+          <button
+            onClick={() => setCreating(true)}
+            className={`flex w-full items-center px-5 py-[13px] text-left transition-colors hover:bg-black/[0.02] ${lists.length > 0 ? 'border-t border-black/[0.06]' : ''}`}
+          >
+            <span className={`${ROW_TEXT} text-black/40`}>+ New list</span>
+          </button>
+        )
       )}
     </div>
   )

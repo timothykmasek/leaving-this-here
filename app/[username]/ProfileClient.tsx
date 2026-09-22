@@ -17,7 +17,8 @@ import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { ExtensionNudge } from '@/components/ExtensionNudge'
 import { PreviewBanner } from '@/components/PreviewBanner'
-import { ImportFab } from '@/components/ImportFab'
+import { ImportFab, type ImportFabHandle } from '@/components/ImportFab'
+import { CreateListCard } from '@/components/CreateListCard'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useRevealFooter } from '@/lib/useRevealFooter'
@@ -164,13 +165,11 @@ export default function ProfileClient({
   // scroll-up (or at the true end of the feed). The floating search pill lifts
   // to clear it — see the pill render below.
   const footerRevealed = useRevealFooter(true)
-  const [newListName, setNewListName] = useState('')
-  const [creatingList, setCreatingList] = useState(false)
+  // The dock, so the Create New List card can open it at the name step.
+  const fabRef = useRef<ImportFabHandle>(null)
   // List-detail rename + share affordances.
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
-  const [editingDesc, setEditingDesc] = useState(false)
-  const [descValue, setDescValue] = useState('')
   // Extension install nudge — dismissible, persisted so we only ask once.
   const [extNudgeDismissed, setExtNudgeDismissed] = useState(true)
   useEffect(() => {
@@ -489,7 +488,7 @@ export default function ProfileClient({
     try {
       const { data, error } = await supabase
         .from('lists')
-        .select('id, name, slug, description, created_at, list_bookmarks(bookmark_id)')
+        .select('id, name, slug, created_at, list_bookmarks(bookmark_id)')
         .eq('user_id', uid)
         .order('created_at', { ascending: false })
       if (!error) return shape(data)
@@ -498,7 +497,7 @@ export default function ProfileClient({
       if (/slug/i.test(error.message || '')) {
         const fallback = await supabase
           .from('lists')
-          .select('id, name, description, created_at, list_bookmarks(bookmark_id)')
+          .select('id, name, created_at, list_bookmarks(bookmark_id)')
           .eq('user_id', uid)
           .order('created_at', { ascending: false })
         if (!fallback.error) return shape(fallback.data)
@@ -516,30 +515,19 @@ export default function ProfileClient({
     // after creation so the published /username/<slug> URL never breaks.
     const slug = uniqueSlug(clean, lists.map((l) => l.slug).filter(Boolean))
 
-    // Generate description from bio + list name (fire-and-forget; populate inline after insert)
-    let description: string | null = null
-    try {
-      const genRes = await fetch('/api/generate-list-description', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bio: profile.bio || '', listName: clean }),
-      })
-      const genData = await genRes.json()
-      description = genData.description
-    } catch {
-      // Generation failed; just proceed without description
-    }
-
+    // No description. A Haiku sentence used to be minted here before the
+    // insert (a blocking round trip on every create) and nothing displays it:
+    // the masthead dropped descriptions from the page. Removed 2026-09-22.
     let { data: list, error } = await supabase
       .from('lists')
-      .insert({ user_id: profile.id, name: clean, slug, description })
+      .insert({ user_id: profile.id, name: clean, slug })
       .select('id')
       .single()
     if (error && /slug/i.test(error.message || '')) {
       // Migration 009 not applied yet — fall back to a slugless insert.
       const retry = await supabase
         .from('lists')
-        .insert({ user_id: profile.id, name: clean, description })
+        .insert({ user_id: profile.id, name: clean })
         .select('id')
         .single()
       list = retry.data
@@ -591,14 +579,6 @@ export default function ProfileClient({
     if (!clean) return
     await supabase.from('lists').update({ name: clean }).eq('id', listId)
     setLists((prev) => prev.map((l) => (l.id === listId ? { ...l, name: clean } : l)))
-  }
-
-  const handleUpdateDescription = async (listId: string, description: string) => {
-    const clean = description.trim()
-    await supabase.from('lists').update({ description: clean || null }).eq('id', listId)
-    setLists((prev) =>
-      prev.map((l) => (l.id === listId ? { ...l, description: clean || null } : l))
-    )
   }
 
   // Lists render biggest-first — the fullest lists are the ones worth surfacing.
@@ -761,7 +741,7 @@ export default function ProfileClient({
               data-1p-ignore
               data-lpignore="true"
               onChange={(e) => handleSearchInput(e.target.value)}
-              className="h-[56px] w-full rounded-[20px] border border-[#BCBCBC] bg-white pl-5 pr-12 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40"
+              className="h-[56px] w-full rounded-[12px] border border-[#BCBCBC]/70 bg-white pl-5 pr-12 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40"
             />
             <button
               onClick={closeMobileSearch}
@@ -977,9 +957,12 @@ export default function ProfileClient({
                 data-lpignore="true"
                 onChange={(e) => handleSearchInput(e.target.value)}
                 // Figma: 359x62, 1px #BCBCBC, radius 20, Mier A 600 14/20 #000,
-                // 20px inset. Desktop-only (hidden sm:block) — on phones search
-                // lives in the header glass + drop-in bar instead.
-                className="hidden h-[62px] w-full min-w-0 max-w-[359px] rounded-[20px] border border-[#BCBCBC] bg-white px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40 sm:block"
+                // 20px inset. Eased on Tim's call (2026-09-22): the line at
+                // 70% so it sits behind the cards' plates rather than in front
+                // of them, and radius 12 — 20 read as a pill, not a field.
+                // Desktop-only (hidden sm:block) — on phones search lives in
+                // the header glass + drop-in bar instead.
+                className="hidden h-[62px] w-full min-w-0 max-w-[359px] rounded-[12px] border border-[#BCBCBC]/70 bg-white px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40 sm:block"
               />
           </div>
         )}
@@ -1060,80 +1043,11 @@ export default function ProfileClient({
                 ))}
 
                 {/* Owner: the "Create New List" card, after the lists (Figma
-                    1132:79672) — a collection card with nothing in it yet: the
-                    same plate, a + where the filmstrip would be, and the name/
-                    count block reading as the prompt. (Also the empty state.) */}
-                {isOwner && (
-                  creatingList ? (
-                    <div className="relative flex aspect-[295/393] w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-[20px] bg-card px-6 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03]">
-                      <input
-                        autoFocus
-                        value={newListName}
-                        onChange={(e) => setNewListName(e.target.value)}
-                        onKeyDown={async (e) => {
-                          if (e.key === 'Enter') {
-                            const id = await handleCreateList(newListName)
-                            setNewListName(''); setCreatingList(false)
-                            if (id) setActiveListId(id)
-                          } else if (e.key === 'Escape') {
-                            setCreatingList(false); setNewListName('')
-                          }
-                        }}
-                        placeholder="List name"
-                        className="label w-full rounded-full border border-black/15 bg-transparent px-4 py-2.5 text-center text-ink placeholder:text-black/40 focus:border-black/40 focus:outline-none"
-                      />
-                      <div className="flex gap-4">
-                        <button
-                          onClick={async () => {
-                            const id = await handleCreateList(newListName)
-                            setNewListName(''); setCreatingList(false)
-                            if (id) setActiveListId(id)
-                          }}
-                          className="label text-ink hover:underline"
-                        >
-                          Create
-                        </button>
-                        <button
-                          onClick={() => { setCreatingList(false); setNewListName('') }}
-                          className="label text-black/40 transition-colors hover:text-black/60"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => setCreatingList(true)}
-                      className="relative block aspect-[295/393] w-full overflow-hidden rounded-[20px] bg-card text-left ring-1 ring-black/[0.03] card-lift"
-                    >
-                      {/* The + sits at the card's true center, 45/295 of the
-                          plate wide so it scales with the column like the
-                          filmstrip does. Same 2px stroke both bars. */}
-                      <svg
-                        aria-hidden
-                        viewBox="0 0 45 45"
-                        fill="none"
-                        className="absolute left-1/2 top-1/2 w-[15.25%] -translate-x-1/2 -translate-y-1/2"
-                      >
-                        <line x1="22.5" y1="0" x2="22.5" y2="45" stroke="#B8B8B8" strokeWidth="2" />
-                        <line x1="0" y1="22.5" x2="45" y2="22.5" stroke="#B8B8B8" strokeWidth="2" />
-                      </svg>
-                      {/* Name/count block at the CollectionCard's exact anchor.
-                          Cardo REGULAR 18 (not the list name's Bold 16) — the
-                          Figma draws the prompt a step lighter and larger than
-                          a real name, so it reads as an invitation, not an
-                          item. Count line matches the card's 0.56 alpha. */}
-                      <span className="absolute inset-x-5 bottom-5 block">
-                        <span className="block font-serif text-[18px] leading-5 tracking-[-0.02em] text-black/70">
-                          Create New List
-                        </span>
-                        <span className="mt-2 block font-sans text-[12px] font-[400] leading-4 tracking-[0.05em] text-black/[0.56]">
-                          0 items
-                        </span>
-                      </span>
-                    </button>
-                  )
-                )}
+                    1132:79672). A door into the dock's new-list flow — name it
+                    there, then paste or upload into it — not a form. We stay
+                    on the profile afterwards: the new card is already in the
+                    grid, and the empty list page was a dead end. */}
+                {isOwner && <CreateListCard onClick={() => fabRef.current?.newList()} />}
             </div>
 
             {/* Dead links — a line under the lists, not a card among them:
@@ -1281,64 +1195,6 @@ export default function ProfileClient({
                       </Link>
                     )}
                   </div>
-                  {isOwner && (
-                    editingDesc ? (
-                      <div className="mt-2">
-                        <textarea
-                          autoFocus
-                          value={descValue}
-                          onChange={(e) => setDescValue(e.target.value)}
-                          onKeyDown={async (e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault()
-                              await handleUpdateDescription(activeList.id, descValue)
-                              setEditingDesc(false)
-                            } else if (e.key === 'Escape') {
-                              setEditingDesc(false)
-                            }
-                          }}
-                          className="w-full bg-transparent border-b border-stone-300 pb-1 text-sm text-stone-600 focus:outline-none focus:border-stone-500 resize-none"
-                          rows={2}
-                          placeholder="add a description…"
-                        />
-                        <div className="mt-2 flex gap-3">
-                          <button
-                            onClick={async () => {
-                              await handleUpdateDescription(activeList.id, descValue)
-                              setEditingDesc(false)
-                            }}
-                            className="text-xs uppercase tracking-wider text-ink hover:underline"
-                          >
-                            save
-                          </button>
-                          <button
-                            onClick={() => setEditingDesc(false)}
-                            className="text-xs uppercase tracking-wider text-stone-400 hover:text-ink transition-colors"
-                          >
-                            cancel
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="mt-3">
-                        {activeList.description ? (
-                          <p
-                            onClick={() => { setDescValue(activeList.description || ''); setEditingDesc(true) }}
-                            className="text-sm text-stone-600 cursor-pointer hover:text-ink transition-colors"
-                          >
-                            {activeList.description}
-                          </p>
-                        ) : (
-                          <button
-                            onClick={() => { setDescValue(''); setEditingDesc(true) }}
-                            className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
-                          >
-                            + add description
-                          </button>
-                        )}
-                      </div>
-                    )
-                  )}
                 </div>
                 {isOwner && (
                   <button
@@ -1395,10 +1251,12 @@ export default function ProfileClient({
       <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />
       {isOwner && (
         <ImportFab
+          ref={fabRef}
           widthClassName={PROFILE_GRID}
           lists={sortedLists.map((l) => ({ id: l.id, name: l.name }))}
           onSaved={refreshBookmarks}
           onListsChanged={async () => setLists(await fetchLists(profile.id))}
+          onCreateList={(name) => handleCreateList(name)}
         />
       )}
     </main>

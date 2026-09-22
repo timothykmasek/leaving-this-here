@@ -12,7 +12,7 @@ import { type Vec, parseVec, normalize, cosine } from '@/lib/vec'
 //
 // Ranking signal = the list's THEME as a single vector:
 //   centroid(embeddings of bullets already in the list)
-//   blended with embedding(list name + description)   [weight `nameWeight`]
+//   blended with embedding(list name)                 [weight `nameWeight`]
 // then nearest-neighbour over the owner's other embedded bookmarks, excluding
 // anything already filed here. The centroid+blend math lives here (flexible
 // weighting; JS vector ops) — the DB does the heavy indexed NN scan via
@@ -68,7 +68,7 @@ export async function GET(
     const [listRes, dismissalsRes] = await Promise.all([
       supabase
         .from('lists')
-        .select('id, name, description, user_id')
+        .select('id, name, user_id')
         .eq('id', listId)
         .single(),
       // "✕ not for this list" refusals (optional table, migration 013). RLS
@@ -146,10 +146,10 @@ export async function GET(
       return NextResponse.json({ error: memErrMsg }, { status: 500 })
     }
 
-    // Name/description embedding — the blend lever that steadies thin lists.
+    // Name embedding — the blend lever that steadies thin lists.
     let nameVec: Vec | null = null
     if (nameWeight > 0) {
-      const themeText = [list.name, list.description].filter(Boolean).join('. ').trim()
+      const themeText = String(list.name || '').trim()
       if (themeText) {
         try {
           const [v] = await embed([themeText], 'query')

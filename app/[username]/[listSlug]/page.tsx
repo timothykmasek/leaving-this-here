@@ -56,7 +56,7 @@ export default async function ListPage({
       supabase
         .from('lists')
         .select(
-          `id, name, slug, description, cover_image_url,
+          `id, name, slug, cover_image_url,
            profiles!inner(id, username, display_name, bio, links),
            list_bookmarks(bookmark_id, bookmarks(${BULLET_COLS}))`
         )
@@ -77,7 +77,6 @@ export default async function ListPage({
     id: row.id,
     name: row.name,
     slug: row.slug,
-    description: row.description,
     cover_image_url: row.cover_image_url,
     list_bookmarks: (row.list_bookmarks || []).map((x: any) => ({
       bookmark_id: x.bookmark_id,
@@ -99,7 +98,7 @@ export default async function ListPage({
     ? await timed('list:allLists (owner)', () =>
         supabase
           .from('lists')
-          .select('id, name, slug, description, list_bookmarks(bookmark_id)')
+          .select('id, name, slug, list_bookmarks(bookmark_id)')
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
       )
@@ -124,7 +123,7 @@ export default async function ListPage({
   ).slice(0, 8)
 
   // Owner view: hand off to a client island that carries the profile's list
-  // controls (rename / delete / description + per-bullet management) onto the
+  // controls (rename / delete + per-bullet management) onto the
   // list's own URL. Visitors keep the read-only server render below.
   if (isOwner) {
     // allLists was fetched in parallel back in stage 2.
@@ -132,7 +131,6 @@ export default async function ListPage({
       id: l.id,
       name: l.name,
       slug: l.slug ?? null,
-      description: l.description ?? null,
       // The sidebar's list set never renders covers, so it doesn't fetch them.
       cover_image_url: null,
       bookmark_ids: (l.list_bookmarks || []).map((x: any) => x.bookmark_id),
@@ -156,13 +154,11 @@ export default async function ListPage({
           <ListDetailClient
             username={profile.username}
             profileId={profile.id}
-            bio={profile.bio}
             ownerName={owner}
             initialList={{
               id: (list as any).id,
               name: (list as any).name,
               slug: (list as any).slug ?? null,
-              description: (list as any).description ?? null,
               cover_image_url: (list as any).cover_image_url ?? null,
               bookmark_ids: ids,
             }}
@@ -194,7 +190,6 @@ export default async function ListPage({
       <div className={`mx-auto ${LIST_GRID} pb-16 pt-4 sm:pt-8`}>
         <ListMasthead
           name={list.name}
-          description={list.description}
           count={bullets.length}
           ownerName={owner}
           backHref={backHref}

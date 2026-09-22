@@ -167,7 +167,6 @@ enum API {
             let id: String
             let name: String
             let slug: String
-            let description: String?
         }
         let list: Meta
         let bullets: [Bullet]

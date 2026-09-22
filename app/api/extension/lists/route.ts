@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
   if (listId) {
     const { data: list, error: listErr } = await a.supabase
       .from('lists')
-      .select('id, name, slug, description')
+      .select('id, name, slug')
       .eq('user_id', a.userId)
       .eq('id', listId)
       .single()

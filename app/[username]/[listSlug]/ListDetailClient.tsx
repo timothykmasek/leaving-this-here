@@ -12,7 +12,7 @@ import { uniqueSlug } from '@/lib/slug'
 
 // Owner-editing island for a list at /username/<slug>. Visitors get the plain
 // server-rendered read-only page; the owner gets this instead, which ports the
-// profile's in-page list controls (rename, delete, edit description, and
+// profile's in-page list controls (rename, delete, and
 // per-bullet management via the detail modal) onto the list's own URL — so
 // clicking a list from the profile navigates straight here without losing any
 // of the owner affordances.
@@ -21,7 +21,6 @@ type List = {
   id: string
   name: string
   slug: string | null
-  description: string | null
   cover_image_url: string | null
   bookmark_ids: string[]
 }
@@ -29,7 +28,6 @@ type List = {
 export function ListDetailClient({
   username,
   profileId,
-  bio,
   ownerName,
   initialList,
   initialBullets,
@@ -39,7 +37,6 @@ export function ListDetailClient({
 }: {
   username: string
   profileId: string
-  bio: string | null
   ownerName: string
   initialList: List
   initialBullets: any[]
@@ -198,29 +195,16 @@ export function ListDetailClient({
     if (!clean) return null
     const slug = uniqueSlug(clean, lists.map((l) => l.slug).filter(Boolean) as string[])
 
-    let description: string | null = null
-    try {
-      const genRes = await fetch('/api/generate-list-description', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bio: bio || '', listName: clean }),
-      })
-      const genData = await genRes.json()
-      description = genData.description
-    } catch {
-      // proceed without description
-    }
-
     let { data: created, error } = await supabase
       .from('lists')
-      .insert({ user_id: profileId, name: clean, slug, description })
-      .select('id, name, slug, description')
+      .insert({ user_id: profileId, name: clean, slug })
+      .select('id, name, slug')
       .single()
     if (error && /slug/i.test(error.message || '')) {
       const retry = await supabase
         .from('lists')
-        .insert({ user_id: profileId, name: clean, description })
-        .select('id, name, slug, description')
+        .insert({ user_id: profileId, name: clean })
+        .select('id, name, slug')
         .single()
       created = retry.data
       error = retry.error

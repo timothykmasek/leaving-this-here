@@ -117,7 +117,7 @@ const TOOLS = [
   {
     name: 'get_lists',
     description:
-      "A Bulletin profile's published lists — name, slug, description, and size. Lists are curated, purpose-driven collections; fetch one in full with get_list.",
+      "A Bulletin profile's published lists — name, slug, and size. Lists are curated, purpose-driven collections; fetch one in full with get_list.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -128,7 +128,7 @@ const TOOLS = [
   {
     name: 'get_list',
     description:
-      'One published Bulletin list in full: its description and every bullet in it (title, url, note). Use for "summarize my reading list" or reading a curator\'s list someone follows.',
+      'One published Bulletin list in full: every bullet in it (title, url, note). Use for "summarize my reading list" or reading a curator\'s list someone follows.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -413,7 +413,7 @@ async function callTool(
       // Lists are always public (migration 028) — no owner/visitor split.
       const { data, error } = await supabase
         .from('lists')
-        .select('name, slug, description, list_bookmarks(bookmark_id)')
+        .select('name, slug, list_bookmarks(bookmark_id)')
         .eq('user_id', profile.id)
       if (error) throw new ToolError(error.message)
       return {
@@ -422,7 +422,6 @@ async function callTool(
         lists: (data || []).map((l: any) => ({
           name: l.name,
           slug: l.slug,
-          ...(l.description ? { description: l.description } : {}),
           bullets: l.list_bookmarks?.length ?? 0,
           url: `${SITE_URL}/${profile.username}/${l.slug}`,
         })),
@@ -435,7 +434,7 @@ async function callTool(
       const profile = await targetProfile(supabase, caller, args?.username)
       const { data: list, error } = await supabase
         .from('lists')
-        .select('id, name, slug, description')
+        .select('id, name, slug')
         .eq('user_id', profile.id)
         .eq('slug', slug)
         .single()
@@ -455,7 +454,6 @@ async function callTool(
         profile: profile.username,
         list: {
           name: list.name,
-          ...(list.description ? { description: list.description } : {}),
           url: `${SITE_URL}/${profile.username}/${list.slug}`,
           bullets: bullets.map(bullet),
         },

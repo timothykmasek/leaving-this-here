@@ -30,14 +30,14 @@ async function fetchLists(supabase: SupabaseServer, uid: string) {
   try {
     const { data, error } = await supabase
       .from('lists')
-      .select('id, name, slug, description, created_at, list_bookmarks(bookmark_id)')
+      .select('id, name, slug, created_at, list_bookmarks(bookmark_id)')
       .eq('user_id', uid)
       .order('created_at', { ascending: false })
     if (!error) return shape(data)
     if (/slug/i.test(error.message || '')) {
       const fallback = await supabase
         .from('lists')
-        .select('id, name, description, created_at, list_bookmarks(bookmark_id)')
+        .select('id, name, created_at, list_bookmarks(bookmark_id)')
         .eq('user_id', uid)
         .order('created_at', { ascending: false })
       if (!fallback.error) return shape(fallback.data)

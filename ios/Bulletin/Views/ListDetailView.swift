@@ -1,7 +1,6 @@
 import SwiftUI
 
-// A list's page — name in the editorial voice, description in Cardo, the
-// same masonry as home. Reads GET /api/extension/lists?list_id=.
+// A list's page — name in the editorial voice over the same masonry as home. Reads GET /api/extension/lists?list_id=.
 struct ListDetailView: View {
     let list: API.List
 
@@ -18,13 +17,6 @@ struct ListDetailView: View {
                         .kerning(-0.5)
                         .foregroundStyle(Color.ink)
                         .padding(.top, 8)
-
-                    if let description = detail?.list.description, !description.isEmpty {
-                        Text(description)
-                            .font(.cardo(15))
-                            .foregroundStyle(Color.ink.opacity(0.55))
-                            .padding(.top, 6)
-                    }
 
                     if let error {
                         Text(error)

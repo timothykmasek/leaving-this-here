@@ -11,9 +11,9 @@
 // Owner editing is the title itself: click the poster name, type, enter or
 // blur saves, escape cancels. The old edit panel (name input + description
 // textarea + save row) is gone — with descriptions off the page it had one
-// job left, and the title does that job in place. Legacy props (description,
-// cover, strip) are still accepted so older call sites compile, but nothing
-// renders them.
+// job left, and the title does that job in place. Legacy props (cover,
+// strip) are still accepted so older call sites compile, but nothing renders
+// them. Descriptions are gone from the data too (migration 030).
 //
 // Type:
 //   • name  → Cardo 400, clamp(52px→180px at 13.5vw), 1.22 leading, -3%
@@ -41,7 +41,6 @@ export function ListMasthead({
   onDelete,
   // Retired — accepted so call sites compile.
   isPrivate: _isPrivate,
-  description: _description,
   ownerName: _ownerName,
   coverUrl: _coverUrl,
   stripThumbs: _stripThumbs,
@@ -58,7 +57,6 @@ export function ListMasthead({
   onDelete?: () => void
   /** Retired with migration 028 — lists are always public. */
   isPrivate?: boolean
-  description?: string | null
   ownerName?: string
   coverUrl?: string | null
   stripThumbs?: string[]

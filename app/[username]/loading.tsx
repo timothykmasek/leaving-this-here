@@ -46,7 +46,7 @@ export default function Loading() {
             {Array.from({ length: 4 }).map((_, i) => (
               <div
                 key={i}
-                className={`aspect-[295/393] w-full animate-pulse rounded-[20px] bg-black/[0.03] ${
+                className={`aspect-square w-full animate-pulse rounded-[20px] bg-black/[0.03] ${
                   i >= 2 ? 'hidden sm:block' : ''
                 } ${i >= 3 ? 'sm:hidden lg:block' : ''}`}
               />

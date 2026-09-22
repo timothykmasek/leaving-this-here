@@ -1,5 +1,6 @@
 // Bulletin "collection card" — a list rendered as a plate in the profile's
-// LISTS tab. Figma ProjectX list-card frame: a 295×393 #F1F1F1 plate carrying a
+// LISTS tab. Figma ProjectX list-card frame, cut to 3/4 its height: a 295×295
+// #F1F1F1 plate (the artboard was 295×393; the extra air read as dead) carrying a
 // single filmstrip of member thumbnails that bleeds off BOTH edges and dissolves
 // into the plate, with the name + count anchored bottom-left.
 //
@@ -16,14 +17,16 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { LinkStrip } from '@/components/LinkStrip'
 
-// Geometry as percentages of the 295×393 plate, so the card scales with its
-// grid column instead of pinning to the Figma artboard's pixels.
+// Geometry as percentages of the 295×295 plate, so the card scales with its
+// grid column instead of pinning to the Figma artboard's pixels. The band
+// keeps the artboard's absolute size (109 tall on a 295-wide plate) — only
+// the plate shrank — so its percentages are re-expressed against 295.
 // Centred in the well THE EYE MEASURES: from the registration dots' foot
-// (~7.7%) down to the name's text top (~78.6%) — not from the card's top edge,
-// which put the band optically high, and not the Figma's 34.9%, which sagged.
-// Equal air each side of the 27.7% strip: 7.7 + (70.9 − 27.7) / 2.
-const STRIP_TOP = '29.3%'
-const STRIP_H = '27.7%'      // 109/393
+// (~30px → 10.3%) down to the name's text top (~84px up → 71.5%) — not from
+// the card's top edge, which put the band optically high.
+// Equal air each side of the 36.95% strip: 10.3 + (61.2 − 36.95) / 2.
+const STRIP_TOP = '22.4%'
+const STRIP_H = '36.95%'     // 109/295
 const FADE_W = '15.25%'      // 45/295
 // Tile width cap, and the knob that sets how many tiles you actually SEE:
 // visible ≈ 100/THUMB_MAX_W, because Bulletin's card images are overwhelmingly
@@ -50,7 +53,7 @@ export function CollectionCard({
   href?: string
 }) {
   const className =
-    'relative block aspect-[295/393] w-full overflow-hidden rounded-[20px] bg-card text-left ring-1 ring-black/[0.03] card-lift'
+    'relative block aspect-square w-full overflow-hidden rounded-[20px] bg-card text-left ring-1 ring-black/[0.03] card-lift'
 
   // false until hovered → no viewport prefetch; true → full payload.
   const [warm, setWarm] = useState(false)
@@ -79,14 +82,31 @@ export function CollectionCard({
       {/* The card's identity: a contact-sheet band of its members, bleeding off
           both edges into the plate. Shared with the list page's default cover
           (components/LinkStrip) — the same asset at two scales. */}
-      <LinkStrip
-        thumbs={thumbs}
-        className="absolute inset-x-0"
-        style={{ top: STRIP_TOP, height: STRIP_H }}
-        thumbMaxWidth={THUMB_MAX_W}
-        fadeWidth={FADE_W}
-        drift
-      />
+      {thumbs.length > 0 ? (
+        <LinkStrip
+          thumbs={thumbs}
+          className="absolute inset-x-0"
+          style={{ top: STRIP_TOP, height: STRIP_H }}
+          thumbMaxWidth={THUMB_MAX_W}
+          fadeWidth={FADE_W}
+          drift
+        />
+      ) : (
+        // Nothing in it yet: the Create New List card's + (same 45/295 width,
+        // same stroke), sat on the band's own midline rather than the plate's
+        // centre, so an empty list still reads as a list among its siblings
+        // and not as a second create door.
+        <svg
+          aria-hidden
+          viewBox="0 0 45 45"
+          fill="none"
+          className="absolute left-1/2 w-[15.25%] -translate-x-1/2 -translate-y-1/2"
+          style={{ top: `calc(${STRIP_TOP} + ${STRIP_H} / 2)` }}
+        >
+          <line x1="22.5" y1="0" x2="22.5" y2="45" stroke="#B8B8B8" strokeWidth="2" />
+          <line x1="0" y1="22.5" x2="45" y2="22.5" stroke="#B8B8B8" strokeWidth="2" />
+        </svg>
+      )}
 
       {/* Name + count, anchored to the bottom-left 20px inset. Anchoring the
           BLOCK (rather than positioning each line at its Figma offset) keeps the
