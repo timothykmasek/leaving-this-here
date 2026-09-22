@@ -74,21 +74,32 @@ function extractUrls(text: string): string[] {
 const MESSAGE_MS = 1600
 
 // ── Dressing ────────────────────────────────────────────────────────────────
-// The frost recipe every pill wears (the closed tile's, from the handoff).
-// Radius 10 per the dock mocks — tighter than the cards' 20; these are
-// controls, not plates.
+// The pill frost, from Figma's Rectangle 5091 CSS: a 0.4 white milk layer,
+// a grain texture overlay-blended at 30%, and a wide off-canvas radial
+// darkening — over a 37px backdrop blur. Radius 10 per the dock mocks,
+// tighter than the cards' 20; these are controls, not plates.
+//
+// The grain is Figma's 271KB noise PNG re-created as inline SVG turbulence
+// (zero bytes, tiles seamlessly); the grey matrix + 0.3 alpha reproduce the
+// export's opacity so the overlay blend lands at the same strength.
+const GRAIN =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.3 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E\")"
 const FROST_STYLE: React.CSSProperties = {
+  background: `linear-gradient(0deg, rgba(255,255,255,0.4), rgba(255,255,255,0.4)), ${GRAIN}, radial-gradient(462.83% 303.02% at -145.2% -28.49%, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.0671875) 77.08%, rgba(0,0,0,0) 100%)`,
+  backgroundBlendMode: 'normal, overlay, normal',
+  boxShadow: 'inset 0.931372px 7.45098px 10.2451px rgba(255,255,255,0.55)',
+  backdropFilter: 'blur(37.2549px)',
+  WebkitBackdropFilter: 'blur(37.2549px)',
+}
+// Glyph ink — the dot and the three dots.
+const GLYPH = '#414141'
+// The closed tile keeps its milk-free frost so the + reads white over cards.
+const TILE_STYLE: React.CSSProperties = {
   background:
-    'linear-gradient(rgba(255,255,255,0.6), rgba(255,255,255,0.6)), radial-gradient(140% 140% at 0% 0%, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.067) 77%, rgba(0,0,0,0) 100%)',
+    'radial-gradient(140% 140% at 0% 0%, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.067) 77%, rgba(0,0,0,0) 100%)',
   boxShadow: 'inset 0.93px 7.45px 10.25px rgba(255,255,255,0.55)',
   backdropFilter: 'blur(24px)',
   WebkitBackdropFilter: 'blur(24px)',
-}
-// The closed tile keeps its milk-free frost so the + reads white over cards.
-const TILE_STYLE: React.CSSProperties = {
-  ...FROST_STYLE,
-  background:
-    'radial-gradient(140% 140% at 0% 0%, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.067) 77%, rgba(0,0,0,0) 100%)',
 }
 
 // Pill label — Editorial/Small: Cardo Regular 14/18, −0.02em.
@@ -312,7 +323,7 @@ export function ImportFab({
                 className={`hidden sm:flex sm:w-[200px] ${running ? 'opacity-50' : ''}`}
               >
                 <span className={PILL_LABEL}>Add Bullet +</span>
-                <span aria-hidden className="absolute right-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-ink/80" />
+                <span aria-hidden className="absolute right-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full" style={{ background: GLYPH }} />
               </Pill>
             )}
             {(flow.kind === 'menu' || flow.kind === 'paste' || flow.kind === 'published') && (
@@ -334,7 +345,7 @@ export function ImportFab({
                 {flow.kind === 'menu' && (
                   <Pill onClick={() => setFlow({ kind: 'paste', busy: false, message: null })} className="w-full sm:w-[200px]">
                     <span className={PILL_LABEL}>Add Bullet +</span>
-                    <span aria-hidden className="absolute right-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-ink/80" />
+                    <span aria-hidden className="absolute right-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full" style={{ background: GLYPH }} />
                   </Pill>
                 )}
                 {flow.kind === 'paste' && (
@@ -396,9 +407,10 @@ export function ImportFab({
                 className="w-full min-w-0 flex-1 sm:w-[200px] sm:flex-none"
               >
                 <span className={PILL_LABEL}>Bulk Import +</span>
-                <span aria-hidden className="absolute right-5 top-1/2 flex -translate-y-1/2 items-center gap-[3px]">
+                {/* Three 4px dots on a 10px pitch (Figma: x 1256/1266/1276). */}
+                <span aria-hidden className="absolute right-5 top-1/2 flex -translate-y-1/2 items-center gap-[6px]">
                   {[0, 1, 2].map((i) => (
-                    <span key={i} className="h-1 w-1 rounded-full bg-ink/80" />
+                    <span key={i} className="h-1 w-1 rounded-full" style={{ background: GLYPH }} />
                   ))}
                 </span>
               </Pill>
@@ -476,7 +488,9 @@ export function ImportFab({
   )
 }
 
-// A 60px frosted pill (radius 10), label centred, ornament glyph right.
+// A 60px frosted pill (radius 10): label left at the 20px inset (Figma's
+// `calc(50% - w/2 + 281px)` resolves to x=910 on a pill at 890 — inset, not
+// centred), ornament glyph 20px from the right edge, on the pill's midline.
 function Pill({
   children,
   onClick,
@@ -489,7 +503,7 @@ function Pill({
   return (
     <button
       onClick={onClick}
-      className={`relative flex h-[60px] items-center justify-center rounded-[10px] px-5 transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] ${className}`}
+      className={`relative flex h-[60px] items-center justify-start rounded-[10px] px-5 text-left transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] ${className}`}
       style={FROST_STYLE}
     >
       {children}
