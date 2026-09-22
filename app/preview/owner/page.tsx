@@ -452,6 +452,9 @@ function ShowDetail() {
           onNoteUpdate={() => {}}
           onTitleUpdate={() => {}}
           onDelete={() => setOpen(false)}
+          // Present so the "Customize link" control beside the domain renders;
+          // the fixture just accepts whatever is typed.
+          onOutboundUpdate={() => {}}
           onToggleListMembership={(listId, bookmarkId, add) =>
             setLists((prev) =>
               prev.map((l) =>
