@@ -17,13 +17,12 @@
 
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { ListMasthead } from '@/components/ListMasthead'
 import { SuggestionShelf, forgetSuggestion } from '@/components/SuggestionShelf'
-import { ImportFab, type ImportFabHandle } from '@/components/ImportFab'
-import { CreateListCard } from '@/components/CreateListCard'
+import { ImportFab } from '@/components/ImportFab'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SiteFooter } from '@/components/SiteFooter'
 import { Masonry } from '@/components/Masonry'
@@ -186,7 +185,6 @@ export default function OwnerPreview() {
   const [opened, setOpened] = useState<string | null>(null)
   // The dock and the lists it can publish to — fixtures, minted in memory so
   // the Create New List flow can be walked end to end without a database.
-  const fabRef = useRef<ImportFabHandle>(null)
   const [fixtureLists, setFixtureLists] = useState([
     { id: 'l1', name: 'VCs / Investors' },
     { id: 'l2', name: 'Agencies & Studios' },
@@ -306,12 +304,11 @@ export default function OwnerPreview() {
       </Section>
 
       <Section
-        title="Create New List — a door into the dock"
-        note="The card used to turn into a form (an input with Create and Cancel inside the plate) and then drop you into the empty list it had made. Now it opens the dock at the name step; Enter creates the list and stacks the two doors under a Created shelf, with the new list pre-picked in the publish picker. The picker itself grows a + New list row at its foot, like the extension's, so upload-first works too. Left: a list with nothing in it yet — the + sits on the strip's midline, not the plate's centre."
+        title="Create New List — the dock's first pill"
+        note="No card in the grid any more (it used to turn into a form, then drop you into the empty list it had made). Open the + tile bottom right: Create New List is the first of three pills. Enter creates the list and stacks Add Bullet / Bulk Import under a Created shelf, with the new list pre-picked in the publish picker. The picker itself grows a + New list row at its foot, like the extension's, so upload-first works too. Here: a list with nothing in it yet — the + sits on the strip's midline, not the plate's centre."
       >
         <div className="grid grid-cols-2 gap-x-[40px] gap-y-[40px] sm:grid-cols-3 lg:grid-cols-4">
           <CollectionCard name="Empty list" count={0} thumbs={[]} />
-          <CreateListCard onClick={() => fabRef.current?.newList()} />
         </div>
       </Section>
 
@@ -331,7 +328,7 @@ export default function OwnerPreview() {
         </p>
       </Section>
 
-      <ImportFab ref={fabRef} widthClassName={OWNER_GRID} lists={fixtureLists} onCreateList={mintList} />
+      <ImportFab widthClassName={OWNER_GRID} lists={fixtureLists} onCreateList={mintList} />
       <SiteFooter reveal revealed widthClassName={OWNER_GRID} />
     </main>
   )

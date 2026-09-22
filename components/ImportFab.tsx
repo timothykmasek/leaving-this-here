@@ -1,24 +1,28 @@
 'use client'
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-// The owner's persistent "add a link" dock — a frosted + tile bottom-right
-// that expands into TWO pills (Figma 1137:297120): "Add Bullet +" (paste one
-// link) and "Bulk Import" (upload a CSV). Everything is anchored to the
-// bottom-right and grows up/left; the pill row never moves, extra rows stack
-// on top of it.
+// The owner's persistent "add" dock — a frosted + tile bottom-right that
+// expands into THREE pills (Figma 1137:297120, plus one): "Create New List",
+// "Add Bullet +" (paste one link) and "Bulk Import" (upload a CSV). Everything
+// is anchored to the bottom-right and grows up/left; the pill row never moves,
+// extra rows stack on top of it.
 //
+//   Create New List →  [ Name your list | ]     →  [ Created · Name ]
+//                                                  [ Add Bullet +  ]
+//                                                  [ Bulk Import   ]
+//                                                  …then either door as usual,
+//                                                  with the new list pre-picked.
 //   Add Bullet +  →  [ Paste URL here | ]      →  [ Saved! ]
 //                                                  [ Publish to these lists ⌄ ]
 //   Bulk Import →  file dialog (Upload CSV)  →  [ Uploaded · file.csv ]
 //                                                  [ (list picker panel) ]
 //                                                  [ Publish to these lists ⌄ ]
-//   New list    →  [ Name your list | ]         →  [ Created · Name ]
-//   (from the profile's Create New List card)      [ Add Bullet +  ]
-//                                                  [ Bulk Import   ]
-//                                                  …then either door as usual,
-//                                                  with the new list pre-picked.
+//
+// Creating a list lives here and nowhere else: the LISTS grid used to end in
+// a "Create New List" card that turned itself into a form, and Tim cut it
+// (2026-09-22) — one dock, one place things get made.
 //
 // The list picker can also mint a list on the spot ("+ New list" at its foot),
 // the way the extension's can — so the reverse door works too: upload first,
@@ -140,35 +144,25 @@ type Flow =
   | { kind: 'name'; busy: boolean; message: string | null }
   | { kind: 'created' }
 
-// What the profile's Create New List card calls: open the dock straight into
-// the name step.
-export type ImportFabHandle = { newList: () => void }
-
-export const ImportFab = forwardRef<
-  ImportFabHandle,
-  {
-    widthClassName?: string
-    lists?: { id: string; name: string }[]
-    onSaved?: () => void
-    onListsChanged?: () => void
-    onCreateList?: (name: string) => Promise<string | null>
-  }
->(function ImportFab(
-  {
-    widthClassName = 'max-w-[1720px] px-4 sm:px-10',
-    // The owner's lists, for the "Publish to these lists" picker.
-    lists = [],
-    // Called after links land, so the feed refreshes without a reload.
-    onSaved,
-    // Called after list membership changes, so list counts refresh.
-    onListsChanged,
-    // Mints a list (slug, description) and resolves its id, or null. Owned by
-    // the profile because the lists state lives there; without it the dock
-    // simply has no new-list affordances.
-    onCreateList,
-  },
-  ref,
-) {
+export function ImportFab({
+  widthClassName = 'max-w-[1720px] px-4 sm:px-10',
+  // The owner's lists, for the "Publish to these lists" picker.
+  lists = [],
+  // Called after links land, so the feed refreshes without a reload.
+  onSaved,
+  // Called after list membership changes, so list counts refresh.
+  onListsChanged,
+  // Mints a list (name → slug) and resolves its id, or null. Owned by the
+  // profile because the lists state lives there; without it the dock simply
+  // has no new-list affordances.
+  onCreateList,
+}: {
+  widthClassName?: string
+  lists?: { id: string; name: string }[]
+  onSaved?: () => void
+  onListsChanged?: () => void
+  onCreateList?: (name: string) => Promise<string | null>
+}) {
   const supabase = createClient()
   const [open, setOpen] = useState(false)
   const [flow, setFlow] = useState<Flow>({ kind: 'menu' })
@@ -189,16 +183,13 @@ export const ImportFab = forwardRef<
     if (open && (flow.kind === 'paste' || flow.kind === 'name')) inputRef.current?.focus({ preventScroll: true })
   }, [open, flow.kind])
 
-  useImperativeHandle(ref, () => ({
-    newList() {
-      setOpen(true)
-      setFlow({ kind: 'name', busy: false, message: null })
-      setValue('')
-      setPickerOpen(false)
-      setSelected(new Set())
-      setPreset(null)
-    },
-  }), [])
+  const startNewList = () => {
+    setFlow({ kind: 'name', busy: false, message: null })
+    setValue('')
+    setPickerOpen(false)
+    setSelected(new Set())
+    setPreset(null)
+  }
 
   useEffect(() => () => { if (messageTimer.current) clearTimeout(messageTimer.current) }, [])
 
@@ -397,7 +388,19 @@ export const ImportFab = forwardRef<
             <PlusGlyph className="text-white" />
           </button>
         ) : (
-          <div ref={rootRef} className="pointer-events-auto flex w-full items-end justify-end gap-[10px] sm:w-auto">
+          <div ref={rootRef} className="pointer-events-auto flex w-full flex-wrap items-end justify-end gap-[10px] sm:w-auto sm:flex-nowrap">
+            {/* ── Create New List: the menu's first pill, and only there — once
+                any flow starts, the column that replaces the menu carries its
+                own doors. Full-width on phones (wraps onto its own line above
+                the other two); a 200px pill beside them from sm up. ── */}
+            {flow.kind === 'menu' && onCreateList && (
+              <Pill onClick={startNewList} className="w-full sm:w-[200px]">
+                <span className={PILL_LABEL}>Create New List</span>
+                {/* An 8px ring — the picker's unfilled list mark: a list with
+                    nothing in it yet. */}
+                <span aria-hidden className="absolute right-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border" style={{ borderColor: GLYPH }} />
+              </Pill>
+            )}
             {/* ── Left slot: Add Bullet → paste → Saved!/publish. During a
                 bulk state the pill stays standing beside the stack (mocks
                 B–D), just inert while a batch is running. ── */}
@@ -651,7 +654,7 @@ export const ImportFab = forwardRef<
       />
     </div>
   )
-})
+}
 
 // A 60px frosted pill (radius 10): label left at the 20px inset (Figma's
 // `calc(50% - w/2 + 281px)` resolves to x=910 on a pill at 890 — inset, not

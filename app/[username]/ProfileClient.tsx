@@ -17,8 +17,7 @@ import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { ExtensionNudge } from '@/components/ExtensionNudge'
 import { PreviewBanner } from '@/components/PreviewBanner'
-import { ImportFab, type ImportFabHandle } from '@/components/ImportFab'
-import { CreateListCard } from '@/components/CreateListCard'
+import { ImportFab } from '@/components/ImportFab'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useRevealFooter } from '@/lib/useRevealFooter'
@@ -165,8 +164,6 @@ export default function ProfileClient({
   // scroll-up (or at the true end of the feed). The floating search pill lifts
   // to clear it — see the pill render below.
   const footerRevealed = useRevealFooter(true)
-  // The dock, so the Create New List card can open it at the name step.
-  const fabRef = useRef<ImportFabHandle>(null)
   // List-detail rename + share affordances.
   const [renaming, setRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
@@ -1042,12 +1039,9 @@ export default function ProfileClient({
                   />
                 ))}
 
-                {/* Owner: the "Create New List" card, after the lists (Figma
-                    1132:79672). A door into the dock's new-list flow — name it
-                    there, then paste or upload into it — not a form. We stay
-                    on the profile afterwards: the new card is already in the
-                    grid, and the empty list page was a dead end. */}
-                {isOwner && <CreateListCard onClick={() => fabRef.current?.newList()} />}
+                {/* No "Create New List" card here any more: lists get made in
+                    the bottom-right dock (its first pill), and the new card
+                    simply appears in this grid. */}
             </div>
 
             {/* Dead links — a line under the lists, not a card among them:
@@ -1251,7 +1245,6 @@ export default function ProfileClient({
       <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />
       {isOwner && (
         <ImportFab
-          ref={fabRef}
           widthClassName={PROFILE_GRID}
           lists={sortedLists.map((l) => ({ id: l.id, name: l.name }))}
           onSaved={refreshBookmarks}
