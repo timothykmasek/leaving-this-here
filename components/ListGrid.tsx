@@ -15,8 +15,8 @@ import { LoadMoreSentinel, RENDER_PAGE } from '@/components/LoadMoreSentinel'
 export function ListGrid({
   bullets,
   username,
-  // The owner's grid opens the detail sheet, marks private bullets and
-  // carries outbound overrides — none of which a visitor's has.
+  // The owner's grid opens the detail sheet and carries outbound overrides —
+  // neither of which a visitor's has.
   owner = false,
   onOpen,
 }: {
@@ -47,7 +47,7 @@ export function ListGrid({
             customImage={b.customImage}
             utmCampaign={username}
             {...(owner
-              ? { onOpen, outboundOverride: b.outbound_url, privateMark: !!b.is_private }
+              ? { onOpen, outboundOverride: b.outbound_url }
               : {})}
           />
         ))}

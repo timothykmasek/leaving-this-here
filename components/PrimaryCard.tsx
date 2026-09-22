@@ -221,17 +221,13 @@ interface PrimaryCardProps {
   // Curator's custom outbound link (affiliate etc., bookmarks.outbound_url).
   // Wins over `url` for the click, verbatim — no utms appended.
   outboundOverride?: string | null
-  // Owner view of a secret bullet: a small lock chip so the owner can tell at a
-  // glance what visitors don't see. Callers pass it only for the owner — a
-  // visitor never receives private rows in the first place (RLS, migration 026).
-  privateMark?: boolean
 }
 
 export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
   cardType, imagePref, place: placeProp, product: productProp,
   customImage: customImageProp, listName, listHref, onOpen, utmCampaign,
-  outboundOverride, privateMark,
+  outboundOverride,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const outboundUrl = resolveOutbound(url, outboundOverride, utmCampaign)
@@ -652,31 +648,6 @@ export const PrimaryCard = memo(function PrimaryCard({
           </button>
         )}
 
-        {privateMark && (
-          // Unfiled bullet, owner view — in no list, so not on the page yet
-          // (migration 028). Always visible (it's information, not a
-          // control) and top-RIGHT — the pencil owns top-left, the tag corner
-          // (price/rating/mark) owns bottom-left, disc/mic own bottom-right.
-          <span
-            aria-label="not on your page yet — add it to a list to publish it"
-            title="Not on your page yet — add it to a list to publish it"
-            className="absolute right-3 top-3 z-[2] flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm"
-          >
-            <svg
-              aria-hidden
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-3 w-3"
-            >
-              <rect x="5" y="11" width="14" height="9" rx="2" />
-              <path d="M8 11V7a4 4 0 0 1 8 0v4" />
-            </svg>
-          </span>
-        )}
         </div>
 
         {/* The tack — outside .pin-hang so it stays put while the card turns. */}

@@ -184,6 +184,12 @@ enum API {
         let bookmarks: [Bullet]
     }
 
+    /// Delete the signed-in account — the App Store's in-app deletion rule.
+    /// The server re-checks the typed username; this only carries it.
+    static func deleteAccount(confirm: String) async throws {
+        _ = try await request("api/account/delete", method: "POST", body: ["confirm": confirm])
+    }
+
     static func search(_ query: String) async throws -> [Bullet] {
         let data = try await request("api/search", method: "POST", body: ["query": query])
         return try JSONDecoder().decode(SearchResults.self, from: data).bookmarks

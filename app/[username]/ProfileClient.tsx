@@ -630,7 +630,6 @@ export default function ProfileClient({
             onOpen={isOwner ? setSelectedId : undefined}
             utmCampaign={username}
             outboundOverride={b.outbound_url}
-            privateMark={isOwner && !!b.is_private}
           />
           </div>
         ))}

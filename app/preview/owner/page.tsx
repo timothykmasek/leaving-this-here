@@ -61,9 +61,6 @@ const BULLETS = [
     screenshotUrl: null,
     faviconUrl: null,
     product: { priceFormatted: '€120', price: 120, currency: 'EUR' },
-    // An unfiled bullet (in no list → not on the page, migration 028) — the
-    // owner sees a lock chip top-right; visitors never receive the row at all.
-    privateMark: true,
   },
   {
     id: 'fixture-3',

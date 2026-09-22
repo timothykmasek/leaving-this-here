@@ -17,10 +17,22 @@ import { SCREENSHOT_BUCKET } from '@/lib/screenshot'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
+  // Two doors, same check: the web sends its cookie session; the iOS app
+  // sends a bearer token like every /api/extension/* call.
+  const authHeader = req.headers.get('authorization') || ''
+  const bearer = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : ''
   const supabase = await createSupabaseServer()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null as null | { id: string; email?: string }
+  if (bearer) {
+    const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const { data } = await anon.auth.getUser(bearer)
+    user = data.user
+  } else {
+    const { data } = await supabase.auth.getUser()
+    user = data.user
+  }
   if (!user) return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
 
   const body = await req.json().catch(() => ({}))
@@ -88,7 +100,8 @@ export async function POST(req: NextRequest) {
   const { error: authError } = await admin.auth.admin.deleteUser(uid)
   if (authError) return NextResponse.json({ error: authError.message }, { status: 500 })
 
-  // Drop the browser's session cookies; the user behind them is gone.
-  await supabase.auth.signOut().catch(() => {})
+  // Drop the browser's session cookies; the user behind them is gone. (The
+  // bearer path has no cookies; the app clears its own Keychain copy.)
+  if (!bearer) await supabase.auth.signOut().catch(() => {})
   return NextResponse.json({ ok: true })
 }

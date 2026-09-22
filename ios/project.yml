@@ -60,6 +60,7 @@ targets:
       - BulletinShare
       - Bulletin/Core                     # Config/Session/API shared with the app
       - Bulletin/Resources/bulletin-logo.png
+      - Bulletin/Resources/PrivacyInfo.xcprivacy  # Apple's privacy manifest, one file for both bundles
       - Bulletin/Resources/Fonts
     info:
       path: BulletinShare/Info.plist
