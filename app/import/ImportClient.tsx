@@ -209,13 +209,13 @@ export default function ImportClient({ username }: { username: string }) {
                     ? 'Saved. Titles and screenshots keep filling in over the next few minutes.'
                     : progress.failed > 0
                       ? 'Those links didn’t go through — check they load in a browser, then try again.'
-                      : 'Nothing new to add — those links were already on your bulletin.'}
+                      : 'Nothing new to add — those links were already on your Bulletin.'}
                 </p>
                 <Link
                   href={`/${username}`}
                   className="rounded-full bg-ink px-7 py-3 text-sm text-white transition-opacity hover:opacity-85"
                 >
-                  See your bulletin
+                  See your Bulletin
                 </Link>
               </div>
             )}

@@ -152,7 +152,7 @@ const WRITE_TOOLS = [
   {
     name: 'preview_save',
     description:
-      'The "show me first" step before saving. For each URL, reports whether it is already in the user\'s bulletin (and which lists it sits in), plus which existing list name matches a proposed `list`. Call this, show the user the plan (which links, which list), and only call save_bullet after they confirm. Never save without that confirmation.',
+      'The "show me first" step before saving. For each URL, reports whether it is already in the user\'s Bulletin (and which lists it sits in), plus which existing list name matches a proposed `list`. Call this, show the user the plan (which links, which list), and only call save_bullet after they confirm. Never save without that confirmation.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -165,7 +165,7 @@ const WRITE_TOOLS = [
   {
     name: 'save_bullet',
     description:
-      "Save one link to the user's bulletin, optionally filing it into a list (matched by name, case-insensitive; created if it doesn't exist). Runs Bulletin's full save pipeline. ONLY call this after preview_save and the user's explicit confirmation of these specific links — a batch of unwanted saves is hard to undo. Re-saving an existing link refreshes it rather than duplicating it.",
+      "Save one link to the user's Bulletin, optionally filing it into a list (matched by name, case-insensitive; created if it doesn't exist). Runs Bulletin's full save pipeline. ONLY call this after preview_save and the user's explicit confirmation of these specific links — a batch of unwanted saves is hard to undo. Re-saving an existing link refreshes it rather than duplicating it.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -183,7 +183,7 @@ const WRITE_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        url: { type: 'string', description: 'A link already in the bulletin.' },
+        url: { type: 'string', description: 'A link already in the Bulletin.' },
         list: { type: 'string', description: 'List name or slug.' },
       },
       required: ['url', 'list'],
@@ -335,7 +335,7 @@ async function callTool(
       if (typeof args?.note === 'string' && args.note.trim()) body.note = args.note.trim()
 
       const saved = await extApi('/api/extension/save', token, { method: 'POST', body })
-      if (saved.alreadySaved) return { url, saved: false, reason: 'already in the bulletin (use add_to_list to file it)' }
+      if (saved.alreadySaved) return { url, saved: false, reason: 'already in the Bulletin (use add_to_list to file it)' }
 
       const bookmarkId = saved.bookmark?.id
       const listName = typeof args?.list === 'string' && args.list.trim() ? args.list : null
@@ -361,7 +361,7 @@ async function callTool(
         .eq('user_id', caller!.userId)
         .eq('url_key', normalizeUrl(url))
         .maybeSingle()
-      if (!row) throw new ToolError('That link is not in the bulletin yet — use save_bullet.')
+      if (!row) throw new ToolError('That link is not in the Bulletin yet — use save_bullet.')
       const filed = await fileInto(token, row.id, listName)
       return { url, title: row.title, list: filed }
     }

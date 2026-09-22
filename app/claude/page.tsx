@@ -36,7 +36,7 @@ export default function ClaudePage() {
         {/* Lockup — Mier Book 400, the intended editorial weight (see fonts.ts:
             don't bump it back to 600/700 because it "looks light"). */}
         <h1 className="text-balance text-center font-sans text-[34px] font-[400] leading-[1.1] tracking-[-0.02em] text-ink sm:text-[44px]">
-          Your bulletin, in Claude&rsquo;s head.
+          Your Bulletin, in Claude&rsquo;s head.
         </h1>
         <p className="mx-auto mt-4 max-w-[34rem] text-center font-serif text-[18px] leading-[1.5] text-black/60 sm:text-[19px]">
           Every link you save becomes context your AI can draw on. Connect
@@ -81,7 +81,7 @@ export default function ClaudePage() {
         <p className="mt-14 border-t border-black/[0.06] pt-6 font-serif text-[14px] leading-[1.6] text-black/40">
           No Bulletin account? Add{' '}
           <code className="font-mono text-[12.5px]">yourbulletin.com/mcp</code>{' '}
-          instead&thinsp;&mdash;&thinsp;it reads any published bulletin, no
+          instead&thinsp;&mdash;&thinsp;it reads any published Bulletin, no
           sign-in. Signed in, Claude can also save links and file them into
           your lists&thinsp;&mdash;&thinsp;always showing you the plan first,
           and never deleting anything.

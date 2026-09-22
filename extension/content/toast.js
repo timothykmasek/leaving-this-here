@@ -4,9 +4,9 @@
 // watch, not a popup.
 //
 // Design: Figma "Extension 21.09.26" (ProjectX 1138:297121). Two moments:
-//   1. Saving — the grey band alone: "Saving to your bulletin..." and the B
+//   1. Saving — the grey band alone: "Saving to your Bulletin..." and the B
 //      tile breathing top-right.
-//   2. Saved  — the band settles ("Saved to your bulletin" / "Now, publish to
+//   2. Saved  — the band settles ("Saved to your Bulletin" / "Now, publish to
 //      a list...") and the picker unfolds below in ONE paint: the three lists
 //      you used most recently, each a row with a ↗ to its page and a dot
 //      that fills when the bullet is in it; "All other lists" folding the
@@ -95,13 +95,16 @@
       }
 
       /* ── header band ── */
-      /* 92px, tightened from the Figma's 115 (Tim: "quite tall"). */
+      /* 92px, tightened from the Figma's 115 (Tim: "quite tall"). Layout per
+         Tim's 2026-09-22 frame: mark tile LEFT, title + subtitle beside it,
+         Undo tucked in the top-right corner. */
       .phead {
         position: relative; flex: none;
-        display: flex; flex-direction: column; justify-content: center;
-        height: 92px; padding: 0 92px 0 30px;
+        display: flex; align-items: center; gap: 20px;
+        height: 92px; padding: 0 30px 0 26px;
         background: #f5f5f5;
       }
+      .ptext { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
       .ptitle {
         margin: 0; font-weight: 500; font-size: 18px; line-height: 24px;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -110,37 +113,39 @@
       .ptitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
       /* Subtitle line — folded away while saving. Cardo, the web's serif. */
       .psub {
-        display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+        display: block;
         font-family: 'Cardo', Georgia, serif; font-size: 14px; line-height: 18px;
         color: #3a3a3a;
-        max-height: 0; margin-top: 0; opacity: 0; overflow: hidden;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        max-height: 0; margin-top: 0; opacity: 0;
         transition: opacity 260ms ease 60ms, max-height 260ms ease, margin-top 260ms ease;
       }
       .revealed .psub, .terminal .psub { max-height: 18px; margin-top: 3px; opacity: 1; }
-      .psub-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .terminal.err .psub-text { color: #a31f34; }
-      /* Undo — the quiet word at the line's end. Only once there's a save. */
+      .terminal.err .psub { color: #a31f34; }
+      /* Undo — the quiet serif word in the band's top-right corner. Only
+         once there's a save. */
       .undo {
-        flex: none; padding: 0; border: none; background: none;
-        font-family: inherit; font-size: 14px; line-height: 18px;
-        color: #9a9a9a; cursor: pointer;
-        opacity: 0; pointer-events: none; transition: opacity 200ms ease, color 150ms ease;
+        position: absolute; top: 12px; right: 30px;
+        padding: 0; border: none; background: none;
+        font-family: 'Cardo', Georgia, serif; font-size: 14px; line-height: 18px;
+        color: #000; cursor: pointer;
+        opacity: 0; pointer-events: none; transition: opacity 200ms ease;
       }
       .revealed .undo { opacity: 1; pointer-events: auto; }
-      .undo:hover { color: #000; text-decoration: underline; text-underline-offset: 2px; }
+      .undo:hover { text-decoration: underline; text-underline-offset: 2px; }
       .undo:disabled, .undone .undo { opacity: 0; pointer-events: none; }
 
-      /* The mark's tile top-right: white, centered on the band. */
+      /* The mark's tile, leading the band: white, 48px, the mark inside. */
       .tile {
-        position: absolute; top: 22px; right: 26px;
+        flex: none;
         width: 48px; height: 48px; border-radius: 12px; background: #fff;
         display: flex; align-items: center; justify-content: center;
       }
       .tile img { height: 26px; width: auto; display: block; }
       .saving .tile img { animation: breathe 1.4s ease-in-out infinite; }
-      .terminal .tile { visibility: hidden; }
-      /* No tile in a terminal state → the message gets the full width. */
-      .terminal .phead { padding-right: 30px; }
+      /* No tile in a terminal state → the message takes the band. */
+      .terminal .tile { display: none; }
+      .terminal .phead { padding-left: 30px; }
 
       /* ── body: the picker ── */
       .pbody {
@@ -157,22 +162,28 @@
         border-bottom: 1px solid #ececec;
         cursor: pointer; user-select: none;
       }
-      .row:last-child { border-bottom: none; }
+      /* Every row rules off below it — including the last list above
+         "Create new list" (Tim, 2026-09-22); only the create row itself,
+         at the card's foot, has no line under it. */
+      .row.create { border-bottom: none; }
       /* display:flex above would beat the UA's [hidden] rule. */
       .row[hidden] { display: none; }
+      /* Names sit at 70% and come up to full black under the pointer
+         (Tim, 2026-09-22); hover still speaks in underline (2026-09-04). */
       .rname {
         display: flex; align-items: center; gap: 6px; min-width: 0;
         font-weight: 500; font-size: 16px; line-height: 24px;
+        color: rgba(0,0,0,0.7); transition: color 150ms ease;
       }
+      .row:hover .rname { color: #000; }
       .rname span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      /* Hover speaks in underline, not a grey wash (Tim, 2026-09-04). */
       .row:hover .rname span { text-decoration: underline; text-underline-offset: 3px; }
       /* The ↗ is the web's arrow: a text glyph, not a stroke. It alone links
          to the list's page; the rest of the row files. */
       .go {
         flex: none; display: inline-flex; align-items: center; justify-content: center;
         width: 20px; height: 20px; border-radius: 6px;
-        color: #000; text-decoration: none; font-weight: 400; font-size: 15px; line-height: 1;
+        color: inherit; text-decoration: none; font-weight: 400; font-size: 15px; line-height: 1;
         transform: translateY(1px);
       }
       .go:hover { background: #ececec; }
@@ -194,7 +205,6 @@
       .more-head .chev { flex: none; width: 20px; height: 20px; color: #000; }
       .more { flex: none; display: none; }
       .more.open { display: block; }
-      .more .row:last-child { border-bottom: 1px solid #ececec; }
 
       /* Create row — a label that becomes a field in place. */
       .create { cursor: text; }
@@ -219,12 +229,12 @@
 
     <div class="card saving" id="card">
       <header class="phead">
-        <h1 class="ptitle" id="ptitle">Saving to your bulletin...</h1>
-        <div class="psub" id="psub">
-          <span class="psub-text" id="psub-text">Now, publish to a list...</span>
-          <button class="undo" id="undo" aria-label="Undo this save">Undo</button>
-        </div>
         <div class="tile" aria-hidden="true"><img src="${MARK}" alt="" /></div>
+        <div class="ptext">
+          <h1 class="ptitle" id="ptitle">Saving to your Bulletin...</h1>
+          <div class="psub" id="psub-text">Now, publish to a list...</div>
+        </div>
+        <button class="undo" id="undo" aria-label="Undo this save">Undo</button>
       </header>
 
       <div class="pbody" id="pbody">
@@ -368,8 +378,8 @@
     card.classList.remove('revealed')
     card.classList.add('terminal', 'undone')
     el('pbody').classList.remove('open')
-    setTitle('Save to your bulletin')
-    setSub('Removed. This link is off your bulletin.')
+    setTitle('Save to your Bulletin')
+    setSub('Removed. This link is off your Bulletin.')
     armIdle(2500)
     withId((id) => {
       bookmarkId = null
@@ -566,7 +576,7 @@
     revealed = true
     clearTimeout(revealTimer)
     card.classList.remove('saving', 'terminal', 'err', 'undone')
-    setTitle('Saved to your bulletin', profileUrl)
+    setTitle('Saved to your Bulletin', profileUrl)
     setSub('Now, publish to a list...')
     card.classList.add('revealed')
     renderRows()
@@ -690,7 +700,7 @@
     el('undo').disabled = false
     el('pbody').classList.remove('open')
     el('more').classList.remove('open')
-    setTitle('Saving to your bulletin...')
+    setTitle('Saving to your Bulletin...')
     setSub('Now, publish to a list...')
     closeCreate()
   }
@@ -704,9 +714,9 @@
         reset()
         showOptimistic()
       } else if (state === 'saved') {
-        showSaved(data && data.refreshed ? 'Updated in your bulletin' : 'Saved to your bulletin', data)
+        showSaved(data && data.refreshed ? 'Updated in your Bulletin' : 'Saved to your Bulletin', data)
       } else if (state === 'duplicate') {
-        showSaved('Already in your bulletin', data)
+        showSaved('Already in your Bulletin', data)
       } else if (state === 'signin') {
         terminal('Session expired', 'Click the Bulletin icon to sign in again.', { err: true })
       } else if (state === 'error') {

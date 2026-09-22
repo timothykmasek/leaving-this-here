@@ -710,7 +710,7 @@ function Picks({
           disabled={picks.length !== 3}
           className="pointer-events-auto rounded-full bg-ink px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-black disabled:cursor-not-allowed disabled:opacity-50"
         >
-          build my bulletin →
+          build my Bulletin →
         </button>
       </div>
     </div>
@@ -827,7 +827,7 @@ function Building({
   return (
     <div className="flex flex-col items-center pt-12 text-center">
       <Ring />
-      <h1 className="mt-6 font-sans text-2xl font-bold text-ink">Building your bulletin…</h1>
+      <h1 className="mt-6 font-sans text-2xl font-bold text-ink">Building your Bulletin…</h1>
       <div className="mt-2 h-4 text-sm text-black/40">{log}</div>
     </div>
   )

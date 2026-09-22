@@ -225,7 +225,7 @@ export function ImportFab({
         setPickerOpen(false)
       } else if (res.ok && body.skipped) {
         setValue('')
-        settleMessage('Already on your bulletin')
+        settleMessage('Already on your Bulletin')
       } else {
         settleMessage('That link didn’t go through')
       }
