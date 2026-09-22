@@ -5,13 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 
 // The owner's persistent "add a link" dock — a frosted + tile bottom-right
 // that expands into TWO pills (Figma 1137:297120): "Add Bullet +" (paste one
-// link) and "Bulk Import +" (upload a CSV). Everything is anchored to the
+// link) and "Bulk Import" (upload a CSV). Everything is anchored to the
 // bottom-right and grows up/left; the pill row never moves, extra rows stack
 // on top of it.
 //
 //   Add Bullet +  →  [ Paste URL here | ]      →  [ Saved! ]
 //                                                  [ Publish to these lists ⌄ ]
-//   Bulk Import + →  file dialog (Upload CSV)  →  [ Uploaded · file.csv ]
+//   Bulk Import →  file dialog (Upload CSV)  →  [ Uploaded · file.csv ]
 //                                                  [ (list picker panel) ]
 //                                                  [ Publish to these lists ⌄ ]
 //
@@ -417,7 +417,7 @@ export function ImportFab({
                 onClick={() => fileRef.current?.click()}
                 className="w-full min-w-0 flex-1 sm:w-[200px] sm:flex-none"
               >
-                <span className={PILL_LABEL}>Bulk Import +</span>
+                <span className={PILL_LABEL}>Bulk Import</span>
                 {/* Three 4px dots on a 10px pitch (Figma: x 1256/1266/1276). */}
                 <span aria-hidden className="absolute right-5 top-1/2 flex -translate-y-1/2 items-center gap-[6px]">
                   {[0, 1, 2].map((i) => (
