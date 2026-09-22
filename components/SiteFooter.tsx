@@ -72,8 +72,9 @@ export const SiteFooter = forwardRef<
       <div className={`mx-auto flex ${widthClassName} flex-row items-center justify-between`}>
         <span className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/35">© 2026</span>
         {/* Tight gap so © + every link fits one row on a 375px phone without any
-            item wrapping onto a second line — three links when signed in. */}
-        <nav className="flex items-center gap-5 sm:gap-8">
+            item wrapping onto a second line — five links when signed in
+            (Import, Settings + the public three), measured at 343px of 351. */}
+        <nav className="flex items-center gap-3 sm:gap-8">
           {signedIn && (
             <Link href="/import" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Import</Link>
           )}

@@ -16,11 +16,11 @@ export function Header() {
   // first path segment that isn't a reserved app route. Compute this BEFORE the
   // effect so we can skip the auth + profiles round-trip on every route where the
   // header never renders (which, in practice, is nearly all of them).
-  const RESERVED = ['login', 'start', 'setup', 'auth', 'privacy', 'bookmarklet', 'save', 'preview', 'api']
+  const RESERVED = ['login', 'start', 'setup', 'auth', 'privacy', 'bookmarklet', 'save', 'preview', 'api', 'settings']
   const seg = pathname?.split('/')[1] || ''
   const isProfileOrList = seg !== '' && !RESERVED.includes(seg)
   // Pages that ship their own Bulletin header.
-  const SELF_HEADER = ['login', 'start', 'setup', 'privacy', 'bookmarklet', 'save']
+  const SELF_HEADER = ['login', 'start', 'setup', 'privacy', 'bookmarklet', 'save', 'settings']
   const hidden =
     pathname === '/' || pathname?.startsWith('/preview') || isProfileOrList || SELF_HEADER.includes(seg)
 
