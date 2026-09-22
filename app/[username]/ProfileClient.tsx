@@ -18,6 +18,7 @@ import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { ExtensionNudge } from '@/components/ExtensionNudge'
 import { PreviewBanner } from '@/components/PreviewBanner'
 import { ImportFab } from '@/components/ImportFab'
+import { LoadMoreSentinel, RENDER_PAGE } from '@/components/LoadMoreSentinel'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useRevealFooter } from '@/lib/useRevealFooter'
@@ -39,28 +40,8 @@ const PROFILE_GRID = 'max-w-[1720px] px-4 sm:px-10'
 const BULLET_COLS =
   'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, is_private, outbound_url, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
 
-// How many bullets to render at once. A power profile holds ~1000 bullets;
-// mounting them all floods the DOM and fires ~1000 image-optimizer requests in
-// one burst. We render a page at a time and grow as the sentinel scrolls into
-// view, so only what's near the viewport ever hits the optimizer.
-const RENDER_PAGE = 48
-
-// Invisible tripwire at the tail of the grid. When it scrolls within 800px of
-// the viewport it calls onReach, which reveals the next RENDER_PAGE of bullets.
-function LoadMoreSentinel({ onReach }: { onReach: () => void }) {
-  const ref = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const io = new IntersectionObserver(
-      (entries) => { if (entries[0]?.isIntersecting) onReach() },
-      { rootMargin: '800px' },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [onReach])
-  return <div ref={ref} aria-hidden className="col-span-full h-px" />
-}
+// The grid renders a page at a time (components/LoadMoreSentinel) — the list
+// page shares the same window.
 
 export default function ProfileClient({
   username,

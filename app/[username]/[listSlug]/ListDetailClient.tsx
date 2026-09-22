@@ -4,8 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { ListMasthead } from '@/components/ListMasthead'
-import { PrimaryCard } from '@/components/PrimaryCard'
-import { Masonry } from '@/components/Masonry'
+import { ListGrid } from '@/components/ListGrid'
 import { BulletDetail } from '@/components/BulletDetail'
 import { SuggestionShelf, forgetSuggestion, type Suggestion } from '@/components/SuggestionShelf'
 import { uniqueSlug } from '@/lib/slug'
@@ -251,30 +250,7 @@ export function ListDetailClient({
       />
 
       {bullets.length > 0 ? (
-        <Masonry>
-          {bullets.map((b) => (
-            // Every card is already in THIS list, so no list line.
-            <PrimaryCard
-              key={b.id}
-              id={b.id}
-              url={b.url}
-              title={b.title}
-              description={b.description}
-              imageUrl={b.image_url}
-              screenshotUrl={b.screenshot_url}
-              faviconUrl={b.favicon_url}
-              cardType={b.card_type}
-              imagePref={b.image_pref}
-              place={b.place}
-                product={b.product}
-                customImage={b.customImage}
-              onOpen={setSelectedId}
-              utmCampaign={username}
-              outboundOverride={b.outbound_url}
-              privateMark={!!b.is_private}
-            />
-          ))}
-        </Masonry>
+        <ListGrid bullets={bullets} username={username} owner onOpen={setSelectedId} />
       ) : (
         <div className="text-center py-16">
           <p className="text-gray-500 text-sm">

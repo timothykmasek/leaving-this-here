@@ -2,9 +2,8 @@ import { notFound } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { getProfileByUsername } from '@/lib/queries'
 import { timed } from '@/lib/timing'
-import { PrimaryCard } from '@/components/PrimaryCard'
+import { ListGrid } from '@/components/ListGrid'
 import { pickCardImage } from '@/lib/cardImage'
-import { Masonry } from '@/components/Masonry'
 import { ListMasthead } from '@/components/ListMasthead'
 import { PublicHeader } from '@/components/PublicHeader'
 import { ListDetailClient } from './ListDetailClient'
@@ -200,26 +199,7 @@ export default async function ListPage({
 
 
         {bullets.length > 0 ? (
-          <Masonry>
-            {bullets.map((b) => (
-              // On a list page every card is already in THIS list, so no list line.
-              <PrimaryCard
-                key={b.id}
-                url={b.url}
-                title={b.title}
-                description={b.description}
-                imageUrl={b.image_url}
-                screenshotUrl={b.screenshot_url}
-                faviconUrl={b.favicon_url}
-                cardType={b.card_type}
-                imagePref={b.image_pref}
-                place={b.place}
-                product={b.product}
-                customImage={b.customImage}
-                utmCampaign={username}
-              />
-            ))}
-          </Masonry>
+          <ListGrid bullets={bullets} username={username} />
         ) : (
           <div className="text-center py-16">
             <p className="text-gray-500 text-sm">empty list</p>
