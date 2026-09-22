@@ -1435,7 +1435,14 @@ export default function ProfileClient({
           no footer at all — no privacy link, no extension link, nothing. The
           Import button below stays owner-only; it is an action, not chrome. */}
       <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />
-      {isOwner && <ImportFab widthClassName={PROFILE_GRID} onSaved={refreshBookmarks} />}
+      {isOwner && (
+        <ImportFab
+          widthClassName={PROFILE_GRID}
+          lists={sortedLists.map((l) => ({ id: l.id, name: l.name }))}
+          onSaved={refreshBookmarks}
+          onListsChanged={async () => setLists(await fetchLists(profile.id))}
+        />
+      )}
     </main>
   )
 }
