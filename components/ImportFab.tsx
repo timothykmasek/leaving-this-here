@@ -91,6 +91,17 @@ const FROST_STYLE: React.CSSProperties = {
   backdropFilter: 'blur(37.2549px)',
   WebkitBackdropFilter: 'blur(37.2549px)',
 }
+// The pill when it sits UNDER a shelf (Figma's stacked Rectangle 5091): the
+// milk layer goes opaque #F1F1EF, and it gains a soft drop shadow plus an
+// inner grey glow — a plate the shelf rests on, not a window over the cards.
+const STACKED_STYLE: React.CSSProperties = {
+  background: `linear-gradient(0deg, #F1F1EF, #F1F1EF), ${GRAIN}, radial-gradient(462.83% 303.02% at -145.2% -28.49%, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.0671875) 77.08%, rgba(0,0,0,0) 100%)`,
+  backgroundBlendMode: 'normal, overlay, normal',
+  boxShadow:
+    '0px 4px 14px rgba(0,0,0,0.05), inset 0.931372px 7.45098px 10.2451px rgba(255,255,255,0.55), inset 0px 0px 31.6667px rgba(180,180,180,0.3)',
+  backdropFilter: 'blur(37.2549px)',
+  WebkitBackdropFilter: 'blur(37.2549px)',
+}
 // Glyph ink — the dot and the three dots.
 const GLYPH = '#414141'
 // The closed tile keeps its milk-free frost so the + reads white over cards.
@@ -419,9 +430,27 @@ export function ImportFab({
                 {flow.kind === 'bulk' && (
                   <>
                     <Row top>
-                      <span className={`${ROW_TEXT} shrink-0 text-ink`}>Uploaded</span>
-                      <span className={`${ROW_TEXT} min-w-0 truncate text-right text-black/30`}>
-                        {flow.urls.length} link{flow.urls.length === 1 ? '' : 's'} · {flow.fileName}
+                      <span className={`${ROW_TEXT} shrink-0 text-ink`}>
+                        Uploaded
+                        <span className="text-black/30"> · {flow.urls.length} link{flow.urls.length === 1 ? '' : 's'}</span>
+                      </span>
+                      {/* Filename at 30%, anchored to its END and fading out
+                          at its start (Figma's Rectangle 5166: a white →
+                          transparent gradient over the first ~100px). Export
+                          names front-load the boring part; the tail is what
+                          you recognise. */}
+                      <span
+                        className="relative h-4 min-w-0 flex-1 overflow-hidden"
+                        // On the clipping box, not the text: the fade must sit
+                        // at the visible left edge however far the name spills.
+                        style={{
+                          maskImage: 'linear-gradient(90deg, transparent 0, #000 104px)',
+                          WebkitMaskImage: 'linear-gradient(90deg, transparent 0, #000 104px)',
+                        }}
+                      >
+                        <span className={`${ROW_TEXT} absolute right-0 top-0 whitespace-nowrap text-black/30`}>
+                          {flow.fileName}
+                        </span>
                       </span>
                     </Row>
                     {pickerOpen && (
@@ -444,7 +473,7 @@ export function ImportFab({
                         stop here
                       </button>
                     </Row>
-                    <div className="flex h-[60px] items-center rounded-b-[10px] px-5" style={FROST_STYLE}>
+                    <div className="flex h-[60px] items-center rounded-b-[10px] px-5" style={STACKED_STYLE}>
                       <span className={`${PILL_LABEL} animate-pulse`}>
                         {flow.done} of {flow.urls.length}…
                       </span>
@@ -458,7 +487,7 @@ export function ImportFab({
                         {flow.saved > 0 ? 'Saved!' : flow.failed > 0 ? 'Those didn’t go through' : 'Nothing new to add'}
                       </span>
                     </Row>
-                    <button onClick={reset} className="flex h-[60px] items-center justify-between rounded-b-[10px] px-5 text-left" style={FROST_STYLE}>
+                    <button onClick={reset} className="flex h-[60px] items-center justify-between rounded-b-[10px] px-5 text-left" style={STACKED_STYLE}>
                       <span className={PILL_LABEL}>
                         {flow.saved} saved
                         {flow.skipped > 0 && ` · ${flow.skipped} already there`}
@@ -531,7 +560,7 @@ function PublishPill({
   return (
     <div
       className={`relative flex h-[60px] items-center ${stacked ? 'rounded-b-[10px]' : 'rounded-[10px]'} ${className}`}
-      style={FROST_STYLE}
+      style={stacked ? STACKED_STYLE : FROST_STYLE}
     >
       <button
         onClick={onPublish ?? onToggle}
