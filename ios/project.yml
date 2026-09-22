@@ -49,6 +49,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.yourbulletin.ios
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"      # iPhone-only; "1,2" makes App Store Connect demand all four orientations
     dependencies:
       - target: BulletinShare
         embed: true
@@ -92,3 +93,4 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.yourbulletin.ios.share
+        TARGETED_DEVICE_FAMILY: "1"
