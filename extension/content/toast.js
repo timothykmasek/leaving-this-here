@@ -282,6 +282,7 @@
   let revealed = false
   let revealTimer = null
   let hintTimer = null
+  let undoHold = null
   // A later save superseding this one: stamp every async response.
   let saveSeq = 0
   // Lists are prefetched the moment the card injects, in PARALLEL with the
@@ -318,6 +319,7 @@
     clearTimeout(idleTimer)
     clearTimeout(revealTimer)
     clearTimeout(hintTimer)
+    clearTimeout(undoHold)
     card.style.transition = 'opacity .3s ease, transform .3s ease'
     card.style.opacity = '0'
     card.style.transform = 'translateY(-6px)'
@@ -582,9 +584,15 @@
     el('pbody').classList.add('open')
     armIdle()
   }
+  // The title flips the instant the server confirms; Undo lingers on the
+  // second line for a beat longer (Tim, 2026-09-22: "an extra 1.5 seconds")
+  // before the line becomes "Now, publish to a list...". Undo works
+  // throughout — the id is in hand.
+  const UNDO_HOLD_MS = 1500
   function confirm(title) {
-    card.classList.remove('pending')
     setTitle(title, profileUrl)
+    clearTimeout(undoHold)
+    undoHold = setTimeout(() => card.classList.remove('pending'), UNDO_HOLD_MS)
   }
 
   // Optimistic open: full card, prefetched lists — before the save confirms.
@@ -689,6 +697,7 @@
     clearTimeout(revealTimer)
     clearTimeout(idleTimer)
     clearTimeout(hintTimer)
+    clearTimeout(undoHold)
     onPrefetch = null
     prefetchLists() // re-warm — a list created since injection should show
     bookmarkId = null
