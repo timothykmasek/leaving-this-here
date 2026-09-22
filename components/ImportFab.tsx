@@ -24,6 +24,10 @@ import { createClient } from '@/lib/supabase/client'
 // a "Create New List" card that turned itself into a form, and Tim cut it
 // (2026-09-22) — one dock, one place things get made.
 //
+// On a phone the tile opens STRAIGHT into the paste input. Naming lists and
+// uploading CSVs are desk work (Tim, 2026-09-22); the phone's job is "I have a
+// link, take it". The other two pills don't render below `sm`.
+//
 // The list picker can also mint a list on the spot ("+ New list" at its foot),
 // the way the extension's can — so the reverse door works too: upload first,
 // then name the list it goes into.
@@ -379,7 +383,12 @@ export function ImportFab({
         {!open ? (
           // Closed: the frosted + tile, unchanged.
           <button
-            onClick={() => { setOpen(true); setFlow({ kind: 'menu' }) }}
+            onClick={() => {
+              setOpen(true)
+              // Phone: no menu, just the paste input. `sm` is 640px.
+              const phone = typeof window !== 'undefined' && window.matchMedia('(max-width: 639px)').matches
+              setFlow(phone ? { kind: 'paste', busy: false, message: null } : { kind: 'menu' })
+            }}
             aria-label="Add a link"
             title="Add a link"
             className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-[18px] transition-transform duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:scale-[1.04] active:scale-[0.98] sm:h-16 sm:w-16 sm:rounded-[20px]"
@@ -388,13 +397,12 @@ export function ImportFab({
             <PlusGlyph className="text-white" />
           </button>
         ) : (
-          <div ref={rootRef} className="pointer-events-auto flex w-full flex-wrap items-end justify-end gap-[10px] sm:w-auto sm:flex-nowrap">
+          <div ref={rootRef} className="pointer-events-auto flex w-full items-end justify-end gap-[10px] sm:w-auto">
             {/* ── Create New List: the menu's first pill, and only there — once
                 any flow starts, the column that replaces the menu carries its
-                own doors. Full-width on phones (wraps onto its own line above
-                the other two); a 200px pill beside them from sm up. ── */}
+                own doors. Desktop only. ── */}
             {flow.kind === 'menu' && onCreateList && (
-              <Pill onClick={startNewList} className="w-full sm:w-[200px]">
+              <Pill onClick={startNewList} className="hidden sm:flex sm:w-[200px]">
                 <span className={PILL_LABEL}>Create New List</span>
                 {/* Same dot as Add Bullet — one mark for "make a thing" (Tim). */}
                 <span aria-hidden className="absolute right-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full" style={{ background: GLYPH }} />
@@ -552,7 +560,8 @@ export function ImportFab({
             {flow.kind === 'name' || flow.kind === 'created' ? null : flow.kind === 'menu' || flow.kind === 'paste' || flow.kind === 'published' ? (
               <Pill
                 onClick={() => fileRef.current?.click()}
-                className="w-full min-w-0 flex-1 sm:w-[200px] sm:flex-none"
+                // Desktop only — a CSV is desk work.
+                className="hidden sm:flex sm:w-[200px]"
               >
                 <span className={PILL_LABEL}>Bulk Import</span>
                 {/* Three 4px dots on a 10px pitch (Figma: x 1256/1266/1276). */}
