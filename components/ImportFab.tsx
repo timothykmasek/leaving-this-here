@@ -461,6 +461,7 @@ export function ImportFab({
                       open={pickerOpen}
                       onToggle={() => setPickerOpen((p) => !p)}
                       onPublish={flow.urls.length > 0 ? () => runBulk(flow.fileName, flow.urls) : undefined}
+                      selectedCount={selected.size}
                       label={flow.urls.length === 0 ? 'No links in that file' : undefined}
                     />
                   </>
@@ -541,11 +542,16 @@ function Pill({
 }
 
 // The "Publish to these lists ⌄" pill — the anchor row of both flows. The
-// chevron toggles the picker; in bulk it is also the run trigger.
+// FIRST click anywhere on it opens the picker: the words say "these lists",
+// so clicking them must show the lists, never fire the run (that trap shipped
+// once — a CSV went straight to saving with nothing picked). In bulk, the
+// second click, with the picker open, is the deliberate publish; the label
+// changes to say exactly what it will do.
 function PublishPill({
   open,
   onToggle,
   onPublish,
+  selectedCount = 0,
   label,
   stacked,
   className = '',
@@ -553,21 +559,30 @@ function PublishPill({
   open: boolean
   onToggle: () => void
   onPublish?: () => void
+  selectedCount?: number
   label?: string
   stacked?: boolean
   className?: string
 }) {
+  const armed = open && !!onPublish
+  const text =
+    label ??
+    (armed
+      ? selectedCount > 0
+        ? `Publish to ${selectedCount} list${selectedCount === 1 ? '' : 's'} →`
+        : 'Publish without a list →'
+      : 'Publish to these lists')
   return (
     <div
       className={`relative flex h-[60px] items-center ${stacked ? 'rounded-b-[10px]' : 'rounded-[10px]'} ${className}`}
       style={stacked ? STACKED_STYLE : FROST_STYLE}
     >
       <button
-        onClick={onPublish ?? onToggle}
+        onClick={armed ? onPublish : onToggle}
         disabled={!onPublish && !!label}
         className={`h-full min-w-0 flex-1 truncate px-5 text-left ${PILL_LABEL}`}
       >
-        {label ?? 'Publish to these lists'}
+        {text}
       </button>
       <button
         onClick={onToggle}
