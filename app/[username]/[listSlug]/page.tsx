@@ -56,7 +56,7 @@ export default async function ListPage({
       supabase
         .from('lists')
         .select(
-          `id, name, slug, is_private, description, cover_image_url,
+          `id, name, slug, description, cover_image_url,
            profiles!inner(id, username, display_name, bio, links),
            list_bookmarks(bookmark_id, bookmarks(${BULLET_COLS}))`
         )
@@ -77,7 +77,6 @@ export default async function ListPage({
     id: row.id,
     name: row.name,
     slug: row.slug,
-    is_private: row.is_private,
     description: row.description,
     cover_image_url: row.cover_image_url,
     list_bookmarks: (row.list_bookmarks || []).map((x: any) => ({
@@ -100,7 +99,7 @@ export default async function ListPage({
     ? await timed('list:allLists (owner)', () =>
         supabase
           .from('lists')
-          .select('id, name, slug, is_private, description, list_bookmarks(bookmark_id)')
+          .select('id, name, slug, description, list_bookmarks(bookmark_id)')
           .eq('user_id', profile.id)
           .order('created_at', { ascending: false })
       )
@@ -133,7 +132,6 @@ export default async function ListPage({
       id: l.id,
       name: l.name,
       slug: l.slug ?? null,
-      is_private: l.is_private,
       description: l.description ?? null,
       // The sidebar's list set never renders covers, so it doesn't fetch them.
       cover_image_url: null,
@@ -164,7 +162,6 @@ export default async function ListPage({
               id: (list as any).id,
               name: (list as any).name,
               slug: (list as any).slug ?? null,
-              is_private: (list as any).is_private,
               description: (list as any).description ?? null,
               cover_image_url: (list as any).cover_image_url ?? null,
               bookmark_ids: ids,
@@ -204,7 +201,6 @@ export default async function ListPage({
           backLabel={`\u2190 ${owner.split(' ')[0]}\u2019s lists`}
           coverUrl={(list as any).cover_image_url}
           stripThumbs={stripThumbs}
-          isPrivate={!!list.is_private}
         />
 
 

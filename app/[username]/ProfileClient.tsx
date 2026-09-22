@@ -37,19 +37,7 @@ import { forgetSuggestion } from '@/components/SuggestionShelf'
 const PROFILE_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 const BULLET_COLS =
-  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, is_private, outbound_url, created_at, pinned_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
-
-// Grid order: pinned bullets first (most recently pinned leading), then
-// reverse-chron — the same order the server queries in, reapplied locally
-// after a pin toggle so the card moves without a refetch.
-function sortBullets(list: any[]): any[] {
-  return [...list].sort((a, b) => {
-    const ap = a.pinned_at ? Date.parse(a.pinned_at) : 0
-    const bp = b.pinned_at ? Date.parse(b.pinned_at) : 0
-    if (ap !== bp) return bp - ap
-    return Date.parse(b.created_at || 0) - Date.parse(a.created_at || 0)
-  })
-}
+  'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, is_private, outbound_url, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
 
 // How many bullets to render at once. A power profile holds ~1000 bullets;
 // mounting them all floods the DOM and fires ~1000 image-optimizer requests in
@@ -125,7 +113,7 @@ export default function ProfileClient({
   // Which bullet's detail modal is open (owner view). Looked up from `bookmarks`
   // so it always reflects the latest tags/note after edits.
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // Lists. Each: { id, name, is_private, created_at, bookmark_ids: string[] }.
+  // Lists. Each: { id, name, slug, created_at, bookmark_ids: string[] }.
   const [lists, setLists] = useState<any[]>(initialLists)
   // Non-empty while the owner is searching — collapses the lists/recent layout
   // down to a flat results grid.
@@ -227,7 +215,6 @@ export default function ProfileClient({
           .from('bookmarks')
           .select(BULLET_COLS)
           .eq('user_id', initialProfile.id)
-          .order('pinned_at', { ascending: false, nullsFirst: false })
           .order('created_at', { ascending: false })
         if (cancelled || !data) return
         setBookmarks(data)
@@ -255,7 +242,6 @@ export default function ProfileClient({
       .from('bookmarks')
       .select(BULLET_COLS)
       .eq('user_id', initialProfile.id)
-      .order('pinned_at', { ascending: false, nullsFirst: false })
       .order('created_at', { ascending: false })
     if (!data) return
     setBookmarks(data)
@@ -462,31 +448,6 @@ export default function ProfileClient({
     setFiltered((prev) => prev.filter((b) => b.id !== id))
   }
 
-  // Pin/unpin a bullet to the top of the profile. Optimistic: the card moves
-  // the moment the button is pressed, then the row persists. `filtered` only
-  // resorts when there's no live search — search order is relevance, and a pin
-  // shouldn't scramble someone's results mid-query.
-  const handleTogglePin = async (id: string, pin: boolean) => {
-    const pinned_at = pin ? new Date().toISOString() : null
-    const patch = (list: any[]) => list.map((b) => (b.id === id ? { ...b, pinned_at } : b))
-    setBookmarks((prev) => sortBullets(patch(prev)))
-    setFiltered((prev) => (query.trim() ? patch(prev) : sortBullets(patch(prev))))
-    const { error } = await supabase.from('bookmarks').update({ pinned_at }).eq('id', id)
-    if (error && /pinned_at/i.test(error.message || '')) {
-      console.warn('bookmarks.pinned_at column missing — apply migrations/025_pinned_bullets.sql in the Supabase SQL editor')
-    }
-  }
-
-  // Flip a bullet between public and secret. Optimistic: the card's lock chip
-  // answers immediately (privateMark reads is_private from state); RLS
-  // (migration 026) is what actually hides it from logged-out readers.
-  const handleToggleVisibility = async (id: string, isPrivate: boolean) => {
-    const patch = (list: any[]) => list.map((b) => (b.id === id ? { ...b, is_private: isPrivate } : b))
-    setBookmarks(patch)
-    setFiltered(patch)
-    await supabase.from('bookmarks').update({ is_private: isPrivate }).eq('id', id)
-  }
-
   // Custom outbound link (affiliate etc). Optimistic; the card's href flips
   // immediately because outboundOverride reads from state.
   const handleOutboundUpdate = async (id: string, outbound: string | null) => {
@@ -528,7 +489,7 @@ export default function ProfileClient({
     try {
       const { data, error } = await supabase
         .from('lists')
-        .select('id, name, slug, is_private, description, created_at, list_bookmarks(bookmark_id)')
+        .select('id, name, slug, description, created_at, list_bookmarks(bookmark_id)')
         .eq('user_id', uid)
         .order('created_at', { ascending: false })
       if (!error) return shape(data)
@@ -537,7 +498,7 @@ export default function ProfileClient({
       if (/slug/i.test(error.message || '')) {
         const fallback = await supabase
           .from('lists')
-          .select('id, name, is_private, description, created_at, list_bookmarks(bookmark_id)')
+          .select('id, name, description, created_at, list_bookmarks(bookmark_id)')
           .eq('user_id', uid)
           .order('created_at', { ascending: false })
         if (!fallback.error) return shape(fallback.data)
@@ -1088,7 +1049,6 @@ export default function ProfileClient({
                     name={l.name}
                     count={l.bookmark_ids.length}
                     thumbs={listThumbs(l)}
-                    isPrivate={l.is_private}
                     // Clicking a list navigates straight to its own URL — for
                     // the owner too (the list page carries the owner controls).
                     // A slugless list (pre-migration) still falls back to the
@@ -1416,8 +1376,6 @@ export default function ProfileClient({
             onDelete={handleDelete}
             onToggleListMembership={handleToggleMembership}
             onCreateList={handleCreateList}
-            onTogglePin={handleTogglePin}
-            onToggleVisibility={handleToggleVisibility}
             onTitleUpdate={handleTitleUpdate}
             onOutboundUpdate={handleOutboundUpdate}
             utmCampaign={username}

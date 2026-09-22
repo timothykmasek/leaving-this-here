@@ -110,9 +110,10 @@ export async function POST(request: NextRequest) {
 
   // Everything below is best-effort: the page exists; enrich what we can.
 
-  // The shape we want to seed (per Tim): the last pick becomes a one-item
-  // starter list; the other two land as standalone bullets. So the new page
-  // shows two loose cards + one list — not everything dumped into one list.
+  // The starter list is named for the LAST pick's category, and all three
+  // picks are filed into it. Filing is what puts a bullet on the page
+  // (migration 028: unfiled = unpublished), so loose starter cards would leave
+  // a brand-new profile looking empty to everyone but its owner.
   const listPick = picks.length ? picks[picks.length - 1] : null
 
   let listId: string | null = null
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
     listId = list?.id || null
   }
 
-  // ── Seed bookmarks: only the last pick attaches to the list ─────────────
+  // ── Seed bookmarks: every pick attaches to the starter list ─────────────
   // Insert all picks concurrently and off the metadata critical path. Each row
   // lands immediately from the curated seed (hand-written title + baked
   // screenshot) via deferEnrichment, and the live fetch + embedding run in the
@@ -136,10 +137,9 @@ export async function POST(request: NextRequest) {
   const origin = new URL(request.url).origin
   await Promise.all(
     picks.map(async (pick) => {
-      const inList = pick === listPick
       await createBookmarkFromUrl(supabase, user.id, pick.url, {
         origin,
-        listId: inList ? listId : null,
+        listId,
         // Curated seed data beats whatever a live fetch returns for these
         // domains — the library title is hand-written, and the baked screenshot
         // is the same production capture the picker already shows.

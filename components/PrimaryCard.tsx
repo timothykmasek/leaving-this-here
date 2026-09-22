@@ -653,12 +653,13 @@ export const PrimaryCard = memo(function PrimaryCard({
         )}
 
         {privateMark && (
-          // Secret bullet, owner view. Always visible (it's information, not a
+          // Unfiled bullet, owner view — in no list, so not on the page yet
+          // (migration 028). Always visible (it's information, not a
           // control) and top-RIGHT — the pencil owns top-left, the tag corner
           // (price/rating/mark) owns bottom-left, disc/mic own bottom-right.
           <span
-            aria-label="secret — only you can see this"
-            title="Secret — only you can see this"
+            aria-label="not on your page yet — add it to a list to publish it"
+            title="Not on your page yet — add it to a list to publish it"
             className="absolute right-3 top-3 z-[2] flex h-6 w-6 items-center justify-center rounded-full bg-white/90 text-stone-600 shadow-sm"
           >
             <svg

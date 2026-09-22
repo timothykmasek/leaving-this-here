@@ -38,14 +38,12 @@ export function CollectionCard({
   name,
   count,
   thumbs,
-  isPrivate,
   onClick,
   href,
 }: {
   name: string
   count: number
   thumbs: string[]
-  isPrivate?: boolean
   onClick?: () => void
   // When set, the card is a real link to the list's public URL (visitors go
   // straight to /username/<slug>). Otherwise it's a button (owner in-page view).
@@ -106,7 +104,7 @@ export function CollectionCard({
             would silently load Regular. Fill 0.7 × layer opacity 0.8 = 0.56,
             the same alpha the bullet card's title settled on. */}
         <p className="mt-2 font-sans text-[12px] font-[400] leading-4 tracking-[0.05em] text-black/[0.56]">
-          {count} {count === 1 ? 'Item' : 'Items'}{isPrivate ? ' · Private' : ''}
+          {count} {count === 1 ? 'Item' : 'Items'}
         </p>
       </div>
     </>

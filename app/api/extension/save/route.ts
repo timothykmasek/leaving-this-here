@@ -124,11 +124,14 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
 
-// PATCH — two owner-scoped follow-ups to a save:
-//   { bookmark_id, is_private }  → flip visibility (the card's globe/lock pill)
+// PATCH — owner-scoped follow-ups to a save:
 //   { bookmark_id, client_shot } → the out-of-band screenshot upload. The save
 //     request no longer carries the capture (it would wait on the camera and
 //     haul base64); the extension sends it here once the id exists.
+//   { bookmark_id, is_private }  → RETIRED (migration 028: visibility follows
+//     filing, the flag is derived). Extension builds ≤0.5.2 still send it from
+//     their globe/lock pill; answer ok so their card doesn't show an error, and
+//     write nothing — the trigger would overwrite it anyway.
 // Token-scoped client, so RLS's owner-only policy is the authorization; a
 // non-owner matches zero rows and we report that rather than pretend it stuck.
 export async function PATCH(request: NextRequest) {
@@ -172,19 +175,11 @@ export async function PATCH(request: NextRequest) {
     return json({ ok: true })
   }
 
-  if (typeof body.is_private !== 'boolean') {
-    return json({ error: 'is_private or client_shot required' }, 400)
+  if (typeof body.is_private === 'boolean') {
+    return json({ ok: true, deprecated: 'visibility follows list membership' })
   }
 
-  const { data, error } = await supabase
-    .from('bookmarks')
-    .update({ is_private: body.is_private })
-    .eq('id', bookmarkId)
-    .eq('user_id', user.id)
-    .select('id')
-  if (error) return json({ error: error.message }, 400)
-  if (!data || data.length === 0) return json({ error: 'bookmark not found' }, 404)
-  return json({ ok: true })
+  return json({ error: 'client_shot required' }, 400)
 }
 
 // DELETE — undo a save (the toast's undo icon). { bookmark_id } → { ok }.
@@ -276,10 +271,9 @@ export async function POST(request: NextRequest) {
 
   const note: string | null =
     typeof body.note === 'string' && body.note.trim() ? body.note.trim() : null
-  // The extension's sticky private default: save the bullet secret from the
-  // first write, so it's never publicly readable even between save and a
-  // follow-up PATCH. Fresh inserts only — a re-save keeps its existing value.
-  const isPrivate = body.is_private === true
+  // `body.is_private` from older extension builds is ignored: a fresh bullet
+  // is born unfiled, therefore private, and the database derives the flag
+  // from list membership (migration 028).
   // For "save image" context-menu saves, the extension passes the image src.
   const imageOverride: string | null =
     typeof body.image_url === 'string' && body.image_url.trim()
@@ -435,7 +429,6 @@ export async function POST(request: NextRequest) {
       favicon_url,
       note,
       card_type,
-      is_private: isPrivate,
       raw_metadata: meta.raw,
     })
     .select('id, title, image_url, favicon_url, is_private')

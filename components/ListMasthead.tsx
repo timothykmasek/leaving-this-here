@@ -37,10 +37,10 @@ export function ListMasthead({
   count,
   backHref,
   backLabel,
-  isPrivate = false,
   onRename,
   onDelete,
   // Retired — accepted so call sites compile.
+  isPrivate: _isPrivate,
   description: _description,
   ownerName: _ownerName,
   coverUrl: _coverUrl,
@@ -52,11 +52,12 @@ export function ListMasthead({
   count: number
   backHref: string
   backLabel: string
-  isPrivate?: boolean
   /** Persist a rename. Present → the poster title edits in place on click. */
   onRename?: (name: string) => void
   /** Delete the list. Present → a quiet confirm-guarded link in the meta row. */
   onDelete?: () => void
+  /** Retired with migration 028 — lists are always public. */
+  isPrivate?: boolean
   description?: string | null
   ownerName?: string
   coverUrl?: string | null
@@ -194,12 +195,14 @@ export function ListMasthead({
       <div className="mt-10 flex items-center justify-between gap-4 pb-8 font-sans text-[12px] font-medium leading-4 tracking-[0.05em] sm:mt-24">
         <span className="text-black/[0.56]">
           {count} {count === 1 ? 'Bullet' : 'Bullets'}
-          {isPrivate && ' · Private'}
         </span>
         {onDelete &&
           (confirmingDelete ? (
             <span className="flex items-center gap-2.5">
-              <span className="text-black/45">Delete this list?</span>
+              {/* Filing is publishing (migration 028): bullets that live only
+                  here come off the page with the list. The bullets themselves
+                  survive, unpublished. */}
+              <span className="text-black/45">Delete this list? Bullets only in it come off your page.</span>
               <button
                 onClick={onDelete}
                 className="text-[#a31f34] underline underline-offset-2 transition-opacity hover:opacity-60"

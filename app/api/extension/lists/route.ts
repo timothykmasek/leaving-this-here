@@ -92,20 +92,37 @@ export async function GET(request: NextRequest) {
     return json({ list, bullets })
   }
 
-  const { data, error } = await a.supabase
-    .from('lists')
-    .select('id, name, slug')
-    .eq('user_id', a.userId)
-    .order('created_at', { ascending: false })
+  // The card links each list to its page, so it needs the owner's handle;
+  // fetched alongside the lists rather than waiting on the save response.
+  const [{ data, error }, { data: prof }] = await Promise.all([
+    a.supabase
+      .from('lists')
+      .select('id, name, slug, created_at, list_bookmarks(added_at)')
+      .eq('user_id', a.userId),
+    a.supabase.from('profiles').select('username').eq('id', a.userId).maybeSingle(),
+  ])
   if (error) return json({ error: error.message }, 400)
-  // Newest-first, and that's it. This endpoint used to centroid-rank the lists
-  // against the bullet (embedding it on demand when fresh) — a full Voyage
-  // round-trip sitting between "saved" and the card's reveal. Tim's ruling
-  // 2026-09-02: saves must be fast; ranking is not worth the wait.
-  const lists: ListRow[] = data || []
+  // Most recently USED first (latest filing, else creation) — the three lists
+  // you're actively building sit on top of the card; the rest fold under
+  // "All other lists". No semantic ranking: this endpoint used to centroid-
+  // rank against the bullet (embedding it on demand when fresh), a full
+  // Voyage round-trip between "saved" and the reveal. Tim's ruling
+  // 2026-09-02: saves must be fast; 2026-09-22: recency is the order.
+  const lastUsed = (l: any): number => {
+    const created = Date.parse(String(l.created_at || '')) || 0
+    const filed = ((l.list_bookmarks || []) as { added_at: string }[]).reduce(
+      (m, x) => Math.max(m, Date.parse(String(x.added_at || '')) || 0),
+      0,
+    )
+    return Math.max(created, filed)
+  }
+  const lists: ListRow[] = ((data || []) as any[])
+    .sort((x, y) => lastUsed(y) - lastUsed(x))
+    .map((l) => ({ id: l.id, name: l.name, slug: l.slug }))
+  const username: string | null = prof?.username ?? null
 
   const bookmarkId = new URL(request.url).searchParams.get('bookmark_id')
-  if (!bookmarkId || lists.length === 0) return json({ lists, member_of: [] })
+  if (!bookmarkId || lists.length === 0) return json({ lists, member_of: [], username })
 
   // Constrained to the caller's own list ids, so this can't be used to probe
   // which of someone else's lists a bullet sits in.
@@ -117,7 +134,7 @@ export async function GET(request: NextRequest) {
   if (memErr) return json({ error: memErr.message }, 400)
   const memberOf = (mem || []).map((m) => m.list_id)
 
-  return json({ lists, member_of: memberOf })
+  return json({ lists, member_of: memberOf, username })
 }
 
 export async function POST(request: NextRequest) {
@@ -139,10 +156,8 @@ export async function POST(request: NextRequest) {
   if (op === 'create') {
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) return json({ error: 'list name required' }, 400)
-    // Secret list (popup's "Make this list secret" toggle) → lists.is_private:
-    // visible on the owner's logged-in view, hidden from the logged-out view
-    // (RLS from migration 008 enforces the read side).
-    const isPrivate = body.is_private === true
+    // `body.is_private` from older extension builds is ignored — lists are
+    // always public (migration 028).
 
     // Creating a list the user already has is a no-op on the list itself: reuse
     // it and just file the bullet. Without this, "create Testing" twice mints
@@ -176,7 +191,7 @@ export async function POST(request: NextRequest) {
 
       const r = await supabase
         .from('lists')
-        .insert({ user_id: userId, name, slug, is_private: isPrivate })
+        .insert({ user_id: userId, name, slug })
         .select('id, name, slug')
         .single()
       if (!r.error) { listRow = r.data as any; break }

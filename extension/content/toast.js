@@ -1,20 +1,25 @@
 // On-page save card — injected into the active tab by the background worker.
-// The WHOLE save experience lives here now, mymind-style (Tim, 2026-09-01):
-// clicking the toolbar icon saves immediately and this floating rounded card
-// top-right is what you watch, not a popup.
+// The WHOLE save experience lives here, mymind-style: clicking the toolbar
+// icon saves immediately and this floating rounded card top-right is what you
+// watch, not a popup.
 //
-// Three states, one-frame transitions between them:
-//   1. Saving — a compact grey bar: "Saving to Bulletin" + a breathing dot.
-//   2. Saved  — revealed ONLY once the save AND the ranked lists are both in
-//      hand, in one motion: title flips, the dot dissolves into the
-//      public/secret pill, the status line fades in, and the list picker
-//      (dot-grid ground, ≤3 rows visible, Create List hugging beneath)
-//      expands below. No intermediate "saved but empty" beat.
-//   3. Create List — slides in from the right at the same height: name field,
-//      "Make this list secret" toggle, the app's rounded-lg CTA.
+// Design: Figma "Extension 21.09.26" (ProjectX 1138:297121). Two moments:
+//   1. Saving — the grey band alone: "Saving to your bulletin..." and the B
+//      tile breathing top-right.
+//   2. Saved  — the band settles ("Saved to your bulletin" / "Now, publish to
+//      a list...") and the picker unfolds below in ONE paint: the three lists
+//      you used most recently, each a row with a ↗ to its page and a dot
+//      that fills when the bullet is in it; "All other lists" folding the
+//      rest under a chevron; and "Create new list", which turns into a field
+//      in place — type, press Enter, "Saved!".
 //
-// Dismissal: an idle timer after the reveal (paused while hovering or typing,
-// restarted by filing), Escape, or clicking anywhere outside the card.
+// There is no visibility control. Filing is publishing (migration 028): a
+// bullet in a list is on your page, a bullet in no list is yours alone. The
+// picker IS the switch.
+//
+// Dismissal: an idle timer after the reveal (paused while hovering or typing),
+// Escape, or clicking anywhere outside the card. Undo is the quiet grey word
+// at the end of the subtitle line (Tim, 2026-09-04) — deletes the save.
 //
 // Injected via chrome.scripting.executeScript({ files: [...] }) so it runs as
 // a content script in the isolated world. All UI lives in a shadow root so the
@@ -22,15 +27,16 @@
 //
 // Protocol — background → card (chrome.tabs.sendMessage):
 //   { type: 'ig-toast', state: 'saving' }
-//   { type: 'ig-toast', state: 'saved',     data: { id, title, refreshed } }
+//   { type: 'ig-toast', state: 'optimistic' }
+//   { type: 'ig-toast', state: 'saved',     data: { id, title, refreshed, profileUrl } }
 //   { type: 'ig-toast', state: 'duplicate', data: { id, title } }
 //   { type: 'ig-toast', state: 'signin' }
 //   { type: 'ig-toast', state: 'error',     data: { message } }
 // Protocol — card → background (chrome.runtime.sendMessage):
-//   { type: 'ig-get-lists', bookmarkId }                   → { ok, lists, memberOf }
-//   { type: 'ig-create-list', name, bookmarkId, isPrivate } → { ok, list, url }
-//   { type: 'ig-set-list', listId, bookmarkId, add }        → { ok }
-//   { type: 'ig-set-visibility', bookmarkId, isPrivate }    → { ok }
+//   { type: 'ig-get-lists', bookmarkId }            → { ok, lists, memberOf, username, origin }
+//   { type: 'ig-create-list', name, bookmarkId }    → { ok, list, url }
+//   { type: 'ig-set-list', listId, bookmarkId, add } → { ok }
+//   { type: 'ig-delete-bullet', bookmarkId }        → { ok }
 
 ;(() => {
   if (window.__igToast) {
@@ -43,10 +49,14 @@
   const DISMISS_MS = 8000
   // Backstop only: never sit on "Saving…" forever if the list fetch stalls.
   const REVEAL_TIMEOUT_MS = 8000
+  // Lists on top before the fold. The rest sit under "All other lists".
+  const TOP_ROWS = 3
 
   // Brand fonts, same cuts as the web app (declared in web_accessible_resources).
   const FONT_BOOK = chrome.runtime.getURL('fonts/MierA-Book.woff2')
   const FONT_REGULAR = chrome.runtime.getURL('fonts/MierA-Regular.woff2')
+  const FONT_SERIF = chrome.runtime.getURL('fonts/Cardo-Regular.woff2')
+  const MARK = chrome.runtime.getURL('icons/icon128.png')
 
   const host = document.createElement('div')
   host.id = 'internet-gems-toast-host'
@@ -60,291 +70,183 @@
     <style>
       @font-face { font-family:'Mier A'; src:url('${FONT_BOOK}') format('woff2'); font-weight:400; font-display:swap; }
       @font-face { font-family:'Mier A'; src:url('${FONT_REGULAR}') format('woff2'); font-weight:500; font-display:swap; }
+      @font-face { font-family:'Cardo'; src:url('${FONT_SERIF}') format('woff2'); font-weight:400; font-display:swap; }
       :host { all: initial; }
       * { box-sizing: border-box; }
       ::selection { background: #e4e2de; }
 
       @keyframes cardIn { from { opacity:0; transform:translateY(8px) scale(0.98); } to { opacity:1; transform:translateY(0) scale(1); } }
       @keyframes breathe {
-        0%, 100% { transform: scale(1); opacity: 0.55; }
-        50%      { transform: scale(1.3); opacity: 1; }
+        0%, 100% { opacity: 0.35; transform: scale(0.96); }
+        50%      { opacity: 1;    transform: scale(1); }
       }
 
       .card {
-        width: 340px;
+        width: 383px;
         font-family: 'Mier A', system-ui, sans-serif;
+        color: #000;
         background: #fff;
         border-radius: 20px;
         box-shadow: 0 12px 30px rgba(20,18,14,0.22);
         overflow: hidden;
         animation: cardIn 300ms cubic-bezier(0.2,0.8,0.2,1) both;
       }
-      .screens { position: relative; overflow: hidden; }
-      .screen-main {
-        display: flex; flex-direction: column; min-height: 0;
-        transition: transform 300ms cubic-bezier(0.2,0.8,0.2,1),
-                    min-height 300ms cubic-bezier(0.2,0.8,0.2,1);
-      }
-      .screens.show-create .screen-main { transform: translateX(-18%); min-height: 320px; }
-      .screen-create {
-        position: absolute; inset: 0;
-        display: flex; flex-direction: column;
-        background: #fff;
-        transform: translateX(100%);
-        transition: transform 300ms cubic-bezier(0.2,0.8,0.2,1);
-        visibility: hidden;
-      }
-      .screens.show-create .screen-create { transform: translateX(0); visibility: visible; }
 
       /* ── header band ── */
-      .phead { flex: none; background: #f6f6f6; padding: 20px 22px 18px; }
-      .phead-top { display: flex; align-items: center; justify-content: space-between; min-height: 25px; }
-      .ptitle { margin: 0; font-weight: 500; font-size: 18px; line-height: 24px; color: #000; }
-      .ptitle a {
-        display: inline-flex; align-items: center; gap: 5px;
-        color: #000; text-decoration: none;
+      .phead {
+        position: relative; flex: none;
+        display: flex; flex-direction: column; justify-content: center;
+        height: 115px; padding: 0 92px 0 30px;
+        background: #f5f5f5;
       }
+      .ptitle {
+        margin: 0; font-weight: 500; font-size: 18px; line-height: 24px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .ptitle a { color: inherit; text-decoration: none; }
       .ptitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
-      .ptitle a svg { width: 15px; height: 15px; flex: none; }
-      /* Undo — quiet text at the right end of the status line, only there
-         once the save landed. Speaks the card's hover language: underline. */
+      /* Subtitle line — folded away while saving. Cardo, the web's serif. */
+      .psub {
+        display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+        font-family: 'Cardo', Georgia, serif; font-size: 14px; line-height: 18px;
+        color: #3a3a3a;
+        max-height: 0; margin-top: 0; opacity: 0; overflow: hidden;
+        transition: opacity 260ms ease 60ms, max-height 260ms ease, margin-top 260ms ease;
+      }
+      .revealed .psub, .terminal .psub { max-height: 18px; margin-top: 5px; opacity: 1; }
+      .psub-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .terminal.err .psub-text { color: #a31f34; }
+      /* Undo — the quiet word at the line's end. Only once there's a save. */
       .undo {
-        flex: none; margin-left: auto; padding: 0;
-        border: none; background: none;
-        font-family: inherit; font-size: 12px; line-height: 16px;
-        letter-spacing: 0.05em; color: #8a8a8a; cursor: pointer;
-        opacity: 0; pointer-events: none;
-        transition: opacity 240ms ease, color 150ms ease;
+        flex: none; padding: 0; border: none; background: none;
+        font-family: inherit; font-size: 14px; line-height: 18px;
+        color: #9a9a9a; cursor: pointer;
+        opacity: 0; pointer-events: none; transition: opacity 200ms ease, color 150ms ease;
       }
       .revealed .undo { opacity: 1; pointer-events: auto; }
       .undo:hover { color: #000; text-decoration: underline; text-underline-offset: 2px; }
-      .undo:disabled { opacity: 0.35; pointer-events: none; }
+      .undo:disabled, .undone .undo { opacity: 0; pointer-events: none; }
 
-      /* Top-right slot: breathing dot while saving → the pill once saved. */
-      .hslot { position: relative; flex: none; width: 50px; height: 25px; }
-      .hslot.off { visibility: hidden; }
-      .breath {
-        position: absolute; top: 4px; right: 0;
-        width: 17px; height: 17px; border-radius: 50%;
-        background: #e4e4e4;
-        animation: breathe 1.5s ease-in-out infinite;
-        transition: opacity 200ms ease;
-      }
-      .revealed .breath { opacity: 0; animation-play-state: paused; }
-
-      /* space-between + fixed 21px sides: each icon's center lands exactly on
-         the 21px thumb's center at both ends of its travel (flex halves were
-         23px wide, parking the globe ~1px off the black circle). */
-      .vis {
-        position: absolute; inset: 0;
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 2px; border: none; border-radius: 30px;
-        background: #ececec; cursor: pointer;
-        opacity: 0; transform: scale(0.4); transform-origin: right center;
-        pointer-events: none;
-        transition: opacity 240ms ease, transform 280ms cubic-bezier(0.2,0.8,0.2,1);
-      }
-      .revealed .vis { opacity: 1; transform: scale(1); pointer-events: auto; }
-      .vis-thumb {
-        position: absolute; top: 2px; left: 2px;
-        width: 21px; height: 21px; border-radius: 50%;
-        background: #000;
-        transition: transform 220ms cubic-bezier(0.3,0.7,0.3,1.05);
-      }
-      .vis[aria-checked="true"] .vis-thumb { transform: translateX(25px); }
-      .vis-side {
-        position: relative; z-index: 1; flex: none; width: 21px;
+      /* The B tile top-right: 50×50 white, the toolbar mark inside. */
+      .tile {
+        position: absolute; top: 33px; right: 30px;
+        width: 50px; height: 50px; border-radius: 12px; background: #fff;
         display: flex; align-items: center; justify-content: center;
-        height: 21px; color: #8a8a8a;
-        transition: color 200ms ease;
       }
-      .vis-side svg { width: 13px; height: 13px; }
-      .vis[aria-checked="false"] .vis-side[data-side="public"],
-      .vis[aria-checked="true"] .vis-side[data-side="secret"] { color: #fff; }
+      .tile img { width: 24px; height: 24px; display: block; }
+      .saving .tile img { animation: breathe 1.4s ease-in-out infinite; }
+      .terminal .tile { visibility: hidden; }
+      /* No tile in a terminal state → the message gets the full width. */
+      .terminal .phead { padding-right: 30px; }
 
-      /* Status line — folded away while saving, revealed with everything else. */
-      .pstatus {
-        display: flex; align-items: center; gap: 7px;
-        font-size: 12px; line-height: 16px; letter-spacing: 0.05em; color: #000;
-        max-height: 0; margin-top: 0; opacity: 0; transform: translateY(-3px);
-        overflow: hidden;
-        transition: opacity 260ms ease 80ms, transform 260ms ease 80ms,
-                    max-height 260ms ease, margin-top 260ms ease;
-      }
-      .pstatus.shown { max-height: 16px; margin-top: 13px; opacity: 1; transform: translateY(0); }
-      .pstatus.err .sword { font-weight: 500; }
-      /* The tick sits in a soft green chip. */
-      .scheck {
-        display: flex; align-items: center; justify-content: center;
-        width: 16px; height: 16px; border-radius: 50%;
-        background: #ddf2e3; color: #1a7f37;
-      }
-      .scheck[hidden] { display: none; }
-      .scheck svg { width: 9px; height: 9px; }
-      .snote { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-      /* ── body: dot-grid ground, label + rows (≤3 visible) + create ── */
+      /* ── body: the picker ── */
       .pbody {
         display: flex; flex-direction: column; min-height: 0;
-        background-image: radial-gradient(circle, #e4e4e4 1px, transparent 1px);
-        background-size: 32px 32px; background-position: 0 0;
         max-height: 0; opacity: 0; overflow: hidden;
         transition: max-height 360ms cubic-bezier(0.2,0.8,0.2,1), opacity 280ms ease 60ms;
       }
-      .pbody.open { max-height: var(--body-h, 420px); opacity: 1; }
-      .slabel {
-        flex: none; padding: 16px 22px 10px;
-        font-size: 12px; line-height: 16px; letter-spacing: 0.05em; color: #000;
+      .pbody.open { max-height: var(--body-h, 520px); opacity: 1; }
+
+      .row {
+        position: relative; flex: none;
+        display: flex; align-items: center; justify-content: space-between; gap: 14px;
+        height: 64px; padding: 0 30px;
+        border-bottom: 1px solid #ececec;
+        cursor: pointer; user-select: none;
       }
-      .rows { flex: none; max-height: 168px; overflow-y: auto; }
-      .rows::-webkit-scrollbar { width: 7px; }
-      .rows::-webkit-scrollbar-thumb {
-        background: #000; background-clip: padding-box;
-        border-left: 5px solid transparent; border-radius: 30px;
+      .row:last-child { border-bottom: none; }
+      /* display:flex above would beat the UA's [hidden] rule. */
+      .row[hidden] { display: none; }
+      .rname {
+        display: flex; align-items: center; gap: 6px; min-width: 0;
+        font-weight: 500; font-size: 16px; line-height: 24px;
       }
-      .lrow {
-        display: flex; align-items: center; justify-content: space-between; gap: 12px;
-        padding: 0 22px; height: 56px;
-        border-bottom: 1px solid #f4f4f4; cursor: pointer;
-      }
+      .rname span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       /* Hover speaks in underline, not a grey wash (Tim, 2026-09-04). */
-      .lrow:hover .lname { text-decoration: underline; text-underline-offset: 3px; }
-      .lname {
-        font-weight: 500; font-size: 15px; line-height: 22px; letter-spacing: 0.05em;
-        color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      .row:hover .rname span { text-decoration: underline; text-underline-offset: 3px; }
+      /* The ↗ is the web's arrow: a text glyph, not a stroke. It alone links
+         to the list's page; the rest of the row files. */
+      .go {
+        flex: none; display: inline-flex; align-items: center; justify-content: center;
+        width: 20px; height: 20px; border-radius: 6px;
+        color: #000; text-decoration: none; font-weight: 400; font-size: 15px; line-height: 1;
+        transform: translateY(1px);
       }
+      .go:hover { background: #ececec; }
+      .go[hidden] { display: none; }
       .dot {
-        flex: none; width: 17px; height: 17px; padding: 0;
-        border: none; border-radius: 50%; background: #e4e4e4;
-        display: flex; align-items: center; justify-content: center; cursor: pointer;
+        flex: none; width: 17px; height: 17px; border-radius: 50%; background: #e4e4e4;
+        display: flex; align-items: center; justify-content: center;
       }
       .dot::after {
         content: ''; width: 9px; height: 9px; border-radius: 50%; background: #000;
         transform: scale(0);
         transition: transform 140ms cubic-bezier(0.3,0.7,0.3,1.2);
       }
-      .lrow.on .dot::after, .dot[aria-checked="true"]::after { transform: scale(1); }
-      .rows-empty { padding: 4px 22px 0; font-size: 12px; letter-spacing: 0.05em; color: #8a8a8a; }
+      .row.on .dot::after { transform: scale(1); }
 
-      .create-open {
-        flex: none; padding: 16px 22px 20px;
-        border: none; background: none; text-align: left;
-        font-family: inherit; font-weight: 400; font-size: 15px; line-height: 22px;
-        letter-spacing: 0.05em; color: #000; cursor: pointer;
+      /* The fold: the rest of the lists under a chevron. Scrolls past three. */
+      .more-head .chev {
+        flex: none; width: 20px; height: 20px; color: #000;
+        transition: transform 220ms cubic-bezier(0.2,0.8,0.2,1);
       }
-      .create-open:hover { text-decoration: underline; text-underline-offset: 3px; }
+      .more-head.open .chev { transform: rotate(180deg); }
+      .more {
+        flex: none; max-height: 0; overflow: hidden;
+        transition: max-height 300ms cubic-bezier(0.2,0.8,0.2,1);
+      }
+      .more.open { max-height: 192px; overflow-y: auto; }
+      .more::-webkit-scrollbar { width: 8px; }
+      .more::-webkit-scrollbar-thumb {
+        background: #000; background-clip: padding-box;
+        border-left: 6px solid transparent; border-radius: 30px;
+      }
+      .more .row:last-child { border-bottom: 1px solid #ececec; }
 
-      /* ── screen 2: create list ── */
-      .phead-sm { padding: 20px 22px 18px; }
-      .back {
-        display: flex; align-items: center; gap: 10px;
-        padding: 0; border: none; background: none; cursor: pointer;
-        color: #000; font-family: inherit;
-      }
-      .back svg { width: 18px; height: 18px; }
-      .back .ptitle { font-size: 18px; }
-      .cbody {
-        flex: 1; display: flex; flex-direction: column; min-height: 0;
-        padding: 20px 22px 22px;
-        background-image: radial-gradient(circle, #e4e4e4 1px, transparent 1px);
-        background-size: 32px 32px; background-position: 0 0;
-      }
+      /* Create row — a label that becomes a field in place. */
+      .create { cursor: text; }
+      .clabel { font-weight: 400; font-size: 16px; line-height: 24px; white-space: nowrap; }
       .cfield {
-        flex: none; width: 100%; height: 46px; padding: 13px;
-        border: 1px solid #e0e0e0; border-radius: 9px; background: #fff;
-        font-family: inherit; font-weight: 400; font-size: 14px; line-height: 20px;
-        letter-spacing: 0.05em; color: #000; outline: none;
+        flex: 1; min-width: 0; height: 24px; padding: 0; border: none; background: none;
+        font-family: inherit; font-weight: 400; font-size: 16px; line-height: 24px;
+        color: #000; outline: none;
       }
       .cfield::placeholder { color: #9a9a9a; }
-      .cfield:focus { border-color: #000; }
-      .cspacer { flex: 1; min-height: 20px; }
-      .secret-row {
-        flex: none; display: flex; align-items: flex-start; justify-content: space-between;
-        gap: 12px; margin-bottom: 18px;
+      .chint {
+        flex: none; font-family: 'Cardo', Georgia, serif; font-size: 14px; line-height: 18px;
+        color: #8a8a8a; white-space: nowrap;
+        opacity: 0; transition: opacity 160ms ease;
       }
-      /* Quiet by design — an option you can find, not a decision the screen
-         pushes (Tim: soft grey, smaller). */
-      .secret-title { font-weight: 400; font-size: 13px; line-height: 18px; letter-spacing: 0.05em; color: #8a8a8a; }
-      .secret-sub { margin-top: 1px; font-size: 11px; line-height: 15px; letter-spacing: 0.05em; color: #a8a8a8; }
-      .secret-row .dot { margin-top: 1px; }
-      /* The app's CTA (design verdicts: rounded-lg, sentence case, gray-900). */
-      .cta {
-        flex: none; width: 100%; height: 40px;
-        border: none; border-radius: 8px; background: #111827;
-        font-family: inherit; font-weight: 500; font-size: 14px; line-height: 20px;
-        color: #fff; cursor: pointer;
-        transition: background 150ms ease;
-      }
-      .cta:hover { background: #1f2937; }
-      .cta:disabled { opacity: 0.5; cursor: default; }
+      .chint.show { opacity: 1; }
+      .chint.saved { color: #000; }
+      .create.editing .clabel { display: none; }
+      .create:not(.editing) .cfield { display: none; }
+      .create.done .cfield { color: #000; }
     </style>
 
-    <div class="card" id="card">
-      <div class="screens" id="screens">
-        <div class="screen-main" id="screen-main">
-          <header class="phead">
-            <div class="phead-top">
-              <h1 class="ptitle" id="ptitle">Saving to your Bulletin</h1>
-              <div class="hslot" id="hslot">
-                <span class="breath"></span>
-                <button id="vis" class="vis" role="switch" aria-checked="false"
-                        aria-label="Make this save secret">
-                  <span class="vis-thumb"></span>
-                  <span class="vis-side" data-side="public">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <circle cx="12" cy="12" r="9"/>
-                      <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>
-                    </svg>
-                  </span>
-                  <span class="vis-side" data-side="secret">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="5" y="11" width="14" height="9" rx="2"/>
-                      <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
-                    </svg>
-                  </span>
-                </button>
-              </div>
-            </div>
-            <div class="pstatus" id="pstatus">
-              <span class="sword" id="sword">Saved</span>
-              <span class="scheck" id="scheck">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
-                     stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-              </span>
-              <span class="snote" id="snote"></span>
-              <button class="undo" id="undo" aria-label="Undo this save">Undo</button>
-            </div>
-          </header>
-
-          <div class="pbody" id="pbody">
-            <div class="slabel">Save to list</div>
-            <div class="rows" id="rows"></div>
-            <button class="create-open" id="btn-create">Create List</button>
-          </div>
+    <div class="card saving" id="card">
+      <header class="phead">
+        <h1 class="ptitle" id="ptitle">Saving to your bulletin...</h1>
+        <div class="psub" id="psub">
+          <span class="psub-text" id="psub-text">Now, publish to a list...</span>
+          <button class="undo" id="undo" aria-label="Undo this save">Undo</button>
         </div>
+        <div class="tile" aria-hidden="true"><img src="${MARK}" alt="" /></div>
+      </header>
 
-        <div class="screen-create" id="screen-create">
-          <header class="phead phead-sm">
-            <button class="back" id="btn-back" aria-label="Back">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"
-                   stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
-              <span class="ptitle">Create List</span>
-            </button>
-          </header>
-          <div class="cbody">
-            <input class="cfield" id="new-name" placeholder="List name"
-                   autocomplete="off" spellcheck="false" maxlength="80" />
-            <div class="cspacer"></div>
-            <div class="secret-row">
-              <div>
-                <div class="secret-title">Make this list secret</div>
-                <div class="secret-sub">Only you can see this list</div>
-              </div>
-              <button class="dot" id="secret-toggle" role="switch" aria-checked="false"
-                      aria-label="Make this list secret"></button>
-            </div>
-            <button class="cta" id="btn-do-create">Create</button>
-          </div>
+      <div class="pbody" id="pbody">
+        <div id="top"></div>
+        <div class="row more-head" id="more-head" hidden>
+          <div class="rname"><span>All other lists</span></div>
+          <svg class="chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l5 5 5-5"/></svg>
+        </div>
+        <div class="more" id="more"></div>
+        <div class="row create" id="create">
+          <span class="clabel" id="clabel">Create new list</span>
+          <input class="cfield" id="cfield" autocomplete="off" spellcheck="false" maxlength="80"
+                 aria-label="New list name" />
+          <span class="chint" id="chint">Press Enter</span>
         </div>
       </div>
     </div>
@@ -352,24 +254,18 @@
 
   const el = (id) => root.getElementById(id)
   const card = el('card')
-  const screens = el('screens')
-  const nameInput = el('new-name')
-
-  const COPY = {
-    public: 'Visible on your page',
-    secret: 'Only you can see this',
-  }
+  const field = el('cfield')
 
   // ── state ──────────────────────────────────────────────────────────
   let bookmarkId = null
+  let origin = null
+  let username = null
   let profileUrl = null
-  let isSecret = false
-  // Optimistic reveal: the card shows "Saved ✓" the moment it opens, while the
+  // Optimistic reveal: the card shows "Saved" the moment it opens, while the
   // real save is still in flight. Anything the user does before the bookmark id
-  // arrives (file into a list, flip secret, undo) queues here and flushes the
+  // arrives (file into a list, create one, undo) queues here and flushes the
   // moment the confirm lands. The user never feels the gap.
   let pending = []
-  let userToggledVis = false
   let undone = false
   function withId(fn) {
     if (bookmarkId) fn(bookmarkId)
@@ -385,7 +281,7 @@
   let creating = false
   let revealed = false
   let revealTimer = null
-  let revealMsg = 'Saved'
+  let hintTimer = null
   // A later save superseding this one: stamp every async response.
   let saveSeq = 0
   // Lists are prefetched the moment the card injects, in PARALLEL with the
@@ -398,6 +294,11 @@
     prefetched = null
     chrome.runtime.sendMessage({ type: 'ig-get-lists' }, (resp) => {
       prefetched = (resp && resp.ok && Array.isArray(resp.lists)) ? resp.lists : []
+      if (resp && resp.ok) {
+        origin = resp.origin || origin
+        username = resp.username || username
+        if (origin && username) profileUrl = `${origin}/${username}`
+      }
       if (onPrefetch) { const f = onPrefetch; onPrefetch = null; f() }
     })
   }
@@ -409,13 +310,14 @@
   function armIdle(ms = DISMISS_MS) {
     clearTimeout(idleTimer)
     idleTimer = setTimeout(() => {
-      if (!hovering && !typing && !screens.classList.contains('show-create')) dismiss()
+      if (!hovering && !typing) dismiss()
       else armIdle() // still busy — check again in a while
     }, ms)
   }
   function dismiss() {
     clearTimeout(idleTimer)
     clearTimeout(revealTimer)
+    clearTimeout(hintTimer)
     card.style.transition = 'opacity .3s ease, transform .3s ease'
     card.style.opacity = '0'
     card.style.transform = 'translateY(-6px)'
@@ -440,35 +342,25 @@
 
   document.documentElement.appendChild(host)
 
-  // ── header stages ──────────────────────────────────────────────────
+  // ── header ─────────────────────────────────────────────────────────
   // Once saved, the title is a live link to the user's page (underline on
-  // hover + a small ↗) — or plain text if the save response had no username.
-  function setTitleSaved() {
+  // hover) — or plain text if we don't know their handle yet.
+  function setTitle(text, link) {
     const t = el('ptitle')
-    if (profileUrl) {
-      t.innerHTML = ''
+    t.innerHTML = ''
+    if (link) {
       const a = document.createElement('a')
-      a.href = profileUrl
+      a.href = link
       a.target = '_blank'
       a.rel = 'noopener'
-      a.textContent = 'Saved to your Bulletin'
-      a.insertAdjacentHTML(
-        'beforeend',
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>'
-      )
+      a.textContent = text
       t.appendChild(a)
     } else {
-      t.textContent = 'Saved to your Bulletin'
+      t.textContent = text
     }
   }
-
-  function setStatus(word, note, { check = true, err = false } = {}) {
-    el('sword').textContent = word
-    el('snote').textContent = note
-    el('scheck').hidden = !check
-    const s = el('pstatus')
-    s.classList.toggle('err', err)
-    s.classList.add('shown')
+  function setSub(text) {
+    el('psub-text').textContent = text
   }
 
   // ── undo ───────────────────────────────────────────────────────────
@@ -481,71 +373,73 @@
     // Fold the card down right away — the delete itself rides the queue, so an
     // undo clicked before the save even confirmed still lands (create → delete).
     card.classList.remove('revealed')
-    el('hslot').classList.add('off')
+    card.classList.add('terminal', 'undone')
     el('pbody').classList.remove('open')
-    el('ptitle').textContent = 'Save to your Bulletin'
-    setStatus('Removed', 'This link is off your page', { check: false })
+    setTitle('Save to your bulletin')
+    setSub('Removed. This link is off your bulletin.')
     armIdle(2500)
     withId((id) => {
       bookmarkId = null
       chrome.runtime.sendMessage({ type: 'ig-delete-bullet', bookmarkId: id }, (resp) => {
         if (!resp || resp.error) {
-          setStatus('Couldn’t undo', 'It’s still on your page', { check: false, err: true })
+          card.classList.add('err')
+          setSub('Couldn’t undo — it’s still saved.')
           armIdle(4000)
         }
       })
     })
   })
 
-  // ── visibility toggle ──────────────────────────────────────────────
-  el('vis').addEventListener('click', () => {
-    isSecret = !isSecret
-    userToggledVis = true
-    renderVisibility()
-    armIdle()
-    const want = isSecret
-    withId((id) =>
-      chrome.runtime.sendMessage(
-        { type: 'ig-set-visibility', bookmarkId: id, isPrivate: want },
-        (resp) => {
-          if (!resp || resp.error) {
-            isSecret = !want
-            renderVisibility()
-          }
-        }
-      )
-    )
-  })
-  function renderVisibility() {
-    el('vis').setAttribute('aria-checked', String(isSecret))
-    setStatus(revealMsg, COPY[isSecret ? 'secret' : 'public'])
+  // ── list rows ──────────────────────────────────────────────────────
+  function listUrl(l) {
+    return origin && username && l.slug ? `${origin}/${username}/${l.slug}` : null
   }
-
-  // ── list rows + body ───────────────────────────────────────────────
+  function makeRow(l) {
+    const r = document.createElement('div')
+    r.className = 'row' + (memberOf.has(l.id) ? ' on' : '')
+    r.dataset.id = l.id
+    r.title = l.name
+    r.innerHTML =
+      '<div class="rname"><span></span><a class="go" target="_blank" rel="noopener" aria-label="Open list">↗</a></div>' +
+      '<span class="dot"></span>'
+    r.querySelector('.rname span').textContent = l.name
+    const go = r.querySelector('.go')
+    const url = listUrl(l)
+    if (url) go.href = url
+    else go.hidden = true
+    // The arrow opens the list; nothing else about the row should react.
+    go.addEventListener('click', (e) => { e.stopPropagation() })
+    r.addEventListener('click', () => toggleMembership(l, r))
+    return r
+  }
   function renderRows() {
-    const rows = el('rows')
-    rows.innerHTML = ''
-    if (!lists.length) {
-      const p = document.createElement('div')
-      p.className = 'rows-empty'
-      p.textContent = 'No lists yet — create your first below.'
-      rows.appendChild(p)
-    }
-    for (const l of lists) {
-      const r = document.createElement('div')
-      r.className = 'lrow' + (memberOf.has(l.id) ? ' on' : '')
-      r.title = l.name
-      r.innerHTML = '<span class="lname"></span><span class="dot"></span>'
-      r.querySelector('.lname').textContent = l.name
-      r.addEventListener('click', () => toggleMembership(l, r))
-      rows.appendChild(r)
-    }
+    const top = el('top')
+    const more = el('more')
+    const head = el('more-head')
+    top.innerHTML = ''
+    more.innerHTML = ''
+    lists.slice(0, TOP_ROWS).forEach((l) => top.appendChild(makeRow(l)))
+    const rest = lists.slice(TOP_ROWS)
+    rest.forEach((l) => more.appendChild(makeRow(l)))
+    head.hidden = rest.length === 0
+    if (rest.length === 0) { head.classList.remove('open'); more.classList.remove('open') }
+    // First list ever: the create row is the whole body, and says so.
+    el('clabel').textContent = lists.length ? 'Create new list' : 'Create your first list'
     syncBodyHeight()
   }
   function syncBodyHeight() {
     const body = el('pbody')
-    body.style.setProperty('--body-h', `${body.scrollHeight}px`)
+    // scrollHeight while .more is folded excludes the fold; add its open size.
+    const fold = el('more').classList.contains('open') ? Math.min(el('more').scrollHeight, 192) : 0
+    body.style.setProperty('--body-h', `${body.scrollHeight + fold}px`)
   }
+  el('more-head').addEventListener('click', () => {
+    const open = !el('more').classList.contains('open')
+    el('more').classList.toggle('open', open)
+    el('more-head').classList.toggle('open', open)
+    syncBodyHeight()
+    armIdle()
+  })
   function toggleMembership(l, rowEl) {
     const add = !memberOf.has(l.id)
     if (add) memberOf.add(l.id)
@@ -566,45 +460,59 @@
     )
   }
 
-  // ── screens ────────────────────────────────────────────────────────
-  el('btn-create').addEventListener('click', () => {
-    nameInput.value = ''
-    el('secret-toggle').setAttribute('aria-checked', 'false')
-    el('btn-do-create').disabled = false
-    el('btn-do-create').textContent = 'Create'
-    screens.classList.add('show-create')
-    setTimeout(() => nameInput.focus({ preventScroll: true }), 310)
+  // ── create row: label → field → "Saved!" ───────────────────────────
+  const create = el('create')
+  const hint = el('chint')
+  function openCreate() {
+    if (creating || create.classList.contains('done')) return
+    create.classList.add('editing')
+    field.value = ''
+    field.placeholder = lists.length ? 'List name' : 'Name your first list'
+    hint.textContent = 'Press Enter'
+    hint.classList.remove('show', 'saved')
+    field.focus({ preventScroll: true })
+  }
+  function closeCreate() {
+    clearTimeout(hintTimer)
+    create.classList.remove('editing', 'done')
+    hint.classList.remove('show', 'saved')
+    field.value = ''
+    field.blur()
+    typing = false
+  }
+  create.addEventListener('click', (e) => {
+    if (create.classList.contains('editing')) return
+    e.stopPropagation()
+    openCreate()
   })
-  el('btn-back').addEventListener('click', () => {
-    screens.classList.remove('show-create')
+  field.addEventListener('focus', () => { typing = true })
+  field.addEventListener('blur', () => {
+    typing = false
+    // Left empty → back to the label. Text stays put: they may come back.
+    if (!field.value.trim() && !creating) closeCreate()
+  })
+  field.addEventListener('input', () => {
+    hint.classList.toggle('show', field.value.trim().length > 0)
     armIdle()
   })
-  el('secret-toggle').addEventListener('click', () => {
-    const t = el('secret-toggle')
-    t.setAttribute('aria-checked', String(t.getAttribute('aria-checked') !== 'true'))
-  })
-  nameInput.addEventListener('focus', () => { typing = true })
-  nameInput.addEventListener('blur', () => { typing = false })
-  nameInput.addEventListener('keydown', (e) => {
+  field.addEventListener('keydown', (e) => {
     if (e.isComposing || e.keyCode === 229) return
     if (e.key === 'Enter') {
       e.preventDefault()
       commitCreate()
     } else if (e.key === 'Escape') {
-      // Escape in the field backs out of screen 2, not out of the card —
+      // Escape in the field backs out of the field, not out of the card —
       // stop it before the document-level close handler sees it.
       e.preventDefault()
       e.stopPropagation()
-      screens.classList.remove('show-create')
+      closeCreate()
       armIdle()
     }
   })
-  el('btn-do-create').addEventListener('click', commitCreate)
 
   function commitCreate() {
-    const name = nameInput.value.trim()
+    const name = field.value.trim()
     if (!name || creating) return
-    const secret = el('secret-toggle').getAttribute('aria-checked') === 'true'
 
     // Typing the name of a list they already have files into it rather than
     // minting a near-duplicate (the server dedupes too).
@@ -619,31 +527,40 @@
           )
         )
       }
+      // Surface the row it went into, then settle.
+      lists = [exact, ...lists.filter((l) => l.id !== exact.id)]
       renderRows()
-      screens.classList.remove('show-create')
+      closeCreate()
       armIdle()
       return
     }
 
     creating = true
-    const btn = el('btn-do-create')
-    btn.disabled = true
-    btn.textContent = 'Creating…'
+    hint.textContent = 'Saving…'
+    hint.classList.add('show')
     withId((id) =>
       chrome.runtime.sendMessage(
-        { type: 'ig-create-list', name, bookmarkId: id, isPrivate: secret },
+        { type: 'ig-create-list', name, bookmarkId: id },
         (resp) => {
           creating = false
           if (resp && resp.ok && resp.list) {
+            // The row reads "<name>  Saved!" for a beat, then the new list
+            // takes its place at the top — filed, dot filled — and the create
+            // row is a label again.
             lists = [resp.list, ...lists.filter((l) => l.id !== resp.list.id)]
             memberOf.add(resp.list.id)
-            renderRows()
-            screens.classList.remove('show-create')
+            create.classList.add('done')
+            hint.textContent = 'Saved!'
+            hint.classList.add('show', 'saved')
             armIdle()
+            hintTimer = setTimeout(() => {
+              renderRows()
+              closeCreate()
+            }, 1100)
           } else {
-            btn.disabled = false
-            btn.textContent = 'Create'
-            nameInput.focus()
+            hint.textContent = 'Couldn’t create — try again'
+            hint.classList.add('show')
+            field.focus({ preventScroll: true })
           }
         }
       )
@@ -651,26 +568,23 @@
   }
 
   // ── the one-frame reveal ───────────────────────────────────────────
-  // Saving → (save lands, ranked lists fetched) → everything at once.
+  // Saving → (lists in hand) → everything at once.
   function reveal() {
     if (revealed) return
     revealed = true
     clearTimeout(revealTimer)
-    setTitleSaved()
+    card.classList.remove('saving', 'terminal', 'err', 'undone')
+    setTitle('Saved to your bulletin', profileUrl)
+    setSub('Now, publish to a list...')
     card.classList.add('revealed')
-    renderVisibility() // status line: "Saved ✓ …"
     renderRows()
     el('pbody').classList.add('open')
     armIdle()
   }
 
-  // Optimistic open: full card, "Saved ✓", prefetched lists — before the save
-  // confirms. Only the sticky-private default is known at this point.
-  function showOptimistic(data) {
-    revealMsg = 'Saved'
+  // Optimistic open: full card, prefetched lists — before the save confirms.
+  function showOptimistic() {
     bookmarkId = null
-    profileUrl = null
-    isSecret = !!(data && data.isPrivate)
     const seq = ++saveSeq
     memberOf = new Set()
     clearTimeout(revealTimer)
@@ -685,20 +599,27 @@
   }
 
   // The save confirmed (or, without a prior optimistic open, the legacy path:
-  // reveal now). Late truths fold in quietly: the title becomes a live link,
-  // queued actions flush against the real id, a re-save pulls its memberships.
-  function showSaved(msg, data) {
-    revealMsg = msg
+  // reveal now). Late truths fold in quietly: queued actions flush against the
+  // real id, a re-save pulls its memberships.
+  function showSaved(title, data) {
     bookmarkId = (data && data.id) || null
-    profileUrl = (data && data.profileUrl) || null
+    if (data && data.profileUrl) profileUrl = data.profileUrl
     if (!bookmarkId) {
       pending = []
-      return terminal(msg, '')
+      return terminal(title, '')
     }
-    // The server's visibility is the pre-queue truth — don't clobber a flip
-    // the user made while the save was in flight (it's queued right behind).
-    if (!userToggledVis) isSecret = !!(data && data.isPrivate)
     const seq = ++saveSeq
+
+    const pullMemberships = () => {
+      chrome.runtime.sendMessage({ type: 'ig-get-lists', bookmarkId }, (resp) => {
+        if (seq !== saveSeq) return
+        if (resp && resp.ok && Array.isArray(resp.lists)) {
+          lists = resp.lists
+          for (const id of resp.memberOf || []) memberOf.add(id)
+          renderRows()
+        }
+      })
+    }
 
     if (revealed) {
       // Optimistic card already open — this is the confirm.
@@ -708,21 +629,11 @@
         flushPending(bookmarkId)
         return
       }
-      setTitleSaved()
-      renderVisibility()
+      setTitle(title, profileUrl)
       flushPending(bookmarkId)
-      if (data && data.refreshed) {
-        // A re-save is already filed places — pull memberships; checked rows
-        // pop in a beat late, which beats holding the whole card for them.
-        chrome.runtime.sendMessage({ type: 'ig-get-lists', bookmarkId }, (resp) => {
-          if (seq !== saveSeq) return
-          if (resp && resp.ok && Array.isArray(resp.lists)) {
-            lists = resp.lists
-            for (const id of resp.memberOf || []) memberOf.add(id)
-            renderRows()
-          }
-        })
-      }
+      // A re-save is already filed places — pull memberships; checked rows
+      // pop in a beat late, which beats holding the whole card for them.
+      if (data && data.refreshed) pullMemberships()
       return
     }
 
@@ -736,6 +647,7 @@
           memberOf = new Set(resp.memberOf || [])
         }
         reveal()
+        setTitle(title, profileUrl)
       })
       return
     }
@@ -744,23 +656,25 @@
       if (seq !== saveSeq) return
       lists = prefetched || []
       reveal()
+      setTitle(title, profileUrl)
     }
     if (prefetched !== null) useprefetch()
     else onPrefetch = useprefetch
   }
 
-  // Terminal without the picker (duplicate / error / signin): title flips,
-  // dot stops, message in the status line, quiet dismiss.
-  function terminal(word, note, { err = false } = {}) {
+  // Terminal without the picker (error / signin): title flips, the mark
+  // stops, the message sits on the subtitle line, quiet dismiss.
+  function terminal(title, note, { err = false } = {}) {
     // May arrive after an optimistic reveal (the in-flight save failed) —
     // fold the picker back down and drop anything the user queued against it.
     pending = []
     revealed = false
-    card.classList.remove('revealed')
+    card.classList.remove('revealed', 'saving')
+    card.classList.add('terminal')
+    card.classList.toggle('err', err)
     el('pbody').classList.remove('open')
-    el('ptitle').textContent = 'Save to your Bulletin'
-    el('hslot').classList.add('off')
-    setStatus(word, note, { check: !err, err })
+    setTitle(title)
+    setSub(note)
     armIdle(6000)
   }
 
@@ -769,27 +683,25 @@
     ++saveSeq
     clearTimeout(revealTimer)
     clearTimeout(idleTimer)
+    clearTimeout(hintTimer)
     onPrefetch = null
     prefetchLists() // re-warm — a list created since injection should show
     bookmarkId = null
-    profileUrl = null
-    isSecret = false
     pending = []
-    userToggledVis = false
     undone = false
     lists = []
     memberOf = new Set()
     creating = false
     revealed = false
-    card.classList.remove('revealed')
-    el('hslot').classList.remove('off')
+    card.classList.remove('revealed', 'terminal', 'err', 'undone')
+    card.classList.add('saving')
     el('undo').disabled = false
-    el('pstatus').classList.remove('shown', 'err')
     el('pbody').classList.remove('open')
-    screens.classList.remove('show-create')
-    el('ptitle').textContent = 'Saving to your Bulletin'
-    el('vis').setAttribute('aria-checked', 'false')
-    nameInput.value = ''
+    el('more').classList.remove('open')
+    el('more-head').classList.remove('open')
+    setTitle('Saving to your bulletin...')
+    setSub('Now, publish to a list...')
+    closeCreate()
   }
 
   window.__igToast = {
@@ -799,11 +711,11 @@
         reset()
       } else if (state === 'optimistic') {
         reset()
-        showOptimistic(data)
+        showOptimistic()
       } else if (state === 'saved') {
-        showSaved(data && data.refreshed ? 'Updated' : 'Saved', data)
+        showSaved(data && data.refreshed ? 'Updated in your bulletin' : 'Saved to your bulletin', data)
       } else if (state === 'duplicate') {
-        showSaved('Already in your Bulletin', data)
+        showSaved('Already in your bulletin', data)
       } else if (state === 'signin') {
         terminal('Session expired', 'Click the Bulletin icon to sign in again.', { err: true })
       } else if (state === 'error') {
@@ -818,9 +730,9 @@
       window.__igToast.apply(m.state, m.data)
     } else if (m.state === 'saved' && m.data && m.data.id) {
       // The card was dismissed while the save was still in flight — flush any
-      // actions the user queued (filed a list, flipped secret, undid) so a
-      // quick dismiss can't eat their click. flushPending self-empties, so a
-      // second stale listener finds nothing to double-send.
+      // actions the user queued (filed a list, created one, undid) so a quick
+      // dismiss can't eat their click. flushPending self-empties, so a second
+      // stale listener finds nothing to double-send.
       flushPending(m.data.id)
     }
   })

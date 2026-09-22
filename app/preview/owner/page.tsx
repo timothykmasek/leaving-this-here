@@ -61,8 +61,8 @@ const BULLETS = [
     screenshotUrl: null,
     faviconUrl: null,
     product: { priceFormatted: '€120', price: 120, currency: 'EUR' },
-    // A secret bullet (extension popup's globe/lock toggle) — the owner sees a
-    // lock chip top-right; visitors never receive the row at all (RLS, mig 026).
+    // An unfiled bullet (in no list → not on the page, migration 028) — the
+    // owner sees a lock chip top-right; visitors never receive the row at all.
     privateMark: true,
   },
   {
@@ -241,15 +241,14 @@ export default function OwnerPreview() {
       </Section>
 
       <Section
-        title="List masthead — private, empty"
-        note="The private marker rides with the count, and an empty list still reads composed: '0 Bullets · Private' in the card metadata voice."
+        title="List masthead — empty"
+        note="An empty list still reads composed: '0 Bullets' in the card metadata voice."
       >
         <ListMasthead
           name="Reading later"
           count={0}
           backHref="/preview/owner"
           backLabel="&larr; All lists"
-          isPrivate
           onRename={() => {}}
           onDelete={() => {}}
         />
@@ -415,7 +414,6 @@ function ShowDetail() {
     { id: 'l5', name: 'Must Buys', bookmark_ids: [] },
   ])
   const [fail, setFail] = useState(false)
-  const [pinnedAt, setPinnedAt] = useState<string | null>(null)
 
   return (
     <div>
@@ -429,13 +427,12 @@ function ShowDetail() {
       </div>
       {open && (
         <BulletDetail
-          bullet={{ ...BULLETS[0], created_at: new Date('2026-08-07T00:00:00Z').toISOString(), note: null, pinned_at: pinnedAt } as any}
+          bullet={{ ...BULLETS[0], created_at: new Date('2026-08-07T00:00:00Z').toISOString(), note: null } as any}
           lists={lists}
           onClose={() => setOpen(false)}
           onNoteUpdate={() => {}}
           onTitleUpdate={() => {}}
           onDelete={() => setOpen(false)}
-          onTogglePin={(_id, pin) => setPinnedAt(pin ? new Date().toISOString() : null)}
           onToggleListMembership={(listId, bookmarkId, add) =>
             setLists((prev) =>
               prev.map((l) =>

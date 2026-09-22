@@ -10,8 +10,15 @@ pipeline server-side (metadata → embedding).
 mymind-style, one-click:
 
 - **Toolbar icon (signed in)** → saves the current page *immediately*. No popup,
-  no preview, no "save" button. A small **on-page toast** slides in ("Saving…"
-  → "Saved to your finds") where you can **add it to a list** right after.
+  no preview, no "save" button. A small **on-page card** slides in ("Saving to
+  your bulletin…" → "Saved to your bulletin / Now, publish to a list…") where
+  you **file it into a list** right there: your three most recently used lists
+  on top, the rest under "All other lists", and "Create new list" as a field
+  in place (type, Enter, "Saved!").
+- **Filing is publishing.** A bullet in at least one list is on your public
+  page; a bullet in no list is yours alone. There is no public/private toggle
+  anywhere — not on the bullet, not on the list (migration 028 derives
+  `bookmarks.is_private` from membership, lists are always public).
 - **Toolbar icon (signed out)** → opens a tiny popup whose only job is Google
   sign-in. The moment you sign in it saves the page you were on and closes.
 - **Right-click a page / image / selection** → save just that. Same on-page toast.
@@ -32,13 +39,14 @@ notification.
 No build step — it's plain JS/HTML loaded as an unpacked extension.
 
 ### Endpoints it calls
-- `POST /api/extension/save` — enrich + insert (metadata → embed).
-- `GET/POST /api/extension/lists` — fetch the user's lists; create + publish a
-  new one and/or add/remove a bullet (from the toast's list card).
-- `POST /api/extension/suggest-list-name` — Haiku "why you saved it" names for
-  new lists to file a freshly saved bullet under, filtered against the lists the
-  user already has. Powers the toast's "Suggested for this page" group.
-- `GET /api/extension/finds` — the user's most recent bullets (new-tab page).
+- `POST /api/extension/save` — enrich + insert (metadata → embed). `PATCH`
+  uploads the out-of-band screenshot; `DELETE` is the card's Undo.
+- `GET/POST /api/extension/lists` — the user's lists, most recently used first,
+  plus their handle (so every row links to its page); create a new one and/or
+  add/remove a bullet (from the card).
+- `POST /api/extension/suggest-list-name` — Haiku "why you saved it" names.
+  Handler kept in the background worker; nothing in the card calls it today.
+- `GET /api/extension/finds` — the user's most recent bullets (parked new-tab page).
 
 All are bearer-authenticated with the Supabase access token and RLS-scoped.
 
@@ -75,7 +83,7 @@ https://<extension-id>.chromiumapp.org/
 
 ## Usage
 - Click the Bulletin icon on any page → it saves instantly; an on-page card
-  confirms it and lets you add it to a list.
+  confirms it and lets you publish it to a list (that's what puts it on your page).
 - Right-click a page / image / selection → **Save … to Bulletin**.
 - Right-click the toolbar icon → **Open my finds** / **Sign out**.
 

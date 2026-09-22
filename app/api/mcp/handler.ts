@@ -92,7 +92,7 @@ const TOOLS = [
   {
     name: 'search_bullets',
     description:
-      "Semantic search over a Bulletin profile's saved links (bullets). Finds bullets by meaning, not just keywords — use it to answer things like \"that piece about pricing psychology\". `username` targets any public Bulletin; authenticated callers may omit it to search their own bullets, private ones included.",
+      "Semantic search over a Bulletin profile's saved links (bullets). Finds bullets by meaning, not just keywords — use it to answer things like \"that piece about pricing psychology\". `username` targets any public Bulletin; authenticated callers may omit it to search their own bullets, unfiled (not-yet-published) ones included.",
     inputSchema: {
       type: 'object',
       properties: {
@@ -410,12 +410,11 @@ async function callTool(
 
     case 'get_lists': {
       const profile = await targetProfile(supabase, caller, args?.username)
-      let q = supabase
+      // Lists are always public (migration 028) — no owner/visitor split.
+      const { data, error } = await supabase
         .from('lists')
-        .select('name, slug, description, is_private, list_bookmarks(bookmark_id)')
+        .select('name, slug, description, list_bookmarks(bookmark_id)')
         .eq('user_id', profile.id)
-      if (!profile.isOwner) q = q.eq('is_private', false)
-      const { data, error } = await q
       if (error) throw new ToolError(error.message)
       return {
         profile: profile.username,
@@ -434,13 +433,12 @@ async function callTool(
       const slug = typeof args?.slug === 'string' ? args.slug.trim() : ''
       if (!slug) throw new ToolError('`slug` is required.')
       const profile = await targetProfile(supabase, caller, args?.username)
-      let q = supabase
+      const { data: list, error } = await supabase
         .from('lists')
-        .select('id, name, slug, description, is_private')
+        .select('id, name, slug, description')
         .eq('user_id', profile.id)
         .eq('slug', slug)
-      if (!profile.isOwner) q = q.eq('is_private', false)
-      const { data: list, error } = await q.single()
+        .single()
       if (error || !list) {
         throw new ToolError(`No list "${slug}" on ${profile.username}'s Bulletin.`)
       }
@@ -493,7 +491,7 @@ async function handleMessage(msg: any, caller: Caller, supabase: SupabaseClient,
         capabilities: { tools: {} },
         serverInfo: { name: personal ? 'bulletin-me' : 'bulletin', title: 'Bulletin', version: '0.2.0' },
         instructions: personal
-          ? `Bulletin is where this user saves and publishes the links worth keeping ("bullets", organized into lists). This connection is authenticated as ${caller?.username ? `@${caller.username}` : 'their account'}: every tool defaults to their own bullets (private ones included) when \`username\` is omitted. Use search_bullets when they refer to something they saved; pass a \`username\` only to read someone else's public bulletin. Saving: when asked to save or file links (e.g. "add the ecommerce links from this newsletter to my Ecommerce list"), extract the links, call preview_save, show the user the plan, and save with save_bullet ONLY the links they confirm. Never delete — there is no delete tool.`
+          ? `Bulletin is where this user saves and publishes the links worth keeping ("bullets", organized into lists). This connection is authenticated as ${caller?.username ? `@${caller.username}` : 'their account'}: every tool defaults to their own bullets (unfiled, not-yet-published ones included) when \`username\` is omitted. Use search_bullets when they refer to something they saved; pass a \`username\` only to read someone else's public bulletin. Saving: when asked to save or file links (e.g. "add the ecommerce links from this newsletter to my Ecommerce list"), extract the links, call preview_save, show the user the plan, and save with save_bullet ONLY the links they confirm. Never delete — there is no delete tool.`
           : 'Bulletin is a place people save and publish the links worth keeping ("bullets", organized into lists). Use search_bullets when the user refers to something they saved, and get_lists/get_list to read a profile\'s curated lists. Public profiles need a `username`; an authenticated connection defaults to its own account.',
       })
     }

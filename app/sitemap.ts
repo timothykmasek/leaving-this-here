@@ -8,10 +8,8 @@ import { SITE_URL } from '@/lib/meta'
 // profile shell.
 //
 // A plain anon client rather than the cookie-bound server one: this is nobody's
-// request, and it must see exactly what a logged-out visitor sees. RLS then
-// guarantees the result — a private list is not withheld by the filter below so
-// much as never returned in the first place. The is_private filter is belt to
-// that braces, and would matter if the policy ever loosened.
+// request, and it must see exactly what a logged-out visitor sees. Lists are
+// always public (migration 028), so every list with a slug is a URL.
 
 export const revalidate = 3600
 
@@ -39,18 +37,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     let lists: any[] | null = null
     const [pRes, lRes] = await Promise.all([
       sb.from('profiles').select('username, is_preview'),
-      sb
-        .from('lists')
-        .select('slug, is_private, profiles(username, is_preview)')
-        .eq('is_private', false),
+      sb.from('lists').select('slug, profiles(username, is_preview)'),
     ])
     if (pRes.error || lRes.error) {
       const [pOld, lOld] = await Promise.all([
         sb.from('profiles').select('username'),
-        sb
-          .from('lists')
-          .select('slug, is_private, profiles(username)')
-          .eq('is_private', false),
+        sb.from('lists').select('slug, profiles(username)'),
       ])
       profiles = pOld.data
       lists = lOld.data

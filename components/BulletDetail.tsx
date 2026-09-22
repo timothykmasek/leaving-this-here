@@ -13,8 +13,10 @@ import { formatCardTitle } from '@/lib/cardTitle'
 // Member rows shed with a ✕, other lists join on click, and the black row is a
 // typeahead — matching lists surface under it as "Add to this List", enter
 // creates a new one. The link-out chip anchors to the pane's bottom-left
-// corner regardless of image size; pin/delete live as small underlined links
-// in the foot with the saved-date tucked opposite. Rendered as an overlay;
+// corner regardless of image size; delete lives as a small underlined link in
+// the foot with the saved-date tucked opposite. Visibility is not a control
+// here: a bullet is on the page when it's in a list (migration 028), so the
+// list well IS the publish switch. Rendered as an overlay;
 // closes on backdrop click or Escape. Editing flows through the same handlers
 // the profile page uses, so changes persist and the grid stays in sync.
 
@@ -30,9 +32,7 @@ interface Bullet {
   favicon_url: string | null
   note: string | null
   created_at: string | null
-  /** Set = pinned to the top of the profile (migration 025). */
-  pinned_at?: string | null
-  /** Secret bullet — owner sees it, logged-out visitors don't (migration 026). */
+  /** Derived: true while the bullet is in no list (migration 028). Read-only. */
   is_private?: boolean
   /** Curator's custom outbound link — affiliate codes etc. (migration 027). */
   outbound_url?: string | null
@@ -52,9 +52,6 @@ interface BulletDetailProps {
   onDelete: (id: string) => void
   onToggleListMembership?: (listId: string, bookmarkId: string, add: boolean) => void
   onCreateList?: (name: string, bookmarkIds?: string[]) => Promise<string | null>
-  onTogglePin?: (id: string, pin: boolean) => void
-  /** Flip the bullet between public and secret. Absent → no visibility link. */
-  onToggleVisibility?: (id: string, isPrivate: boolean) => void
   /** Persist a hand-edited title. Absent → the title is not clickable. */
   onTitleUpdate?: (id: string, title: string) => void
   /** Persist a custom outbound link (null clears it). Absent → no field. */
@@ -98,17 +95,11 @@ export function BulletDetail({
   onDelete,
   onToggleListMembership,
   onCreateList,
-  onTogglePin,
-  onToggleVisibility,
   onTitleUpdate,
   onOutboundUpdate,
   utmCampaign,
 }: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  // Local mirrors so the links' labels flip instantly even under a parent that
-  // mutates its bullet map without re-rendering (ListDetailClient).
-  const [isPrivate, setIsPrivate] = useState(!!bullet.is_private)
-  const [pinned, setPinned] = useState(!!bullet.pinned_at)
   const [imgError, setImgError] = useState(false)
   // Wide images float mid-well; tall and square ones anchor to its top. Only
   // the loaded image knows which it is, so this lands onLoad.
@@ -145,7 +136,7 @@ export function BulletDetail({
   const [outboundDraft, setOutboundDraft] = useState(bullet.outbound_url ?? '')
   const [outboundInvalid, setOutboundInvalid] = useState(false)
   // Collapsed by default — most bullets never get one. Opens from the foot's
-  // "Custom Link", the same quiet idiom as Pin/Private/Delete.
+  // "Custom Link", the same quiet idiom as Delete.
   const [editingOutbound, setEditingOutbound] = useState(false)
   // Returns whether the draft landed (saved, cleared, or unchanged) — an
   // invalid url keeps the editor open instead of silently closing on it.
@@ -465,11 +456,13 @@ export function BulletDetail({
           {onToggleListMembership && (
             <div className="mt-auto flex min-h-0 flex-col pt-8">
               {/* The header only claims what's true: no memberships yet means
-                  there's nothing this is "saved in". */}
+                  there's nothing this is "published in" — and, since filing is
+                  what puts a bullet on the page (migration 028), it also means
+                  the bullet is not on the page yet. Say so. */}
               <p className="mb-3 text-xs font-medium tracking-[0.05em] text-black">
                 {memberLists.length + pendingNames.length > 0
-                  ? 'Saved in these lists:'
-                  : 'Add to a list:'}
+                  ? 'Published in these lists:'
+                  : 'Not on your page yet — add it to a list:'}
               </p>
               {/* Past three rows this scrolls. No scrollbar — the foot-fade
                   over the last visible row is the "more below" signal, and it
@@ -617,29 +610,7 @@ export function BulletDetail({
               </span>
             ) : (
             <span className="flex items-center gap-4 whitespace-nowrap sm:gap-[30px]">
-              {!confirmingDelete && onTogglePin && (
-                <button
-                  onClick={() => {
-                    setPinned(!pinned)
-                    onTogglePin(bullet.id, !pinned)
-                  }}
-                  className="underline underline-offset-2 transition-opacity hover:opacity-50"
-                >
-                  {pinned ? 'Unpin Bullet' : 'Pin Bullet'}
-                </button>
-              )}
-              {!confirmingDelete && onToggleVisibility && (
-                <button
-                  onClick={() => {
-                    setIsPrivate(!isPrivate)
-                    onToggleVisibility(bullet.id, !isPrivate)
-                  }}
-                  className="underline underline-offset-2 transition-opacity hover:opacity-50"
-                >
-                  {isPrivate ? 'Make Public' : 'Make Private'}
-                </button>
-              )}
-              {/* Desktop-only: a fourth link overflows a phone-width foot,
+              {/* Desktop-only: a second link overflows a phone-width foot,
                   and pasting affiliate urls is desk work anyway. An override
                   set on desktop still routes mobile clicks. */}
               {!confirmingDelete && onOutboundUpdate && (

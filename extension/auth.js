@@ -283,25 +283,13 @@ export async function getLists(bookmarkId) {
 }
 
 // Create a new list and optionally add a gem to it. Returns
-// { list: { id, name, slug }, url } — `url` is the live public page.
-// `isPrivate` = the popup's "Make this list secret" toggle: the list shows on
-// the owner's logged-in view only.
-export async function createList(name, bookmarkId, isPrivate = false) {
+// { list: { id, name, slug }, url } — `url` is the live public page. Lists
+// are always public: filing a bullet is what publishes it (migration 028).
+export async function createList(name, bookmarkId) {
   return apiPost('/api/extension/lists', {
     op: 'create',
     name,
     bookmark_id: bookmarkId,
-    is_private: !!isPrivate,
-  })
-}
-
-// Flip a saved bullet between public and secret (the popup's globe/lock
-// toggle). Secret = visible to the owner logged in, absent from the
-// logged-out view.
-export async function setBulletVisibility(bookmarkId, isPrivate) {
-  return apiSend('PATCH', '/api/extension/save', {
-    bookmark_id: bookmarkId,
-    is_private: !!isPrivate,
   })
 }
 

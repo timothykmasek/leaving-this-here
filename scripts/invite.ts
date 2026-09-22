@@ -218,7 +218,7 @@ async function main() {
     if (!list) {
       const { data: created, error } = await sb
         .from('lists')
-        .insert({ user_id: userId, name: LIST_NAME, slug: slugify(LIST_NAME), is_private: false })
+        .insert({ user_id: userId, name: LIST_NAME, slug: slugify(LIST_NAME) })
         .select('id')
         .single()
       if (error) throw new Error(`list insert: ${error.message}`)

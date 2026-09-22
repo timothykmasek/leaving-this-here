@@ -2,8 +2,9 @@
 //
 // Saving is mymind-style: a single left-click on the toolbar icon saves the
 // current page immediately, and the on-page card (content/toast.js) is the
-// whole experience — saving state, public/secret toggle, ranked list picker,
-// Create List screen. No popup while signed in.
+// whole experience — saving state, then the list picker ("publish to a
+// list"). No popup while signed in. There is no visibility control: a bullet
+// is on the page when it's in a list (migration 028), and never otherwise.
 //
 // To make the icon click fire here instead of opening a popup, we clear the
 // action popup while signed in (chrome.action.setPopup({popup:''})). When
@@ -20,7 +21,6 @@ import {
   getLists,
   createList,
   setListMembership,
-  setBulletVisibility,
   suggestListNames,
 } from './auth.js'
 import { CONFIG } from './config.js'
@@ -562,49 +562,31 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   await saveFlow(tab, payload, shotPromise)
 })
 
-// ── Sticky private default ──────────────────────────────────────────
-// Flipping a save to secret makes secret the default for the NEXT 2 saves
-// (3 secret saves in a row), then it reverts to public on its own. Flipping
-// any save back to public resets the default immediately. The counter is the
-// number of upcoming saves that should still default to secret.
-const PRIVATE_STREAK_KEY = 'ig_private_streak'
-async function getPrivateStreak() {
-  const { [PRIVATE_STREAK_KEY]: n } = await chrome.storage.local.get(PRIVATE_STREAK_KEY)
-  return Math.max(0, Number(n) || 0)
-}
-async function setPrivateStreak(n) {
-  await chrome.storage.local.set({ [PRIVATE_STREAK_KEY]: Math.max(0, n) })
-}
-
 // ── The save flow shared by every entry point ───────────────────────
 async function saveFlow(tab, payload, shotPromise = null) {
   const tabId = tab?.id
   const injected = tabId != null ? await injectToast(tabId) : false
 
-  // Apply the sticky private default at save time, so a secret save is born
-  // secret (the server writes is_private on the insert) — never public for
-  // even a moment between save and a follow-up toggle.
-  const streak = await getPrivateStreak()
-  if (streak > 0) payload.is_private = true
+  // The stale sticky-secret counter from builds ≤0.5.2 — clear it so it
+  // can't be read by anything ever again.
+  chrome.storage.local.remove('ig_private_streak').catch?.(() => {})
 
-  // Optimistic reveal: the card opens fully — "Saved ✓", lists, pill — the
-  // moment it injects, while the save is still in flight. Anything the user
-  // does queues in the card and flushes when the confirm below delivers the
-  // bookmark id; a failure flips the card to its error state instead.
-  if (injected) toast(tabId, 'optimistic', { isPrivate: streak > 0 })
+  // Optimistic reveal: the card opens fully — "Saved to your bulletin", the
+  // list picker — the moment it injects, while the save is still in flight.
+  // Anything the user does queues in the card and flushes when the confirm
+  // below delivers the bookmark id; a failure flips the card to its error
+  // state instead.
+  if (injected) toast(tabId, 'optimistic', {})
 
   try {
     const result = await saveGem(payload)
     const bm = result?.bookmark || {}
     const refreshed = !!result?.refreshed
-    // The card's title links to the user's live page ("Saved to your Bulletin ↗").
+    // The card's title links to the user's live page.
     const profileUrl = result?.username ? `${CONFIG.API_BASE}/${result.username}` : null
-    // A fresh save consumed one of the streak's remaining defaults. A re-save
-    // doesn't — it kept its existing visibility, whatever that was.
-    if (streak > 0 && !refreshed) await setPrivateStreak(streak - 1)
     if (injected) {
       // `refreshed` = re-save updated the existing card in place.
-      toast(tabId, 'saved', { id: bm.id, title: bm.title, refreshed, isPrivate: !!bm.is_private, profileUrl })
+      toast(tabId, 'saved', { id: bm.id, title: bm.title, refreshed, profileUrl })
     } else {
       notify(refreshed ? 'Updated' : 'Saved', bm.title || 'Added to your collection.')
     }
@@ -675,25 +657,24 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true // keep the channel open for the async response
   }
   if (msg?.type === 'ig-get-lists') {
+    // `origin` + `username` let the card link every list row (and its title)
+    // to the live page from the first paint, without waiting on the save.
     getLists(msg.bookmarkId)
-      .then((r) => sendResponse({ ok: true, lists: r.lists || [], memberOf: r.member_of || [] }))
+      .then((r) =>
+        sendResponse({
+          ok: true,
+          lists: r.lists || [],
+          memberOf: r.member_of || [],
+          username: r.username || null,
+          origin: CONFIG.API_BASE,
+        })
+      )
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }
   if (msg?.type === 'ig-create-list') {
-    createList(msg.name, msg.bookmarkId, msg.isPrivate)
+    createList(msg.name, msg.bookmarkId)
       .then((r) => sendResponse({ ok: true, list: r.list, url: r.url }))
-      .catch((e) => sendResponse({ error: String(e.message || e) }))
-    return true
-  }
-  if (msg?.type === 'ig-set-visibility') {
-    setBulletVisibility(msg.bookmarkId, msg.isPrivate)
-      .then(async () => {
-        // A deliberate flip steers the sticky default: to secret → the next 2
-        // saves default secret too; back to public → the default resets now.
-        await setPrivateStreak(msg.isPrivate ? 2 : 0)
-        sendResponse({ ok: true })
-      })
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }
