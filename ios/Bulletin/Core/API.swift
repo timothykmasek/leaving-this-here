@@ -69,7 +69,7 @@ enum API {
 
         var errorDescription: String? {
             switch self {
-            case .alreadySaved: return "Already in your bulletin."
+            case .alreadySaved: return "Already in your Bulletin."
             case .http(let code, let message): return message.isEmpty ? "Request failed (\(code))." : message
             }
         }

@@ -179,7 +179,7 @@ const WRITE_TOOLS = [
   {
     name: 'add_to_list',
     description:
-      "File an already-saved link into one of the user's lists (name or slug; created if missing). Use save_bullet instead when the link isn't in the bulletin yet. Confirm with the user before bulk filing.",
+      "File an already-saved link into one of the user's lists (name or slug; created if missing). Use save_bullet instead when the link isn't in the Bulletin yet. Confirm with the user before bulk filing.",
     inputSchema: {
       type: 'object',
       properties: {

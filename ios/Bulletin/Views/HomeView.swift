@@ -106,7 +106,7 @@ struct HomeView: View {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 13))
                 .foregroundStyle(Color.ink.opacity(0.35))
-            TextField("Search your bulletin…", text: $query)
+            TextField("Search your Bulletin…", text: $query)
                 .font(.cardo(15))
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
@@ -134,7 +134,7 @@ struct HomeView: View {
     @ViewBuilder
     private func searchResults(_ results: [API.Bullet]) -> some View {
         if results.isEmpty {
-            Text("Nothing in your bulletin matches that.")
+            Text("Nothing in your Bulletin matches that.")
                 .font(.cardo(15))
                 .foregroundStyle(Color.ink.opacity(0.5))
                 .padding(.top, 40)

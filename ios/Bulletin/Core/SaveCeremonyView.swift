@@ -52,7 +52,7 @@ struct SaveCeremonyView: View {
                 doneButton(label: "Close")
 
             case .ready(let state):
-                Text(state.alreadySaved ? "Already in your bulletin." : "In your bulletin.")
+                Text(state.alreadySaved ? "Already in your Bulletin." : "In your Bulletin.")
                     .font(.cardo(22))
                     .foregroundStyle(Color.ink)
                 Text(state.domain)
@@ -176,7 +176,7 @@ struct SaveCeremonyView: View {
             ready = state
             phase = .ready(state)
         } catch API.APIError.alreadySaved {
-            phase = .failed("Already in your bulletin.")
+            phase = .failed("Already in your Bulletin.")
         } catch {
             phase = .failed(error.localizedDescription)
         }

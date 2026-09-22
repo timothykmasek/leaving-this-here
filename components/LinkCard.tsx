@@ -1,4 +1,4 @@
-// New "Link card" — the bulletin grid's atomic unit. Spec from Figma ProjectX
+// New "Link card" — the Bulletin grid's atomic unit. Spec from Figma ProjectX
 // node 695:840. Built fluid: fills its grid cell (w-full) and keeps the 272×270
 // proportions via aspect-ratio + percentage-positioned internals, so it works
 // 2-up on mobile and 4-up at the 272px desktop width.

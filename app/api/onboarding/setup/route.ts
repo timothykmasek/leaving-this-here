@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
   // screenshot) via deferEnrichment, and the live fetch + embedding run in the
   // background. This turns what was a 3–6s (up to ~45s on a hung origin) serial
   // wall of external fetches into parallel, sub-second inserts — collapsing the
-  // "Building your bulletin" wait the user actually sits through.
+  // "Building your Bulletin" wait the user actually sits through.
   const origin = new URL(request.url).origin
   await Promise.all(
     picks.map(async (pick) => {
