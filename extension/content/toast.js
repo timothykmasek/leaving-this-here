@@ -18,8 +18,9 @@
 // picker IS the switch.
 //
 // Dismissal: an idle timer after the reveal (paused while hovering or typing),
-// Escape, or clicking anywhere outside the card. Undo is the quiet grey word
-// at the end of the subtitle line (Tim, 2026-09-04) — deletes the save.
+// Escape, or clicking anywhere outside the card. "Or undo save..." on the
+// band's second line while the save is in flight deletes it (Tim kept undo,
+// 2026-09-04; placed it here 2026-09-22).
 //
 // Injected via chrome.scripting.executeScript({ files: [...] }) so it runs as
 // a content script in the isolated world. All UI lives in a shadow root so the
@@ -111,7 +112,7 @@
       .ptitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
       /* Second line of the band — Tim's "Body/Small" (Mier A 500 12/16,
          +5% tracking, black at 80%). One slot, two tenants: while the save
-         is still in flight it holds "Undo"; the moment the server confirms
+         is still in flight it holds "Or undo save..."; the moment the server confirms
          it becomes "Now, publish to a list..." (Tim, 2026-09-22). */
       .psub {
         display: block; margin-top: 3px;
@@ -228,7 +229,7 @@
         <div class="ptext">
           <h1 class="ptitle" id="ptitle">Saving to your Bulletin...</h1>
           <div class="psub">
-            <button class="undo" id="undo" aria-label="Undo this save">Undo</button>
+            <button class="undo" id="undo" aria-label="Undo this save">Or undo save...</button>
             <span class="psub-text" id="psub-text">Now, publish to a list...</span>
           </div>
         </div>
@@ -282,7 +283,6 @@
   let revealed = false
   let revealTimer = null
   let hintTimer = null
-  let undoHold = null
   // A later save superseding this one: stamp every async response.
   let saveSeq = 0
   // Lists are prefetched the moment the card injects, in PARALLEL with the
@@ -319,7 +319,6 @@
     clearTimeout(idleTimer)
     clearTimeout(revealTimer)
     clearTimeout(hintTimer)
-    clearTimeout(undoHold)
     card.style.transition = 'opacity .3s ease, transform .3s ease'
     card.style.opacity = '0'
     card.style.transform = 'translateY(-6px)'
@@ -584,15 +583,12 @@
     el('pbody').classList.add('open')
     armIdle()
   }
-  // The title flips the instant the server confirms; Undo lingers on the
-  // second line for a beat longer (Tim, 2026-09-22: "an extra 1.5 seconds")
-  // before the line becomes "Now, publish to a list...". Undo works
-  // throughout — the id is in hand.
-  const UNDO_HOLD_MS = 1500
+  // The instant the server confirms: title flips, and the second line goes
+  // from "Or undo save..." to "Now, publish to a list..." (Tim, 2026-09-22:
+  // no hold — he tried 1.5s and took it back out).
   function confirm(title) {
     setTitle(title, profileUrl)
-    clearTimeout(undoHold)
-    undoHold = setTimeout(() => card.classList.remove('pending'), UNDO_HOLD_MS)
+    card.classList.remove('pending')
   }
 
   // Optimistic open: full card, prefetched lists — before the save confirms.
@@ -697,7 +693,6 @@
     clearTimeout(revealTimer)
     clearTimeout(idleTimer)
     clearTimeout(hintTimer)
-    clearTimeout(undoHold)
     onPrefetch = null
     prefetchLists() // re-warm — a list created since injection should show
     bookmarkId = null
