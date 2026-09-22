@@ -396,9 +396,8 @@ export function ImportFab({
             {flow.kind === 'menu' && onCreateList && (
               <Pill onClick={startNewList} className="w-full sm:w-[200px]">
                 <span className={PILL_LABEL}>Create New List</span>
-                {/* An 8px ring — the picker's unfilled list mark: a list with
-                    nothing in it yet. */}
-                <span aria-hidden className="absolute right-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border" style={{ borderColor: GLYPH }} />
+                {/* Same dot as Add Bullet — one mark for "make a thing" (Tim). */}
+                <span aria-hidden className="absolute right-5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full" style={{ background: GLYPH }} />
               </Pill>
             )}
             {/* ── Left slot: Add Bullet → paste → Saved!/publish. During a
