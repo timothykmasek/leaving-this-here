@@ -38,6 +38,7 @@ enum API {
     struct ListsResponse: Decodable {
         let lists: [List]
         let member_of: [String]?
+        let username: String?
     }
 
     struct SavedBookmark: Decodable {
@@ -121,7 +122,11 @@ enum API {
         var query: [URLQueryItem] = []
         if let bookmarkId { query.append(.init(name: "bookmark_id", value: bookmarkId)) }
         let data = try await request("api/extension/lists", query: query)
-        return try JSONDecoder().decode(ListsResponse.self, from: data)
+        let page = try JSONDecoder().decode(ListsResponse.self, from: data)
+        // The lists route is the one call every session makes early (home
+        // load, share sheet), so it's where the username reliably lands.
+        Session.shared.noteUsername(page.username)
+        return page
     }
 
     static func addToList(listId: String, bookmarkId: String) async throws {

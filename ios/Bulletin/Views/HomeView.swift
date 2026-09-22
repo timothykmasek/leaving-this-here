@@ -281,7 +281,7 @@ struct SettingsView: View {
                             .foregroundStyle(Color.ink.opacity(0.7))
 
                         (Text("Type ").foregroundStyle(Color.ink.opacity(0.5))
-                            + Text(username).foregroundStyle(Color.ink)
+                            + Text(username.isEmpty ? "your username" : username).foregroundStyle(Color.ink)
                             + Text(" to confirm").foregroundStyle(Color.ink.opacity(0.5)))
                             .font(.mier(13))
                             .padding(.top, 14)
@@ -321,6 +321,13 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 30)
                 .padding(.bottom, 40)
+            }
+        }
+        // The username rides in on the first feed load; a sheet opened before
+        // that lands would show "Type  to confirm". Ask for it directly.
+        .task {
+            if session.current?.username == nil {
+                _ = try? await API.lists()
             }
         }
     }
