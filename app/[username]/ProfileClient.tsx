@@ -1082,7 +1082,27 @@ export default function ProfileClient({
                 gap on the right at mid-wide viewports. One gap value both
                 ways, so rows and columns read as the same grid. */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
-                {/* owner: a card-shaped "New list" affordance (also the empty state) */}
+                {sortedLists.map((l) => (
+                  <CollectionCard
+                    key={l.id}
+                    name={l.name}
+                    count={l.bookmark_ids.length}
+                    thumbs={listThumbs(l)}
+                    isPrivate={l.is_private}
+                    // Clicking a list navigates straight to its own URL — for
+                    // the owner too (the list page carries the owner controls).
+                    // A slugless list (pre-migration) still falls back to the
+                    // in-page view since it has no URL yet.
+                    {...(l.slug
+                      ? { href: `/${profile.username}/${l.slug}` }
+                      : { onClick: () => setActiveListId(l.id) })}
+                  />
+                ))}
+
+                {/* Owner: the "Create New List" card, after the lists (Figma
+                    1132:79672) — a collection card with nothing in it yet: the
+                    same plate, a + where the filmstrip would be, and the name/
+                    count block reading as the prompt. (Also the empty state.) */}
                 {isOwner && (
                   creatingList ? (
                     <div className="relative flex aspect-[295/393] w-full flex-col items-center justify-center gap-4 overflow-hidden rounded-[20px] bg-card px-6 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03]">
@@ -1124,30 +1144,36 @@ export default function ProfileClient({
                   ) : (
                     <button
                       onClick={() => setCreatingList(true)}
-                      className="relative flex aspect-[295/393] w-full flex-col items-center justify-center gap-3 overflow-hidden rounded-[20px] bg-card text-black/40 shadow-[0_4px_18px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.03] transition-shadow hover:text-ink hover:shadow-[0_8px_28px_rgba(0,0,0,0.10)]"
+                      className="relative block aspect-[295/393] w-full overflow-hidden rounded-[20px] bg-card text-left ring-1 ring-black/[0.03] card-lift"
                     >
-                      <span className="flex h-10 w-10 items-center justify-center rounded-full border border-current text-xl">+</span>
-                      <span className="label">New list</span>
+                      {/* The + sits at the card's true center, 45/295 of the
+                          plate wide so it scales with the column like the
+                          filmstrip does. Same 2px stroke both bars. */}
+                      <svg
+                        aria-hidden
+                        viewBox="0 0 45 45"
+                        fill="none"
+                        className="absolute left-1/2 top-1/2 w-[15.25%] -translate-x-1/2 -translate-y-1/2"
+                      >
+                        <line x1="22.5" y1="0" x2="22.5" y2="45" stroke="#B8B8B8" strokeWidth="2" />
+                        <line x1="0" y1="22.5" x2="45" y2="22.5" stroke="#B8B8B8" strokeWidth="2" />
+                      </svg>
+                      {/* Name/count block at the CollectionCard's exact anchor.
+                          Cardo REGULAR 18 (not the list name's Bold 16) — the
+                          Figma draws the prompt a step lighter and larger than
+                          a real name, so it reads as an invitation, not an
+                          item. Count line matches the card's 0.56 alpha. */}
+                      <span className="absolute inset-x-5 bottom-5 block">
+                        <span className="block font-serif text-[18px] leading-5 tracking-[-0.02em] text-black/70">
+                          Create New List
+                        </span>
+                        <span className="mt-2 block font-sans text-[12px] font-[400] leading-4 tracking-[0.05em] text-black/[0.56]">
+                          0 items
+                        </span>
+                      </span>
                     </button>
                   )
                 )}
-
-                {sortedLists.map((l) => (
-                  <CollectionCard
-                    key={l.id}
-                    name={l.name}
-                    count={l.bookmark_ids.length}
-                    thumbs={listThumbs(l)}
-                    isPrivate={l.is_private}
-                    // Clicking a list navigates straight to its own URL — for
-                    // the owner too (the list page carries the owner controls).
-                    // A slugless list (pre-migration) still falls back to the
-                    // in-page view since it has no URL yet.
-                    {...(l.slug
-                      ? { href: `/${profile.username}/${l.slug}` }
-                      : { onClick: () => setActiveListId(l.id) })}
-                  />
-                ))}
             </div>
 
             {/* Dead links — a line under the lists, not a card among them:
