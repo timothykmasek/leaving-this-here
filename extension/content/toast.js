@@ -55,7 +55,6 @@
   // Brand fonts, same cuts as the web app (declared in web_accessible_resources).
   const FONT_BOOK = chrome.runtime.getURL('fonts/MierA-Book.woff2')
   const FONT_REGULAR = chrome.runtime.getURL('fonts/MierA-Regular.woff2')
-  const FONT_SERIF = chrome.runtime.getURL('fonts/Cardo-Regular.woff2')
   // The tile's mark (Tim's asset, 2026-09-22). Must be listed in the
   // manifest's web_accessible_resources or the page can't load it.
   const MARK = chrome.runtime.getURL('icons/mark.png')
@@ -72,7 +71,6 @@
     <style>
       @font-face { font-family:'Mier A'; src:url('${FONT_BOOK}') format('woff2'); font-weight:400; font-display:swap; }
       @font-face { font-family:'Mier A'; src:url('${FONT_REGULAR}') format('woff2'); font-weight:500; font-display:swap; }
-      @font-face { font-family:'Cardo'; src:url('${FONT_SERIF}') format('woff2'); font-weight:400; font-display:swap; }
       :host { all: initial; }
       * { box-sizing: border-box; }
       ::selection { background: #e4e2de; }
@@ -111,29 +109,25 @@
       }
       .ptitle a { color: inherit; text-decoration: none; }
       .ptitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
-      /* Subtitle line — folded away while saving. Cardo, the web's serif. */
+      /* Second line of the band — Tim's "Body/Small" (Mier A 500 12/16,
+         +5% tracking, black at 80%). One slot, two tenants: while the save
+         is still in flight it holds "Undo"; the moment the server confirms
+         it becomes "Now, publish to a list..." (Tim, 2026-09-22). */
       .psub {
-        display: block;
-        font-family: 'Cardo', Georgia, serif; font-size: 14px; line-height: 18px;
-        color: #3a3a3a;
+        display: block; margin-top: 3px;
+        font-weight: 500; font-size: 12px; line-height: 16px; letter-spacing: 0.05em;
+        color: #000; opacity: 0.8;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-        max-height: 0; margin-top: 0; opacity: 0;
-        transition: opacity 260ms ease 60ms, max-height 260ms ease, margin-top 260ms ease;
       }
-      .revealed .psub, .terminal .psub { max-height: 18px; margin-top: 3px; opacity: 1; }
-      .terminal.err .psub { color: #a31f34; }
-      /* Undo — the quiet serif word in the band's top-right corner. Only
-         once there's a save. */
+      .terminal.err .psub { color: #a31f34; opacity: 1; }
+      .pending .psub-text { display: none; }
+      .card:not(.pending) .undo { display: none; }
       .undo {
-        position: absolute; top: 12px; right: 30px;
         padding: 0; border: none; background: none;
-        font-family: 'Cardo', Georgia, serif; font-size: 14px; line-height: 18px;
-        color: #000; cursor: pointer;
-        opacity: 0; pointer-events: none; transition: opacity 200ms ease;
+        font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer;
       }
-      .revealed .undo { opacity: 1; pointer-events: auto; }
       .undo:hover { text-decoration: underline; text-underline-offset: 2px; }
-      .undo:disabled, .undone .undo { opacity: 0; pointer-events: none; }
+      .undo:disabled { pointer-events: none; }
 
       /* The mark's tile, leading the band: white, 48px, the mark inside. */
       .tile {
@@ -215,9 +209,10 @@
         color: #000; outline: none;
       }
       .cfield::placeholder { color: #9a9a9a; }
+      /* Same small voice as the band's second line. */
       .chint {
-        flex: none; font-family: 'Cardo', Georgia, serif; font-size: 14px; line-height: 18px;
-        color: #8a8a8a; white-space: nowrap;
+        flex: none; font-weight: 500; font-size: 12px; line-height: 16px; letter-spacing: 0.05em;
+        color: rgba(0,0,0,0.5); white-space: nowrap;
         opacity: 0; transition: opacity 160ms ease;
       }
       .chint.show { opacity: 1; }
@@ -227,14 +222,16 @@
       .create.done .cfield { color: #000; }
     </style>
 
-    <div class="card saving" id="card">
+    <div class="card saving pending" id="card">
       <header class="phead">
         <div class="tile" aria-hidden="true"><img src="${MARK}" alt="" /></div>
         <div class="ptext">
           <h1 class="ptitle" id="ptitle">Saving to your Bulletin...</h1>
-          <div class="psub" id="psub-text">Now, publish to a list...</div>
+          <div class="psub">
+            <button class="undo" id="undo" aria-label="Undo this save">Undo</button>
+            <span class="psub-text" id="psub-text">Now, publish to a list...</span>
+          </div>
         </div>
-        <button class="undo" id="undo" aria-label="Undo this save">Undo</button>
       </header>
 
       <div class="pbody" id="pbody">
@@ -375,7 +372,7 @@
     undone = true
     // Fold the card down right away — the delete itself rides the queue, so an
     // undo clicked before the save even confirmed still lands (create → delete).
-    card.classList.remove('revealed')
+    card.classList.remove('revealed', 'pending')
     card.classList.add('terminal', 'undone')
     el('pbody').classList.remove('open')
     setTitle('Save to your Bulletin')
@@ -570,18 +567,24 @@
   }
 
   // ── the one-frame reveal ───────────────────────────────────────────
-  // Saving → (lists in hand) → everything at once.
+  // Saving → (lists in hand) → the picker, all at once. The band's words
+  // follow the SERVER, not the picker: until the save confirms the title
+  // still says "Saving…" and the second line offers Undo; confirm() flips
+  // both. The picker is usable throughout (actions queue against the id).
   function reveal() {
     if (revealed) return
     revealed = true
     clearTimeout(revealTimer)
     card.classList.remove('saving', 'terminal', 'err', 'undone')
-    setTitle('Saved to your Bulletin', profileUrl)
-    setSub('Now, publish to a list...')
     card.classList.add('revealed')
+    setSub('Now, publish to a list...')
     renderRows()
     el('pbody').classList.add('open')
     armIdle()
+  }
+  function confirm(title) {
+    card.classList.remove('pending')
+    setTitle(title, profileUrl)
   }
 
   // Optimistic open: full card, prefetched lists — before the save confirms.
@@ -631,7 +634,7 @@
         flushPending(bookmarkId)
         return
       }
-      setTitle(title, profileUrl)
+      confirm(title)
       flushPending(bookmarkId)
       // A re-save is already filed places — pull memberships; checked rows
       // pop in a beat late, which beats holding the whole card for them.
@@ -649,7 +652,7 @@
           memberOf = new Set(resp.memberOf || [])
         }
         reveal()
-        setTitle(title, profileUrl)
+        confirm(title)
       })
       return
     }
@@ -658,7 +661,7 @@
       if (seq !== saveSeq) return
       lists = prefetched || []
       reveal()
-      setTitle(title, profileUrl)
+      confirm(title)
     }
     if (prefetched !== null) useprefetch()
     else onPrefetch = useprefetch
@@ -671,7 +674,7 @@
     // fold the picker back down and drop anything the user queued against it.
     pending = []
     revealed = false
-    card.classList.remove('revealed', 'saving')
+    card.classList.remove('revealed', 'saving', 'pending')
     card.classList.add('terminal')
     card.classList.toggle('err', err)
     el('pbody').classList.remove('open')
@@ -696,7 +699,7 @@
     creating = false
     revealed = false
     card.classList.remove('revealed', 'terminal', 'err', 'undone')
-    card.classList.add('saving')
+    card.classList.add('saving', 'pending')
     el('undo').disabled = false
     el('pbody').classList.remove('open')
     el('more').classList.remove('open')
