@@ -34,7 +34,7 @@ export function ConsentCard({
 
       <div className="mt-7 rounded-2xl bg-card px-5 py-4">
         <ul className="space-y-2.5">
-          {['Read your bullets and lists', 'Read your published lists'].map((line) => (
+          {['Read your bullets and lists', 'Save links and file them into lists'].map((line) => (
             <li key={line} className="flex items-baseline gap-3 font-serif text-[15px] leading-snug text-black/75">
               <span aria-hidden className="font-sans text-[13px] text-ink">✓</span>
               {line}
@@ -42,7 +42,7 @@ export function ConsentCard({
           ))}
         </ul>
         <p className="mt-3 font-serif text-[13px] italic leading-snug text-black/40">
-          Read-only. {clientName} can&rsquo;t save, edit or delete anything.
+          Saves only with your say-so. {clientName} can&rsquo;t delete anything.
         </p>
       </div>
 

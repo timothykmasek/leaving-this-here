@@ -82,8 +82,9 @@ export default function ClaudePage() {
           No Bulletin account? Add{' '}
           <code className="font-mono text-[12.5px]">yourbulletin.com/mcp</code>{' '}
           instead&thinsp;&mdash;&thinsp;it reads any published bulletin, no
-          sign-in. Either way it&rsquo;s read-only: Claude can&rsquo;t save,
-          edit or delete anything.
+          sign-in. Signed in, Claude can also save links and file them into
+          your lists&thinsp;&mdash;&thinsp;always showing you the plan first,
+          and never deleting anything.
         </p>
       </div>
 

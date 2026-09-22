@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { embed } from '@/lib/embed'
 import { SITE_URL } from '@/lib/meta'
+import { normalizeUrl } from '@/lib/normalizeUrl'
 
 // MCP server — Bulletin as a Claude connector, mounted twice:
 //
@@ -139,7 +140,97 @@ const TOOLS = [
   },
 ]
 
+// Write tools — personal mount only. The contract with the model is
+// preview-then-confirm: `preview_save` is the "show me first" step; the
+// save tools say in their own descriptions that they run only after the
+// user has confirmed the specific links. Writes go through the same
+// /api/extension/* routes the Chrome extension and iOS app use (same
+// bearer token — an OAuth access token verifies like a session token), so
+// a link saved from a chat gets the identical pipeline: metadata,
+// screenshot, Haiku keywords, embedding. Nothing here can delete.
+const WRITE_TOOLS = [
+  {
+    name: 'preview_save',
+    description:
+      'The "show me first" step before saving. For each URL, reports whether it is already in the user\'s bulletin (and which lists it sits in), plus which existing list name matches a proposed `list`. Call this, show the user the plan (which links, which list), and only call save_bullet after they confirm. Never save without that confirmation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        urls: { type: 'array', items: { type: 'string' }, description: 'The links you propose to save (max 50).' },
+        list: { type: 'string', description: 'Proposed list name to file them into, if any.' },
+      },
+      required: ['urls'],
+    },
+  },
+  {
+    name: 'save_bullet',
+    description:
+      "Save one link to the user's bulletin, optionally filing it into a list (matched by name, case-insensitive; created if it doesn't exist). Runs Bulletin's full save pipeline. ONLY call this after preview_save and the user's explicit confirmation of these specific links — a batch of unwanted saves is hard to undo. Re-saving an existing link refreshes it rather than duplicating it.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'The link to save.' },
+        list: { type: 'string', description: 'List to file it into (name or slug). Optional.' },
+        note: { type: 'string', description: "A short note in the user's words. Optional." },
+      },
+      required: ['url'],
+    },
+  },
+  {
+    name: 'add_to_list',
+    description:
+      "File an already-saved link into one of the user's lists (name or slug; created if missing). Use save_bullet instead when the link isn't in the bulletin yet. Confirm with the user before bulk filing.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        url: { type: 'string', description: 'A link already in the bulletin.' },
+        list: { type: 'string', description: 'List name or slug.' },
+      },
+      required: ['url', 'list'],
+    },
+  },
+]
+
 class ToolError extends Error {}
+
+// Call our own extension API with the caller's token. Non-2xx becomes a
+// ToolError the model can read; `already saved` is surfaced as data.
+async function extApi(path: string, token: string, init: { method?: string; body?: any; query?: Record<string, string> } = {}) {
+  const url = new URL(`${SITE_URL}${path}`)
+  for (const [k, v] of Object.entries(init.query || {})) url.searchParams.set(k, v)
+  const res = await fetch(url, {
+    method: init.method || 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: init.body ? JSON.stringify(init.body) : undefined,
+  })
+  const json = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    if (json?.alreadySaved) return { alreadySaved: true }
+    throw new ToolError(json?.error || `${path} failed (${res.status})`)
+  }
+  return json
+}
+
+// Find a list by name or slug (case-insensitive) among the caller's lists.
+function matchList(lists: { id: string; name: string; slug: string }[], wanted: string) {
+  const w = wanted.trim().toLowerCase()
+  return lists.find((l) => l.name.toLowerCase() === w || l.slug.toLowerCase() === w) || null
+}
+
+// Resolve or create the list, then file the bullet. Returns the list used.
+async function fileInto(token: string, bookmarkId: string, listName: string) {
+  const { lists } = await extApi('/api/extension/lists', token)
+  const existing = matchList(lists || [], listName)
+  if (existing) {
+    await extApi('/api/extension/lists', token, { method: 'POST', body: { op: 'add', list_id: existing.id, bookmark_id: bookmarkId } })
+    return { name: existing.name, slug: existing.slug, created: false }
+  }
+  const created = await extApi('/api/extension/lists', token, { method: 'POST', body: { op: 'create', name: listName.trim(), bookmark_id: bookmarkId } })
+  return { name: created.list.name, slug: created.list.slug, created: !created.existed }
+}
 
 // Resolve the target profile for a tool call: an explicit username, else the
 // authenticated caller's own.
@@ -181,8 +272,100 @@ function bullet(row: BulletRow) {
   }
 }
 
-async function callTool(name: string, args: any, caller: Caller, supabase: SupabaseClient) {
+async function callTool(
+  name: string,
+  args: any,
+  caller: Caller,
+  supabase: SupabaseClient,
+  token: string,
+  personal: boolean,
+) {
+  const requireWriter = () => {
+    if (!personal || !caller) {
+      throw new ToolError('Saving requires the personal connector (yourbulletin.com/mcp/me), signed in.')
+    }
+  }
+
   switch (name) {
+    case 'preview_save': {
+      requireWriter()
+      const urls: string[] = Array.isArray(args?.urls)
+        ? args.urls.filter((u: any) => typeof u === 'string' && /^https?:\/\//i.test(u)).slice(0, 50)
+        : []
+      if (urls.length === 0) throw new ToolError('`urls` must contain at least one http(s) link.')
+
+      const keys = urls.map((u) => ({ url: u, key: normalizeUrl(u) }))
+      const { data: existing } = await supabase
+        .from('bookmarks')
+        .select('url_key, url, title, list_bookmarks(lists(name))')
+        .eq('user_id', caller!.userId)
+        .in('url_key', keys.map((k) => k.key))
+      const byKey = new Map((existing || []).map((b: any) => [b.url_key, b]))
+
+      const { lists } = await extApi('/api/extension/lists', token)
+      const wanted = typeof args?.list === 'string' && args.list.trim() ? args.list.trim() : null
+      const match = wanted ? matchList(lists || [], wanted) : null
+
+      return {
+        list: wanted
+          ? match
+            ? { name: match.name, exists: true }
+            : { name: wanted, exists: false, note: 'Will be created on save.' }
+          : null,
+        links: keys.map(({ url, key }) => {
+          const hit: any = byKey.get(key)
+          return hit
+            ? {
+                url,
+                already_saved: true,
+                title: hit.title,
+                in_lists: (hit.list_bookmarks || []).map((m: any) => m.lists?.name).filter(Boolean),
+              }
+            : { url, already_saved: false }
+        }),
+        next: 'Show this plan to the user. Save only the links they confirm, one save_bullet call each.',
+      }
+    }
+
+    case 'save_bullet': {
+      requireWriter()
+      const url = typeof args?.url === 'string' ? args.url.trim() : ''
+      if (!/^https?:\/\//i.test(url)) throw new ToolError('`url` must be an http(s) link.')
+      const body: Record<string, any> = { url }
+      if (typeof args?.note === 'string' && args.note.trim()) body.note = args.note.trim()
+
+      const saved = await extApi('/api/extension/save', token, { method: 'POST', body })
+      if (saved.alreadySaved) return { url, saved: false, reason: 'already in the bulletin (use add_to_list to file it)' }
+
+      const bookmarkId = saved.bookmark?.id
+      const listName = typeof args?.list === 'string' && args.list.trim() ? args.list : null
+      const filed = listName && bookmarkId ? await fileInto(token, bookmarkId, listName) : null
+      return {
+        url,
+        saved: true,
+        refreshed: saved.refreshed === true,
+        title: saved.bookmark?.title || null,
+        ...(filed ? { list: filed } : {}),
+        profile_url: saved.username ? `${SITE_URL}/${saved.username}` : undefined,
+      }
+    }
+
+    case 'add_to_list': {
+      requireWriter()
+      const url = typeof args?.url === 'string' ? args.url.trim() : ''
+      const listName = typeof args?.list === 'string' ? args.list.trim() : ''
+      if (!url || !listName) throw new ToolError('`url` and `list` are required.')
+      const { data: row } = await supabase
+        .from('bookmarks')
+        .select('id, title')
+        .eq('user_id', caller!.userId)
+        .eq('url_key', normalizeUrl(url))
+        .maybeSingle()
+      if (!row) throw new ToolError('That link is not in the bulletin yet — use save_bullet.')
+      const filed = await fileInto(token, row.id, listName)
+      return { url, title: row.title, list: filed }
+    }
+
     case 'search_bullets': {
       const query = typeof args?.query === 'string' ? args.query.trim().slice(0, MAX_QUERY_CHARS) : ''
       if (!query) throw new ToolError('`query` is required.')
@@ -296,7 +479,7 @@ function rpcError(id: any, code: number, message: string) {
   return { jsonrpc: '2.0', id, error: { code, message } }
 }
 
-async function handleMessage(msg: any, caller: Caller, supabase: SupabaseClient, personal: boolean) {
+async function handleMessage(msg: any, caller: Caller, supabase: SupabaseClient, personal: boolean, token: string) {
   const { id, method, params } = msg || {}
 
   // Notifications (no id) expect no response.
@@ -310,17 +493,17 @@ async function handleMessage(msg: any, caller: Caller, supabase: SupabaseClient,
         capabilities: { tools: {} },
         serverInfo: { name: personal ? 'bulletin-me' : 'bulletin', title: 'Bulletin', version: '0.2.0' },
         instructions: personal
-          ? `Bulletin is where this user saves and publishes the links worth keeping ("bullets", organized into lists). This connection is authenticated as ${caller?.username ? `@${caller.username}` : 'their account'}: every tool defaults to their own bullets (private ones included) when \`username\` is omitted. Use search_bullets when they refer to something they saved; pass a \`username\` only to read someone else's public bulletin.`
+          ? `Bulletin is where this user saves and publishes the links worth keeping ("bullets", organized into lists). This connection is authenticated as ${caller?.username ? `@${caller.username}` : 'their account'}: every tool defaults to their own bullets (private ones included) when \`username\` is omitted. Use search_bullets when they refer to something they saved; pass a \`username\` only to read someone else's public bulletin. Saving: when asked to save or file links (e.g. "add the ecommerce links from this newsletter to my Ecommerce list"), extract the links, call preview_save, show the user the plan, and save with save_bullet ONLY the links they confirm. Never delete — there is no delete tool.`
           : 'Bulletin is a place people save and publish the links worth keeping ("bullets", organized into lists). Use search_bullets when the user refers to something they saved, and get_lists/get_list to read a profile\'s curated lists. Public profiles need a `username`; an authenticated connection defaults to its own account.',
       })
     }
     case 'ping':
       return rpcResult(id, {})
     case 'tools/list':
-      return rpcResult(id, { tools: TOOLS })
+      return rpcResult(id, { tools: personal ? [...TOOLS, ...WRITE_TOOLS] : TOOLS })
     case 'tools/call': {
       try {
-        const result = await callTool(params?.name, params?.arguments ?? {}, caller, supabase)
+        const result = await callTool(params?.name, params?.arguments ?? {}, caller, supabase, token, personal)
         return rpcResult(id, {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
         })
@@ -355,11 +538,12 @@ export function makeMcpRoutes({ personal }: { personal: boolean }) {
 
       // Reads run through a token-scoped client when authed, so RLS sees the caller.
       const authHeader = request.headers.get('authorization') || ''
-      const scoped = caller ? sb(authHeader.slice(7).trim()) : supabase
+      const token = authHeader.slice(7).trim()
+      const scoped = caller ? sb(token) : supabase
 
       const messages = Array.isArray(body) ? body : [body]
       const responses = (
-        await Promise.all(messages.map((m) => handleMessage(m, caller, scoped, personal)))
+        await Promise.all(messages.map((m) => handleMessage(m, caller, scoped, personal, token)))
       ).filter(Boolean)
 
       // All notifications → 202 with no body, per streamable HTTP.
