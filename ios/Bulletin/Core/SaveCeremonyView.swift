@@ -1,10 +1,16 @@
 import SwiftUI
 
-// The save ceremony — Bulletin's "Good find!" moment, shared by the share
-// extension and the app's paste sheet. One-frame rule (the Chrome
-// extension's 0.4.3 contract): hold a quiet "Saving…" until the save AND the
-// list rows AND the one suggestion are all ready, then reveal in a single
-// paint. Callers own the chrome around the card; this owns the card.
+// The save ceremony — the Chrome extension's card, on the phone. Shared by
+// the share extension and the app's paste sheet. Callers own the paper and
+// the wordmark above; this owns everything below: one headline, then the
+// picker as full-bleed rows.
+//
+// One-frame rule (the extension's 0.4.3 contract): "Saving to your
+// Bulletin…" over empty rows until the save AND the list rows are both
+// ready, then one paint. No AI suggestion here (Tim, 2026-09-22) — the rows
+// are the user's lists in recency order, the server's order, with the rest
+// folded under "All other lists" and a "Create new list" row that becomes a
+// field in place.
 struct SaveCeremonyView: View {
     let url: String
     var title: String? = nil
@@ -19,116 +25,207 @@ struct SaveCeremonyView: View {
 
     struct Ready {
         var bookmarkId: String
-        var domain: String
         var lists: [API.List]
         var memberOf: Set<String>
-        var suggestion: String?
         var alreadySaved: Bool
     }
 
+    /// Lists above the fold, the extension's count.
+    static let topRows = 3
+    static let rowHeight: CGFloat = 64
+    static let hairline = Color(red: 0xec / 255, green: 0xec / 255, blue: 0xec / 255)
+    static let dotWell = Color(red: 0xe4 / 255, green: 0xe4 / 255, blue: 0xe4 / 255)
+
     @State private var phase: Phase = .saving
     @State private var ready: Ready?
-    @State private var creatingSuggested = false
+    @State private var showAll = false
+
+    @State private var creating = false
+    @State private var newName = ""
+    @State private var createHint: String?
+    @FocusState private var fieldFocused: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            switch phase {
-            case .saving:
-                HStack(spacing: 10) {
-                    ProgressView()
-                    Text("Saving…")
+        ScrollView(showsIndicators: false) {
+            VStack(spacing: 0) {
+                switch phase {
+                case .saving:
+                    Skeleton()
+
+                case .failed(let message):
+                    Headline("Couldn't save")
+                    Text(message)
                         .font(.cardo(15))
-                        .foregroundStyle(Color.ink.opacity(0.55))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 36)
-
-            case .failed(let message):
-                Text(message)
-                    .font(.cardo(15))
-                    .foregroundStyle(Color.ink.opacity(0.65))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 8)
-                doneButton(label: "Close")
-
-            case .ready(let state):
-                Text(state.alreadySaved ? "Already in your Bulletin." : "In your Bulletin.")
-                    .font(.cardo(22))
-                    .foregroundStyle(Color.ink)
-                Text(state.domain)
-                    .font(.cardo(13))
-                    .foregroundStyle(Color.ink.opacity(0.4))
-                    .padding(.top, 2)
-
-                if !state.lists.isEmpty || state.suggestion != nil {
-                    VStack(spacing: 0) {
-                        ForEach(state.lists.prefix(4)) { list in
-                            listRow(list, state: state)
-                        }
-                        if let suggestion = state.suggestion {
-                            suggestionRow(suggestion, state: state)
-                        }
+                        .foregroundStyle(Color.ink.opacity(0.65))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 30)
+                    Button(action: done) {
+                        Text("Close")
+                            .font(.mierDemi(15))
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.ink, in: RoundedRectangle(cornerRadius: 10))
+                            .foregroundStyle(.white)
                     }
-                    .padding(.top, 14)
-                }
+                    .padding(.horizontal, 30)
+                    .padding(.top, 22)
 
-                doneButton(label: "Done")
+                case .ready(let state):
+                    Headline(state.alreadySaved ? "Already in your Bulletin" : "Now publish to a list")
+                    rows(state)
+                }
             }
         }
-        .padding(22)
-        .background(Color.white, in: RoundedRectangle(cornerRadius: 20))
-        .shadow(color: .black.opacity(0.18), radius: 24, y: 10)
         .task { await run() }
     }
 
-    private func doneButton(label: String) -> some View {
-        Button(action: done) {
-            Text(label)
-                .font(.mierDemi(15))
+    // MARK: - Pieces
+
+    /// The one line above the rows. Mier DemiBold, centered, the band's voice.
+    struct Headline: View {
+        let text: String
+        init(_ text: String) { self.text = text }
+        var body: some View {
+            Text(text)
+                .font(.mierDemi(17))
+                .foregroundStyle(Color.ink)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.ink, in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(.white)
-        }
-        .padding(.top, 18)
-    }
-
-    private func listRow(_ list: API.List, state: Ready) -> some View {
-        let isMember = state.memberOf.contains(list.id)
-        return Button {
-            Task { await toggle(list, wasMember: isMember) }
-        } label: {
-            HStack {
-                Text(list.name)
-                    .font(.mier(15))
-                    .foregroundStyle(Color.ink.opacity(0.8))
-                Spacer()
-                Image(systemName: isMember ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(isMember ? Color.ink : Color.ink.opacity(0.25))
-            }
-            .padding(.vertical, 10)
+                .padding(.top, 34)
+                .padding(.bottom, 30)
         }
     }
 
-    private func suggestionRow(_ name: String, state: Ready) -> some View {
-        Button {
-            Task { await createSuggested(name) }
-        } label: {
-            HStack(spacing: 6) {
-                if creatingSuggested {
-                    ProgressView().controlSize(.small)
-                } else {
-                    Image(systemName: "plus")
-                        .font(.mierDemi(12))
+    /// The saving state: headline over empty rows, so the reveal swaps
+    /// content into a frame that's already there.
+    struct Skeleton: View {
+        var body: some View {
+            VStack(spacing: 0) {
+                Headline("Saving to your Bulletin…")
+                Rectangle().fill(SaveCeremonyView.hairline).frame(height: 1)
+                ForEach(0..<4, id: \.self) { _ in
+                    Color.clear
+                        .frame(height: SaveCeremonyView.rowHeight)
+                        .overlay(alignment: .bottom) {
+                            Rectangle().fill(SaveCeremonyView.hairline).frame(height: 1)
+                        }
                 }
-                Text(name)
-                    .font(.mier(15))
-                Spacer()
             }
-            .foregroundStyle(Color.ink.opacity(0.55))
-            .padding(.vertical, 10)
         }
-        .disabled(creatingSuggested)
+    }
+
+    private func rows(_ state: Ready) -> some View {
+        let visible = showAll ? state.lists : Array(state.lists.prefix(Self.topRows))
+        let folded = state.lists.count - visible.count
+        return VStack(spacing: 0) {
+            Rectangle().fill(Self.hairline).frame(height: 1)
+            ForEach(visible) { list in
+                listRow(list, on: state.memberOf.contains(list.id))
+            }
+            if folded > 0 {
+                moreRow
+            }
+            createRow
+        }
+    }
+
+    private func listRow(_ list: API.List, on: Bool) -> some View {
+        Button {
+            Task { await toggle(list, wasMember: on) }
+        } label: {
+            HStack(spacing: 14) {
+                Text(list.name)
+                    .font(.mier(17))
+                    .foregroundStyle(Color.ink)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                dot(on)
+            }
+            .padding(.horizontal, 30)
+            .frame(height: Self.rowHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Self.hairline).frame(height: 1)
+        }
+    }
+
+    /// The extension's radio: a grey well, a black dot that scales in.
+    private func dot(_ on: Bool) -> some View {
+        ZStack {
+            Circle().fill(Self.dotWell).frame(width: 17, height: 17)
+            Circle().fill(Color.black).frame(width: 9, height: 9)
+                .scaleEffect(on ? 1 : 0.001)
+                .animation(.spring(response: 0.18, dampingFraction: 0.7), value: on)
+        }
+    }
+
+    /// "All other lists" — tap swaps it for the rest of the rows. One-way.
+    private var moreRow: some View {
+        Button {
+            showAll = true
+        } label: {
+            HStack(spacing: 14) {
+                Text("All other lists")
+                    .font(.mier(17))
+                    .foregroundStyle(Color.ink)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(Color.ink)
+            }
+            .padding(.horizontal, 30)
+            .frame(height: Self.rowHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Self.hairline).frame(height: 1)
+        }
+    }
+
+    /// "Create new list" — a label that becomes a field in place; Return
+    /// creates the list and files the bullet into it.
+    private var createRow: some View {
+        HStack(spacing: 14) {
+            if creating {
+                TextField("Name your list", text: $newName)
+                    .font(.mier(17))
+                    .foregroundStyle(Color.ink)
+                    .focused($fieldFocused)
+                    .submitLabel(.done)
+                    .autocorrectionDisabled()
+                    .onSubmit { Task { await create() } }
+                if let createHint {
+                    Text(createHint)
+                        .font(.cardo(14))
+                        .foregroundStyle(Color.ink.opacity(0.45))
+                } else {
+                    Text("Press return")
+                        .font(.cardo(14))
+                        .foregroundStyle(Color.ink.opacity(0.45))
+                }
+            } else {
+                Button {
+                    creating = true
+                    fieldFocused = true
+                } label: {
+                    HStack {
+                        Text((ready?.lists.isEmpty ?? false) ? "Create your first list" : "Create new list")
+                            .font(.mier(17))
+                            .foregroundStyle(Color.ink)
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 30)
+        .frame(height: Self.rowHeight)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(Self.hairline).frame(height: 1)
+        }
     }
 
     // MARK: - Flow
@@ -139,7 +236,6 @@ struct SaveCeremonyView: View {
             phase = .failed("You're signed out. Open Bulletin to sign in, then try again.")
             return
         }
-        let domain = URL(string: url)?.host?.replacingOccurrences(of: "www.", with: "") ?? url
 
         do {
             // Lift page context from the device's own network position — the
@@ -154,25 +250,14 @@ struct SaveCeremonyView: View {
             }
             let saved = try await API.save(url: url, title: title, clientMeta: meta)
             let bookmarkId = saved.bookmark.id
-            // One paint: both follow-ups land before anything shows.
-            async let listsTask = API.lists(bookmarkId: bookmarkId)
-            async let suggestTask = try? API.suggestListName(bookmarkId: bookmarkId)
-            let (listsResponse, suggestion) = try await (listsTask, suggestTask)
-
-            let existingNames = Set(listsResponse.lists.map { $0.name.lowercased() })
-            let freshSuggestion = suggestion?.name.flatMap {
-                existingNames.contains($0.lowercased()) ? nil : $0
-            }
-            var state = Ready(
+            // Server order is recency (2026-09-22) — no client re-sort.
+            let listsResponse = try await API.lists(bookmarkId: bookmarkId)
+            let state = Ready(
                 bookmarkId: bookmarkId,
-                domain: domain,
                 lists: listsResponse.lists,
                 memberOf: Set(listsResponse.member_of ?? []),
-                suggestion: freshSuggestion,
                 alreadySaved: saved.refreshed == true
             )
-            // Filed lists float to the top so a re-save shows its homes first.
-            state.lists.sort { state.memberOf.contains($0.id) && !state.memberOf.contains($1.id) }
             ready = state
             phase = .ready(state)
         } catch API.APIError.alreadySaved {
@@ -201,19 +286,24 @@ struct SaveCeremonyView: View {
         }
     }
 
-    private func createSuggested(_ name: String) async {
-        guard var state = ready else { return }
-        creatingSuggested = true
+    private func create() async {
+        let name = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, var state = ready else { return }
+        createHint = "Creating…"
         do {
             let created = try await API.createList(named: name, bookmarkId: state.bookmarkId)
-            state.lists.insert(.init(id: created.list.id, name: created.list.name, slug: created.list.slug), at: 0)
-            state.memberOf.insert(created.list.id)
-            state.suggestion = nil
+            let list = API.List(id: created.list.id, name: created.list.name, slug: created.list.slug)
+            state.lists.removeAll { $0.id == list.id }
+            state.lists.insert(list, at: 0)
+            state.memberOf.insert(list.id)
             ready = state
             phase = .ready(state)
+            newName = ""
+            createHint = nil
+            creating = false
+            fieldFocused = false
         } catch {
-            // Leave the chip; a retry is one tap.
+            createHint = "Couldn't create — try again"
         }
-        creatingSuggested = false
     }
 }

@@ -75,10 +75,13 @@ struct HomeView: View {
         .sheet(item: $pasteURL, onDismiss: { Task { await load() } }) { target in
             ZStack {
                 DotGround()
-                SaveCeremonyView(url: target.url) { pasteURL = nil }
-                    .padding(.horizontal, 24)
+                VStack(spacing: 0) {
+                    Wordmark(height: 30)
+                        .padding(.top, 26)
+                    SaveCeremonyView(url: target.url) { pasteURL = nil }
+                }
             }
-            .presentationDetents([.medium])
+            .presentationDetents([.large])
         }
     }
 

@@ -76,8 +76,11 @@ final class Session: NSObject, ObservableObject {
 
     @MainActor
     func signInWithGoogle() async throws {
+        // Opened via our own domain, not Supabase's: the system's "wants to
+        // use … to sign in" prompt names the host of this first URL. The
+        // route bounces straight to Supabase's authorize endpoint.
         var components = URLComponents(
-            url: Config.supabaseURL.appendingPathComponent("auth/v1/authorize"),
+            url: Config.siteURL.appendingPathComponent("api/auth/ios"),
             resolvingAgainstBaseURL: false
         )!
         components.queryItems = [
