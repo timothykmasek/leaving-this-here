@@ -56,7 +56,9 @@
   const FONT_BOOK = chrome.runtime.getURL('fonts/MierA-Book.woff2')
   const FONT_REGULAR = chrome.runtime.getURL('fonts/MierA-Regular.woff2')
   const FONT_SERIF = chrome.runtime.getURL('fonts/Cardo-Regular.woff2')
-  const MARK = chrome.runtime.getURL('icons/icon128.png')
+  // The tile's mark (Tim's asset, 2026-09-22). Must be listed in the
+  // manifest's web_accessible_resources or the page can't load it.
+  const MARK = chrome.runtime.getURL('icons/mark.png')
 
   const host = document.createElement('div')
   host.id = 'internet-gems-toast-host'
@@ -93,10 +95,11 @@
       }
 
       /* ── header band ── */
+      /* 92px, tightened from the Figma's 115 (Tim: "quite tall"). */
       .phead {
         position: relative; flex: none;
         display: flex; flex-direction: column; justify-content: center;
-        height: 115px; padding: 0 92px 0 30px;
+        height: 92px; padding: 0 92px 0 30px;
         background: #f5f5f5;
       }
       .ptitle {
@@ -113,7 +116,7 @@
         max-height: 0; margin-top: 0; opacity: 0; overflow: hidden;
         transition: opacity 260ms ease 60ms, max-height 260ms ease, margin-top 260ms ease;
       }
-      .revealed .psub, .terminal .psub { max-height: 18px; margin-top: 5px; opacity: 1; }
+      .revealed .psub, .terminal .psub { max-height: 18px; margin-top: 3px; opacity: 1; }
       .psub-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .terminal.err .psub-text { color: #a31f34; }
       /* Undo — the quiet word at the line's end. Only once there's a save. */
@@ -127,13 +130,13 @@
       .undo:hover { color: #000; text-decoration: underline; text-underline-offset: 2px; }
       .undo:disabled, .undone .undo { opacity: 0; pointer-events: none; }
 
-      /* The B tile top-right: 50×50 white, the toolbar mark inside. */
+      /* The mark's tile top-right: white, centered on the band. */
       .tile {
-        position: absolute; top: 33px; right: 30px;
-        width: 50px; height: 50px; border-radius: 12px; background: #fff;
+        position: absolute; top: 22px; right: 26px;
+        width: 48px; height: 48px; border-radius: 12px; background: #fff;
         display: flex; align-items: center; justify-content: center;
       }
-      .tile img { width: 24px; height: 24px; display: block; }
+      .tile img { height: 26px; width: auto; display: block; }
       .saving .tile img { animation: breathe 1.4s ease-in-out infinite; }
       .terminal .tile { visibility: hidden; }
       /* No tile in a terminal state → the message gets the full width. */
@@ -185,22 +188,12 @@
       }
       .row.on .dot::after { transform: scale(1); }
 
-      /* The fold: the rest of the lists under a chevron. Scrolls past three. */
-      .more-head .chev {
-        flex: none; width: 20px; height: 20px; color: #000;
-        transition: transform 220ms cubic-bezier(0.2,0.8,0.2,1);
-      }
-      .more-head.open .chev { transform: rotate(180deg); }
-      .more {
-        flex: none; max-height: 0; overflow: hidden;
-        transition: max-height 300ms cubic-bezier(0.2,0.8,0.2,1);
-      }
-      .more.open { max-height: 192px; overflow-y: auto; }
-      .more::-webkit-scrollbar { width: 8px; }
-      .more::-webkit-scrollbar-thumb {
-        background: #000; background-clip: padding-box;
-        border-left: 6px solid transparent; border-radius: 30px;
-      }
+      /* The fold: the rest of the lists under a chevron. Opening it swaps the
+         "All other lists" row for the rows themselves — all of them, no
+         scrolling, the card just grows (Tim, 2026-09-22). One-way. */
+      .more-head .chev { flex: none; width: 20px; height: 20px; color: #000; }
+      .more { flex: none; display: none; }
+      .more.open { display: block; }
       .more .row:last-child { border-bottom: 1px solid #ececec; }
 
       /* Create row — a label that becomes a field in place. */
@@ -398,7 +391,6 @@
     const r = document.createElement('div')
     r.className = 'row' + (memberOf.has(l.id) ? ' on' : '')
     r.dataset.id = l.id
-    r.title = l.name
     r.innerHTML =
       '<div class="rname"><span></span><a class="go" target="_blank" rel="noopener" aria-label="Open list">↗</a></div>' +
       '<span class="dot"></span>'
@@ -421,22 +413,22 @@
     lists.slice(0, TOP_ROWS).forEach((l) => top.appendChild(makeRow(l)))
     const rest = lists.slice(TOP_ROWS)
     rest.forEach((l) => more.appendChild(makeRow(l)))
-    head.hidden = rest.length === 0
-    if (rest.length === 0) { head.classList.remove('open'); more.classList.remove('open') }
+    // The fold row shows only while there's something folded. Once opened
+    // it stays open for this card (a re-render after filing/creating keeps
+    // the rows out, no snapping shut).
+    const folded = rest.length > 0 && !more.classList.contains('open')
+    head.hidden = !folded
     // First list ever: the create row is the whole body, and says so.
     el('clabel').textContent = lists.length ? 'Create new list' : 'Create your first list'
     syncBodyHeight()
   }
   function syncBodyHeight() {
     const body = el('pbody')
-    // scrollHeight while .more is folded excludes the fold; add its open size.
-    const fold = el('more').classList.contains('open') ? Math.min(el('more').scrollHeight, 192) : 0
-    body.style.setProperty('--body-h', `${body.scrollHeight + fold}px`)
+    body.style.setProperty('--body-h', `${body.scrollHeight}px`)
   }
   el('more-head').addEventListener('click', () => {
-    const open = !el('more').classList.contains('open')
-    el('more').classList.toggle('open', open)
-    el('more-head').classList.toggle('open', open)
+    el('more').classList.add('open')
+    el('more-head').hidden = true
     syncBodyHeight()
     armIdle()
   })
@@ -698,7 +690,6 @@
     el('undo').disabled = false
     el('pbody').classList.remove('open')
     el('more').classList.remove('open')
-    el('more-head').classList.remove('open')
     setTitle('Saving to your bulletin...')
     setSub('Now, publish to a list...')
     closeCreate()

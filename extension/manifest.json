@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Bulletin \u2014 save anything",
+  "name": "Bulletin — save anything",
   "version": "0.6.0",
   "description": "Save any page, image, or quote to Bulletin in one click.",
   "permissions": [
@@ -57,7 +57,8 @@
     {
       "resources": [
         "fonts/*.woff2",
-        "icons/bulletin-logo.png"
+        "icons/bulletin-logo.png",
+        "icons/mark.png"
       ],
       "matches": [
         "<all_urls>"
