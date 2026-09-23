@@ -21,7 +21,6 @@ import {
   getLists,
   createList,
   setListMembership,
-  suggestListNames,
 } from './auth.js'
 import { CONFIG } from './config.js'
 
@@ -687,12 +686,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg?.type === 'ig-delete-bullet') {
     deleteBullet(msg.bookmarkId)
       .then(() => sendResponse({ ok: true }))
-      .catch((e) => sendResponse({ error: String(e.message || e) }))
-    return true
-  }
-  if (msg?.type === 'ig-suggest-lists') {
-    suggestListNames(msg.bookmarkId)
-      .then((r) => sendResponse({ ok: true, names: (r && r.names) || [] }))
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }

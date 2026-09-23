@@ -308,10 +308,3 @@ export async function setListMembership(listId, bookmarkId, add) {
 export async function getFinds(limit = 40) {
   return apiGet(`/api/extension/finds?limit=${limit}`)
 }
-
-// Ask the backend for "why you saved it" names for NEW lists to file a gem
-// under. Returns { names } — already filtered against the user's own lists, and
-// empty if nothing sensible could be generated.
-export async function suggestListNames(bookmarkId) {
-  return apiPost('/api/extension/suggest-list-name', { bookmark_id: bookmarkId })
-}

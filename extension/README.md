@@ -44,8 +44,8 @@ No build step — it's plain JS/HTML loaded as an unpacked extension.
 - `GET/POST /api/extension/lists` — the user's lists, most recently used first,
   plus their handle (so every row links to its page); create a new one and/or
   add/remove a bullet (from the card).
-- `POST /api/extension/suggest-list-name` — Haiku "why you saved it" names.
-  Handler kept in the background worker; nothing in the card calls it today.
+- `POST /api/extension/suggest-list-name` — retired stub (always empty); kept
+  only for older store builds. We don't suggest list names.
 - `GET /api/extension/finds` — the user's most recent bullets (parked new-tab page).
 
 All are bearer-authenticated with the Supabase access token and RLS-scoped.
