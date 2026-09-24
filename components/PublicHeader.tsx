@@ -7,6 +7,7 @@
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BulletinHeader } from '@/components/BulletinHeader'
+import { INVITE_ONLY } from '@/lib/beta'
 
 export function PublicHeader({
   loggedIn,
@@ -35,10 +36,10 @@ export function PublicHeader({
       action={
         loggedIn
           ? { label: 'Log out', onClick: handleSignOut }
-          // During the private beta "Sign up" means the landing page's
-          // request-access capture — the wizard can't finish for someone
+          // While INVITE_ONLY, "Sign up" means the landing page's
+          // request-access capture: the wizard can't finish for someone
           // who isn't on the guest list.
-          : { label: 'Sign up', href: '/' }
+          : { label: 'Sign up', href: INVITE_ONLY ? '/' : '/start' }
       }
       logoClassName={logoClassName}
       tagline={tagline}

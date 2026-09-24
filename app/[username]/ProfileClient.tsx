@@ -9,6 +9,7 @@ import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
 import { CopyTagline } from '@/components/CopyTagline'
 import { BulletinHeader } from '@/components/BulletinHeader'
+import { INVITE_ONLY } from '@/lib/beta'
 import { CollectionCard } from '@/components/CollectionCard'
 import { ProfileIdentity, LINK_ICONS } from '@/components/ProfileIdentity'
 import { coerceUrl, detectPlatform, linkLabel, normalizeProfileLinks } from '@/lib/profileLinks'
@@ -947,12 +948,12 @@ export default function ProfileClient({
         // the invitation is to make one. Keyed off currentUserId, not isOwner:
         // a signed-in visitor on someone else's profile isn't the owner either,
         // and was being told to sign in while already signed in.
-        // During the private beta that means the landing page's request-access
+        // While INVITE_ONLY that means the landing page's request-access
         // capture, not the /start wizard.
         action={
           currentUserId
             ? { label: 'Log out', onClick: handleSignOut }
-            : { label: 'Sign up', href: '/' }
+            : { label: 'Sign up', href: INVITE_ONLY ? '/' : '/start' }
         }
         logoClassName="h-[32px] sm:h-[44px]"
         widthClassName={PROFILE_GRID}

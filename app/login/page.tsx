@@ -5,14 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 import { BulletinHeader } from '@/components/BulletinHeader'
+import { INVITE_ONLY, APPLE_WEB_SIGNIN } from '@/lib/beta'
 
-// Private-beta door: Google, or an emailed sign-in link. Accounts are
-// pre-created by the invite script with no password, so those are the only
-// two lanes — passwords don't exist on Bulletin (the demo personas that
-// used to need the hidden ?pw=1 form now carry plus-addressed real emails
-// and ride the same magic-link lane; see scripts/set-user-email.ts).
-// "Sign up" during the beta means the landing page's request-access
-// capture, so that's where it points.
+// Sign-in only: Google (and Apple, once APPLE_WEB_SIGNIN is on), or an
+// emailed sign-in link. Passwords don't exist on Bulletin (the demo personas
+// that used to need the hidden ?pw=1 form now carry plus-addressed real emails
+// and ride the same magic-link lane; see scripts/set-user-email.ts). "Sign up"
+// points at the /start wizard, or at the landing page's request-access
+// capture while INVITE_ONLY.
 
 export default function LoginPage() {
   return (
@@ -21,6 +21,8 @@ export default function LoginPage() {
     </Suspense>
   )
 }
+
+const SIGNUP_HREF = INVITE_ONLY ? '/' : '/start'
 
 const inputClass =
   'w-full rounded-full border border-black/15 bg-white px-5 py-3 text-sm text-ink placeholder:text-black/40 focus:border-black/40 focus:outline-none'
@@ -36,18 +38,17 @@ function LoginPageInner() {
     // Supabase refusing to mint an account (signups off, email not on the
     // guest list); auth_failed is everything else.
     searchParams?.get('error') === 'invite_only'
-      ? 'That Google account isn’t on the guest list yet — Bulletin is invite-only right now.'
+      ? 'That Google account isn’t on the guest list yet. Bulletin is invite-only right now.'
       : searchParams?.get('error') === 'auth_failed'
-        ? 'Sign-in didn’t go through — mind trying again?'
+        ? 'Sign-in didn’t go through. Mind trying again?'
         : null
   )
 
   const supabase = createClient()
 
-  // Old /login?mode=signup links: signup during the beta is the landing
-  // page's request-access capture.
+  // Old /login?mode=signup links go wherever signing up lives.
   useEffect(() => {
-    if (searchParams?.get('mode') === 'signup') router.replace('/')
+    if (searchParams?.get('mode') === 'signup') router.replace(SIGNUP_HREF)
   }, [searchParams, router])
 
   // Where to land after auth (e.g. back on /oauth/consent mid-connector-flow).
@@ -56,10 +57,10 @@ function LoginPageInner() {
   const callbackUrl = () =>
     `${window.location.origin}/auth/callback${next ? `?next=${encodeURIComponent(next)}` : ''}`
 
-  const handleGoogleAuth = async () => {
+  const handleOAuth = async (provider: 'google' | 'apple') => {
     setError(null)
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider,
       options: { redirectTo: callbackUrl() },
     })
     if (error) setError(error.message)
@@ -84,7 +85,9 @@ function LoginPageInner() {
       if (error) {
         setError(
           /signup|not allowed|not found/i.test(error.message)
-            ? 'That email isn’t on the guest list yet — Bulletin is invite-only right now.'
+            ? INVITE_ONLY
+              ? 'That email isn’t on the guest list yet. Bulletin is invite-only right now.'
+              : 'There’s no Bulletin for that email yet. Sign up below.'
             : error.message
         )
       } else {
@@ -107,12 +110,21 @@ function LoginPageInner() {
           </h1>
 
           <button
-            onClick={handleGoogleAuth}
+            onClick={() => handleOAuth('google')}
             disabled={loading}
             className="label w-full rounded-full bg-ink px-6 py-3.5 text-paper transition-colors hover:bg-black disabled:opacity-60"
           >
             Continue with Google
           </button>
+          {APPLE_WEB_SIGNIN && (
+            <button
+              onClick={() => handleOAuth('apple')}
+              disabled={loading}
+              className="label mt-2.5 w-full rounded-full bg-ink px-6 py-3.5 text-paper transition-colors hover:bg-black disabled:opacity-60"
+            >
+              Continue with Apple
+            </button>
+          )}
 
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-black/10" /></div>
@@ -121,7 +133,7 @@ function LoginPageInner() {
 
           {linkSent ? (
             <p className="text-center text-sm leading-relaxed text-black/55">
-              Check your inbox — we emailed <strong className="text-ink">{email}</strong> a
+              Check your inbox. We emailed <strong className="text-ink">{email}</strong> a
               sign-in link.
             </p>
           ) : (
@@ -148,7 +160,7 @@ function LoginPageInner() {
 
           <div className="mt-7 text-center text-sm text-black/55">
             Don&apos;t have an account?{' '}
-            <Link href="/" className="font-medium text-ink underline-offset-2 hover:underline">
+            <Link href={SIGNUP_HREF} className="font-medium text-ink underline-offset-2 hover:underline">
               Sign up
             </Link>
           </div>

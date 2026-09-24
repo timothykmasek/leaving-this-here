@@ -4,27 +4,36 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { INVITE_ONLY } from '@/lib/beta'
+import { INVITE_ONLY, APPLE_WEB_SIGNIN } from '@/lib/beta'
 import { BulletinHeader } from '@/components/BulletinHeader'
-import { SEED_LIBRARY, seedImageUrl, CATEGORY, INTERESTS, INTEREST_LABEL, type Interest } from '@/lib/seedLibrary'
-import { CHROME_STORE_URL as WEB_STORE_URL } from '@/lib/extension'
+import { PrimaryCard } from '@/components/PrimaryCard'
+import { Masonry } from '@/components/Masonry'
+import { LINK_ICONS } from '@/components/ProfileIdentity'
+import { coerceUrl, detectPlatform, linkLabel } from '@/lib/profileLinks'
+import { SEED_LIBRARY, seedImageUrl, INTERESTS, INTEREST_LABEL, type Interest, type SeedLink } from '@/lib/seedLibrary'
+import { CHROME_STORE_URL as WEB_STORE_URL, IOS_APP_URL } from '@/lib/extension'
 
 // Account-first onboarding (no AI). The account is created at step 1, so every
 // step after it runs with a real session — none of the localStorage-across-auth
 // gymnastics the old magic-first flow needed.
 //
-//   1. account   Google | emailed sign-in link    → authenticated
-//   2. username  yourbulletin.com/<handle>          → live availability
-//   3. about     display name + bio                 → typed, no AI
-//   4. pick 3    seed-library grid (real cards)      → real bookmarks
-//   5. building  POST /api/onboarding/setup          → profile + bullets + list
-//   6. extension pitch                               → /<username>
+//   1. account    Google | Apple | emailed sign-in link → authenticated
+//   2. username   yourbulletin.com/<handle>            → live availability
+//   3. about      name + bio + links (the profile's own fields) → typed, no AI
+//   4. interests  pick 2–3 topics                      → filters the picks
+//   5. pick 3     seed-library grid (live PrimaryCards) → real bookmarks
+//   6. building   POST /api/onboarding/setup           → profile + bullets + list
+//   7. anywhere   Chrome · iPhone · Claude             → /<username>
 //
-// The only redirect is Google OAuth (step 1); /auth/callback sends a no-profile
-// user back to /start, where we detect "authed + no profile" and resume at the
+// The only redirect is OAuth (step 1); /auth/callback sends a no-profile user
+// back to /start, where we detect "authed + no profile" and resume at the
 // username step.
 
 const STORE_KEY = 'bulletin-onboarding'
+
+// Max bio length — the profile editor's cap, so onboarding can't write a bio
+// the editor would then truncate.
+const BIO_MAX = 120
 
 type Step = 'account' | 'username' | 'about' | 'interests' | 'picks' | 'building' | 'check-email' | 'ext' | 'invite-only'
 
@@ -32,7 +41,7 @@ function titlecase(s: string): string {
   return s.replace(/[-_.]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim()
 }
 
-function loadState(): { handle?: string; displayName?: string; bio?: string; interests?: Interest[]; picks?: string[] } {
+function loadState(): { handle?: string; displayName?: string; bio?: string; links?: string[]; interests?: Interest[]; picks?: string[] } {
   try {
     return JSON.parse(localStorage.getItem(STORE_KEY) || '{}')
   } catch {
@@ -49,6 +58,7 @@ export default function StartPage() {
   const [handle, setHandle] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
+  const [links, setLinks] = useState<string[]>([])
   // Interests picked in the new interests-first step; the picks grid filters to
   // seed links matching these. `picks` holds the chosen seed URLs (not indices,
   // so filtering the grid can't shuffle the selection out from under the user).
@@ -61,23 +71,13 @@ export default function StartPage() {
     const saved = loadState()
     if (saved.handle) setHandle(saved.handle)
     if (saved.displayName) setDisplayName(saved.displayName)
-    if (saved.bio) setBio(saved.bio)
+    if (saved.bio) setBio(saved.bio.slice(0, BIO_MAX))
+    if (Array.isArray(saved.links)) setLinks(saved.links.filter((u): u is string => typeof u === 'string'))
     if (Array.isArray(saved.interests)) setInterests(saved.interests.slice(0, 3))
     // picks are seed URLs now (were array indices pre-Tier-B); drop any stale
     // non-string entries so we never POST a number to the setup route.
     if (Array.isArray(saved.picks))
       setPicks(saved.picks.filter((p): p is string => typeof p === 'string').slice(0, 3))
-
-    const devStep = process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('step')
-    if (devStep) {
-      const qs = new URLSearchParams(location.search)
-      if (!saved.handle) setHandle('tim')
-      if (qs.get('interests')) setInterests(qs.get('interests')!.split(',') as Interest[])
-      if (qs.get('pick')) setPicks(SEED_LIBRARY.filter((L) => L.interests.some((i) => qs.get('interests')!.includes(i))).slice(0, Number(qs.get('pick'))).map((L) => L.url))
-      setStep(devStep as Step)
-      setBooting(false)
-      return
-    }
 
     ;(async () => {
       const {
@@ -120,9 +120,9 @@ export default function StartPage() {
   useEffect(() => {
     if (booting) return
     try {
-      localStorage.setItem(STORE_KEY, JSON.stringify({ handle, displayName, bio, interests, picks }))
+      localStorage.setItem(STORE_KEY, JSON.stringify({ handle, displayName, bio, links, interests, picks }))
     } catch {}
-  }, [booting, handle, displayName, bio, interests, picks])
+  }, [booting, handle, displayName, bio, links, interests, picks])
 
   const showBack = step === 'about' || step === 'interests' || step === 'picks'
   const back = () =>
@@ -156,8 +156,10 @@ export default function StartPage() {
             handle={handle}
             displayName={displayName}
             bio={bio}
+            links={links}
             setDisplayName={setDisplayName}
             setBio={setBio}
+            setLinks={setLinks}
             onNext={() => setStep('interests')}
           />
         ) : step === 'interests' ? (
@@ -174,6 +176,7 @@ export default function StartPage() {
             handle={handle}
             displayName={displayName}
             bio={bio}
+            links={links}
             picks={picks}
             onDone={(u) => {
               setUsername(u)
@@ -192,7 +195,7 @@ export default function StartPage() {
         ) : step === 'invite-only' ? (
           <InviteOnly />
         ) : (
-          <Extension onDone={() => router.push(`/${username}`)} />
+          <Anywhere onDone={() => router.push(`/${username}`)} />
         )}
       </div>
     </main>
@@ -304,11 +307,12 @@ function Account({
   // terrible manners for an uninvited visitor — swap the whole step for a soft
   // invite-only landing with the same waitlist capture as the homepage.
   const [inviteOnly, setInviteOnly] = useState(false)
+  const [emailOpen, setEmailOpen] = useState(false)
 
-  const google = async () => {
+  const oauth = async (provider: 'google' | 'apple') => {
     setError(null)
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
     if (error) setError(error.message)
@@ -338,7 +342,7 @@ function Account({
       }
       setError(
         error.message.includes('rate') || error.message.includes('security')
-          ? 'please wait a moment before trying again'
+          ? 'Please wait a moment before trying again.'
           : error.message
       )
       return
@@ -350,49 +354,85 @@ function Account({
     return <InviteOnly initialEmail={email} />
   }
 
+  // Google and Apple are the doors, side by side and equal (Apple's own rule
+  // for its button, and the iOS app offers both). Email is the quiet fallback:
+  // a text link that opens the field, not a third big button.
+  const socialBtn =
+    'flex w-full items-center justify-center gap-2.5 rounded-full border border-black/15 bg-white px-5 py-3 text-sm font-medium text-ink transition-colors hover:border-black/40'
+
   return (
     <div>
-      <Headline>Make a home for your links.</Headline>
-      <Sub>Save anything worth keeping. We&rsquo;ll set up your page in under a minute.</Sub>
+      <Headline>Links to keep, lists to share.</Headline>
 
-      <button
-        onClick={google}
-        className="mt-7 w-full rounded-full border border-black/15 bg-white px-5 py-3 text-sm font-medium text-ink transition-colors hover:border-black/40"
-      >
-        Continue with Google
-      </button>
-
-      <div className="relative my-5">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-black/10" />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="bg-paper px-3 text-xs uppercase tracking-wider text-black/35">or</span>
-        </div>
+      <div className="mt-7 space-y-2.5">
+        <button onClick={() => oauth('google')} className={socialBtn}>
+          <GoogleMark />
+          Continue with Google
+        </button>
+        {APPLE_WEB_SIGNIN && (
+          <button onClick={() => oauth('apple')} className={socialBtn}>
+            <AppleMark />
+            Continue with Apple
+          </button>
+        )}
       </div>
 
-      <form onSubmit={emailSignup} className="space-y-3">
-        <input
-          type="email"
-          required
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@email.com"
-          className={fieldClass}
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button type="submit" disabled={busy} className={primaryBtn}>
-          {busy ? 'sending…' : 'email me a sign-in link →'}
+      {emailOpen ? (
+        <form onSubmit={emailSignup} className="mt-5 space-y-2.5">
+          <input
+            type="email"
+            required
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@email.com"
+            className={fieldClass}
+          />
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full rounded-full border border-black/15 bg-white px-5 py-3 text-sm font-medium text-ink transition-colors hover:border-black/40 disabled:opacity-50"
+          >
+            {busy ? 'Sending…' : 'Email me a sign-in link'}
+          </button>
+        </form>
+      ) : (
+        <button
+          onClick={() => setEmailOpen(true)}
+          className="mt-4 w-full text-center text-sm text-black/45 transition-colors hover:text-ink"
+        >
+          or continue with email
         </button>
-      </form>
+      )}
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
-      <p className="mt-6 text-sm text-black/40">
-        already have an account?{' '}
+      <p className="mt-8 text-center text-sm text-black/40">
+        Already have an account?{' '}
         <Link href="/login" className="text-ink underline underline-offset-4">
-          sign in
+          Sign in
         </Link>
       </p>
     </div>
+  )
+}
+
+// The providers' own marks, drawn inline (no image requests on the front door).
+function GoogleMark() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden>
+      <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z" />
+      <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+      <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+      <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z" />
+    </svg>
+  )
+}
+
+function AppleMark() {
+  return (
+    <svg width="15" height="16" viewBox="0 0 814 1000" aria-hidden fill="currentColor">
+      <path d="M788 341c-6 4-108 62-108 190 0 149 131 202 135 203-1 3-21 72-69 142-43 62-88 124-156 124s-86-40-164-40c-77 0-104 41-167 41s-106-58-156-128C45 791 0 668 0 551c0-188 122-288 243-288 64 0 117 42 157 42 38 0 98-45 171-45 28 0 128 3 194 97zM554 158c30-36 51-85 51-135 0-7-1-14-2-20-48 2-106 32-140 73-27 31-53 80-53 131 0 8 1 15 2 18 3 0 8 1 13 1 43 0 97-29 129-68z" />
+    </svg>
   )
 }
 
@@ -448,23 +488,23 @@ function Username({
 
   const message =
     status === 'short'
-      ? 'a little longer…'
+      ? 'A little longer…'
       : status === 'checking'
-      ? 'checking…'
+      ? 'Checking…'
       : status === 'ok'
       ? `✓ yourbulletin.com/${value} is yours`
       : status === 'no'
       ? reason === 'reserved'
-        ? '✕ that one is reserved'
+        ? '✕ That one is reserved'
         : reason === 'invalid'
-        ? '✕ letters, numbers and hyphens only'
-        : "✕ that one's taken"
+        ? '✕ Letters, numbers and hyphens only'
+        : "✕ That one's taken"
       : ''
 
   return (
     <div>
       <Headline>Pick your handle.</Headline>
-      <Sub>This is your home on Bulletin — share it anywhere.</Sub>
+      <Sub>This is your home on Bulletin. Share it anywhere.</Sub>
 
       <div className="mt-6 flex items-stretch overflow-hidden rounded-full border border-black/15 bg-white focus-within:ring-1 focus-within:ring-black/30">
         <span className="flex select-none items-center pl-5 pr-1 text-sm text-black/40">
@@ -496,34 +536,57 @@ function Username({
 }
 
 /* ── 03 · about ───────────────────────────────────────────────────────── */
+// The profile's own fields, in the profile editor's order and limits (name,
+// bio, links), so what they type here is exactly what the pencil opens later.
 
 function About({
   handle,
   displayName,
   bio,
+  links,
   setDisplayName,
   setBio,
+  setLinks,
   onNext,
 }: {
   handle: string
   displayName: string
   bio: string
+  links: string[]
   setDisplayName: (v: string) => void
   setBio: (v: string) => void
+  setLinks: (v: string[]) => void
   onNext: () => void
 }) {
+  const [newLink, setNewLink] = useState('')
+
   useEffect(() => {
     if (!displayName && handle) setDisplayName(titlecase(handle))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const addLink = () => {
+    const url = coerceUrl(newLink)
+    if (!url) return false
+    if (!links.includes(url)) setLinks([...links, url])
+    setNewLink('')
+    return true
+  }
+
+  // A valid url still sitting in the add-row rides along on continue, same as
+  // the profile editor's save: "type it and hit continue" shouldn't drop it.
+  const next = () => {
+    addLink()
+    onNext()
+  }
+
   return (
     <div>
       <Headline>Introduce yourself.</Headline>
-      <Sub>A name and a line or two — this sits at the top of your page.</Sub>
+      <Sub>This sits at the top of your page.</Sub>
 
       <div className="mt-6">
-        <label className={fieldLabel}>display name</label>
+        <label className={fieldLabel}>Display name</label>
         <input
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value.slice(0, 60))}
@@ -534,18 +597,66 @@ function About({
 
       <div className="mt-4">
         <label className={fieldLabel}>
-          bio <span className="normal-case text-black/25">(optional)</span>
+          Bio <span className="normal-case text-black/25">(optional)</span>
         </label>
-        <textarea
+        <input
           value={bio}
-          onChange={(e) => setBio(e.target.value.slice(0, 140))}
-          placeholder="Tools, essays, and rabbit holes for people who make things."
-          className={`${fieldClass} min-h-[104px] resize-none leading-relaxed`}
+          onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
+          placeholder="Venture Designer @ Founders Factory"
+          className={fieldClass}
         />
-        <div className="mt-1 text-right text-xs text-black/30">{bio.length}/140</div>
+        <div className={`mt-1 text-right text-xs ${bio.length >= BIO_MAX ? 'text-ink' : 'text-black/30'}`}>
+          {bio.length}/{BIO_MAX}
+        </div>
       </div>
 
-      <button onClick={onNext} disabled={!displayName.trim()} className={`${primaryBtn} mt-3`}>
+      <div className="mt-1">
+        <label className={fieldLabel}>
+          Links <span className="normal-case text-black/25">(optional)</span>
+        </label>
+        <div className="space-y-2.5">
+          {links.map((url, i) => (
+            <div
+              key={`${url}-${i}`}
+              className="flex items-center gap-3 rounded-xl border border-black/15 bg-white px-4 py-3"
+            >
+              <span className="shrink-0 text-black/70">
+                {LINK_ICONS[detectPlatform(url)] ?? LINK_ICONS.website}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm text-ink">{linkLabel(url)}</span>
+              <button
+                type="button"
+                onClick={() => setLinks(links.filter((_, j) => j !== i))}
+                aria-label={`Remove ${linkLabel(url)}`}
+                className="shrink-0 p-1 text-black/30 transition-colors hover:text-ink"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+          ))}
+          <input
+            type="text"
+            value={newLink}
+            onChange={(e) => setNewLink(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter') return
+              e.preventDefault()
+              addLink()
+            }}
+            onBlur={addLink}
+            placeholder="+ Add a link (Instagram, X, your site…)"
+            enterKeyHint="done"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            className="w-full rounded-xl border border-dashed border-black/20 bg-transparent px-4 py-3 text-sm text-ink placeholder:text-black/35 focus:border-black/40 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      <button onClick={next} disabled={!displayName.trim()} className={`${primaryBtn} mt-7`}>
         continue →
       </button>
     </div>
@@ -571,7 +682,7 @@ function Interests({
   return (
     <div>
       <Headline>What are you into?</Headline>
-      <Sub>Pick 2&ndash;3 &mdash; we&rsquo;ll pull links to match, so your page starts as yours.</Sub>
+      <Sub>Pick 2 or 3. We&rsquo;ll pull links to match, so your page starts as yours.</Sub>
 
       <div className="mt-6 flex flex-wrap gap-2.5">
         {INTERESTS.map(({ key, label }) => {
@@ -606,6 +717,26 @@ function Interests({
 
 /* ── 05 · pick 3 ──────────────────────────────────────────────────────── */
 
+// The seed links for the chosen interests, taken in turns (one from each
+// interest, then the next from each…) so every pick shows up near the top.
+// Filtering in library order let whichever interest the library lists first
+// fill the first rows. A link tagged with two chosen interests appears once.
+function pickPool(interests: Interest[]): SeedLink[] {
+  if (!interests.length) return SEED_LIBRARY
+  const queues = interests.map((i) => SEED_LIBRARY.filter((L) => L.interests.includes(i)))
+  const seen = new Set<string>()
+  const out: SeedLink[] = []
+  for (let n = 0; queues.some((q) => n < q.length); n++)
+    for (const q of queues) {
+      const L = q[n]
+      if (L && !seen.has(L.url)) {
+        seen.add(L.url)
+        out.push(L)
+      }
+    }
+  return out
+}
+
 function Picks({
   interests,
   picks,
@@ -625,13 +756,7 @@ function Picks({
     }
   }
 
-  // Tier B: show only the seed links matching the chosen interests. Fall back to
-  // the whole library if somehow no interests were picked (shouldn't happen —
-  // the interests step requires ≥2 before continuing).
-  const shown =
-    interests.length > 0
-      ? SEED_LIBRARY.filter((L) => L.interests.some((i) => interests.includes(i)))
-      : SEED_LIBRARY
+  const shown = useMemo(() => pickPool(interests), [interests])
 
   const because = interests.map((i) => INTEREST_LABEL[i]).filter(Boolean)
   const becauseLine =
@@ -654,62 +779,25 @@ function Picks({
         </Sub>
       </div>
 
-      {/* Same geometry as the live grid (1184px / 4-col / gap-x-8 = 272px cards). */}
-      <div className="mx-auto grid w-[1184px] max-w-full grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 sm:gap-x-6 sm:gap-y-10 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-12">
-        {shown.map((L) => {
-          const sel = picks.includes(L.url)
-          const pos = picks.indexOf(L.url)
-          return (
-            <button
-              key={L.url}
-              onClick={() => toggle(L.url)}
-              className={`relative block aspect-[272/270] w-full overflow-hidden rounded-[20px] bg-card text-left card-lift ${
-                sel ? 'ring-2 ring-ink' : 'ring-1 ring-black/[0.03]'
-              }`}
-            >
-              {/* selection number */}
-              <span
-                className={`absolute right-2.5 top-2.5 z-10 flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold transition-colors ${
-                  sel ? 'bg-ink text-white' : 'border border-black/15 bg-white/80 text-transparent'
-                }`}
-              >
-                {sel ? pos + 1 : ''}
-              </span>
-
-              {/* thumbnail — same geometry as LinkCard. A category-coloured
-                  block with the domain sits underneath; the baked screenshot
-                  covers it when present, and an un-baked domain (img onError)
-                  reveals the block instead of a broken image. */}
-              <div
-                className="absolute left-[16.2%] top-[21.9%] flex aspect-[184/118] w-[67.6%] items-center justify-center overflow-hidden rounded-[10px]"
-                style={{ backgroundColor: CATEGORY[L.type].bg }}
-              >
-                <span
-                  className="px-2 text-center text-[10px] font-medium leading-tight"
-                  style={{ color: CATEGORY[L.type].fg }}
-                >
-                  {L.domain}
-                </span>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={seedImageUrl(L)}
-                  alt=""
-                  loading="lazy"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              </div>
-
-              {/* title — Mier A bold */}
-              <h3 className="absolute left-[16.2%] top-[69%] line-clamp-2 w-[67.6%] font-sans text-[12px] font-bold leading-[13px] text-ink">
-                {L.title}
-              </h3>
-            </button>
-          )
-        })}
-      </div>
+      {/* The live card, in the profile's own masonry, in its select mode: a
+          click toggles instead of opening the link, and the check ring marks
+          the picks. The image is the baked seed capture the setup route
+          stores, so the card here is the card that lands on their page. */}
+      <Masonry>
+        {shown.map((L) => (
+          <PrimaryCard
+            key={L.url}
+            id={L.url}
+            url={L.url}
+            title={L.title}
+            imageUrl={null}
+            screenshotUrl={seedImageUrl(L)}
+            selecting
+            selected={picks.includes(L.url)}
+            onSelect={toggle}
+          />
+        ))}
+      </Masonry>
 
       {/* sticky tally / build bar */}
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 flex items-center justify-center gap-5 bg-gradient-to-t from-paper via-paper/90 to-transparent p-5">
@@ -742,6 +830,7 @@ function Building({
   handle,
   displayName,
   bio,
+  links,
   picks,
   onDone,
   onTaken,
@@ -749,6 +838,7 @@ function Building({
   handle: string
   displayName: string
   bio: string
+  links: string[]
   picks: string[]
   onDone: (username: string) => void
   onTaken: (h: string) => void
@@ -775,6 +865,7 @@ function Building({
             handle: h,
             displayName,
             bio,
+            links,
             picks,
           }),
         })
@@ -788,13 +879,13 @@ function Building({
           setAlts([`${h}hq`, `${h}-co`, `the${h}`])
           return
         }
-        setError(data.error || 'something went wrong building your page.')
+        setError(data.error || 'Something went wrong building your page.')
       } catch (e: any) {
         clearInterval(iv)
-        setError(e?.message || 'network error — try again.')
+        setError(e?.message || 'Network error. Try again.')
       }
     },
-    [displayName, bio, picks, onDone]
+    [displayName, bio, links, picks, onDone]
   )
 
   useEffect(() => {
@@ -807,7 +898,7 @@ function Building({
     return (
       <div className="pt-6 text-center">
         <Headline>That handle just got taken.</Headline>
-        <Sub>someone beat you to it — pick a fallback:</Sub>
+        <Sub>Someone beat you to it. Pick one of these instead:</Sub>
         <div className="mt-6 flex flex-wrap justify-center gap-2.5">
           {alts.map((alt) => (
             <button
@@ -829,7 +920,7 @@ function Building({
         <Headline>That didn&rsquo;t take.</Headline>
         <p className="mt-3 text-sm text-red-600">{error}</p>
         <button onClick={() => run(handle)} className={`${primaryBtn} mt-6`}>
-          try again
+          Try again
         </button>
       </div>
     )
@@ -853,47 +944,69 @@ function CheckEmail() {
       <Sub>
         We sent a sign-in link. Click it and you&rsquo;ll come right back to finish your page.
       </Sub>
-      <p className="mt-3 text-xs text-black/40">check spam if you don&rsquo;t see it.</p>
+      <p className="mt-3 text-xs text-black/40">Check spam if you don&rsquo;t see it.</p>
     </div>
   )
 }
 
-/* ── 06 · extension ───────────────────────────────────────────────────── */
+/* ── 07 · anywhere ───────────────────────────────────────────────────── */
+// The last screen: every way into Bulletin besides this tab. Each row opens in
+// a new tab so the wizard stays put; the page itself is the one primary action.
+// The iPhone row says "Coming soon" until IOS_APP_URL is set (App Store
+// approval), then links to the store with no other change.
 
-function Extension({ onDone }: { onDone: () => void }) {
+function Anywhere({ onDone }: { onDone: () => void }) {
+  const rows: { title: string; body: string; cta: string; href: string | null }[] = [
+    {
+      title: 'Chrome extension',
+      body: 'One click on any page drops it onto your Bulletin.',
+      cta: 'Add to Chrome',
+      href: WEB_STORE_URL,
+    },
+    {
+      title: 'iPhone app',
+      body: 'Save from the share sheet in any app.',
+      cta: IOS_APP_URL ? 'Get the app' : 'Coming soon',
+      href: IOS_APP_URL,
+    },
+    {
+      title: 'Claude',
+      body: 'Ask Claude to find what you saved, or save links for you.',
+      cta: 'Connect',
+      href: '/claude',
+    },
+  ]
+
   return (
     <div>
       <Headline>Save from anywhere.</Headline>
-      <Sub>
-        Add the Bulletin button to your browser. One click on any page drops it straight onto your
-        shelf.
-      </Sub>
-      <ul className="mt-5 space-y-2.5">
-        {[
-          'Clip articles, videos, products & tweets without leaving the tab.',
-          'Auto-pulls the title, image and source for you.',
-          'File into a list, or just leave it on your shelf.',
-        ].map((t) => (
-          <li key={t} className="flex gap-2.5 text-sm leading-snug text-black/55">
-            <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-ink" />
-            {t}
+      <Sub>Bulletin works wherever you find things.</Sub>
+
+      <ul className="mt-6 divide-y divide-black/10 border-y border-black/10">
+        {rows.map((r) => (
+          <li key={r.title} className="flex items-center gap-4 py-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-ink">{r.title}</p>
+              <p className="mt-0.5 text-sm leading-snug text-black/50">{r.body}</p>
+            </div>
+            {r.href ? (
+              <a
+                href={r.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 rounded-full border border-black/15 bg-white px-4 py-2 text-sm font-medium text-ink transition-colors hover:border-black/40"
+              >
+                {r.cta}
+              </a>
+            ) : (
+              <span className="shrink-0 px-4 py-2 text-sm text-black/35">{r.cta}</span>
+            )}
           </li>
         ))}
       </ul>
-      <a
-        href={WEB_STORE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={() => setTimeout(onDone, 400)}
-        className={`${primaryBtn} mt-7 inline-flex items-center justify-center`}
-      >
-        add to Chrome — free →
-      </a>
-      <button
-        onClick={onDone}
-        className="mt-3 w-full text-sm text-black/40 transition-colors hover:text-black/70"
-      >
-        maybe later
+
+      <button onClick={onDone} className={`${primaryBtn} mt-7`}>
+        go to my Bulletin →
       </button>
     </div>
   )

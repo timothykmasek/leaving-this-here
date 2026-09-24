@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { DEPTH_HERO_CARDS, captionMask } from '@/lib/homeContent'
 import { withBulletinUtm } from '@/lib/outboundUrl'
+import { INVITE_ONLY } from '@/lib/beta'
 
 import { DotGridCanvas } from './DotGridCanvas'
 
@@ -342,7 +343,13 @@ export function DepthHero() {
           Links to keep. Lists to share.
         </p>
 
-        {submitted ? (
+        {/* Open doors: one pill straight into the wizard. The waitlist
+            capture below only runs while INVITE_ONLY. */}
+        {!INVITE_ONLY ? (
+          <Link href="/start" className={`${pill} beta-in pointer-events-auto`}>
+            Get started
+          </Link>
+        ) : submitted ? (
           <p className="beta-in px-7 py-3 text-[16px] text-black/70">You&rsquo;re on the list.</p>
         ) : revealed ? (
           <form onSubmit={handleSubmit} className="beta-in pointer-events-auto flex flex-wrap items-center justify-center gap-2.5">

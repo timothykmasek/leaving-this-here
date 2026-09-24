@@ -4,6 +4,7 @@ import { uniqueSlug } from '@/lib/slug'
 import { createBookmarkFromUrl } from '@/lib/createBookmark'
 import { SEED_LIBRARY, CATEGORY, seedImageUrl, type SeedLink } from '@/lib/seedLibrary'
 import { INVITE_ONLY } from '@/lib/beta'
+import { coerceUrl } from '@/lib/profileLinks'
 
 // POST /api/onboarding/setup — the build step of account-first onboarding.
 //
@@ -18,7 +19,7 @@ import { INVITE_ONLY } from '@/lib/beta'
 // Idempotent: if the user already has a profile we return it untouched, so a
 // double-submit (or a returning user) can't duplicate anything.
 //
-// Body: { handle, displayName, bio, picks: string[] }  (picks = seed URLs)
+// Body: { handle, displayName, bio, links: string[], picks: string[] }  (picks = seed URLs)
 
 const RESERVED = new Set([
   'api', 'auth', 'login', 'logout', 'signup', 'setup', 'start', 'save',
@@ -83,7 +84,19 @@ export async function POST(request: NextRequest) {
   }
 
   const displayName = String(body.displayName || '').trim().slice(0, 60) || titlecase(handle)
-  const bio = String(body.bio || '').trim().slice(0, 140) || null
+  const bio = String(body.bio || '').trim().slice(0, 120) || null
+  // Profile links, stored the way the profile editor stores them: an ordered
+  // array of urls. Coerced again here — the client already did, but this is
+  // what gets written.
+  const links: string[] = Array.isArray(body.links)
+    ? Array.from(
+        new Set(
+          (body.links as unknown[])
+            .map((u) => (typeof u === 'string' ? coerceUrl(u) : null))
+            .filter((u): u is string => !!u)
+        )
+      ).slice(0, 12)
+    : []
 
   // Only accept URLs that are actually in our seed library — the picks come
   // from a fixed grid, so anything else is bogus.
@@ -100,6 +113,7 @@ export async function POST(request: NextRequest) {
     username: handle,
     display_name: displayName,
     bio,
+    links,
   })
   if (profErr) {
     if ((profErr as any).code === '23505') {

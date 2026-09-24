@@ -7,7 +7,7 @@ export function PreviewBanner() {
     <div className="mb-6 flex items-center gap-3 rounded-xl border border-amber-900/15 bg-amber-50/70 px-4 py-3">
       <span className="relative inline-flex h-2 w-2 shrink-0 rounded-full bg-amber-500" />
       <p className="flex-1 text-sm text-amber-950">
-        A curated preview — <b>Bulletin</b> is in private beta.
+        A curated preview. This <b>Bulletin</b> hasn&rsquo;t been claimed yet.
       </p>
     </div>
   )
