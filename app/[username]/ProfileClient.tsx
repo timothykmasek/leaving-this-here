@@ -53,6 +53,7 @@ export default function ProfileClient({
   currentUserId,
   mightHaveMore,
   readOnlyPreview = false,
+  previewDeadBullets,
 }: {
   username: string
   initialProfile: any
@@ -62,6 +63,9 @@ export default function ProfileClient({
   mightHaveMore: boolean
   // Dev preview (app/preview/owner-profile): real screens, writes stubbed.
   readOnlyPreview?: boolean
+  // The preview can't call /api/dead-links (it needs the owner's session), so
+  // it hands the drawer's rows in directly.
+  previewDeadBullets?: any[]
 }) {
   const router = useRouter()
   const supabase = readOnlyPreview ? createReadOnlyClient() : createClient()
@@ -77,6 +81,17 @@ export default function ProfileClient({
   // to say "nothing to do" almost every time.
   const [deadBullets, setDeadBullets] = useState<any[] | null>(null)
   const [reviewingDead, setReviewingDead] = useState(false)
+  // Opening the review swaps the sections out under a held scroll position,
+  // which landed you mid-grid with the back link far above. Bring its top
+  // into view, below the sticky search.
+  const deadReviewRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!reviewingDead) return
+    const el = deadReviewRef.current
+    if (!el) return
+    const top = el.getBoundingClientRect().top + window.scrollY - 120
+    if (window.scrollY > top) window.scrollTo({ top: Math.max(0, top) })
+  }, [reviewingDead])
   const [profile, setProfile] = useState<any>(initialProfile)
   const [bookmarks, setBookmarks] = useState<any[]>(initialBookmarks)
   const [filtered, setFiltered] = useState<any[]>(initialBookmarks)
@@ -122,6 +137,10 @@ export default function ProfileClient({
   // Owner only, and quietly: a failure here should cost nothing but the drawer.
   useEffect(() => {
     if (!isOwner) return
+    if (readOnlyPreview) {
+      setDeadBullets(previewDeadBullets ?? [])
+      return
+    }
     let cancelled = false
     fetch('/api/dead-links')
       .then((r) => (r.ok ? r.json() : null))
@@ -405,6 +424,7 @@ export default function ProfileClient({
   // drawer would put a false fact in the column the sweeper reasons from.
   const handleKeepDead = async (id: string) => {
     setDeadBullets((prev) => (prev ? prev.filter((b) => b.id !== id) : prev))
+    if (readOnlyPreview) return
     await fetch('/api/dead-links', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1251,7 +1271,7 @@ export default function ProfileClient({
             those against 33 genuine 404s, so a checker that treated them the
             same would invite you to delete more live links than dead ones. */}
         {!activeList && !query.trim() && reviewingDead && isOwner && !!deadBullets?.length && (
-            <div>
+            <div ref={deadReviewRef}>
               <button
                 onClick={() => setReviewingDead(false)}
                 className="label mb-6 text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"

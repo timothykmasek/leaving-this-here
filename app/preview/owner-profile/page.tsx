@@ -24,14 +24,28 @@ export default async function OwnerProfilePreview({
   const username = searchParams.u || 'tim'
   const { data: profile } = await admin.from('profiles').select('*').eq('username', username).maybeSingle()
   if (!profile) notFound()
-  const [{ data: bookmarks }, { data: lists }] = await Promise.all([
+  const deadQuery = (withKept: boolean) => {
+    let q = admin
+      .from('bookmarks')
+      .select('id, url, title, description, image_url, screenshot_url, favicon_url, card_type, image_pref, link_checked_at')
+      .eq('user_id', profile.id)
+      .eq('link_status', 'gone')
+      .gte('link_fail_count', 2)
+    if (withKept) q = q.is('link_kept_at', null)
+    return q.order('created_at', { ascending: false })
+  }
+  const [{ data: bookmarks }, { data: lists }, deadRes] = await Promise.all([
     admin.from('bookmarks').select(BULLET_COLS).eq('user_id', profile.id).order('created_at', { ascending: false }),
     admin
       .from('lists')
       .select('id, name, slug, created_at, list_bookmarks(bookmark_id)')
       .eq('user_id', profile.id)
       .order('created_at', { ascending: false }),
+    // Same query as GET /api/dead-links (confirmed gone, not kept).
+    deadQuery(true),
   ])
+  // Migration 022 (link_kept_at) may not be applied yet: show the drawer anyway.
+  const dead = deadRes.error ? (await deadQuery(false)).data : deadRes.data
   return (
     <ProfileClient
       username={username}
@@ -44,6 +58,7 @@ export default async function OwnerProfilePreview({
       currentUserId={profile.id}
       mightHaveMore={false}
       readOnlyPreview
+      previewDeadBullets={dead || []}
     />
   )
 }
