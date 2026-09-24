@@ -71,9 +71,9 @@ export async function signIn() {
 // returns the same session shape the token refresh already handles. Buildless —
 // same raw GoTrue REST surface as everything else here.
 
-// Ask GoTrue to email a sign-in code. create_user false keeps the gate honest
-// (mirrors /login): an address without an account errors instead of minting a
-// fresh auth user.
+// Ask GoTrue to email a sign-in code. create_user false (mirrors /login): an
+// address without an account errors instead of minting an auth user with no
+// page, and the message points at the popup's Create an account link.
 export async function requestEmailCode(email) {
   const res = await fetch(`${CONFIG.SUPABASE_URL}/auth/v1/otp`, {
     method: 'POST',
@@ -87,12 +87,12 @@ export async function requestEmailCode(email) {
     const data = await res.json().catch(() => ({}))
     const raw = data.error_description || data.msg || data.error || ''
     if (/signup|not allowed|not found/i.test(raw)) {
-      throw new Error('that email isn’t on the guest list yet — Bulletin is invite-only right now')
+      throw new Error('no Bulletin for that email yet. Create an account below')
     }
     if (/security purposes|rate/i.test(raw)) {
       throw new Error('please wait a moment before requesting another code')
     }
-    throw new Error(raw || 'couldn’t send the code — try again')
+    throw new Error(raw || 'couldn’t send the code. Try again')
   }
 }
 
@@ -111,7 +111,7 @@ export async function verifyEmailCode(email, code) {
     const raw = data.error_description || data.msg || data.error || ''
     throw new Error(
       /expired|invalid/i.test(raw)
-        ? 'that code didn’t match — check the newest email, or resend'
+        ? 'that code didn’t match. Check the newest email, or resend'
         : raw || 'sign-in failed'
     )
   }
@@ -129,7 +129,7 @@ export async function verifyEmailCode(email, code) {
 // again. Callers (background worker) use this to restore the sign-in popup.
 export class AuthExpiredError extends Error {
   constructor(message) {
-    super(message || 'session expired — please sign in again')
+    super(message || 'session expired. Please sign in again')
     this.name = 'AuthExpiredError'
     this.authExpired = true
   }

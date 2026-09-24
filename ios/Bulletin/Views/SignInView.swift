@@ -3,8 +3,8 @@ import AuthenticationServices
 
 // Sign-in — the front door, in the site's voice: dot ground, the wordmark,
 // Apple above Google (the App Store requires Apple's button once Google is
-// offered, with equal prominence). The invite gate lives server-side; an
-// uninvited account gets the same soft copy as the web. A long-press on the
+// offered, with equal prominence). A first sign-in creates the account, and
+// RootView sends it on to ClaimHandleView for a handle. A long-press on the
 // wordmark opens the password door — no visible UI, it exists for App
 // Review's demo credentials.
 struct SignInView: View {

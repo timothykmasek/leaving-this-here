@@ -408,7 +408,7 @@
       chrome.runtime.sendMessage({ type: 'ig-delete-bullet', bookmarkId: id }, (resp) => {
         if (!resp || resp.error) {
           card.classList.add('err')
-          setSub('Couldn’t undo — it’s still saved.')
+          setSub('Couldn’t undo. It’s still saved.')
           armIdle(4000)
         }
       })
@@ -599,7 +599,7 @@
               closeCreate()
             }, 1100)
           } else {
-            hint.textContent = 'Couldn’t create — try again'
+            hint.textContent = 'Couldn’t create. Try again'
             hint.classList.add('show')
             field.focus({ preventScroll: true })
           }
@@ -773,7 +773,7 @@
       } else if (state === 'signin') {
         terminal('Session expired', 'Click the Bulletin icon to sign in again.', { err: true })
       } else if (state === 'error') {
-        terminal('Couldn’t save', (data && data.message) || 'Something went wrong — try again.', { err: true })
+        terminal('Couldn’t save', (data && data.message) || 'Something went wrong. Try again.', { err: true })
       }
     },
   }

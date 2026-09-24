@@ -189,6 +189,34 @@ enum API {
         let bookmarks: [Bullet]
     }
 
+    struct HandleCheck: Decodable {
+        let available: Bool
+        let reason: String?
+    }
+
+    /// Live availability for the claim screen. Public and advisory: the
+    /// setup call below re-checks before it inserts the profile.
+    static func checkHandle(_ handle: String) async throws -> HandleCheck {
+        let url = Config.siteURL.appendingPathComponent("api/username-check")
+            .appending(queryItems: [.init(name: "u", value: handle)])
+        let (data, _) = try await URLSession.shared.data(from: url)
+        return try JSONDecoder().decode(HandleCheck.self, from: data)
+    }
+
+    /// Give a signed-in account its Bulletin: the same route the web's /start
+    /// wizard ends on, minus the seed picks. Returns the claimed username.
+    /// A handle taken in the meantime comes back as http(409, …).
+    static func setUp(handle: String, displayName: String) async throws -> String {
+        struct Done: Decodable { let username: String? }
+        let data = try await request("api/onboarding/setup", method: "POST",
+                                     body: ["handle": handle, "displayName": displayName, "picks": [String]()])
+        guard let username = try JSONDecoder().decode(Done.self, from: data).username else {
+            throw APIError.http(500, "Something went wrong setting up your Bulletin.")
+        }
+        Session.shared.noteUsername(username)
+        return username
+    }
+
     /// Delete the signed-in account — the App Store's in-app deletion rule.
     /// The server re-checks the typed username; this only carries it.
     static func deleteAccount(confirm: String) async throws {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { RESERVED_HANDLES } from '@/lib/reservedHandles'
 
 // GET /api/username-check?u=<handle>
 //
@@ -8,16 +9,6 @@ import { createClient } from '@supabase/supabase-js'
 // This is advisory — the real reservation happens at account creation
 // (/api/onboarding/setup re-checks before inserting the profile).
 
-// Handles that collide with routes or smell like infrastructure. Top-level
-// paths in app/ must all be here or a claimed handle would shadow them.
-const RESERVED = new Set([
-  'api', 'auth', 'login', 'logout', 'signup', 'setup', 'start', 'save',
-  'bookmarklet', 'privacy', 'terms', 'about', 'help', 'admin', 'settings',
-  'profile', 'search', 'lists', 'list', 'extension', 'www', 'mail', 'blog',
-  'static', 'assets', 'public', 'home', 'index', 'new', 'edit', 'me',
-  'according', 'accordingto', 'official',
-])
-
 export async function GET(request: NextRequest) {
   const raw = request.nextUrl.searchParams.get('u') || ''
   const u = raw.trim().toLowerCase()
@@ -25,7 +16,7 @@ export async function GET(request: NextRequest) {
   if (!u || u.length > 30 || !/^[a-z0-9-]+$/.test(u)) {
     return NextResponse.json({ available: false, reason: 'invalid' })
   }
-  if (RESERVED.has(u)) {
+  if (RESERVED_HANDLES.has(u)) {
     return NextResponse.json({ available: false, reason: 'reserved' })
   }
 

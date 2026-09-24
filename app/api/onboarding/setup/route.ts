@@ -5,6 +5,8 @@ import { createBookmarkFromUrl } from '@/lib/createBookmark'
 import { SEED_LIBRARY, CATEGORY, seedImageUrl, type SeedLink } from '@/lib/seedLibrary'
 import { INVITE_ONLY } from '@/lib/beta'
 import { coerceUrl } from '@/lib/profileLinks'
+import { RESERVED_HANDLES } from '@/lib/reservedHandles'
+import { createClient } from '@supabase/supabase-js'
 
 // POST /api/onboarding/setup — the build step of account-first onboarding.
 //
@@ -20,14 +22,6 @@ import { coerceUrl } from '@/lib/profileLinks'
 // double-submit (or a returning user) can't duplicate anything.
 //
 // Body: { handle, displayName, bio, links: string[], picks: string[] }  (picks = seed URLs)
-
-const RESERVED = new Set([
-  'api', 'auth', 'login', 'logout', 'signup', 'setup', 'start', 'save',
-  'bookmarklet', 'privacy', 'terms', 'about', 'help', 'admin', 'settings',
-  'profile', 'search', 'lists', 'list', 'extension', 'www', 'mail', 'blog',
-  'static', 'assets', 'public', 'home', 'index', 'new', 'edit', 'me',
-  'according', 'accordingto', 'official', 'bulletin', 'bulletins',
-])
 
 function titlecase(s: string): string {
   return s.replace(/[-_.]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim()
@@ -57,10 +51,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'invite only' }, { status: 403 })
   }
 
-  const supabase = await createSupabaseServer()
+  // Two doors, same build: the web wizard sends its cookie session; the iOS
+  // app's claim-your-handle screen sends a bearer token like every
+  // /api/extension/* call. Either way the client carries the user's JWT, so
+  // RLS applies to every insert below exactly as before.
+  const authHeader = request.headers.get('authorization') || ''
+  const bearer = authHeader.toLowerCase().startsWith('bearer ') ? authHeader.slice(7).trim() : ''
+  const supabase = bearer
+    ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+        global: { headers: { Authorization: `Bearer ${bearer}` } },
+        auth: { persistSession: false, autoRefreshToken: false },
+      })
+    : await createSupabaseServer()
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = bearer ? await supabase.auth.getUser(bearer) : await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'not signed in' }, { status: 401 })
 
   // Idempotency: already has a page → done, nothing to build.
@@ -79,7 +84,7 @@ export async function POST(request: NextRequest) {
   }
 
   const handle = String(body.handle || '').trim().toLowerCase()
-  if (!handle || handle.length > 30 || !/^[a-z0-9-]+$/.test(handle) || RESERVED.has(handle)) {
+  if (!handle || handle.length > 30 || !/^[a-z0-9-]+$/.test(handle) || RESERVED_HANDLES.has(handle)) {
     return NextResponse.json({ error: 'invalid handle', reason: 'invalid' }, { status: 400 })
   }
 

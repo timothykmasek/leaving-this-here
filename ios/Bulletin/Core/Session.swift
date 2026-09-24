@@ -17,6 +17,10 @@ struct StoredSession: Codable {
     var expiresAt: Date
     var email: String?
     var username: String?
+    /// True when the account exists but has no Bulletin yet (signed up here,
+    /// never claimed a handle). Optional so sessions stored by older builds
+    /// still decode; nil reads as set up.
+    var needsSetup: Bool?
 }
 
 final class Session: NSObject, ObservableObject {
@@ -113,8 +117,8 @@ final class Session: NSObject, ObservableObject {
             params[String(kv[0])] = String(kv[1]).removingPercentEncoding
         }
         guard let access = params["access_token"], let refresh = params["refresh_token"] else {
-            // An uninvited Google account comes back with an error instead of
-            // tokens (signups are off — the invite gate).
+            // A refused Google sign-in comes back with an error instead of
+            // tokens; surface GoTrue's description.
             if let desc = params["error_description"]?.replacingOccurrences(of: "+", with: " ") {
                 throw SessionError.server(desc)
             }
@@ -158,7 +162,13 @@ final class Session: NSObject, ObservableObject {
             username: nil
         )
         persist(session)
-        if let me = try? await API.finds(limit: 1) { session.username = me.username }
+        // A successful read with no username = an account without a page
+        // (signups are open, and this door mints accounts). A failed read
+        // stays nil so a network blip can't strand a real user on setup.
+        if let me = try? await API.finds(limit: 1) {
+            session.username = me.username
+            session.needsSetup = me.username == nil
+        }
         if let email = try? await fetchEmail(access: access) { session.email = email }
         persist(session)
     }
@@ -210,8 +220,11 @@ final class Session: NSObject, ObservableObject {
     func noteUsername(_ username: String?) {
         guard var session = current, let username, session.username != username else { return }
         session.username = username
+        session.needsSetup = false
         persist(session)
     }
+
+    var needsSetup: Bool { current?.needsSetup == true }
 }
 
 enum SessionError: LocalizedError {
@@ -221,7 +234,7 @@ enum SessionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .cancelled: return "Sign-in was cancelled."
-        case .badCallback: return "Sign-in didn't go through — mind trying again?"
+        case .badCallback: return "Sign-in didn't go through. Mind trying again?"
         case .signedOut: return "You're signed out. Open Bulletin to sign in."
         case .server(let message): return message
         }

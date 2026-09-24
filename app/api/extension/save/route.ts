@@ -330,6 +330,18 @@ export async function POST(request: NextRequest) {
     .single()
     .then(({ data }) => data?.username ?? null, () => null)
 
+  // Signups are open, and the extension's and the iOS app's Google/Apple
+  // buttons mint an account on first use, but only /start gives it a handle
+  // and a page. Without one, saves would pile up for a Bulletin that doesn't
+  // exist. Both clients show this error text as-is, so it doubles as the
+  // pointer to where setup happens (one fast indexed read, same Tokyo region).
+  if (!(await profilePromise)) {
+    return json(
+      { error: 'Almost there. Finish setting up your Bulletin at yourbulletin.com/start, then save again.', code: 'needs_onboarding' },
+      403
+    )
+  }
+
   // Client-read og (from the extension, in the user's logged-in browser) wins
   // over the server fetch: paywalled/bot-blocked sites that 401/403 our server
   // (WSJ, Bloomberg, Gap, …) still render a real og:image + title in the user's

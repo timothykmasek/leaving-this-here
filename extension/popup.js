@@ -42,7 +42,7 @@ document.getElementById('form-email').addEventListener('submit', async (e) => {
     await requestEmailCode(email)
     document.getElementById('form-email').classList.add('hidden')
     document.getElementById('form-code').classList.remove('hidden')
-    setHint(hint, `code sent to ${email} — check your inbox`, 'ok')
+    setHint(hint, `code sent to ${email}. Check your inbox`, 'ok')
     document.getElementById('code').focus()
   } catch (err) {
     setHint(hint, String(err.message || err), 'err')
@@ -62,7 +62,7 @@ document.getElementById('form-code').addEventListener('submit', async (e) => {
   try {
     await verifyEmailCode(email, code)
     await setPopupFor(true)
-    setHint(hint, 'signed in ✓ — saving this page…', 'ok')
+    setHint(hint, 'signed in ✓ Saving this page…', 'ok')
     chrome.runtime.sendMessage({ type: 'ig-save-current-tab' }).catch(() => {})
     setTimeout(() => window.close(), 900)
   } catch (err) {
@@ -91,11 +91,11 @@ document.getElementById('btn-signin').addEventListener('click', () => {
   setTimeout(() => window.close(), 400)
 })
 
-// New accounts are created on the web (handles email confirmation, handle
-// claim, onboarding) — the extension only signs existing users in.
+// New accounts are created on the web's /start wizard (handle claim, profile,
+// first picks); the extension only signs existing users in.
 document.getElementById('link-create').addEventListener('click', (e) => {
   e.preventDefault()
-  chrome.tabs.create({ url: `${CONFIG.API_BASE}/login` })
+  chrome.tabs.create({ url: `${CONFIG.API_BASE}/start` })
 })
 
 // ── Sign out ────────────────────────────────────────────────────────

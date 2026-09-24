@@ -1,5 +1,5 @@
 /* Sign-in popup — restyled to the on-page save card's language (2026-09-02):
-   Mier A Book, the card's field + CTA shapes, dot-grid ground, no uppercase
+   Mier A Book, the card's field + CTA shapes on flat white, no uppercase
    tracking. The wordmark image is the only non-Mier element.
    Fonts are the same files the card loads (extension/fonts). */
 @font-face {
@@ -30,19 +30,16 @@ body {
 .hidden { display: none !important; }
 .center { text-align: center; }
 
-/* Header band — same grey as the save card's. */
+/* One flat white surface (2026-09-24, Tim). The save card's grey band over a
+   dot-grid body read as two stacked layers at popup size; the logo now sits
+   on the same ground as everything else, like /start. */
 .phead {
-  background: #f0f0f0;
-  padding: 20px 22px 18px;
+  padding: 24px 22px 6px;
 }
 .logo { display: block; height: 30px; width: auto; }
 
-/* Body — the card's dot-grid ground. */
 .pbody {
-  padding: 16px 22px 28px;
-  background-image: radial-gradient(circle, #d9d9d9 1px, transparent 1px);
-  background-size: 32px 32px;
-  background-position: 0 0;
+  padding: 12px 22px 26px;
 }
 
 .muted {
