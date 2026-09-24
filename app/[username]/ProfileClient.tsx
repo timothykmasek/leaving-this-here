@@ -1399,6 +1399,9 @@ export default function ProfileClient({
             onTitleUpdate={handleTitleUpdate}
             onOutboundUpdate={handleOutboundUpdate}
             utmCampaign={username}
+            // The in-page list view (slugless legacy lists) gets the same
+            // Remove from {list} as the list page.
+            currentList={activeList ? { id: activeList.id, name: activeList.name } : null}
           />
         )
       })()}
