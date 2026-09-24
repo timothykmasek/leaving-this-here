@@ -1279,12 +1279,10 @@ export default function ProfileClient({
                   </button>
                 ) : (
                   <>
+                    {/* Desktop only (Tim): reviewing dead links is desk work. */}
                     {isOwner && !!deadBullets?.length && (
-                      <button onClick={openDeadReview} className={HEADING_ACTION}>
-                        <span className="sm:hidden">{deadBullets.length} dead</span>
-                        <span className="hidden sm:inline">
-                          {deadBullets.length} {deadBullets.length === 1 ? 'link looks' : 'links look'} dead &middot; Review
-                        </span>
+                      <button onClick={openDeadReview} className={`${HEADING_ACTION} hidden sm:inline`}>
+                        {deadBullets.length} {deadBullets.length === 1 ? 'link looks' : 'links look'} dead &middot; Review
                       </button>
                     )}
                     {/* Phones have no hover, so no tack to click: a quiet way
@@ -1302,13 +1300,7 @@ export default function ProfileClient({
               </span>
             </div>
             {reviewingDead ? (
-              <>
-                <p className="-mt-4 mb-8 max-w-[52ch] font-serif text-[15px] leading-[1.5] text-black/50 sm:-mt-10 sm:mb-12">
-                  Checked twice, days apart, and gone both times. Select the
-                  ones to delete, or keep the ones you want anyway.
-                </p>
-                {renderBulletGrid(deadItems)}
-              </>
+              renderBulletGrid(deadItems)
             ) : bookmarks.length > 0 ? (
               renderBulletGrid(filtered)
             ) : (
@@ -1443,6 +1435,11 @@ export default function ProfileClient({
           onDelete={handleBulkDelete}
           onPublish={handleBulkPublish}
           primary={reviewingDead ? { label: 'Keep', onClick: handleBulkKeep } : undefined}
+          // Select all only in the review, where "all of these are dead" is
+          // the common case; the feed keeps shift-click ranges.
+          onSelectAll={reviewingDead ? () => setSelectedIds(new Set(deadItems.map((b: any) => b.id))) : undefined}
+          onClearAll={reviewingDead ? () => setSelectedIds(new Set()) : undefined}
+          allSelected={reviewingDead && deadItems.length > 0 && deadItems.every((b: any) => selectedIds.has(b.id))}
           lists={sortedLists.map((l) => ({ id: l.id, name: l.name }))}
           onCreateList={(name) => handleCreateList(name)}
           message={barMessage}

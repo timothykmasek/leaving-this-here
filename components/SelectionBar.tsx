@@ -27,6 +27,9 @@ export function SelectionBar({
   onCreateList,
   message,
   primary,
+  onSelectAll,
+  onClearAll,
+  allSelected = false,
 }: {
   count: number
   onDone: () => void
@@ -37,6 +40,10 @@ export function SelectionBar({
   message: BarMessage
   // Replaces Add to list with a single action (the dead-links review: Keep).
   primary?: { label: string; onClick: () => void }
+  // Offered only where it's asked for (the dead-links review).
+  onSelectAll?: () => void
+  onClearAll?: () => void
+  allSelected?: boolean
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
@@ -148,6 +155,14 @@ export function SelectionBar({
                   `${count} selected`
                 )}
               </span>
+              {onSelectAll && (
+                <button
+                  onClick={allSelected ? onClearAll : onSelectAll}
+                  className={`${quiet} shrink-0 whitespace-nowrap`}
+                >
+                  {allSelected ? 'Clear' : 'Select all'}
+                </button>
+              )}
               <span aria-hidden className="hidden h-5 w-px bg-black/10 sm:block" />
               <span className="ml-auto flex shrink-0 items-center gap-2">
                 <button
