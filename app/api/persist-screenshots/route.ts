@@ -4,9 +4,15 @@ import {
   captureAndStore,
   ensureBucket,
   isPersistedScreenshot,
+  SCREENSHOT_BUCKET,
 } from '@/lib/screenshot'
 import { prefersOgImage, shouldSkipScreenshot } from '@/lib/cardImage'
 import { maybeStoreImagePref } from '@/lib/cardImageJudge'
+
+// Row filter: "no screenshot of ours stored yet" — null, the '' sentinel, or a
+// legacy live-API URL. Every server write is conditioned on it so a capture
+// that finishes late (or fails late) can't clobber a stored browser shot.
+const NO_STORED_SHOT = `screenshot_url.is.null,screenshot_url.not.like.*/${SCREENSHOT_BUCKET}/*`
 
 // Capture screenshots ONCE and persist them to Supabase Storage, then point
 // screenshot_url at the permanent CDN copy. Replaces the old model where cards
@@ -134,6 +140,7 @@ export async function POST(request: NextRequest) {
         .from('bookmarks')
         .update({ screenshot_url: '' })
         .eq('id', row.id)
+        .or(NO_STORED_SHOT)
       skipped++
       return
     }
@@ -146,6 +153,7 @@ export async function POST(request: NextRequest) {
         .from('bookmarks')
         .update({ screenshot_url: '' })
         .eq('id', row.id)
+        .or(NO_STORED_SHOT)
       skipped++
       return
     }
@@ -183,6 +191,7 @@ export async function POST(request: NextRequest) {
           .from('bookmarks')
           .update({ screenshot_url: '' })
           .eq('id', row.id)
+          .or(NO_STORED_SHOT)
         marked++
       }
       // Otherwise: leave screenshot_url null → retryable on a later pass.
@@ -193,11 +202,19 @@ export async function POST(request: NextRequest) {
     // A captured lth row now has a real visual — render it as a screenshot.
     if (row.card_type === 'lth') update.card_type = 'screenshot'
 
-    const { error: updateError } = await supabaseAdmin
-      .from('bookmarks')
-      .update(update)
-      .eq('id', row.id)
+    // Never overwrite a stored screenshot unless this is a deliberate re-capture.
+    // The extension's own tab capture can land while ScreenshotOne is still
+    // rendering (it waits for the network + 2s); that capture is the better
+    // image (the user's session, a residential IP), so it wins.
+    let write = supabaseAdmin.from('bookmarks').update(update).eq('id', row.id)
+    if (!force) write = write.or(NO_STORED_SHOT)
+    const { data: written, error: updateError } = await write.select('id')
 
+    if (!updateError && (!written || written.length === 0)) {
+      // A browser capture got there first — keep it, judge nothing new.
+      skipped++
+      return
+    }
     if (updateError) {
       failed++
       failures.push({ url: row.url, error: updateError.message })

@@ -14,6 +14,7 @@ import {
 import { maybeStoreImagePref } from '@/lib/cardImageJudge'
 import { maybeEnrichPlace } from '@/lib/placeEnrich'
 import { withProductFact } from '@/lib/productFact'
+import type { SaveSource } from '@/lib/importQuota'
 
 // Persist a client-side screenshot (data URL from the extension's
 // captureVisibleTab) to storage and point the row at it. Runs with the service
@@ -109,6 +110,29 @@ function persistRemoteImage(bookmarkId: string, imageUrl: string | null | undefi
 // answers CORS preflight and echoes permissive CORS headers (safe here —
 // auth is via bearer token, not cookies).
 
+// Which door a save came through (bookmarks.source, migration 031). New
+// callers say so; older ones are recognised by how they call: the store
+// extension (≤0.5.2) from a chrome-extension:// origin, the iOS app through
+// Apple's networking stack (its User-Agent carries CFNetwork/Darwin).
+function saveSource(request: NextRequest, body: any): SaveSource | null {
+  if (body?.source === 'extension' || body?.source === 'ios' || body?.source === 'claude') return body.source
+  if ((request.headers.get('origin') || '').startsWith('chrome-extension://')) return 'extension'
+  if (/CFNetwork|Darwin/.test(request.headers.get('user-agent') || '')) return 'ios'
+  return null
+}
+
+// Ask the server-side ScreenshotOne capture for one bullet. waitUntil keeps the
+// instance alive until the request is sent.
+function requestServerShot(origin: string, bookmarkId: string) {
+  waitUntil(
+    fetch(`${origin}/api/persist-screenshots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: bookmarkId }),
+    }).catch(() => {}),
+  )
+}
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, PATCH, DELETE, OPTIONS',
@@ -128,6 +152,10 @@ export async function OPTIONS() {
 //   { bookmark_id, client_shot } → the out-of-band screenshot upload. The save
 //     request no longer carries the capture (it would wait on the camera and
 //     haul base64); the extension sends it here once the id exists.
+//   { bookmark_id, no_shot: true } → the extension promised a capture
+//     (shotPending on the save) but couldn't take one (saved scrolled down, a
+//     popup it couldn't clear, a page Chrome won't capture). Run the server
+//     ScreenshotOne fallback now instead of waiting for the nightly sweep.
 //   { bookmark_id, is_private }  → RETIRED (migration 028: visibility follows
 //     filing, the flag is derived). Extension builds ≤0.5.2 still send it from
 //     their globe/lock pill; answer ok so their card doesn't show an error, and
@@ -172,6 +200,18 @@ export async function PATCH(request: NextRequest) {
     if (rowErr) return json({ error: rowErr.message }, 400)
     if (!row) return json({ error: 'bookmark not found' }, 404)
     waitUntil(persistClientShot(row.id, body.client_shot, row.card_type))
+    return json({ ok: true })
+  }
+
+  if (body.no_shot === true) {
+    const { data: row } = await supabase
+      .from('bookmarks')
+      .select('id')
+      .eq('id', bookmarkId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (!row) return json({ error: 'bookmark not found' }, 404)
+    requestServerShot(new URL(request.url).origin, row.id)
     return json({ ok: true })
   }
 
@@ -430,6 +470,7 @@ export async function POST(request: NextRequest) {
       note,
       card_type,
       raw_metadata: meta.raw,
+      source: saveSource(request, body),
     })
     .select('id, title, image_url, favicon_url, is_private')
     .single()
@@ -480,8 +521,7 @@ export async function POST(request: NextRequest) {
   // that — it bypasses the datacenter-IP block that defeats server screenshots
   // on paywalled/bot-blocked sites. Otherwise fall back to the server
   // screenshotone capture via persist-screenshots (which skips content platforms
-  // that already have an og:image). waitUntil keeps the instance alive so the
-  // post-response work isn't dropped when the function freezes.
+  // that already have an og:image).
   // Rot-prone hotlinks (signed IG/FB/LinkedIn CDN URLs) get a permanent copy.
   persistRemoteImage(inserted.id, image_url)
 
@@ -489,17 +529,17 @@ export async function POST(request: NextRequest) {
     typeof body.clientShot === 'string' && body.clientShot.startsWith('data:image/')
       ? body.clientShot
       : null
+  // `shotPending`: the extension (0.6.2+) is capturing the tab and will send it
+  // out-of-band via PATCH once it has this id. Don't also buy a ScreenshotOne
+  // capture: firing one here is what raced the client shot — ScreenshotOne
+  // landed seconds later and overwrote the better image, and we paid for it.
+  // If the capture fails, the extension PATCHes { no_shot } and we run the
+  // fallback then; if it never reports back, the nightly sweep covers it.
+  const shotPending = body.shotPending === true
   if (clientShot) {
     waitUntil(persistClientShot(inserted.id, clientShot, card_type))
-  } else {
-    const origin = new URL(request.url).origin
-    waitUntil(
-      fetch(`${origin}/api/persist-screenshots`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: inserted.id }),
-      }).catch(() => {}),
-    )
+  } else if (!shotPending) {
+    requestServerShot(new URL(request.url).origin, inserted.id)
   }
 
   backfillLateMeta(inserted.id)

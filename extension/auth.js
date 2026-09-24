@@ -273,6 +273,16 @@ export async function sendClientShot(bookmarkId, dataUrl) {
   })
 }
 
+// The capture we promised (shotPending) didn't happen — saved scrolled down, a
+// popup we couldn't clear, a page Chrome won't capture. Ask the server to run
+// its own screenshot now rather than leave the card waiting for the nightly sweep.
+export async function sendNoShot(bookmarkId) {
+  return apiSend('PATCH', '/api/extension/save', {
+    bookmark_id: bookmarkId,
+    no_shot: true,
+  })
+}
+
 // ── Lists ───────────────────────────────────────────────────────────
 // The signed-in user's lists: [{ id, name, slug }].
 // The user's lists. Pass a bookmarkId to also get `member_of` — the ids of the

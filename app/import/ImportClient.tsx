@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { BulletinHeader } from '@/components/BulletinHeader'
+import { checkImport, requestUpgrade, importsLeftLabel, limitContext } from '@/lib/importLimitClient'
 
 // Bulk import: paste anything (or drop a CSV) → we pull out the URLs → save
 // them one at a time through /api/import. Format is deliberately forgiving —
@@ -17,7 +18,6 @@ import { BulletinHeader } from '@/components/BulletinHeader'
 // links takes a few minutes; the progress bar makes that legible, and the
 // per-save pipeline (metadata → screenshot → embedding) never gets slammed.
 
-const MAX_LINKS = 500
 const GAP_MS = 1500
 
 // Pull URLs out of arbitrary text. Explicit http(s) first; then bare-domain
@@ -49,10 +49,12 @@ function extractUrls(text: string): string[] {
     push(`https://${t}`)
   }
 
-  return found.slice(0, MAX_LINKS)
+  // No per-file cap: the account's import allowance decides (lib/importQuota),
+  // and a batch that doesn't fit is blocked whole rather than truncated.
+  return found
 }
 
-type Phase = 'input' | 'running' | 'done'
+type Phase = 'input' | 'checking' | 'limit' | 'running' | 'done'
 
 export default function ImportClient({ username }: { username: string }) {
   const router = useRouter()
@@ -62,6 +64,7 @@ export default function ImportClient({ username }: { username: string }) {
   const [progress, setProgress] = useState({ done: 0, saved: 0, skipped: 0, failed: 0 })
   const [current, setCurrent] = useState('')
   const cancelled = useRef(false)
+  const [limit, setLimit] = useState({ remaining: 0, newCount: 0, asked: false })
 
   const urls = extractUrls(text)
 
@@ -80,6 +83,14 @@ export default function ImportClient({ username }: { username: string }) {
 
   const run = async () => {
     cancelled.current = false
+    // All or nothing: a batch that doesn't fit the allowance never starts.
+    setPhase('checking')
+    const check = await checkImport(urls)
+    if (!check.fits) {
+      setLimit({ remaining: check.remaining, newCount: check.newCount, asked: false })
+      setPhase('limit')
+      return
+    }
     setPhase('running')
     const batch = urls
     let saved = 0, skipped = 0, failed = 0
@@ -90,9 +101,11 @@ export default function ImportClient({ username }: { username: string }) {
         const res = await fetch('/api/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: batch[i] }),
+          body: JSON.stringify({ url: batch[i], bulk: true }),
         })
         const body = await res.json().catch(() => ({}))
+        // Backstop tripped (the allowance ran out mid-run, e.g. two tabs).
+        if (body.limitReached) break
         if (res.ok && body.saved) saved++
         else if (res.ok && body.skipped) skipped++
         else failed++
@@ -152,9 +165,7 @@ export default function ImportClient({ username }: { username: string }) {
                 or upload a .csv
               </label>
               <span className="label text-black/35">
-                {urls.length === MAX_LINKS
-                  ? `first ${MAX_LINKS} links`
-                  : `${urls.length} link${urls.length === 1 ? '' : 's'} found`}
+                {urls.length} link{urls.length === 1 ? '' : 's'} found
               </span>
             </div>
             <button
@@ -173,7 +184,39 @@ export default function ImportClient({ username }: { username: string }) {
           </>
         )}
 
-        {phase !== 'input' && (
+        {phase === 'checking' && (
+          <p className="label animate-pulse text-black/45">checking…</p>
+        )}
+
+        {phase === 'limit' && (
+          <div>
+            <p className="mb-1 text-[17px] text-ink">{importsLeftLabel(limit.remaining)}.</p>
+            <p className="mb-8 text-[15px] leading-relaxed text-black/60">
+              This import has {limit.newCount} new link{limit.newCount === 1 ? '' : 's'}, so nothing
+              was imported.
+            </p>
+            <div className="flex flex-wrap items-center gap-5">
+              <button
+                disabled={limit.asked}
+                onClick={() => {
+                  setLimit({ ...limit, asked: true })
+                  void requestUpgrade(limitContext(limit.newCount, limit.remaining))
+                }}
+                className="rounded-full bg-ink px-7 py-3 text-sm text-white transition-opacity hover:opacity-85 disabled:opacity-60"
+              >
+                {limit.asked ? 'Thanks, we’ll be in touch' : 'Upgrade to Pro'}
+              </button>
+              <button
+                onClick={() => setPhase('input')}
+                className="label text-black/45 transition-colors hover:text-ink"
+              >
+                ← back
+              </button>
+            </div>
+          </div>
+        )}
+
+        {(phase === 'running' || phase === 'done') && (
           <div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/[0.06]">
               <div

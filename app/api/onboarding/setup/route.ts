@@ -140,6 +140,7 @@ export async function POST(request: NextRequest) {
       await createBookmarkFromUrl(supabase, user.id, pick.url, {
         origin,
         listId,
+        source: 'onboarding',
         // Curated seed data beats whatever a live fetch returns for these
         // domains — the library title is hand-written, and the baked screenshot
         // is the same production capture the picker already shows.

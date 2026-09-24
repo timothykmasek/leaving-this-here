@@ -6,6 +6,7 @@ import { embed, bookmarkToEmbedText } from '@/lib/embed'
 import { enrichKeywords } from '@/lib/enrichKeywords'
 import { normalizeUrl } from '@/lib/normalizeUrl'
 import { withProductFact } from '@/lib/productFact'
+import type { SaveSource } from '@/lib/importQuota'
 
 type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServer>>
 
@@ -54,6 +55,8 @@ export async function createBookmarkFromUrl(
     // seed library — this keeps the user-facing request off the extractMetadata
     // critical path (which can be seconds, up to 15s on a slow/blocked origin).
     deferEnrichment?: boolean
+    // Which door the save came through (bookmarks.source, migration 031).
+    source?: SaveSource
   } = { origin: '' }
 ): Promise<{ id: string } | { skipped: 'duplicate' } | { error: string }> {
   try {
@@ -95,6 +98,7 @@ export async function createBookmarkFromUrl(
           title: opts.title,
           screenshot_url: opts.screenshotUrl || null,
           card_type: classifyCardType(url, {} as any),
+          source: opts.source ?? null,
         })
         .select('id')
         .single()
@@ -172,6 +176,7 @@ export async function createBookmarkFromUrl(
         screenshot_url: opts.screenshotUrl || null,
         card_type: classifyCardType(url, meta),
         raw_metadata: withProductFact(meta.raw, meta.product),
+        source: opts.source ?? null,
       })
       .select('id')
       .single()

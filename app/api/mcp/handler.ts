@@ -331,7 +331,7 @@ async function callTool(
       requireWriter()
       const url = typeof args?.url === 'string' ? args.url.trim() : ''
       if (!/^https?:\/\//i.test(url)) throw new ToolError('`url` must be an http(s) link.')
-      const body: Record<string, any> = { url }
+      const body: Record<string, any> = { url, source: 'claude' }
       if (typeof args?.note === 'string' && args.note.trim()) body.note = args.note.trim()
 
       const saved = await extApi('/api/extension/save', token, { method: 'POST', body })

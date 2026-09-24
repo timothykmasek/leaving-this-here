@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { checkImport, requestUpgrade, importsLeftLabel, limitContext } from '@/lib/importLimitClient'
 
 // The owner's persistent "add" dock — a frosted + tile bottom-right that
 // expands into THREE pills (Figma 1137:297120, plus one): "Create New List",
@@ -44,7 +45,6 @@ import { createClient } from '@/lib/supabase/client'
 // the per-save pipeline never gets slammed no matter which door is used.
 const FOOTER_CLEARANCE = 'calc(55px + max(18px, env(safe-area-inset-bottom)))'
 
-const MAX_LINKS = 500
 const GAP_MS = 1500
 
 // One URL out of whatever was pasted or typed — same forgiveness as bulk.
@@ -84,7 +84,9 @@ function extractUrls(text: string): string[] {
     if (!/^[\w-]+(\.[\w-]+)+([/?#]\S*)?$/.test(t)) continue
     push(`https://${t}`)
   }
-  return found.slice(0, MAX_LINKS)
+  // No per-file cap: the account's import allowance decides (lib/importQuota),
+  // and a batch that doesn't fit is blocked whole rather than truncated.
+  return found
 }
 
 // The transient message dwell — long enough to read four words in Cardo.
@@ -144,6 +146,8 @@ type Flow =
   | { kind: 'bulk'; fileName: string; urls: string[] }
   | { kind: 'bulk-running'; fileName: string; urls: string[]; done: number }
   | { kind: 'bulk-done'; saved: number; skipped: number; failed: number }
+  // The batch doesn't fit the free import allowance: nothing ran.
+  | { kind: 'bulk-limit'; remaining: number; newCount: number; asked: boolean }
   // New list: the name input, then the created shelf over the two doors.
   | { kind: 'name'; busy: boolean; message: string | null }
   | { kind: 'created' }
@@ -310,6 +314,12 @@ export function ImportFab({
     cancelled.current = false
     setPickerOpen(false)
     setFlow({ kind: 'bulk-running', fileName, urls, done: 0 })
+    // All or nothing: a batch that doesn't fit the allowance never starts.
+    const check = await checkImport(urls)
+    if (!check.fits) {
+      setFlow({ kind: 'bulk-limit', remaining: check.remaining, newCount: check.newCount, asked: false })
+      return
+    }
     const savedIds: string[] = []
     let saved = 0, skipped = 0, failed = 0
     for (let i = 0; i < urls.length; i++) {
@@ -318,9 +328,11 @@ export function ImportFab({
         const res = await fetch('/api/import', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: urls[i] }),
+          body: JSON.stringify({ url: urls[i], bulk: true }),
         })
         const body = await res.json().catch(() => ({}))
+        // Backstop tripped (the allowance ran out mid-run, e.g. two tabs).
+        if (body.limitReached) break
         if (res.ok && body.saved) { saved++; if (body.id) savedIds.push(body.id) }
         else if (res.ok && body.skipped) skipped++
         else failed++
@@ -411,7 +423,7 @@ export function ImportFab({
             {/* ── Left slot: Add Bullet → paste → Saved!/publish. During a
                 bulk state the pill stays standing beside the stack (mocks
                 B–D), just inert while a batch is running. ── */}
-            {(flow.kind === 'bulk' || flow.kind === 'bulk-running' || flow.kind === 'bulk-done') && (
+            {(flow.kind === 'bulk' || flow.kind === 'bulk-running' || flow.kind === 'bulk-done' || flow.kind === 'bulk-limit') && (
               <Pill
                 onClick={() => { if (!running) { setFlow({ kind: 'paste', busy: false, message: null }); setPickerOpen(false) } }}
                 className={`hidden sm:flex sm:w-[200px] ${running ? 'opacity-50' : ''}`}
@@ -625,6 +637,29 @@ export function ImportFab({
                         {flow.done} of {flow.urls.length}…
                       </span>
                     </div>
+                  </>
+                )}
+                {flow.kind === 'bulk-limit' && (
+                  <>
+                    <Row top>
+                      <span className={`${ROW_TEXT} min-w-0 truncate text-ink`}>
+                        {importsLeftLabel(flow.remaining)}
+                        <span className="text-black/30"> · this file has {flow.newCount} new</span>
+                      </span>
+                    </Row>
+                    <button
+                      disabled={flow.asked}
+                      onClick={() => {
+                        setFlow({ ...flow, asked: true })
+                        void requestUpgrade(limitContext(flow.newCount, flow.remaining))
+                      }}
+                      className="flex h-[60px] items-center justify-between rounded-b-[10px] px-5 text-left"
+                      style={STACKED_STYLE}
+                    >
+                      <span className={PILL_LABEL}>
+                        {flow.asked ? 'Thanks, we’ll be in touch' : 'Upgrade to Pro'}
+                      </span>
+                    </button>
                   </>
                 )}
                 {flow.kind === 'bulk-done' && (

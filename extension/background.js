@@ -15,6 +15,7 @@ import {
   saveGem,
   deleteBullet,
   sendClientShot,
+  sendNoShot,
   getSession,
   signIn,
   signOut,
@@ -578,7 +579,10 @@ async function saveFlow(tab, payload, shotPromise = null) {
   if (injected) toast(tabId, 'optimistic', {})
 
   try {
-    const result = await saveGem(payload)
+    // shotPending tells the server our own tab capture is on its way, so it
+    // doesn't also buy a ScreenshotOne shot (which used to land later and
+    // overwrite ours). If the capture comes back empty we say so below.
+    const result = await saveGem({ ...payload, source: 'extension', shotPending: !!shotPromise })
     const bm = result?.bookmark || {}
     const refreshed = !!result?.refreshed
     // The card's title links to the user's live page.
@@ -594,7 +598,8 @@ async function saveFlow(tab, payload, shotPromise = null) {
     // leaves the server screenshot fallback to cover the card.
     if (shotPromise && bm.id) {
       shotPromise
-        .then((shot) => (shot ? sendClientShot(bm.id, shot) : null))
+        .catch(() => null)
+        .then((shot) => (shot ? sendClientShot(bm.id, shot) : sendNoShot(bm.id)))
         .catch(() => {})
     }
   } catch (err) {

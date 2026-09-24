@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { createBookmarkFromUrl } from '@/lib/createBookmark'
+import { importsRemaining } from '@/lib/importQuota'
 
 // POST /api/import — save one URL for the signed-in user, via the same shared
 // pipeline as every other save path (metadata → insert → async embed +
@@ -11,8 +12,16 @@ import { createBookmarkFromUrl } from '@/lib/createBookmark'
 // the metadata fetcher / ScreenshotOne / Voyage all at once and each call
 // stays comfortably inside the serverless timeout.
 //
-// Body: { url: string }
-// Returns { saved: true, id } | { skipped: true } (duplicate or dead link).
+// Also the single-link "Add Bullet" door. `bulk: true` marks a row from a bulk
+// import run: it's stored as source 'import' and counts toward the free import
+// allowance (lib/importQuota). A single add is source 'web' and never counts.
+// The client pre-checks the whole batch against /api/import/check before it
+// starts (an import that doesn't fit is blocked whole); the per-link check here
+// is the backstop.
+//
+// Body: { url: string, bulk?: boolean }
+// Returns { saved: true, id } | { skipped: true } (duplicate or dead link)
+//       | 403 { limitReached: true, remaining: 0 }.
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServer()
   const {
@@ -23,8 +32,11 @@ export async function POST(request: NextRequest) {
   }
 
   let url: unknown
+  let bulk = false
   try {
-    ;({ url } = await request.json())
+    const body = await request.json()
+    url = body?.url
+    bulk = body?.bulk === true
   } catch {
     return NextResponse.json({ error: 'bad body' }, { status: 400 })
   }
@@ -38,11 +50,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'bad url' }, { status: 400 })
   }
 
+  if (bulk && (await importsRemaining(supabase, user.id)) <= 0) {
+    return NextResponse.json({ limitReached: true, remaining: 0 }, { status: 403 })
+  }
+
   // createBookmarkFromUrl never throws. It returns the row id on success, a
   // duplicate skip, or a real error — kept distinct so the client stops
   // reporting genuine failures as "already there".
   const result = await createBookmarkFromUrl(supabase, user.id, url, {
     origin: request.nextUrl.origin,
+    source: bulk ? 'import' : 'web',
   })
   if ('id' in result) return NextResponse.json({ saved: true, id: result.id })
   if ('skipped' in result) return NextResponse.json({ skipped: true })
