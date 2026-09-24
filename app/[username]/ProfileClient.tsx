@@ -38,6 +38,10 @@ import { createReadOnlyClient } from '@/lib/supabase/readOnlyClient'
 // 1720 so cards stop growing past ~380 on very wide monitors.
 // Header, grid and footer all read this, or they drift apart.
 const PROFILE_GRID = 'max-w-[1720px] px-4 sm:px-10'
+// Quiet text actions at the right end of a section heading (Select, the dead-
+// links review, Done): Body Large, ink-50.
+const HEADING_ACTION =
+  'whitespace-nowrap font-sans text-[14px] leading-5 tracking-[0.05em] text-black/50 transition-colors hover:text-ink'
 
 const BULLET_COLS =
   'id, user_id, url, title, description, image_url, screenshot_url, favicon_url, note, card_type, image_pref, is_private, outbound_url, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
@@ -81,10 +85,10 @@ export default function ProfileClient({
   // to say "nothing to do" almost every time.
   const [deadBullets, setDeadBullets] = useState<any[] | null>(null)
   const [reviewingDead, setReviewingDead] = useState(false)
-  // Opening the review swaps the sections out under a held scroll position,
-  // which landed you mid-grid with the back link far above. Bring its top
-  // into view, below the sticky search.
-  const deadReviewRef = useRef<HTMLDivElement | null>(null)
+  // Review swaps the Recent Bullets grid for the dead links in place. From
+  // deep in the feed that would leave you mid-grid with the heading far
+  // above, so bring the section's heading into view (below the sticky search).
+  const deadReviewRef = useRef<HTMLElement | null>(null)
   useEffect(() => {
     if (!reviewingDead) return
     const el = deadReviewRef.current
@@ -419,25 +423,6 @@ export default function ProfileClient({
     router.refresh()
   }
 
-  // "I know, and I want it anyway." Records the decision without touching
-  // link_status — the link really is gone, and writing 'ok' to quieten the
-  // drawer would put a false fact in the column the sweeper reasons from.
-  const handleKeepDead = async (id: string) => {
-    setDeadBullets((prev) => (prev ? prev.filter((b) => b.id !== id) : prev))
-    if (readOnlyPreview) return
-    await fetch('/api/dead-links', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id }),
-    }).catch(() => {})
-  }
-
-  // Deleting from the drawer is the ordinary delete — same row, same cleanup.
-  const handleDeleteDead = async (id: string) => {
-    setDeadBullets((prev) => (prev ? prev.filter((b) => b.id !== id) : prev))
-    await handleDelete(id)
-  }
-
   const handleDelete = async (id: string) => {
     await supabase.from('bookmarks').delete().eq('id', id)
     // The shelf caches its suggestions per list; without this a deleted bullet
@@ -594,8 +579,11 @@ export default function ProfileClient({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [barMessage, setBarMessage] = useState<BarMessage>(null)
   const anchorRef = useRef<string | null>(null)
-  const filteredRef = useRef(filtered)
-  filteredRef.current = filtered
+  // The order on screen, for shift-click ranges: the dead-links review when
+  // it's open, else the feed (or search results).
+  const filteredRef = useRef<any[]>(filtered)
+  const reviewingRef = useRef(false)
+  reviewingRef.current = reviewingDead
   const barTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   // A delete waiting out its undo window. Committed when the window closes,
   // when another delete starts, or when the page is hidden/left.
@@ -603,6 +591,7 @@ export default function ProfileClient({
 
   const exitSelect = useCallback(() => {
     setSelecting(false)
+    setReviewingDead(false)
     setSelectedIds(new Set())
     setBarMessage(null)
     anchorRef.current = null
@@ -743,13 +732,17 @@ export default function ProfileClient({
     const filteredOrder = new Map(filtered.map((b: any, i: number) => [b.id, i]))
     const byNewest = (a: any, b: any) =>
       new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    const removedDead = (deadBullets || []).filter((b) => gone.has(b.id))
     setBookmarks((prev) => prev.filter((b) => !gone.has(b.id)))
     setFiltered((prev) => prev.filter((b) => !gone.has(b.id)))
+    setDeadBullets((prev) => (prev ? prev.filter((b) => !gone.has(b.id)) : prev))
     setSelectedIds(new Set())
     const timer = setTimeout(() => {
       pendingDelete.current = null
       commitDelete(ids)
-      exitSelect()
+      // Mid-review, stay in the review; elsewhere the job's done.
+      if (reviewingRef.current) setBarMessage(null)
+      else exitSelect()
     }, 5000)
     pendingDelete.current = { ids, timer }
     if (barTimer.current) clearTimeout(barTimer.current)
@@ -766,6 +759,7 @@ export default function ProfileClient({
               )
             : [...prev, ...removed].sort(byNewest)
         )
+        if (removedDead.length) setDeadBullets((prev) => [...(prev || []), ...removedDead])
         setSelectedIds(gone)
         setBarMessage(null)
       },
@@ -788,6 +782,51 @@ export default function ProfileClient({
   // Up to 4 preview thumbnails for a list card, newest link first (so a small
   // list's single preview shows the latest saved link).
   const bookmarkById = useMemo(() => new Map(bookmarks.map((b) => [b.id, b])), [bookmarks])
+
+  // The review grid's cards: the full feed row where the page has it (so it
+  // renders exactly as in the feed), else the drawer's own row — the feed
+  // doesn't hold every bullet, and a dead one is usually an old one.
+  // Deleting drops a bullet from deadBullets directly, so no feed filter.
+  const deadItems = useMemo(
+    () => (deadBullets || []).map((d: any) => bookmarkById.get(d.id) ?? d),
+    [deadBullets, bookmarkById]
+  )
+  filteredRef.current = reviewingDead ? deadItems : filtered
+
+  // Review opens straight into select mode: the cards' rings are the way to
+  // act on them (the per-card Keep/Delete buttons went with bulk select).
+  const openDeadReview = () => {
+    setSelectedIds(new Set())
+    anchorRef.current = null
+    setBarMessage(null)
+    setReviewingDead(true)
+    setSelecting(true)
+  }
+  // Leave the review once there's nothing left in it.
+  useEffect(() => {
+    if (reviewingDead && deadBullets && deadBullets.length === 0 && !barMessage) exitSelect()
+  }, [reviewingDead, deadBullets, barMessage, exitSelect])
+
+  // Keep: "I know, and I want it anyway". Recorded without touching
+  // link_status (the link IS gone); it just stops asking.
+  const handleBulkKeep = async () => {
+    const ids = [...selectedIds]
+    if (!ids.length) return
+    const kept = new Set(ids)
+    setDeadBullets((prev) => (prev ? prev.filter((b) => !kept.has(b.id)) : prev))
+    setSelectedIds(new Set())
+    anchorRef.current = null
+    if (!readOnlyPreview) {
+      await fetch('/api/dead-links', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      }).catch(() => {})
+    }
+    setBarMessage({ text: `Kept ${ids.length} link${ids.length === 1 ? '' : 's'}` })
+    if (barTimer.current) clearTimeout(barTimer.current)
+    barTimer.current = setTimeout(() => setBarMessage(null), 2200)
+  }
 
   // Which list each bullet belongs to (fullest list wins) → the card's list
   // line: its name + a link to the list's public page (when it has a slug).
@@ -1187,7 +1226,7 @@ export default function ProfileClient({
             heading (Mier A 600 20/24): "Your …" to the owner, "Their …" to a
             visitor. A visitor with no lists gets no Lists section at all —
             a heading over an empty state advertises an absence. ── */}
-        {!activeList && !query.trim() && !reviewingDead && (
+        {!activeList && !query.trim() && (
           <>
           {(isOwner || lists.length > 0) && (
           <section className="mb-12 sm:mb-20">
@@ -1220,39 +1259,57 @@ export default function ProfileClient({
                     simply appears in this grid. */}
             </div>
 
-            {/* Dead links — a line under the lists, not a card among them:
-                a card claims a slot in the grid's rhythm and reads as a
-                collection you might open for pleasure. This only appears
-                where you are already looking at how your links are
-                organised — and only when there is something to say. */}
-            {isOwner && !!deadBullets?.length && (
-              <button
-                onClick={() => setReviewingDead(true)}
-                className="label mt-10 text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"
-              >
-                {deadBullets.length} {deadBullets.length === 1 ? 'link looks' : 'links look'} dead &middot; review
-              </button>
-            )}
           </section>
           )}
 
-          <section>
+          <section ref={deadReviewRef}>
             <div className="mb-8 flex items-baseline justify-between gap-4 sm:mb-16">
               <h2 className="font-sans text-[20px] font-[600] leading-[24px] text-ink">
-                {isOwner ? 'Your Recent Bullets' : 'Their Recent Bullets'}
+                {reviewingDead
+                  ? `${deadItems.length} Dead ${deadItems.length === 1 ? 'Link' : 'Links'}`
+                  : isOwner ? 'Your Recent Bullets' : 'Their Recent Bullets'}
               </h2>
-              {/* Phones have no hover, so no tack to click: a quiet way in
-                  beside the long-press. Desktop starts from the tack. */}
-              {isOwner && bookmarks.length > 0 && (
-                <button
-                  onClick={() => (selecting ? exitSelect() : setSelecting(true))}
-                  className="font-sans text-[14px] leading-5 tracking-[0.05em] text-black/50 transition-colors hover:text-ink sm:hidden"
-                >
-                  {selecting ? 'Done' : 'Select'}
-                </button>
-              )}
+              <span className="flex shrink-0 items-baseline gap-5">
+                {/* Dead links ride the right end of this row (Tim, 2026-09-24):
+                    it's the bullets they belong to, not the lists. "Confirmed"
+                    = gone on two sweeps days apart; a 403 never counts. */}
+                {isOwner && reviewingDead ? (
+                  <button onClick={exitSelect} className={HEADING_ACTION}>
+                    Done
+                  </button>
+                ) : (
+                  <>
+                    {isOwner && !!deadBullets?.length && (
+                      <button onClick={openDeadReview} className={HEADING_ACTION}>
+                        <span className="sm:hidden">{deadBullets.length} dead</span>
+                        <span className="hidden sm:inline">
+                          {deadBullets.length} {deadBullets.length === 1 ? 'link looks' : 'links look'} dead &middot; Review
+                        </span>
+                      </button>
+                    )}
+                    {/* Phones have no hover, so no tack to click: a quiet way
+                        in beside the long-press. Desktop starts from the tack. */}
+                    {isOwner && bookmarks.length > 0 && (
+                      <button
+                        onClick={() => (selecting ? exitSelect() : setSelecting(true))}
+                        className={`${HEADING_ACTION} sm:hidden`}
+                      >
+                        {selecting ? 'Done' : 'Select'}
+                      </button>
+                    )}
+                  </>
+                )}
+              </span>
             </div>
-            {bookmarks.length > 0 ? (
+            {reviewingDead ? (
+              <>
+                <p className="-mt-4 mb-8 max-w-[52ch] font-serif text-[15px] leading-[1.5] text-black/50 sm:-mt-10 sm:mb-12">
+                  Checked twice, days apart, and gone both times. Select the
+                  ones to delete, or keep the ones you want anyway.
+                </p>
+                {renderBulletGrid(deadItems)}
+              </>
+            ) : bookmarks.length > 0 ? (
               renderBulletGrid(filtered)
             ) : (
               <div className="py-16 text-center">
@@ -1261,61 +1318,6 @@ export default function ProfileClient({
             )}
           </section>
           </>
-        )}
-
-        {/* ── Dead links review drawer — replaces both sections while open
-            (entered from the line under the lists grid).
-
-            "Confirmed gone" means two failed sweeps on separate days. A 403
-            never counts: across Tim's whole library the sweeper found 46 of
-            those against 33 genuine 404s, so a checker that treated them the
-            same would invite you to delete more live links than dead ones. */}
-        {!activeList && !query.trim() && reviewingDead && isOwner && !!deadBullets?.length && (
-            <div ref={deadReviewRef}>
-              <button
-                onClick={() => setReviewingDead(false)}
-                className="label mb-6 text-black/30 underline decoration-black/15 underline-offset-4 transition-colors hover:text-ink"
-              >
-                &larr; Back to lists
-              </button>
-              <Masonry>
-                {deadBullets.map((b) => (
-                  <div key={b.id} className="group relative">
-                    {/* No badge and no status on the card. You came through a
-                        door marked "links look dead"; every card here is dead,
-                        and stamping each one restates the door. */}
-                    <PrimaryCard
-                      id={b.id}
-                      url={b.url}
-                      title={b.title}
-                      description={b.description}
-                      imageUrl={b.image_url}
-                      screenshotUrl={b.screenshot_url}
-                      faviconUrl={b.favicon_url}
-                      cardType={b.card_type}
-                      imagePref={b.image_pref}
-                      utmCampaign={username}
-                    />
-                    {/* Two answers to one question, both always visible — the
-                        shape the suggestion shelf already uses. */}
-                    <div className="mt-2 flex items-stretch gap-2">
-                      <button
-                        onClick={() => handleKeepDead(b.id)}
-                        className="label flex-1 rounded-full border border-black/10 py-2 text-ink transition-colors hover:bg-ink hover:text-white"
-                      >
-                        Keep
-                      </button>
-                      <button
-                        onClick={() => handleDeleteDead(b.id)}
-                        className="label rounded-full border border-black/10 px-4 text-black/40 transition-colors hover:border-black/30 hover:text-ink"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </Masonry>
-            </div>
         )}
 
         {/* ── List detail ── */}
@@ -1440,6 +1442,7 @@ export default function ProfileClient({
           onDone={exitSelect}
           onDelete={handleBulkDelete}
           onPublish={handleBulkPublish}
+          primary={reviewingDead ? { label: 'Keep', onClick: handleBulkKeep } : undefined}
           lists={sortedLists.map((l) => ({ id: l.id, name: l.name }))}
           onCreateList={(name) => handleCreateList(name)}
           message={barMessage}

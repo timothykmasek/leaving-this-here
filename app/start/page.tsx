@@ -68,6 +68,17 @@ export default function StartPage() {
     if (Array.isArray(saved.picks))
       setPicks(saved.picks.filter((p): p is string => typeof p === 'string').slice(0, 3))
 
+    const devStep = process.env.NODE_ENV === 'development' && new URLSearchParams(location.search).get('step')
+    if (devStep) {
+      const qs = new URLSearchParams(location.search)
+      if (!saved.handle) setHandle('tim')
+      if (qs.get('interests')) setInterests(qs.get('interests')!.split(',') as Interest[])
+      if (qs.get('pick')) setPicks(SEED_LIBRARY.filter((L) => L.interests.some((i) => qs.get('interests')!.includes(i))).slice(0, Number(qs.get('pick'))).map((L) => L.url))
+      setStep(devStep as Step)
+      setBooting(false)
+      return
+    }
+
     ;(async () => {
       const {
         data: { user },

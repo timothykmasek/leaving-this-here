@@ -26,6 +26,7 @@ export function SelectionBar({
   lists,
   onCreateList,
   message,
+  primary,
 }: {
   count: number
   onDone: () => void
@@ -34,6 +35,8 @@ export function SelectionBar({
   lists: { id: string; name: string }[]
   onCreateList: (name: string) => Promise<string | null>
   message: BarMessage
+  // Replaces Add to list with a single action (the dead-links review: Keep).
+  primary?: { label: string; onClick: () => void }
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [picked, setPicked] = useState<Set<string>>(new Set())
@@ -161,6 +164,15 @@ export function SelectionBar({
                 <button onClick={onDone} className={`${quiet} hidden px-3 sm:block`}>
                   Cancel
                 </button>
+                {primary ? (
+                  <button
+                    onClick={primary.onClick}
+                    disabled={none}
+                    className="h-11 whitespace-nowrap rounded-[8px] bg-ink px-4 font-serif text-[14px] leading-[18px] tracking-[-0.02em] text-white transition-colors hover:bg-black disabled:pointer-events-none disabled:opacity-30"
+                  >
+                    {primary.label}
+                  </button>
+                ) : (
                 <button
                   onClick={armed ? publish : () => setPickerOpen((o) => !o)}
                   disabled={none || busy}
@@ -169,6 +181,7 @@ export function SelectionBar({
                   <span className="sm:hidden">{publishShort}</span>
                   <span className="hidden sm:inline">{publishLabel}</span>
                 </button>
+                )}
               </span>
             </>
           )}

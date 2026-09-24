@@ -5,7 +5,7 @@ import { createSupabaseServer } from '@/lib/supabase/server'
 //
 // GET  — the caller's own bullets that are confirmed gone and not already
 //        answered for.
-// POST — { id } marks one Kept, which suppresses it without pretending the
+// POST — { id } or { ids } marks Kept, which suppresses it without pretending the
 //        link works (see migration 022).
 //
 // Fetched on demand rather than with the profile: this is a drawer somebody
@@ -48,15 +48,17 @@ export async function POST(req: Request) {
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
-  const { id } = await req.json().catch(() => ({ id: null }))
-  if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
+  // { id } or { ids: [...] } — the review keeps several at once.
+  const body = await req.json().catch(() => ({}))
+  const ids: string[] = Array.isArray(body?.ids) ? body.ids.filter(Boolean) : body?.id ? [body.id] : []
+  if (!ids.length) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
   // user_id in the filter as well as RLS: the policy is the guard, this is the
   // guard being obvious at the call site.
   const { error } = await supabase
     .from('bookmarks')
     .update({ link_kept_at: new Date().toISOString() })
-    .eq('id', id)
+    .in('id', ids.slice(0, 500))
     .eq('user_id', user.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
