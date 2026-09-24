@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { createBookmarkFromUrl } from '@/lib/createBookmark'
 import { importsRemaining } from '@/lib/importQuota'
+import { checkSaveLimit, logLimitHit } from '@/lib/saveLimits'
 
 // POST /api/import — save one URL for the signed-in user, via the same shared
 // pipeline as every other save path (metadata → insert → async embed +
@@ -21,7 +22,8 @@ import { importsRemaining } from '@/lib/importQuota'
 //
 // Body: { url: string, bulk?: boolean }
 // Returns { saved: true, id } | { skipped: true } (duplicate or dead link)
-//       | 403 { limitReached: true, remaining: 0 }.
+//       | 403 { limitReached: true, remaining: 0 }   (import allowance used up)
+//       | 429 { limitReached: true, error }          (Add Bullet daily limit)
 export async function POST(request: NextRequest) {
   const supabase = await createSupabaseServer()
   const {
@@ -51,7 +53,14 @@ export async function POST(request: NextRequest) {
   }
 
   if (bulk && (await importsRemaining(supabase, user.id)) <= 0) {
+    await logLimitHit(user.id, 'import', 'import_allowance')
     return NextResponse.json({ limitReached: true, remaining: 0 }, { status: 403 })
+  }
+  if (!bulk) {
+    const hit = await checkSaveLimit(supabase, user, 'web')
+    if (hit) {
+      return NextResponse.json({ limitReached: true, limit: hit.limit, error: hit.message }, { status: 429 })
+    }
   }
 
   // createBookmarkFromUrl never throws. It returns the row id on success, a

@@ -146,8 +146,9 @@ type Flow =
   | { kind: 'bulk'; fileName: string; urls: string[] }
   | { kind: 'bulk-running'; fileName: string; urls: string[]; done: number }
   | { kind: 'bulk-done'; saved: number; skipped: number; failed: number }
-  // The batch doesn't fit the free import allowance: nothing ran.
-  | { kind: 'bulk-limit'; remaining: number; newCount: number; asked: boolean }
+  // A limit said no: the batch doesn't fit the import allowance (nothing ran),
+  // or Add Bullet hit its daily limit. `context` rides along in the email.
+  | { kind: 'limit'; title: string; detail: string | null; context: string; asked: boolean }
   // New list: the name input, then the created shelf over the two doors.
   | { kind: 'name'; busy: boolean; message: string | null }
   | { kind: 'created' }
@@ -271,6 +272,9 @@ export function ImportFab({
         } else {
           setSelected(new Set())
         }
+      } else if (body.limitReached) {
+        setValue('')
+        setFlow({ kind: 'limit', title: body.error || 'You’ve hit today’s limit', detail: null, context: 'Add Bullet daily limit', asked: false })
       } else if (res.ok && body.skipped) {
         setValue('')
         settleMessage('Already on your Bulletin')
@@ -317,7 +321,13 @@ export function ImportFab({
     // All or nothing: a batch that doesn't fit the allowance never starts.
     const check = await checkImport(urls)
     if (!check.fits) {
-      setFlow({ kind: 'bulk-limit', remaining: check.remaining, newCount: check.newCount, asked: false })
+      setFlow({
+        kind: 'limit',
+        title: importsLeftLabel(check.remaining),
+        detail: `this file has ${check.newCount} new`,
+        context: limitContext(check.newCount, check.remaining),
+        asked: false,
+      })
       return
     }
     const savedIds: string[] = []
@@ -423,7 +433,7 @@ export function ImportFab({
             {/* ── Left slot: Add Bullet → paste → Saved!/publish. During a
                 bulk state the pill stays standing beside the stack (mocks
                 B–D), just inert while a batch is running. ── */}
-            {(flow.kind === 'bulk' || flow.kind === 'bulk-running' || flow.kind === 'bulk-done' || flow.kind === 'bulk-limit') && (
+            {(flow.kind === 'bulk' || flow.kind === 'bulk-running' || flow.kind === 'bulk-done' || flow.kind === 'limit') && (
               <Pill
                 onClick={() => { if (!running) { setFlow({ kind: 'paste', busy: false, message: null }); setPickerOpen(false) } }}
                 className={`hidden sm:flex sm:w-[200px] ${running ? 'opacity-50' : ''}`}
@@ -639,19 +649,19 @@ export function ImportFab({
                     </div>
                   </>
                 )}
-                {flow.kind === 'bulk-limit' && (
+                {flow.kind === 'limit' && (
                   <>
                     <Row top>
-                      <span className={`${ROW_TEXT} min-w-0 truncate text-ink`}>
-                        {importsLeftLabel(flow.remaining)}
-                        <span className="text-black/30"> · this file has {flow.newCount} new</span>
+                      <span className={`${ROW_TEXT} min-w-0 ${flow.detail ? 'truncate' : ''} text-ink`}>
+                        {flow.title}
+                        {flow.detail && <span className="text-black/30"> · {flow.detail}</span>}
                       </span>
                     </Row>
                     <button
                       disabled={flow.asked}
                       onClick={() => {
                         setFlow({ ...flow, asked: true })
-                        void requestUpgrade(limitContext(flow.newCount, flow.remaining))
+                        void requestUpgrade(flow.context)
                       }}
                       className="flex h-[60px] items-center justify-between rounded-b-[10px] px-5 text-left"
                       style={STACKED_STYLE}

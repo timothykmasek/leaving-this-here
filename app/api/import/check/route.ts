@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { normalizeUrl } from '@/lib/normalizeUrl'
 import { importsRemaining } from '@/lib/importQuota'
+import { logLimitHit } from '@/lib/saveLimits'
 
 // POST /api/import/check — does this import fit the free allowance?
 //
@@ -50,5 +51,7 @@ export async function POST(request: NextRequest) {
   }
 
   const remaining = await importsRemaining(supabase, user.id)
-  return NextResponse.json({ fits: keys.size <= remaining, newCount: keys.size, remaining })
+  const fits = keys.size <= remaining
+  if (!fits) await logLimitHit(user.id, 'import', 'import_allowance')
+  return NextResponse.json({ fits, newCount: keys.size, remaining })
 }

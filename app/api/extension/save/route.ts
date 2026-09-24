@@ -15,6 +15,7 @@ import { maybeStoreImagePref } from '@/lib/cardImageJudge'
 import { maybeEnrichPlace } from '@/lib/placeEnrich'
 import { withProductFact } from '@/lib/productFact'
 import type { SaveSource } from '@/lib/importQuota'
+import { checkSaveLimit } from '@/lib/saveLimits'
 
 // Persist a client-side screenshot (data URL from the extension's
 // captureVisibleTab) to storage and point the row at it. Runs with the service
@@ -455,6 +456,13 @@ export async function POST(request: NextRequest) {
     .maybeSingle()
   if (preExisting) return refreshExisting(preExisting.id)
 
+  // Everyday save limits (lib/saveLimits) — checked only for a NEW bullet; a
+  // re-save just refreshes a card and is always allowed. The message is shown
+  // as-is by the extension toast, the iOS app and Claude.
+  const source = saveSource(request, body)
+  const hit = await checkSaveLimit(supabase, user, source)
+  if (hit) return json({ error: hit.message, limitReached: true, limit: hit.limit }, 429)
+
   // 5. Insert (tags removed — bullets are organized into lists and found via
   //    semantic search, no auto-tagging step)
   const { data: inserted, error: insertErr } = await supabase
@@ -470,7 +478,7 @@ export async function POST(request: NextRequest) {
       note,
       card_type,
       raw_metadata: meta.raw,
-      source: saveSource(request, body),
+      source,
     })
     .select('id, title, image_url, favicon_url, is_private')
     .single()
