@@ -11,3 +11,8 @@
 
 export const CHROME_STORE_URL =
   'https://chromewebstore.google.com/detail/dgpigmcmbffpoigjalnbgfmpgidoabgc'
+
+// The iOS app's App Store page. null until Apple approves it (in review since
+// 2026-09-22): the footer's iOS link only renders once this is set, so going
+// live is this one edit.
+export const IOS_APP_URL: string | null = null

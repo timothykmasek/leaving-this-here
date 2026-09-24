@@ -15,7 +15,6 @@ import { coerceUrl, detectPlatform, linkLabel, normalizeProfileLinks } from '@/l
 import { BulletDetail } from '@/components/BulletDetail'
 import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
-import { ExtensionNudge } from '@/components/ExtensionNudge'
 import { PreviewBanner } from '@/components/PreviewBanner'
 import { ImportFab } from '@/components/ImportFab'
 import { LoadMoreSentinel, RENDER_PAGE } from '@/components/LoadMoreSentinel'
@@ -1063,12 +1062,6 @@ export default function ProfileClient({
         {/* Controls — main feed only; hidden inside a list. Tabs are gone:
             Lists and Recent Bullets stack as sections below, so this row is
             just the owner's search (visitors get no row at all). */}
-        {/* Install nudge — sits right above the toolbar row. Only when
-            detection is SURE the extension is missing, and not while the save
-            panel (which carries its own extension pitch) is open. */}
-        {isOwner && !saveOpen && !activeList && (
-          <ExtensionNudge extInstalled={extInstalled} />
-        )}
         {/* Search. One row over both sections: a full-width field on
             phones (the app's and mymind's placement), a centred field from sm
             up that, at lg+, rides the top of the viewport once scrolled past

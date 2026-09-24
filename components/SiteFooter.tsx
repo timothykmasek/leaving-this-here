@@ -1,17 +1,21 @@
 'use client'
 
 import { forwardRef, useEffect, useState } from 'react'
-import { CHROME_STORE_URL } from '@/lib/extension'
+import { CHROME_STORE_URL, IOS_APP_URL } from '@/lib/extension'
 import { createClient } from '@/lib/supabase/client'
+import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import Link from 'next/link'
 
-// Site footer — © + Privacy + extension link, plus Import when there is
-// somebody to import for. Extracted from ProfileClient so list pages (and
-// anything else) show the same footer instead of losing it off the profile.
+// Site footer — © + Extension · iOS · Claude · Privacy, plus Settings when
+// signed in (Tim's order, 2026-09-24). Extracted from ProfileClient so list
+// pages (and anything else) show the same footer instead of losing it off the
+// profile.
 //
-// Import is signed-in only, everywhere including the homepage: /import
-// redirects a signed-out visitor to /login, so offering it to them was a link
-// that answered a different question than the one it asked.
+// Import left the footer: Settings now carries bulk import and export. The
+// "Add to Chrome" banner above the profile search left too — the Extension
+// link carries that job instead: signed in, on a desktop Chromium browser,
+// with the extension positively NOT detected, it reads "Add to Chrome" with a
+// dot. iOS renders only once IOS_APP_URL is set (App Store approval).
 //
 // Two modes:
 // - default: static in-flow footer (list pages, homepage).
@@ -32,6 +36,16 @@ export const SiteFooter = forwardRef<
   // signed-in one gets it a tick later instead. getSession is a local JWT
   // decode, not a network call — same pattern as Header.
   const [signedIn, setSignedIn] = useState(false)
+  const extInstalled = useExtensionInstalled()
+  // Only where the pitch can be acted on: a desktop Chromium browser (Chrome,
+  // Arc, Brave, Edge all carry "Chrome/" in the UA). Phones and Safari/Firefox
+  // keep the plain link. Read after mount — the server can't know.
+  const [canInstall, setCanInstall] = useState(false)
+  useEffect(() => {
+    const ua = navigator.userAgent
+    setCanInstall(/Chrome\//.test(ua) && !/Mobile|Android/.test(ua))
+  }, [])
+  const pitchExtension = signedIn && canInstall && extInstalled === false
   useEffect(() => {
     let cancelled = false
     createClient()
@@ -72,25 +86,26 @@ export const SiteFooter = forwardRef<
       <div className={`mx-auto flex ${widthClassName} flex-row items-center justify-between`}>
         <span className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/35">© 2026</span>
         {/* Tight gap so © + every link fits one row on a 375px phone without any
-            item wrapping onto a second line — five links when signed in
-            (Import, Settings + the public three), measured at 343px of 351. */}
+            item wrapping onto a second line — at most five links (signed in,
+            with iOS live). */}
         <nav className="flex items-center gap-3 sm:gap-8">
-          {signedIn && (
-            <Link href="/import" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Import</Link>
-          )}
-          {signedIn && (
-            <Link href="/settings" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Settings</Link>
-          )}
-          <Link href="/claude" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Claude</Link>
-          <Link href="/privacy" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Privacy</Link>
           <a
             href={CHROME_STORE_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink"
+            className={`flex items-center gap-1.5 whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink ${pitchExtension ? 'text-ink' : ''}`}
           >
-            Extension
+            {pitchExtension && <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-black/40" />}
+            {pitchExtension ? 'Add to Chrome' : 'Extension'}
           </a>
+          {IOS_APP_URL && (
+            <a href={IOS_APP_URL} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">iOS</a>
+          )}
+          <Link href="/claude" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Claude</Link>
+          <Link href="/privacy" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Privacy</Link>
+          {signedIn && (
+            <Link href="/settings" className="whitespace-nowrap font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-black/45 transition-colors hover:text-ink">Settings</Link>
+          )}
         </nav>
       </div>
     </footer>
