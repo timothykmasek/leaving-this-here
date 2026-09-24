@@ -28,6 +28,7 @@ import { SiteFooter } from '@/components/SiteFooter'
 import { Masonry } from '@/components/Masonry'
 import { CollectionCard } from '@/components/CollectionCard'
 import { CardFallback } from '@/components/CardFallback'
+import { SettingsClient } from '@/app/settings/SettingsClient'
 
 // Real local files, so cards look like cards rather than grey boxes.
 const IMAGES = [
@@ -220,6 +221,15 @@ export default function OwnerPreview() {
         <p className="mt-6 font-sans text-[12px] leading-4 tracking-[0.05em] text-black/45">
           {opened ? `pencil clicked → ${opened}` : 'pencil not clicked yet'}
         </p>
+      </Section>
+
+      <Section
+        title="Settings"
+        note="The account page behind the footer link. Your links: Bulk import goes to /import; Export downloads every bullet as a CSV (url, title, description, lists, saved_at) that /import reads straight back. Don't press Delete here — it posts for real."
+      >
+        <div className="max-w-2xl">
+          <SettingsClient username="tim" email="tim@example.com" providers={['google']} />
+        </div>
       </Section>
 
       <Section

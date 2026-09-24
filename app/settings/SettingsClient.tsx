@@ -93,6 +93,24 @@ export function SettingsClient({
       </section>
 
       <section>
+        <h2 className={label}>Your links</h2>
+        <div className={`${body} space-y-1`}>
+          <p>
+            <Link href="/import" className={link}>
+              Bulk import
+            </Link>{' '}
+            links from Pocket, Raindrop, a spreadsheet, or a pasted list.
+          </p>
+          <p>
+            <a href="/api/account/export" download className={link}>
+              Export all your links
+            </a>{' '}
+            as a CSV, every bullet with its lists.
+          </p>
+        </div>
+      </section>
+
+      <section>
         <h2 className={label}>Sign out</h2>
         <p className={body}>
           <button type="button" onClick={signOut} className={link}>

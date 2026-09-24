@@ -24,7 +24,7 @@ export const metadata: Metadata = {
 const STEPS: [string, React.ReactNode, boolean?][] = [
   ['01', <>In Claude, open <strong className="font-[600] text-ink">Settings → Connectors</strong>.</>],
   ['02', <>Add a custom connector and paste in this URL:</>, true],
-  ['03', <>Approve on Bulletin&rsquo;s consent screen. Done&thinsp;&mdash;&thinsp;ask Claude about anything you&rsquo;ve saved.</>],
+  ['03', <>Approve on Bulletin&rsquo;s consent screen. Done. Ask Claude about anything you&rsquo;ve saved, or hand it links to save.</>],
 ]
 
 export default function ClaudePage() {
@@ -40,11 +40,11 @@ export default function ClaudePage() {
         </h1>
         <p className="mx-auto mt-4 max-w-[34rem] text-center font-serif text-[18px] leading-[1.5] text-black/60 sm:text-[19px]">
           Every link you save becomes context your AI can draw on. Connect
-          once&thinsp;&mdash;&thinsp;Claude can search your bullets and lists in
-          any conversation, from then on.
+          once, and Claude can search your bullets and lists, and save new links
+          into them, in any conversation from then on.
         </p>
 
-        {/* One illustrative moment, not a feature list. */}
+        {/* One illustrative exchange — find, then save — not a feature list. */}
         <div className="card-lift mt-12 rounded-[20px] bg-paper p-6 sm:p-8">
           <div className="flex justify-end">
             <div className="max-w-[85%] rounded-2xl rounded-br-md bg-card px-4 py-2.5 font-sans text-[15px] leading-snug text-ink">
@@ -52,9 +52,18 @@ export default function ClaudePage() {
             </div>
           </div>
           <p className="mt-5 max-w-[90%] font-serif text-[16px] leading-[1.55] text-black/75">
-            Found it in your bullets&thinsp;&mdash;&thinsp;
+            Found it in your bullets:{' '}
             <em>&ldquo;Why $9.99 works better than $10&rdquo;</em>, saved to
             your Reading list.
+          </p>
+          <div className="mt-7 flex justify-end">
+            <div className="max-w-[85%] rounded-2xl rounded-br-md bg-card px-4 py-2.5 font-sans text-[15px] leading-snug text-ink">
+              save the pricing links from this newsletter to that list too
+            </div>
+          </div>
+          <p className="mt-5 max-w-[90%] font-serif text-[16px] leading-[1.55] text-black/75">
+            Found three. Here&rsquo;s the plan: all three into Reading, none
+            already saved. Save them?
           </p>
         </div>
 
@@ -81,10 +90,9 @@ export default function ClaudePage() {
         <p className="mt-14 border-t border-black/[0.06] pt-6 font-serif text-[14px] leading-[1.6] text-black/40">
           No Bulletin account? Add{' '}
           <code className="font-mono text-[12.5px]">yourbulletin.com/mcp</code>{' '}
-          instead&thinsp;&mdash;&thinsp;it reads any published Bulletin, no
-          sign-in. Signed in, Claude can also save links and file them into
-          your lists&thinsp;&mdash;&thinsp;always showing you the plan first,
-          and never deleting anything.
+          instead. It reads any published Bulletin without signing in; saving
+          needs an account. When Claude saves for you, it always shows you the
+          plan first, and never deletes anything.
         </p>
       </div>
 
