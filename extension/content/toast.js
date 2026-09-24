@@ -18,9 +18,9 @@
 // picker IS the switch.
 //
 // Dismissal: an idle timer after the reveal (paused while hovering or typing),
-// Escape, or clicking anywhere outside the card. "Or undo save..." on the
-// band's second line while the save is in flight deletes it (Tim kept undo,
-// 2026-09-04; placed it here 2026-09-22).
+// Escape, or clicking anywhere outside the card. A faint "Undo" in the band's
+// top-right corner deletes a NEW save for as long as the card is up (Tim kept
+// undo 2026-09-04; moved to the corner and made card-long 2026-09-24).
 //
 // Injected via chrome.scripting.executeScript({ files: [...] }) so it runs as
 // a content script in the isolated world. All UI lives in a shadow root so the
@@ -50,8 +50,17 @@
   const DISMISS_MS = 8000
   // Backstop only: never sit on "Saving…" forever if the list fetch stalls.
   const REVEAL_TIMEOUT_MS = 8000
-  // Lists on top before the fold. The rest sit under "All other lists".
-  const TOP_ROWS = 3
+  // Lists shown before the fold: as many as fit the window (leaving a buffer
+  // at the bottom), at least 3 and at most 15 (Tim, 2026-09-24 — three hid
+  // too much). The rest sit under "All other lists (n)".
+  const ROW_H = 64
+  const MIN_ROWS = 3
+  const MAX_ROWS = 15
+  function topRows() {
+    // top offset 26 + band 92 + create row + fold row + ~80px of breathing room
+    const room = window.innerHeight - 26 - 92 - ROW_H * 2 - 80
+    return Math.max(MIN_ROWS, Math.min(MAX_ROWS, Math.floor(room / ROW_H)))
+  }
 
   // Brand fonts, same cuts as the web app (declared in web_accessible_resources).
   const FONT_BOOK = chrome.runtime.getURL('fonts/MierA-Book.woff2')
@@ -100,7 +109,7 @@
       .phead {
         position: relative; flex: none;
         display: flex; align-items: center; gap: 20px;
-        height: 92px; padding: 0 30px 0 26px;
+        height: 92px; padding: 0 64px 0 26px;
         background: #f5f5f5;
       }
       .ptext { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; }
@@ -111,9 +120,9 @@
       .ptitle a { color: inherit; text-decoration: none; }
       .ptitle a:hover { text-decoration: underline; text-underline-offset: 3px; }
       /* Second line of the band — Tim's "Body/Small" (Mier A 500 12/16,
-         +5% tracking, black at 80%). One slot, two tenants: while the save
-         is still in flight it holds "Or undo save..."; the moment the server confirms
-         it becomes "Now, publish to a list..." (Tim, 2026-09-22). */
+         +5% tracking, black at 80%): "Now, publish to a list...". (It used
+         to hold "Or undo save..." while in flight; Undo lives in the corner
+         now.) */
       .psub {
         display: block; margin-top: 3px;
         font-weight: 500; font-size: 12px; line-height: 16px; letter-spacing: 0.05em;
@@ -121,14 +130,19 @@
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
       .terminal.err .psub { color: #a31f34; opacity: 1; }
-      .pending .psub-text { display: none; }
-      .card:not(.pending) .undo { display: none; }
+      /* Undo, faint in the band's top-right corner (Tim, 2026-09-24): there
+         from the moment the card opens until it closes — not just while the
+         save is in flight. Only for a NEW save: undoing a re-save would
+         delete a bullet that was already there, so it hides for those. */
       .undo {
-        padding: 0; border: none; background: none;
-        font: inherit; letter-spacing: inherit; color: inherit; cursor: pointer;
+        position: absolute; top: 14px; right: 18px;
+        padding: 2px 4px; border: none; background: none; cursor: pointer;
+        font-family: inherit; font-weight: 500; font-size: 12px; line-height: 16px; letter-spacing: 0.05em;
+        color: rgba(0,0,0,0.35); transition: color 150ms ease;
       }
-      .undo:hover { text-decoration: underline; text-underline-offset: 2px; }
+      .undo:hover { color: #000; }
       .undo:disabled { pointer-events: none; }
+      .terminal .undo, .card.no-undo .undo { display: none; }
 
       /* The mark's tile, leading the band: white, 48px, the mark inside. */
       .tile {
@@ -149,6 +163,10 @@
         transition: max-height 360ms cubic-bezier(0.2,0.8,0.2,1), opacity 280ms ease 60ms;
       }
       .pbody.open { max-height: var(--body-h, 520px); opacity: 1; }
+      /* Never taller than the window: with the fold open and a long list of
+         lists, the body scrolls rather than running off the screen. */
+      .pbody.open.scroll { overflow-y: auto; overscroll-behavior: contain; }
+      .mcount { opacity: 0.5; }
 
       .row {
         position: relative; flex: none;
@@ -211,12 +229,15 @@
       }
       .cfield::placeholder { color: #9a9a9a; }
       /* Same small voice as the band's second line. */
+      /* Clickable as well as Enter (Tim, 2026-09-24): the hint is the button. */
       .chint {
-        flex: none; font-weight: 500; font-size: 12px; line-height: 16px; letter-spacing: 0.05em;
+        flex: none; padding: 4px 0; border: none; background: none; cursor: pointer;
+        font-family: inherit; font-weight: 500; font-size: 12px; line-height: 16px; letter-spacing: 0.05em;
         color: rgba(0,0,0,0.5); white-space: nowrap;
-        opacity: 0; transition: opacity 160ms ease;
+        opacity: 0; pointer-events: none; transition: opacity 160ms ease, color 150ms ease;
       }
-      .chint.show { opacity: 1; }
+      .chint.show { opacity: 1; pointer-events: auto; }
+      .chint:hover { color: #000; }
       .chint.saved { color: #000; }
       .create.editing .clabel { display: none; }
       .create:not(.editing) .cfield { display: none; }
@@ -229,16 +250,16 @@
         <div class="ptext">
           <h1 class="ptitle" id="ptitle">Saving to your Bulletin...</h1>
           <div class="psub">
-            <button class="undo" id="undo" aria-label="Undo this save">Or undo save...</button>
             <span class="psub-text" id="psub-text">Now, publish to a list...</span>
           </div>
         </div>
+        <button class="undo" id="undo" type="button" aria-label="Undo this save">Undo</button>
       </header>
 
       <div class="pbody" id="pbody">
         <div id="top"></div>
         <div class="row more-head" id="more-head" hidden>
-          <div class="rname"><span>All other lists</span></div>
+          <div class="rname"><span>All other lists <span class="mcount" id="more-count"></span></span></div>
           <svg class="chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"
                stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l5 5 5-5"/></svg>
         </div>
@@ -247,7 +268,7 @@
           <span class="clabel" id="clabel">Create new list</span>
           <input class="cfield" id="cfield" autocomplete="off" spellcheck="false" maxlength="80"
                  aria-label="New list name" />
-          <span class="chint" id="chint">Press Enter</span>
+          <button class="chint" id="chint" type="button">Create ↵</button>
         </div>
       </div>
     </div>
@@ -280,6 +301,9 @@
   let lists = []
   let memberOf = new Set()
   let creating = false
+  // The list this card just made. A late re-fetch of the lists (a re-save
+  // pulls memberships) may predate it; it must not vanish or read unfiled.
+  let justCreated = null
   let revealed = false
   let revealTimer = null
   let hintTimer = null
@@ -418,21 +442,26 @@
     const head = el('more-head')
     top.innerHTML = ''
     more.innerHTML = ''
-    lists.slice(0, TOP_ROWS).forEach((l) => top.appendChild(makeRow(l)))
-    const rest = lists.slice(TOP_ROWS)
+    const n = topRows()
+    lists.slice(0, n).forEach((l) => top.appendChild(makeRow(l)))
+    const rest = lists.slice(n)
     rest.forEach((l) => more.appendChild(makeRow(l)))
     // The fold row shows only while there's something folded. Once opened
     // it stays open for this card (a re-render after filing/creating keeps
     // the rows out, no snapping shut).
     const folded = rest.length > 0 && !more.classList.contains('open')
     head.hidden = !folded
+    el('more-count').textContent = rest.length ? `(${rest.length})` : ''
     // First list ever: the create row is the whole body, and says so.
     el('clabel').textContent = lists.length ? 'Create new list' : 'Create your first list'
     syncBodyHeight()
   }
   function syncBodyHeight() {
     const body = el('pbody')
-    body.style.setProperty('--body-h', `${body.scrollHeight}px`)
+    const room = window.innerHeight - 26 - 92 - 40 // top offset, band, bottom buffer
+    const h = Math.min(body.scrollHeight, Math.max(ROW_H * 3, room))
+    body.style.setProperty('--body-h', `${h}px`)
+    body.classList.toggle('scroll', body.scrollHeight > h)
   }
   el('more-head').addEventListener('click', () => {
     el('more').classList.add('open')
@@ -468,7 +497,7 @@
     create.classList.add('editing')
     field.value = ''
     field.placeholder = lists.length ? 'List name' : 'Name your first list'
-    hint.textContent = 'Press Enter'
+    hint.textContent = 'Create ↵'
     hint.classList.remove('show', 'saved')
     field.focus({ preventScroll: true })
   }
@@ -484,6 +513,13 @@
     if (create.classList.contains('editing')) return
     e.stopPropagation()
     openCreate()
+  })
+  // pointerdown, not click: a click would blur the field first, and an empty
+  // field's blur folds the row away before the click lands.
+  hint.addEventListener('pointerdown', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    commitCreate()
   })
   field.addEventListener('focus', () => { typing = true })
   field.addEventListener('blur', () => {
@@ -549,6 +585,11 @@
             // row is a label again.
             lists = [resp.list, ...lists.filter((l) => l.id !== resp.list.id)]
             memberOf.add(resp.list.id)
+            // Belt and braces: file it explicitly too. The create already
+            // files the bullet, but a list once came out empty (2026-09-24,
+            // a re-save) and "add" is idempotent server-side.
+            chrome.runtime.sendMessage({ type: 'ig-set-list', listId: resp.list.id, bookmarkId: id, add: true }, () => {})
+            justCreated = resp.list.id
             create.classList.add('done')
             hint.textContent = 'Saved!'
             hint.classList.add('show', 'saved')
@@ -583,9 +624,8 @@
     el('pbody').classList.add('open')
     armIdle()
   }
-  // The instant the server confirms: title flips, and the second line goes
-  // from "Or undo save..." to "Now, publish to a list..." (Tim, 2026-09-22:
-  // no hold — he tried 1.5s and took it back out).
+  // The instant the server confirms: the title flips (Tim, 2026-09-22: no
+  // hold — he tried 1.5s and took it back out).
   function confirm(title) {
     setTitle(title, profileUrl)
     card.classList.remove('pending')
@@ -623,12 +663,17 @@
       chrome.runtime.sendMessage({ type: 'ig-get-lists', bookmarkId }, (resp) => {
         if (seq !== saveSeq) return
         if (resp && resp.ok && Array.isArray(resp.lists)) {
-          lists = resp.lists
+          const made = justCreated && lists.find((l) => l.id === justCreated)
+          lists = made && !resp.lists.some((l) => l.id === made.id) ? [made, ...resp.lists] : resp.lists
           for (const id of resp.memberOf || []) memberOf.add(id)
           renderRows()
         }
       })
     }
+
+    // Undo deletes the bullet. Right for a new save; wrong for a re-save or
+    // an already-saved link, where it would delete what was there before.
+    card.classList.toggle('no-undo', !!(data && (data.refreshed || data.existing)))
 
     if (revealed) {
       // Optimistic card already open — this is the confirm.
@@ -702,8 +747,9 @@
     memberOf = new Set()
     creating = false
     revealed = false
-    card.classList.remove('revealed', 'terminal', 'err', 'undone')
+    card.classList.remove('revealed', 'terminal', 'err', 'undone', 'no-undo')
     card.classList.add('saving', 'pending')
+    justCreated = null
     el('undo').disabled = false
     el('pbody').classList.remove('open')
     el('more').classList.remove('open')
@@ -712,7 +758,7 @@
     closeCreate()
   }
 
-  window.__igToast = {
+  const api = {
     reset,
     apply(state, data) {
       if (state === 'saving') {
@@ -723,7 +769,7 @@
       } else if (state === 'saved') {
         showSaved(data && data.refreshed ? 'Updated in your Bulletin' : 'Saved to your Bulletin', data)
       } else if (state === 'duplicate') {
-        showSaved('Already in your Bulletin', data)
+        showSaved('Already in your Bulletin', { ...(data || {}), existing: true })
       } else if (state === 'signin') {
         terminal('Session expired', 'Click the Bulletin icon to sign in again.', { err: true })
       } else if (state === 'error') {
@@ -732,10 +778,20 @@
     },
   }
 
+  window.__igToast = api
+
+  // Every injection adds a listener, and a page that saves twice (the card
+  // closed in between) keeps the old one. Each listener speaks only for its
+  // OWN card: forwarding to whichever card is current made one save apply N
+  // times — N list re-fetches racing the picker, which could snatch a list
+  // created a moment earlier (2026-09-24).
   chrome.runtime.onMessage.addListener((m) => {
     if (!m || m.type !== 'ig-toast') return
-    if (window.__igToast) {
-      window.__igToast.apply(m.state, m.data)
+    if (window.__igToast === api) {
+      api.apply(m.state, m.data)
+    } else if (window.__igToast) {
+      // A newer card owns the page; it has its own listener.
+      return
     } else if (m.state === 'saved' && m.data && m.data.id) {
       // The card was dismissed while the save was still in flight — flush any
       // actions the user queued (filed a list, created one, undid) so a quick
