@@ -456,9 +456,11 @@ function ShowDetail() {
       </div>
       {open && (
         <BulletDetail
-          bullet={{ ...BULLETS[0], created_at: new Date('2026-08-07T00:00:00Z').toISOString(), note: null } as any}
+          bullet={{ ...BULLETS[0], image_url: BULLETS[0].imageUrl, screenshot_url: BULLETS[0].screenshotUrl, created_at: new Date('2026-08-07T00:00:00Z').toISOString(), note: null } as any}
           lists={lists}
           onClose={() => setOpen(false)}
+          // As opened from a list page: the foot offers Remove from beside Delete.
+          currentList={{ id: 'l1', name: 'VCs / Investors' }}
           onNoteUpdate={() => {}}
           onTitleUpdate={() => {}}
           onDelete={() => setOpen(false)}

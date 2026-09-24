@@ -319,6 +319,71 @@ body > * {
   transform: scale(1);
 }
 
+/* The owner's tack doubles as the select control (2026-09-24). Same point as
+   .pin-tack; a 32px hit area around it. Hidden until the card is hovered, like
+   the plain tack; hovering the tack itself opens a ring around the dot. */
+.tack-select {
+  position: absolute;
+  right: calc(var(--pin-inset) - 16px);
+  top: calc(var(--pin-inset) - 16px);
+  height: 32px;
+  width: 32px;
+  z-index: 4;
+  border-radius: 9999px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease-out;
+}
+@media (hover: hover) {
+  .group:hover .tack-select {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+.group:has(:focus-visible) .tack-select {
+  opacity: 1;
+  pointer-events: auto;
+}
+.tack-select-dot,
+.tack-select-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+}
+.tack-select-dot {
+  height: var(--pin-dot);
+  width: var(--pin-dot);
+  background: #000000;
+  transition: height 160ms ease-out, width 160ms ease-out, background-color 160ms ease-out;
+}
+/* Quiet on purpose (Tim): a hairline grey ring, the dot easing to grey inside
+   it — a hint of a control, not a checkbox shouting on every card. */
+.tack-select-ring {
+  height: 20px;
+  width: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22), 0 1px 3px rgba(0, 0, 0, 0.08);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.35);
+  transition: opacity 160ms ease-out, transform 160ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.tack-select:hover .tack-select-ring,
+.tack-select:focus-visible .tack-select-ring {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.tack-select:hover .tack-select-dot,
+.tack-select:focus-visible .tack-select-dot {
+  height: 6px;
+  width: 6px;
+  background: rgba(0, 0, 0, 0.4);
+}
+.tack-select:focus-visible {
+  outline: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pin-hang { transition: none; }
   .group:hover .pin-hang { transform: none; }

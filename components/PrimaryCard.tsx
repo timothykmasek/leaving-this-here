@@ -221,13 +221,18 @@ interface PrimaryCardProps {
   // Curator's custom outbound link (affiliate etc., bookmarks.outbound_url).
   // Wins over `url` for the click, verbatim — no utms appended.
   outboundOverride?: string | null
+  // Bulk select (owner). While `selecting`, a click toggles the card instead of
+  // opening the link, the hover swing is off, and a check ring sits top-right.
+  selecting?: boolean
+  selected?: boolean
+  onSelect?: (id: string, shift: boolean) => void
 }
 
 export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
   cardType, imagePref, place: placeProp, product: productProp,
   customImage: customImageProp, listName, listHref, onOpen, utmCampaign,
-  outboundOverride,
+  outboundOverride, selecting = false, selected = false, onSelect,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const outboundUrl = resolveOutbound(url, outboundOverride, utmCampaign)
@@ -336,6 +341,9 @@ export const PrimaryCard = memo(function PrimaryCard({
           // bottom edge either. Hover lift still applies — a deliberate raise
           // isn't in conflict with the melt. (A Place has no fade at all.)
           hasFade ? 'card-lift-flat' : ''
+        } ${
+          // Selected: an ink ring standing just off the plate, following its radius.
+          selected ? 'outline outline-2 outline-offset-4 outline-black/30' : ''
         }`}
         // The foot-fade painted into the plate's OWN background as well.
         // bg-card is a separate paint layer under the image, and the browser
@@ -582,7 +590,9 @@ export const PrimaryCard = memo(function PrimaryCard({
           detail/edit view from the hover pencil below (a button can't nest inside
           the anchor, so it's an absolutely-positioned sibling). */}
       <div
-        className="group relative w-full"
+        // No `group` while selecting: every hover effect (swing, tack, lift)
+        // hangs off .group:hover, and a card you're ticking shouldn't move.
+        className={`${selecting ? '' : 'group'} relative w-full`}
         // Primes the title's scroll-through measurement the moment the card
         // could need it — pointerenter covers mouse AND the touch tap that
         // makes iOS apply :hover; onFocus covers keyboard travel.
@@ -613,7 +623,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             className="absolute inset-0 z-[1]"
           />
 
-        {onOpen && id && (
+        {onOpen && id && !selecting && (
           <button
             type="button"
             onClick={() => onOpen(id)}
@@ -651,7 +661,25 @@ export const PrimaryCard = memo(function PrimaryCard({
         </div>
 
         {/* The tack — outside .pin-hang so it stays put while the card turns. */}
-        <span aria-hidden className="pin-tack" />
+        {/* Owner: the tack IS the select control. Hover the card and it
+            appears as ever; hover the tack and it opens into a ring around
+            the dot; click it and the card is selected (select mode begins).
+            In select mode the ring stands on every card in the tack's exact
+            spot, below. */}
+        {selecting ? null : onSelect && id ? (
+          <button
+            type="button"
+            onClick={(e) => onSelect(id, e.shiftKey)}
+            aria-label={`Select ${cleanTitle || domain}`}
+            title="Select"
+            className="tack-select"
+          >
+            <span aria-hidden className="tack-select-ring" />
+            <span aria-hidden className="tack-select-dot" />
+          </button>
+        ) : (
+          <span aria-hidden className="pin-tack" />
+        )}
 
         {/* Title, outside the rotation: it sits on the page, not on the card.
             Wrapped so it stays clickable now the anchor no longer contains it.
@@ -670,6 +698,44 @@ export const PrimaryCard = memo(function PrimaryCard({
             {titleLine}
           </a>
         )}
+
+        {selecting && id && (
+          <>
+            {/* Covers plate AND title, so no click in select mode can open
+                the link. Shift is read here for range selection. */}
+            <button
+              type="button"
+              onClick={(e) => onSelect?.(id, e.shiftKey)}
+              aria-pressed={selected}
+              aria-label={`${selected ? 'Deselect' : 'Select'} ${cleanTitle || domain}`}
+              className="absolute inset-0 z-[6] cursor-pointer rounded-[20px] outline-none"
+            />
+            {/* The tack's ring, centred on the tack's own point (--pin-inset):
+                open with the dot inside while unselected, filled ink with a
+                check once selected. */}
+            <span
+              aria-hidden
+              className={`pointer-events-none absolute z-[7] flex h-5 w-5 items-center justify-center rounded-full transition-colors duration-150 ${
+                selected ? 'bg-black/45 text-white' : 'bg-white/90'
+              }`}
+              style={{
+                right: 'calc(var(--pin-inset) - 10px)',
+                top: 'calc(var(--pin-inset) - 10px)',
+                boxShadow: selected
+                  ? '0 1px 3px rgba(0,0,0,0.08)'
+                  : 'inset 0 0 0 1px rgba(0,0,0,0.22), 0 1px 3px rgba(0,0,0,0.08)',
+              }}
+            >
+              {selected ? (
+                <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12.5l4.5 4.5L19 7.5" />
+                </svg>
+              ) : (
+                <span className="h-1.5 w-1.5 rounded-full bg-black/40" />
+              )}
+            </span>
+          </>
+        )}
       </div>
 
       {/* List line — Cardo 14px with a three-dot (⋮) tick; links to the list's
@@ -685,7 +751,7 @@ export const PrimaryCard = memo(function PrimaryCard({
             <span className="truncate">{listName}</span>
           </>
         )
-        const cls = `relative z-10 ${place ? 'mt-5' : 'mt-1.5'} flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/[0.55]`
+        const cls = `relative z-10 ${selecting ? 'pointer-events-none' : ''} ${place ? 'mt-5' : 'mt-1.5'} flex items-center gap-[7px] font-serif text-[14px] leading-[18px] tracking-[-0.01em] text-ink/[0.55]`
         return listHref ? (
           <a href={listHref} className={`${cls} transition-colors hover:text-ink`}>{inner}</a>
         ) : (

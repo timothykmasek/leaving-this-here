@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -22,8 +22,11 @@ import { LoadMoreSentinel, RENDER_PAGE } from '@/components/LoadMoreSentinel'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useRevealFooter } from '@/lib/useRevealFooter'
+import { useMinSm } from '@/lib/useMinSm'
 import { uniqueSlug } from '@/lib/slug'
 import { forgetSuggestion } from '@/components/SuggestionShelf'
+import { SelectionBar, type BarMessage } from '@/components/SelectionBar'
+import { createReadOnlyClient } from '@/lib/supabase/readOnlyClient'
 
 // Hybrid: the server component ([username]/page.tsx) fetches profile + bullets +
 // lists and passes them in as props, so this island hydrates with content already
@@ -50,6 +53,7 @@ export default function ProfileClient({
   initialLists,
   currentUserId,
   mightHaveMore,
+  readOnlyPreview = false,
 }: {
   username: string
   initialProfile: any
@@ -57,9 +61,11 @@ export default function ProfileClient({
   initialLists: any[]
   currentUserId: string | null
   mightHaveMore: boolean
+  // Dev preview (app/preview/owner-profile): real screens, writes stubbed.
+  readOnlyPreview?: boolean
 }) {
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = readOnlyPreview ? createReadOnlyClient() : createClient()
   const extInstalled = useExtensionInstalled()
 
   const isOwner = !!currentUserId && currentUserId === initialProfile.id
@@ -99,18 +105,19 @@ export default function ProfileClient({
   // Non-empty while the owner is searching — collapses the lists/recent layout
   // down to a flat results grid.
   const [query, setQuery] = useState('')
-  // Mobile-only search. On phones the 359px search box and the tab pill were
-  // crushing each other in one row, so under sm: search collapses to a glass
-  // in the header (actionExtra) that drops a full-width bar in below it.
-  // Desktop keeps the toolbar box. Closing clears the query so the grid
-  // returns — a hidden bar must not keep filtering the page.
-  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
-  const mobileSearchRef = useRef<HTMLInputElement | null>(null)
+  // The search field sits above the sections (full width on phones) and, from
+  // lg up, rides the top of the viewport once scrolled past — mymind's pill.
+  // `searchStuck` gives it the floating shadow only while it's riding.
+  const minSm = useMinSm()
+  const searchSentinelRef = useRef<HTMLDivElement | null>(null)
+  const [searchStuck, setSearchStuck] = useState(false)
   useEffect(() => {
-    // preventScroll: an autofocus scroll is what clipped the /start logo —
-    // same gotcha here, the bar sits at the top so there's nothing to scroll to.
-    if (mobileSearchOpen) mobileSearchRef.current?.focus({ preventScroll: true })
-  }, [mobileSearchOpen])
+    const el = searchSentinelRef.current
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => setSearchStuck(!e.isIntersecting))
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
   const [showAllLists, setShowAllLists] = useState(false)
   const [activeListId, setActiveListId] = useState<string | null>(null)
   // Owner only, and quietly: a failure here should cost nothing but the drawer.
@@ -387,10 +394,6 @@ export default function ProfileClient({
     if (v.trim()) searchTimer.current = setTimeout(() => handleSearch(v), 250)
   }
 
-  const closeMobileSearch = () => {
-    setMobileSearchOpen(false)
-    if (query) handleSearchInput('')
-  }
 
   const handleSignOut = async () => {
     await supabase.auth.signOut()
@@ -559,6 +562,192 @@ export default function ProfileClient({
     setLists((prev) => prev.map((l) => (l.id === listId ? { ...l, name: clean } : l)))
   }
 
+  // ── Bulk select ─────────────────────────────────────────────────────
+  // Select mode turns every card into a toggle. Entered from the Select button
+  // beside search, or a long-press on a card (touch). The action bar takes
+  // the dock's place; shift-click selects a range in the order on screen.
+  const [selecting, setSelecting] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [barMessage, setBarMessage] = useState<BarMessage>(null)
+  const anchorRef = useRef<string | null>(null)
+  const filteredRef = useRef(filtered)
+  filteredRef.current = filtered
+  const barTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // A delete waiting out its undo window. Committed when the window closes,
+  // when another delete starts, or when the page is hidden/left.
+  const pendingDelete = useRef<{ ids: string[]; timer: ReturnType<typeof setTimeout> } | null>(null)
+
+  const exitSelect = useCallback(() => {
+    setSelecting(false)
+    setSelectedIds(new Set())
+    setBarMessage(null)
+    anchorRef.current = null
+    if (barTimer.current) clearTimeout(barTimer.current)
+  }, [])
+
+  // Also the way IN: a click on a card's tack starts select mode with it ticked.
+  const handleSelect = useCallback((id: string, shift: boolean) => {
+    setSelecting(true)
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      const anchor = anchorRef.current
+      if (shift && anchor && anchor !== id) {
+        const order = filteredRef.current.map((b: any) => b.id)
+        const a = order.indexOf(anchor)
+        const b = order.indexOf(id)
+        if (a >= 0 && b >= 0) {
+          const [lo, hi] = a < b ? [a, b] : [b, a]
+          for (let i = lo; i <= hi; i++) next.add(order[i])
+        }
+      } else if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      anchorRef.current = id
+      return next
+    })
+    setBarMessage(null)
+  }, [])
+
+  // Long-press (touch) enters select mode with that card ticked, Photos-style.
+  // The click the release would otherwise fire — opening the link — is eaten.
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pressFired = useRef(false)
+  const pressStart = (e: React.PointerEvent, id: string) => {
+    if (!isOwner || selecting || e.pointerType !== 'touch') return
+    pressFired.current = false
+    if (pressTimer.current) clearTimeout(pressTimer.current)
+    pressTimer.current = setTimeout(() => {
+      pressFired.current = true
+      setSelecting(true)
+      setSelectedIds(new Set([id]))
+      anchorRef.current = id
+      try { navigator.vibrate?.(10) } catch {}
+    }, 450)
+  }
+  const pressEnd = () => {
+    if (pressTimer.current) clearTimeout(pressTimer.current)
+    pressTimer.current = null
+  }
+  const pressClickGuard = (e: React.MouseEvent) => {
+    if (!pressFired.current) return
+    pressFired.current = false
+    e.preventDefault()
+    e.stopPropagation()
+  }
+
+  const flashThenExit = (text: string) => {
+    setBarMessage({ text })
+    if (barTimer.current) clearTimeout(barTimer.current)
+    barTimer.current = setTimeout(exitSelect, 2200)
+  }
+
+  const plural = (n: number) => `${n} bullet${n === 1 ? '' : 's'}`
+
+  // Publish = file into lists (a bullet goes public by being in one).
+  // Written first, then reflected — a failed insert leaves the page honest.
+  const handleBulkPublish = async (listIds: string[]) => {
+    const ids = [...selectedIds]
+    if (!ids.length || !listIds.length) return
+    let failed = false
+    const added: Record<string, string[]> = {}
+    for (const listId of listIds) {
+      const l = lists.find((x) => x.id === listId)
+      const have = new Set<string>(l?.bookmark_ids || [])
+      const toAdd = ids.filter((id) => !have.has(id))
+      for (let i = 0; i < toAdd.length; i += 500) {
+        const { error } = await supabase
+          .from('list_bookmarks')
+          .insert(toAdd.slice(i, i + 500).map((bid) => ({ list_id: listId, bookmark_id: bid })))
+        if (error) failed = true
+      }
+      added[listId] = toAdd
+    }
+    setLists((prev) =>
+      prev.map((l) => (added[l.id] ? { ...l, bookmark_ids: [...added[l.id], ...l.bookmark_ids] } : l))
+    )
+    if (failed) {
+      setBarMessage({ text: 'Some didn’t add. Try again.' })
+      return
+    }
+    const target =
+      listIds.length === 1
+        ? lists.find((l) => l.id === listIds[0])?.name ?? 'your list'
+        : `${listIds.length} lists`
+    flashThenExit(`Added ${plural(ids.length)} to ${target}`)
+  }
+
+  const commitDelete = useCallback(
+    async (ids: string[]) => {
+      for (let i = 0; i < ids.length; i += 200) {
+        await supabase.from('bookmarks').delete().in('id', ids.slice(i, i + 200))
+      }
+      ids.forEach((id) => forgetSuggestion(id))
+      const gone = new Set(ids)
+      setLists((prev) => prev.map((l) => ({ ...l, bookmark_ids: l.bookmark_ids.filter((x: string) => !gone.has(x)) })))
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  )
+  const flushPendingDelete = useCallback(() => {
+    const p = pendingDelete.current
+    if (!p) return
+    clearTimeout(p.timer)
+    pendingDelete.current = null
+    commitDelete(p.ids)
+  }, [commitDelete])
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flushPendingDelete()
+    }
+    window.addEventListener('pagehide', flushPendingDelete)
+    document.addEventListener('visibilitychange', onHide)
+    return () => {
+      window.removeEventListener('pagehide', flushPendingDelete)
+      document.removeEventListener('visibilitychange', onHide)
+    }
+  }, [flushPendingDelete])
+
+  // Delete: gone from the grid at once, committed after the undo window.
+  const handleBulkDelete = () => {
+    flushPendingDelete()
+    const gone = new Set(selectedIds)
+    const ids = [...gone]
+    if (!ids.length) return
+    const removed = bookmarks.filter((b) => gone.has(b.id))
+    const filteredOrder = new Map(filtered.map((b: any, i: number) => [b.id, i]))
+    const byNewest = (a: any, b: any) =>
+      new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    setBookmarks((prev) => prev.filter((b) => !gone.has(b.id)))
+    setFiltered((prev) => prev.filter((b) => !gone.has(b.id)))
+    setSelectedIds(new Set())
+    const timer = setTimeout(() => {
+      pendingDelete.current = null
+      commitDelete(ids)
+      exitSelect()
+    }, 5000)
+    pendingDelete.current = { ids, timer }
+    if (barTimer.current) clearTimeout(barTimer.current)
+    setBarMessage({
+      text: `Deleted ${plural(ids.length)}`,
+      undo: () => {
+        clearTimeout(timer)
+        pendingDelete.current = null
+        setBookmarks((prev) => [...prev, ...removed].sort(byNewest))
+        setFiltered((prev) =>
+          query.trim()
+            ? [...prev, ...removed.filter((b) => filteredOrder.has(b.id))].sort(
+                (a, b) => (filteredOrder.get(a.id) ?? 1e9) - (filteredOrder.get(b.id) ?? 1e9)
+              )
+            : [...prev, ...removed].sort(byNewest)
+        )
+        setSelectedIds(gone)
+        setBarMessage(null)
+      },
+    })
+  }
+
   // Lists render biggest-first — the fullest lists are the ones worth surfacing.
   // Ties fall back to newest (state is already ordered created_at desc). Sort a
   // copy so we don't mutate the lists state array in place.
@@ -610,7 +799,17 @@ export default function ProfileClient({
     <>
       <Masonry>
         {items.slice(0, visibleCount).map((b) => (
-          <div key={b.id} className="relative">
+          <div
+            key={b.id}
+            // Owner: no iOS link-preview callout, so a long-press can mean select.
+            className={`relative ${isOwner ? '[-webkit-touch-callout:none]' : ''}`}
+            onPointerDown={isOwner ? (e) => pressStart(e, b.id) : undefined}
+            onPointerUp={isOwner ? pressEnd : undefined}
+            onPointerCancel={isOwner ? pressEnd : undefined}
+            onPointerLeave={isOwner ? pressEnd : undefined}
+            onClickCapture={isOwner ? pressClickGuard : undefined}
+            onContextMenu={isOwner ? (e) => { if (pressFired.current) e.preventDefault() } : undefined}
+          >
           <PrimaryCard
             id={b.id}
             url={b.url}
@@ -630,6 +829,9 @@ export default function ProfileClient({
             onOpen={isOwner ? setSelectedId : undefined}
             utmCampaign={username}
             outboundOverride={b.outbound_url}
+            selecting={selecting}
+            selected={selecting && selectedIds.has(b.id)}
+            onSelect={isOwner ? handleSelect : undefined}
           />
           </div>
         ))}
@@ -663,24 +865,6 @@ export default function ProfileClient({
             : { label: 'Sign up', href: '/' }
         }
         logoClassName="h-[32px] sm:h-[44px]"
-        // Mobile-only search glass beside "Log out" — toggles the drop-in bar
-        // below the header. Desktop keeps the toolbar's search box (hidden
-        // under sm:), so this disappears at the same breakpoint it appears.
-        actionExtra={
-          isOwner ? (
-            <button
-              onClick={() => (mobileSearchOpen ? closeMobileSearch() : setMobileSearchOpen(true))}
-              aria-label={mobileSearchOpen ? 'Close search' : 'Search your links'}
-              aria-expanded={mobileSearchOpen}
-              className="flex text-black/60 transition-colors hover:text-ink sm:hidden"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.5-3.5" />
-              </svg>
-            </button>
-          ) : null
-        }
         widthClassName={PROFILE_GRID}
         stickyLogo
         tagline={
@@ -698,39 +882,6 @@ export default function ProfileClient({
           desktop / ~48 mobile), so the profile, its Lists tab, and a list page
           all breathe on the same rhythm. */}
       <div className={`mx-auto ${PROFILE_GRID} pb-40 pt-12 sm:pt-[88px]`}>
-        {/* Mobile search bar — drops in right under the header when the glass
-            is tapped. Same dress as the desktop box, full width. The ✕ clears
-            AND closes. globals.css floors the input at 16px under 640px, so
-            iOS Safari won't zoom-jump on focus. */}
-        {isOwner && mobileSearchOpen && (
-          <div className="relative -mt-2 mb-8 sm:hidden">
-            <input
-              ref={mobileSearchRef}
-              type="search"
-              value={query}
-              placeholder="Search"
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              enterKeyHint="search"
-              aria-label="Search your links"
-              data-1p-ignore
-              data-lpignore="true"
-              onChange={(e) => handleSearchInput(e.target.value)}
-              className="h-[56px] w-full rounded-[12px] border border-[#BCBCBC]/70 bg-white pl-5 pr-12 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40"
-            />
-            <button
-              onClick={closeMobileSearch}
-              aria-label="Close search"
-              className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-black/40 transition-colors hover:text-ink"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-                <path d="M6 6l12 12M18 6L6 18" />
-              </svg>
-            </button>
-          </div>
-        )}
         {profile.is_preview && <PreviewBanner />}
         {isOwner && <WelcomeBanner />}
 
@@ -918,30 +1069,57 @@ export default function ProfileClient({
         {isOwner && !saveOpen && !activeList && (
           <ExtensionNudge extInstalled={extInstalled} />
         )}
+        {/* Search. One row over both sections: a full-width field on
+            phones (the app's and mymind's placement), a centred field from sm
+            up that, at lg+, rides the top of the viewport once scrolled past
+            (sticky; the pinned wordmark keeps the top-left corner). Our field
+            dress — 12px radius, the #BCBCBC line — with the dock's float
+            shadow only while it's riding. (Bulk select starts from a card's
+            tack, not a button here.) */}
         {!activeList && isOwner && (
-          <div className="hidden sm:block sm:mb-8">
-            <input
-                type="search"
-                value={query}
-                placeholder="Search"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                enterKeyHint="search"
-                aria-label="Search your links"
-                data-1p-ignore
-                data-lpignore="true"
-                onChange={(e) => handleSearchInput(e.target.value)}
-                // Figma: 359x62, 1px #BCBCBC, radius 20, Mier A 600 14/20 #000,
-                // 20px inset. Eased on Tim's call (2026-09-22): the line at
-                // 70% so it sits behind the cards' plates rather than in front
-                // of them, and radius 12 — 20 read as a pill, not a field.
-                // Desktop-only (hidden sm:block) — on phones search lives in
-                // the header glass + drop-in bar instead.
-                className="hidden h-[62px] w-full min-w-0 max-w-[359px] rounded-[12px] border border-[#BCBCBC]/70 bg-white px-5 font-sans text-[14px] font-[600] leading-5 text-black placeholder:text-black/40 focus:outline-none focus:border-black/40 sm:block"
-              />
-          </div>
+          <>
+            <div ref={searchSentinelRef} aria-hidden className="h-px" />
+            <div className="relative z-30 mb-8 flex items-center justify-center gap-3 sm:mb-12 lg:sticky lg:top-5">
+              <div className="relative w-full min-w-0 sm:max-w-[440px] lg:max-w-[560px]">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-black/35">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.5-3.5" />
+                </svg>
+                <input
+                  type="search"
+                  value={query}
+                  placeholder={minSm ? 'Search your Bulletin' : 'Search'}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  enterKeyHint="search"
+                  aria-label="Search your links"
+                  data-1p-ignore
+                  data-lpignore="true"
+                  onChange={(e) => handleSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Escape' && query && !selecting) handleSearchInput('')
+                  }}
+                  // globals.css floors inputs at 16px under 640px (no iOS zoom).
+                  className={`h-[56px] w-full rounded-[12px] border border-[#BCBCBC]/70 bg-white pl-12 pr-12 font-sans text-[14px] font-[600] leading-5 text-black transition-shadow duration-[180ms] ease-[cubic-bezier(.22,.61,.36,1)] placeholder:font-[400] placeholder:text-black/40 focus:border-black/40 focus:outline-none sm:h-[62px] [&::-webkit-search-cancel-button]:hidden ${
+                    searchStuck ? 'lg:shadow-[0_12px_36px_-12px_rgba(35,30,20,0.35),0_3px_10px_-6px_rgba(35,30,20,0.22)]' : ''
+                  }`}
+                />
+                {query && (
+                  <button
+                    onClick={() => handleSearchInput('')}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center text-black/40 transition-colors hover:text-ink"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+                      <path d="M6 6l12 12M18 6L6 18" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          </>
         )}
 
         {/* Owner-only save panel — collapsible. Empty state gets larger
@@ -1041,9 +1219,21 @@ export default function ProfileClient({
           )}
 
           <section>
-            <h2 className="mb-8 font-sans text-[20px] font-[600] leading-[24px] text-ink sm:mb-16">
-              {isOwner ? 'Your Recent Bullets' : 'Their Recent Bullets'}
-            </h2>
+            <div className="mb-8 flex items-baseline justify-between gap-4 sm:mb-16">
+              <h2 className="font-sans text-[20px] font-[600] leading-[24px] text-ink">
+                {isOwner ? 'Your Recent Bullets' : 'Their Recent Bullets'}
+              </h2>
+              {/* Phones have no hover, so no tack to click: a quiet way in
+                  beside the long-press. Desktop starts from the tack. */}
+              {isOwner && bookmarks.length > 0 && (
+                <button
+                  onClick={() => (selecting ? exitSelect() : setSelecting(true))}
+                  className="font-sans text-[14px] leading-5 tracking-[0.05em] text-black/50 transition-colors hover:text-ink sm:hidden"
+                >
+                  {selecting ? 'Done' : 'Select'}
+                </button>
+              )}
+            </div>
             {bookmarks.length > 0 ? (
               renderBulletGrid(filtered)
             ) : (
@@ -1223,7 +1413,18 @@ export default function ProfileClient({
           no footer at all — no privacy link, no extension link, nothing. The
           Import button below stays owner-only; it is an action, not chrome. */}
       <SiteFooter reveal revealed={footerRevealed} widthClassName={PROFILE_GRID} />
-      {isOwner && (
+      {isOwner && selecting && (
+        <SelectionBar
+          count={selectedIds.size}
+          onDone={exitSelect}
+          onDelete={handleBulkDelete}
+          onPublish={handleBulkPublish}
+          lists={sortedLists.map((l) => ({ id: l.id, name: l.name }))}
+          onCreateList={(name) => handleCreateList(name)}
+          message={barMessage}
+        />
+      )}
+      {isOwner && !selecting && !readOnlyPreview && (
         <ImportFab
           widthClassName={PROFILE_GRID}
           lists={sortedLists.map((l) => ({ id: l.id, name: l.name }))}

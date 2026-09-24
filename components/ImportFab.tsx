@@ -43,7 +43,7 @@ import { checkImport, requestUpgrade, importsLeftLabel, limitContext } from '@/l
 // The deep bulk page (/import) stays for heavy migrations; this dock is the
 // everyday door. Throttle and URL extraction are the same as that page's, so
 // the per-save pipeline never gets slammed no matter which door is used.
-const FOOTER_CLEARANCE = 'calc(55px + max(18px, env(safe-area-inset-bottom)))'
+export const FOOTER_CLEARANCE = 'calc(55px + max(18px, env(safe-area-inset-bottom)))'
 
 const GAP_MS = 1500
 
@@ -103,7 +103,7 @@ const MESSAGE_MS = 1600
 // export's opacity so the overlay blend lands at the same strength.
 const GRAIN =
   "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0 0.5 0 0 0 0.3 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E\")"
-const FROST_STYLE: React.CSSProperties = {
+export const FROST_STYLE: React.CSSProperties = {
   background: `linear-gradient(0deg, rgba(255,255,255,0.4), rgba(255,255,255,0.4)), ${GRAIN}, radial-gradient(462.83% 303.02% at -145.2% -28.49%, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.0671875) 77.08%, rgba(0,0,0,0) 100%)`,
   backgroundBlendMode: 'normal, overlay, normal',
   boxShadow: 'inset 0.931372px 7.45098px 10.2451px rgba(255,255,255,0.55)',
@@ -113,7 +113,7 @@ const FROST_STYLE: React.CSSProperties = {
 // The pill when it sits UNDER a shelf (Figma's stacked Rectangle 5091): the
 // milk layer goes opaque #F1F1EF, and it gains a soft drop shadow plus an
 // inner grey glow — a plate the shelf rests on, not a window over the cards.
-const STACKED_STYLE: React.CSSProperties = {
+export const STACKED_STYLE: React.CSSProperties = {
   background: `linear-gradient(0deg, #F1F1EF, #F1F1EF), ${GRAIN}, radial-gradient(462.83% 303.02% at -145.2% -28.49%, rgba(0,0,0,0.03) 0%, rgba(0,0,0,0.0671875) 77.08%, rgba(0,0,0,0) 100%)`,
   backgroundBlendMode: 'normal, overlay, normal',
   boxShadow:
@@ -133,9 +133,9 @@ const TILE_STYLE: React.CSSProperties = {
 }
 
 // Pill label — Editorial/Small: Cardo Regular 14/18, −0.02em.
-const PILL_LABEL = 'font-serif text-[14px] leading-[18px] tracking-[-0.02em] text-ink'
+export const PILL_LABEL = 'font-serif text-[14px] leading-[18px] tracking-[-0.02em] text-ink'
 // Row text — Body/Small: Mier A Book 12/16, +0.05em (400 = Book, inverted metadata).
-const ROW_TEXT = 'font-sans text-[12px] font-[400] leading-4 tracking-[0.05em]'
+export const ROW_TEXT = 'font-sans text-[12px] font-[400] leading-4 tracking-[0.05em]'
 
 type Flow =
   | { kind: 'menu' }
@@ -834,7 +834,7 @@ function Row({ top, children }: { top?: boolean; children: React.ReactNode }) {
 // With `onCreate`, a "+ New list" row at the foot mints one in place (the
 // extension's picker does the same) and hands its id back through onToggle,
 // so it lands selected in whichever flow opened the panel.
-function ListPanel({
+export function ListPanel({
   lists,
   selected,
   onToggle,
@@ -926,7 +926,7 @@ function ListPanel({
 
 // The plus as two bars rather than a glyph — the stroke stays exactly 2px and
 // the arms stay equal at any size. currentColor serves both plus and ×.
-function PlusGlyph({ className = '' }: { className?: string }) {
+export function PlusGlyph({ className = '' }: { className?: string }) {
   return (
     <span aria-hidden className={`relative block h-4 w-4 transition-transform duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${className}`}>
       <span className="absolute left-0 top-1/2 h-[2px] w-full -translate-y-1/2 rounded-full bg-current" />

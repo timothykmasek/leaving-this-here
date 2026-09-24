@@ -6,6 +6,7 @@ import { resizeImageToWebp } from '@/lib/imageResize'
 import { resolveOutbound } from '@/lib/outboundUrl'
 import { coerceUrl } from '@/lib/profileLinks'
 import { formatCardTitle } from '@/lib/cardTitle'
+import { cardImageCandidates } from '@/lib/cardImage'
 
 // Detail view for a single bullet, per the ProjectX "Edit Bullet" frame: a
 // white panel over a grey scrim, image floating on the left inside fixed
@@ -29,6 +30,9 @@ interface Bullet {
   url: string
   image_url: string | null
   screenshot_url: string | null
+  /** Feed the same image pick the card makes (lib/cardImage). */
+  card_type?: string | null
+  image_pref?: string | null
   favicon_url: string | null
   note: string | null
   created_at: string | null
@@ -58,6 +62,9 @@ interface BulletDetailProps {
   onOutboundUpdate?: (id: string, outbound: string | null) => void
   // utm_campaign for the visit link's click-out attribution (curator username).
   utmCampaign?: string | null
+  /** Opened from a list page: the foot offers "Remove from {name}" beside
+   *  Delete, so taking a bullet out of this list isn't a hunt for its row. */
+  currentList?: { id: string; name: string } | null
 }
 
 function getDomain(url: string): string {
@@ -98,9 +105,12 @@ export function BulletDetail({
   onTitleUpdate,
   onOutboundUpdate,
   utmCampaign,
+  currentList,
 }: BulletDetailProps) {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const [imgError, setImgError] = useState(false)
+  // How many image candidates have failed to load; the preview walks down the
+  // card's own fallback chain rather than giving up after the first.
+  const [imgFailed, setImgFailed] = useState(0)
   // Wide images float mid-well; tall and square ones anchor to its top. Only
   // the loaded image knows which it is, so this lands onLoad.
   const [landscape, setLandscape] = useState(false)
@@ -171,8 +181,17 @@ export function BulletDetail({
   const displayTitle =
     titleOverride ??
     formatCardTitle({ title: bullet.title, description: bullet.description, url: bullet.url })
-  // The owner's picture wins here for the same reason it wins on the card.
-  const preview = (!imgError && (custom || bullet.screenshot_url || bullet.image_url)) || null
+  // Exactly the card's pick (og vs screenshot, owner's picture first), so the
+  // modal opens on the image that was clicked.
+  const preview =
+    cardImageCandidates(
+      bullet.url,
+      bullet.image_url,
+      bullet.screenshot_url,
+      bullet.card_type,
+      bullet.image_pref,
+      custom,
+    )[imgFailed] ?? null
 
   // Member lists lead, other lists trail as click-to-add rows.
   const memberLists = lists.filter((l) => l.bookmark_ids.includes(bullet.id))
@@ -197,7 +216,7 @@ export function BulletDetail({
       const json = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(json.error || 'could not save that image')
       setCustom(json.url)
-      setImgError(false)
+      setImgFailed(0)
     } catch (err: any) {
       setImgMsg(err?.message || 'could not read that image')
     } finally {
@@ -217,7 +236,7 @@ export function BulletDetail({
         throw new Error(json.error || 'could not undo that')
       }
       setCustom(null)
-      setImgError(false)
+      setImgFailed(0)
     } catch (err: any) {
       setImgMsg(err?.message || 'could not undo that')
     } finally {
@@ -266,7 +285,7 @@ export function BulletDetail({
   // Reset local state when switching to a different bullet.
   useEffect(() => {
     setConfirmingDelete(false)
-    setImgError(false)
+    setImgFailed(0)
     setLandscape(false)
     setCustom(bullet.customImage ?? null)
     setImgMsg(null)
@@ -321,7 +340,7 @@ export function BulletDetail({
                   alt={displayTitle}
                   className="max-h-[456px] w-full object-cover md:max-h-[522px]"
                   onLoad={(e) => setLandscape(e.currentTarget.naturalWidth > e.currentTarget.naturalHeight)}
-                  onError={() => setImgError(true)}
+                  onError={() => setImgFailed((n) => n + 1)}
                 />
               ) : (
                 <div className="flex aspect-[4/3] w-full items-center justify-center">
@@ -645,12 +664,25 @@ export function BulletDetail({
                   </button>
                 </span>
               ) : (
+                <>
+                {currentList && onToggleListMembership && (
+                  <button
+                    onClick={() => {
+                      onToggleListMembership(currentList.id, bullet.id, false)
+                      onClose()
+                    }}
+                    className="max-w-[16rem] truncate underline underline-offset-2 transition-opacity hover:opacity-50"
+                  >
+                    Remove from {currentList.name}
+                  </button>
+                )}
                 <button
                   onClick={() => setConfirmingDelete(true)}
                   className="underline underline-offset-2 transition-opacity hover:opacity-50"
                 >
                   Delete Bullet
                 </button>
+                </>
               )}
             </span>
             {/* Phones never had room for links + date — the actions win, the

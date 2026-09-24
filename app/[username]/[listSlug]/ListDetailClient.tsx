@@ -282,6 +282,7 @@ export function ListDetailClient({
             onTitleUpdate={handleTitleUpdate}
             onOutboundUpdate={handleOutboundUpdate}
             utmCampaign={username}
+            currentList={{ id: list.id, name: list.name }}
           />
         )
       })()}
