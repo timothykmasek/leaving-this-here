@@ -85,6 +85,30 @@ export default function ProfileClient({
   // to say "nothing to do" almost every time.
   const [deadBullets, setDeadBullets] = useState<any[] | null>(null)
   const [reviewingDead, setReviewingDead] = useState(false)
+  // Cadence (Tim, 2026-09-24): the dead-links prompt is a monthly moment. It
+  // shows while dead links are waiting and stays until the owner acts in the
+  // review (a Keep or a Delete); then it's quiet for 30 days, even if some
+  // are left, and comes back the next month if any still are. Per browser
+  // (localStorage) — the review is desktop-only anyway.
+  const DEAD_ACTED_KEY = 'bulletin-dead-review-acted-at'
+  const DEAD_QUIET_DAYS = 30
+  const [deadQuiet, setDeadQuiet] = useState(true) // assume quiet until read — no flash
+  useEffect(() => {
+    try {
+      const at = Number(localStorage.getItem(DEAD_ACTED_KEY) || 0)
+      setDeadQuiet(Date.now() - at < DEAD_QUIET_DAYS * 864e5)
+    } catch {
+      setDeadQuiet(false)
+    }
+  }, [])
+  const deadActed = useRef(false)
+  const markDeadActed = () => {
+    deadActed.current = true
+    try {
+      localStorage.setItem(DEAD_ACTED_KEY, String(Date.now()))
+    } catch {}
+    // Not hidden yet — you're mid-review. It goes when you leave it.
+  }
   // Review swaps the Recent Bullets grid for the dead links in place. From
   // deep in the feed that would leave you mid-grid with the heading far
   // above, so bring the section's heading into view (below the sticky search).
@@ -592,6 +616,7 @@ export default function ProfileClient({
   const exitSelect = useCallback(() => {
     setSelecting(false)
     setReviewingDead(false)
+    if (deadActed.current) setDeadQuiet(true)
     setSelectedIds(new Set())
     setBarMessage(null)
     anchorRef.current = null
@@ -733,6 +758,7 @@ export default function ProfileClient({
     const byNewest = (a: any, b: any) =>
       new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
     const removedDead = (deadBullets || []).filter((b) => gone.has(b.id))
+    if (reviewingDead) markDeadActed()
     setBookmarks((prev) => prev.filter((b) => !gone.has(b.id)))
     setFiltered((prev) => prev.filter((b) => !gone.has(b.id)))
     setDeadBullets((prev) => (prev ? prev.filter((b) => !gone.has(b.id)) : prev))
@@ -812,6 +838,7 @@ export default function ProfileClient({
   const handleBulkKeep = async () => {
     const ids = [...selectedIds]
     if (!ids.length) return
+    markDeadActed()
     const kept = new Set(ids)
     setDeadBullets((prev) => (prev ? prev.filter((b) => !kept.has(b.id)) : prev))
     setSelectedIds(new Set())
@@ -1280,7 +1307,7 @@ export default function ProfileClient({
                 ) : (
                   <>
                     {/* Desktop only (Tim): reviewing dead links is desk work. */}
-                    {isOwner && !!deadBullets?.length && (
+                    {isOwner && !!deadBullets?.length && !deadQuiet && (
                       <button onClick={openDeadReview} className={`${HEADING_ACTION} hidden sm:inline`}>
                         {deadBullets.length} {deadBullets.length === 1 ? 'link looks' : 'links look'} dead &middot; Review
                       </button>
