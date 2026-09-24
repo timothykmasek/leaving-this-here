@@ -181,6 +181,7 @@ const OWNER_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
 export default function OwnerPreview() {
   const [opened, setOpened] = useState<string | null>(null)
+  const [mastheadName, setMastheadName] = useState('The fit check')
   // The dock and the lists it can publish to — fixtures, minted in memory so
   // the Create New List flow can be walked end to end without a database.
   const [fixtureLists, setFixtureLists] = useState([
@@ -237,11 +238,16 @@ export default function OwnerPreview() {
         note="The name at poster scale in Cardo, one line always. Hover the meta row: the owner's pencil fades in beside the back link. Covers and descriptions are retired — the name is the identity."
       >
         <ListMasthead
-          name="The fit check"
+          name={mastheadName}
           count={BULLETS.length}
           backHref="/preview/owner"
           backLabel="&larr; All lists"
-          onRename={() => {}}
+          // Renames for real (in memory) the way the list page does:
+          // optimistic, the write landing after. Walk click → type → Enter.
+          onRename={async (n) => {
+            setMastheadName(n)
+            await new Promise((r) => setTimeout(r, 300))
+          }}
           onDelete={() => {}}
         />
       </Section>

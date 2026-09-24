@@ -95,7 +95,12 @@ export function ListMasthead({
   const [draft, setDraft] = useState('')
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
+  // Enter saves and unmounts the input, and the unmount can fire onBlur,
+  // which would save a second time. One save per edit.
+  const saved = useRef(false)
   const saveTitle = () => {
+    if (saved.current) return
+    saved.current = true
     setEditing(false)
     const clean = draft.trim()
     if (!clean || clean === name || !onRename) return
@@ -128,7 +133,12 @@ export function ListMasthead({
             onBlur={saveTitle}
             onKeyDown={(e) => {
               if (e.key === 'Enter') saveTitle()
-              if (e.key === 'Escape') setEditing(false)
+              // Escape cancels — and marks the edit done, so the blur that
+              // follows the unmount can't save the draft anyway.
+              if (e.key === 'Escape') {
+                saved.current = true
+                setEditing(false)
+              }
             }}
             autoFocus
             aria-label="List name"
@@ -143,6 +153,7 @@ export function ListMasthead({
             onClick={
               onRename
                 ? () => {
+                    saved.current = false
                     setDraft(name)
                     setEditing(true)
                   }

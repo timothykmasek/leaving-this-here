@@ -221,11 +221,22 @@ export function ListDetailClient({
     return created.id as string
   }
 
+  // Optimistic: the new name shows the moment Enter is pressed. It used to
+  // wait for the write, so the old name snapped back in between and Enter
+  // looked like it hadn't taken (Tim, 2026-09-24). A failed write puts the
+  // old name back. router.refresh() also drops Next's client router cache,
+  // which otherwise served the profile with the old name for ~30s.
   const handleRename = async (name: string) => {
     const clean = name.trim()
     if (!clean) return
-    await supabase.from('lists').update({ name: clean }).eq('id', list.id)
+    const before = list.name
     setList((prev) => ({ ...prev, name: clean }))
+    const { error } = await supabase.from('lists').update({ name: clean }).eq('id', list.id)
+    if (error) {
+      setList((prev) => ({ ...prev, name: before }))
+      return
+    }
+    router.refresh()
   }
 
   const handleDeleteList = async () => {

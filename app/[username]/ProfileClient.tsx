@@ -554,11 +554,16 @@ export default function ProfileClient({
   }
 
   // Rename changes only the display name — the slug (and public URL) is frozen.
+  // Optimistic, like the list page's masthead rename: shown at once, put
+  // back if the write fails.
   const handleRenameList = async (listId: string, name: string) => {
     const clean = name.trim()
     if (!clean) return
-    await supabase.from('lists').update({ name: clean }).eq('id', listId)
+    const before = lists.find((l) => l.id === listId)?.name
     setLists((prev) => prev.map((l) => (l.id === listId ? { ...l, name: clean } : l)))
+    const { error } = await supabase.from('lists').update({ name: clean }).eq('id', listId)
+    if (error && before)
+      setLists((prev) => prev.map((l) => (l.id === listId ? { ...l, name: before } : l)))
   }
 
   // ── Bulk select ─────────────────────────────────────────────────────
