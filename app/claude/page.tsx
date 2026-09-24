@@ -10,7 +10,7 @@ import { CopyConnectorUrl } from './CopyConnectorUrl'
 
 // The personal mount: adding it walks the user through Bulletin's OAuth
 // consent, then Claude is signed in as them. The anonymous /mcp mount stays
-// for people without an account (footnote below).
+// for people without an account, unadvertised here (Tim, 2026-09-24).
 const CONNECTOR_URL = 'https://www.yourbulletin.com/mcp/me'
 
 export const metadata: Metadata = {
@@ -85,15 +85,6 @@ export default function ClaudePage() {
             </li>
           ))}
         </ol>
-
-        {/* Footnote-weight mentions, not sections. */}
-        <p className="mt-14 border-t border-black/[0.06] pt-6 font-serif text-[14px] leading-[1.6] text-black/40">
-          No Bulletin account? Add{' '}
-          <code className="font-mono text-[12.5px]">yourbulletin.com/mcp</code>{' '}
-          instead. It reads any published Bulletin without signing in; saving
-          needs an account. When Claude saves for you, it always shows you the
-          plan first, and never deletes anything.
-        </p>
       </div>
 
       <SiteFooter widthClassName="max-w-2xl px-6 sm:px-8" />
