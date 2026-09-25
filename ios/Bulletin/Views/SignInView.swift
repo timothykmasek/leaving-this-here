@@ -57,6 +57,26 @@ struct SignInView: View {
                 Spacer()
                 Spacer()
             }
+
+            // A way back from every email screen, where onboarding keeps its.
+            if mode != .options {
+                VStack {
+                    HStack {
+                        Button(action: back) {
+                            Image(systemName: "chevron.left")
+                                .font(.system(size: 17, weight: .regular))
+                                .foregroundStyle(Color.ink.opacity(0.55))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .accessibilityLabel("Back")
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .padding(.leading, 14)
+                .padding(.top, 8)
+            }
         }
         .animation(.easeOut(duration: 0.2), value: mode)
     }
@@ -133,7 +153,6 @@ struct SignInView: View {
                 Task { await sendCode() }
             }
             HStack {
-                quiet("Back") { mode = .options; error = nil }
                 Spacer()
                 quiet("Use a password instead") { mode = .password; error = nil; focused = true }
             }
@@ -161,9 +180,9 @@ struct SignInView: View {
                 Task { await verify() }
             }
             HStack {
-                quiet("Different email") { mode = .email; code = ""; error = nil }
-                Spacer()
                 quiet("Send a new code") { Task { await sendCode() } }
+                Spacer()
+                quiet("Use a password instead") { mode = .password; code = ""; error = nil; focused = true }
             }
             .padding(.top, 4)
         }
@@ -189,7 +208,6 @@ struct SignInView: View {
                 Task { await signInWithPassword() }
             }
             HStack {
-                quiet("Back") { mode = .options; error = nil }
                 Spacer()
                 quiet("Email me a code instead") { mode = .email; error = nil }
             }
@@ -235,6 +253,14 @@ struct SignInView: View {
     }
 
     // MARK: - Flow
+
+    private func back() {
+        error = nil
+        switch mode {
+        case .code: mode = .email; code = ""
+        default: mode = .options
+        }
+    }
 
     private func sendCode() async {
         guard looksLikeEmail else { return }
