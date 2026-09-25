@@ -698,8 +698,8 @@ function Interests({
                 sel
                   ? 'border-ink bg-ink text-white'
                   : full
-                    ? 'cursor-not-allowed border-black/10 text-black/25'
-                    : 'border-black/15 text-ink hover:border-black/40'
+                    ? 'cursor-not-allowed border-black/10 bg-white text-black/25'
+                    : 'border-black/15 bg-white text-ink hover:border-black/40'
               }`}
             >
               {label}

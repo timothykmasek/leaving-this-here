@@ -397,14 +397,15 @@ struct ClaimHandleView: View {
                             if on { interests.removeAll { $0 == interest.key } }
                             else if !locked { interests.append(interest.key) }
                         } label: {
+                            // Solid white even when locked: only the label
+                            // fades, so the dot grid never shows through.
                             Text(interest.label)
                                 .font(.mier(15))
-                                .foregroundStyle(on ? Color.white : Color.ink)
+                                .foregroundStyle(on ? Color.white : Color.ink.opacity(locked ? 0.3 : 1))
                                 .padding(.horizontal, 16)
                                 .frame(height: 40)
                                 .background(on ? Color.ink : Color.white, in: Capsule())
-                                .overlay(Capsule().stroke(Color.ink.opacity(on ? 0 : 0.18), lineWidth: 1))
-                                .opacity(locked ? 0.35 : 1)
+                                .overlay(Capsule().stroke(Color.ink.opacity(on ? 0 : locked ? 0.1 : 0.18), lineWidth: 1))
                         }
                         .buttonStyle(.plain)
                     }
