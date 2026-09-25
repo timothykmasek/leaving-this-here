@@ -33,7 +33,6 @@ struct SaveCeremonyView: View {
     /// Lists above the fold, the extension's count.
     static let topRows = 3
     static let rowHeight: CGFloat = 64
-    static let hairline = Color(red: 0xec / 255, green: 0xec / 255, blue: 0xec / 255)
     static let dotWell = Color(red: 0xe4 / 255, green: 0xe4 / 255, blue: 0xe4 / 255)
 
     @State private var phase: Phase = .saving
@@ -101,13 +100,9 @@ struct SaveCeremonyView: View {
         var body: some View {
             VStack(spacing: 0) {
                 Headline("Saving to your Bulletin…")
-                Rectangle().fill(SaveCeremonyView.hairline).frame(height: 1)
                 ForEach(0..<4, id: \.self) { _ in
                     Color.clear
                         .frame(height: SaveCeremonyView.rowHeight)
-                        .overlay(alignment: .bottom) {
-                            Rectangle().fill(SaveCeremonyView.hairline).frame(height: 1)
-                        }
                 }
             }
         }
@@ -117,7 +112,6 @@ struct SaveCeremonyView: View {
         let visible = showAll ? state.lists : Array(state.lists.prefix(Self.topRows))
         let folded = state.lists.count - visible.count
         return VStack(spacing: 0) {
-            Rectangle().fill(Self.hairline).frame(height: 1)
             ForEach(visible) { list in
                 listRow(list, on: state.memberOf.contains(list.id))
             }
@@ -145,9 +139,6 @@ struct SaveCeremonyView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Self.hairline).frame(height: 1)
-        }
     }
 
     /// The extension's radio: a grey well, a black dot that scales in.
@@ -179,9 +170,6 @@ struct SaveCeremonyView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Self.hairline).frame(height: 1)
-        }
     }
 
     /// "Create new list" — a label that becomes a field in place; Return
@@ -223,9 +211,6 @@ struct SaveCeremonyView: View {
         }
         .padding(.horizontal, 30)
         .frame(height: Self.rowHeight)
-        .overlay(alignment: .bottom) {
-            Rectangle().fill(Self.hairline).frame(height: 1)
-        }
     }
 
     // MARK: - Flow
@@ -305,5 +290,22 @@ struct SaveCeremonyView: View {
         } catch {
             createHint = "Couldn't create — try again"
         }
+    }
+}
+
+// The sheet's way out: a quiet × top-left, shared by the paste sheet and the
+// share extension. The save has already happened by the time it's visible,
+// so closing never loses anything.
+struct SheetCloseButton: View {
+    let action: () -> Void
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.system(size: 17, weight: .regular))
+                .foregroundStyle(Color.ink.opacity(0.55))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Close")
     }
 }

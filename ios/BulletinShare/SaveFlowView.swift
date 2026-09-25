@@ -1,7 +1,7 @@
 import SwiftUI
 
 // The share extension's sheet: Bulletin paper with the dot grid, wordmark on
-// top, a quiet Done at the line's end, and the shared SaveCeremonyView doing
+// top, a quiet × at its left, and the shared SaveCeremonyView doing
 // the actual work as full-bleed rows. (The system presents custom share UI
 // as a full opaque sheet — no host app behind it — so we own the sheet.)
 struct SaveFlowView: View {
@@ -24,12 +24,10 @@ struct SaveFlowView: View {
                     Wordmark(height: 30)
                         .frame(maxWidth: .infinity)
                     HStack {
+                        SheetCloseButton(action: done)
                         Spacer()
-                        Button("Done", action: done)
-                            .font(.cardo(15))
-                            .foregroundStyle(Color.ink.opacity(0.45))
                     }
-                    .padding(.trailing, 26)
+                    .padding(.leading, 14)
                 }
                 .padding(.top, 26)
 

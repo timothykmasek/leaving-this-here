@@ -79,8 +79,16 @@ struct HomeView: View {
             ZStack {
                 DotGround()
                 VStack(spacing: 0) {
-                    Wordmark(height: 30)
-                        .padding(.top, 26)
+                    ZStack {
+                        Wordmark(height: 30)
+                            .frame(maxWidth: .infinity)
+                        HStack {
+                            SheetCloseButton { pasteURL = nil }
+                            Spacer()
+                        }
+                        .padding(.leading, 14)
+                    }
+                    .padding(.top, 26)
                     SaveCeremonyView(url: target.url) { pasteURL = nil }
                 }
             }
