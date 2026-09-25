@@ -50,12 +50,18 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '20'), 100)
   const offset = parseInt(url.searchParams.get('offset') || '0')
 
-  const { data: bookmarks, error: fetchErr, count } = await supabase
-    .from('bookmarks')
-    .select(`${DISPLAY_BULLET_COLS}, list_bookmarks(lists(name, slug))`, { count: 'exact' })
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1)
+  // The iOS app reads `username` off this call at sign-in to tell an account
+  // with a page from one that still needs setup (null = no page yet), so the
+  // handle rides along with every page of finds.
+  const [{ data: bookmarks, error: fetchErr, count }, { data: prof }] = await Promise.all([
+    supabase
+      .from('bookmarks')
+      .select(`${DISPLAY_BULLET_COLS}, list_bookmarks(lists(name, slug))`, { count: 'exact' })
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1),
+    supabase.from('profiles').select('username').eq('id', user.id).maybeSingle(),
+  ])
 
   if (fetchErr) {
     return json({ error: fetchErr.message }, 400)
@@ -67,6 +73,7 @@ export async function GET(request: NextRequest) {
     ok: true,
     finds,
     total: count || 0,
+    username: prof?.username ?? null,
     limit,
     offset,
   })
