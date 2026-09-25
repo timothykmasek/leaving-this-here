@@ -15,7 +15,8 @@ export async function GET() {
         url: s.url,
         domain: s.domain,
         type: s.type,
-        interests: s.interests,
+        // An array for shipped iOS builds, which decode `interests: [String]`.
+        interests: [s.interest],
         image: seedImageUrl(s),
       })),
     },

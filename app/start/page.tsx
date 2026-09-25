@@ -10,7 +10,7 @@ import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
 import { LINK_ICONS } from '@/components/ProfileIdentity'
 import { coerceUrl, detectPlatform, linkLabel } from '@/lib/profileLinks'
-import { SEED_LIBRARY, seedImageUrl, INTERESTS, INTEREST_LABEL, type Interest, type SeedLink } from '@/lib/seedLibrary'
+import { seedImageUrl, pickPool, isInterest, INTERESTS, INTEREST_LABEL, type Interest } from '@/lib/seedLibrary'
 import { CHROME_STORE_URL as WEB_STORE_URL, IOS_APP_URL } from '@/lib/extension'
 
 // Account-first onboarding (no AI). The account is created at step 1, so every
@@ -73,7 +73,7 @@ export default function StartPage() {
     if (saved.displayName) setDisplayName(saved.displayName)
     if (saved.bio) setBio(saved.bio.slice(0, BIO_MAX))
     if (Array.isArray(saved.links)) setLinks(saved.links.filter((u): u is string => typeof u === 'string'))
-    if (Array.isArray(saved.interests)) setInterests(saved.interests.slice(0, 3))
+    if (Array.isArray(saved.interests)) setInterests(saved.interests.filter(isInterest).slice(0, 3))
     // picks are seed URLs now (were array indices pre-Tier-B); drop any stale
     // non-string entries so we never POST a number to the setup route.
     if (Array.isArray(saved.picks))
@@ -716,26 +716,6 @@ function Interests({
 }
 
 /* ── 05 · pick 3 ──────────────────────────────────────────────────────── */
-
-// The seed links for the chosen interests, taken in turns (one from each
-// interest, then the next from each…) so every pick shows up near the top.
-// Filtering in library order let whichever interest the library lists first
-// fill the first rows. A link tagged with two chosen interests appears once.
-function pickPool(interests: Interest[]): SeedLink[] {
-  if (!interests.length) return SEED_LIBRARY
-  const queues = interests.map((i) => SEED_LIBRARY.filter((L) => L.interests.includes(i)))
-  const seen = new Set<string>()
-  const out: SeedLink[] = []
-  for (let n = 0; queues.some((q) => n < q.length); n++)
-    for (const q of queues) {
-      const L = q[n]
-      if (L && !seen.has(L.url)) {
-        seen.add(L.url)
-        out.push(L)
-      }
-    }
-  return out
-}
 
 function Picks({
   interests,
