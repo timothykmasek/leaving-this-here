@@ -44,6 +44,8 @@ struct HomeView: View {
                                 .frame(maxWidth: .infinity)
                         } else if let results {
                             searchResults(results)
+                        } else if bullets.isEmpty && lists.isEmpty {
+                            emptyState
                         } else {
                             if !lists.isEmpty { listStrip }
                             BulletGrid(bullets: bullets)
@@ -152,6 +154,50 @@ struct HomeView: View {
                 .padding(.top, 20)
                 .padding(.bottom, 96)
         }
+    }
+
+    // A brand-new account has nothing to show. App Review read a blank grid
+    // as "no content loaded" (2.1a), so a first visit says what the page is
+    // for and how the first bullet gets here.
+    private var emptyState: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Your Bulletin is empty, for now.")
+                .font(.mier(24))
+                .foregroundStyle(Color.ink)
+            Text("Save the links worth keeping, then gather them into lists you can share.")
+                .font(.cardo(16))
+                .foregroundStyle(Color.ink.opacity(0.6))
+                .padding(.top, 8)
+
+            emptyStep("1", "Tap + below and paste a link.")
+            emptyStep("2", "Or, in Safari or any app, tap Share and choose Bulletin.")
+            emptyStep("3", "Pick a list for it, or start a new one. Your lists show up here.")
+
+            Button {
+                Task { await load() }
+            } label: {
+                Text("Refresh")
+                    .font(.mier(14))
+                    .foregroundStyle(Color.ink)
+                    .underline(true, color: Color.ink.opacity(0.3))
+            }
+            .padding(.top, 24)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.top, 48)
+        .padding(.horizontal, 8)
+    }
+
+    private func emptyStep(_ number: String, _ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            Text(number)
+                .font(.mierDemi(14))
+                .foregroundStyle(Color.ink.opacity(0.4))
+            Text(text)
+                .font(.mier(15))
+                .foregroundStyle(Color.ink.opacity(0.8))
+        }
+        .padding(.top, 18)
     }
 
     private var listStrip: some View {
