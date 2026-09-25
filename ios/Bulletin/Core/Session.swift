@@ -27,6 +27,10 @@ final class Session: NSObject, ObservableObject {
     static let shared = Session()
 
     @Published private(set) var current: StoredSession?
+    /// True while a fresh sign-in is learning whether the account has a page.
+    /// The tokens land first, so without this RootView flashes Home before
+    /// swapping to setup.
+    @Published private(set) var resolving = false
 
     private let defaults = UserDefaults(suiteName: Config.appGroup)!
     private let storageKey = "bulletin.session.v1"
@@ -154,6 +158,7 @@ final class Session: NSObject, ObservableObject {
     /// Common landing for every auth door: store the tokens, then hydrate
     /// identity (a failure there doesn't invalidate the sign-in).
     func adopt(access: String, refresh: String, expiresIn: Double) async throws {
+        await MainActor.run { resolving = true }
         var session = StoredSession(
             accessToken: access,
             refreshToken: refresh,
@@ -170,7 +175,11 @@ final class Session: NSObject, ObservableObject {
             session.needsSetup = me.username == nil
         }
         if let email = try? await fetchEmail(access: access) { session.email = email }
-        persist(session)
+        let settled = session
+        await MainActor.run {
+            persist(settled)
+            resolving = false
+        }
     }
 
     private func fetchEmail(access: String) async throws -> String? {

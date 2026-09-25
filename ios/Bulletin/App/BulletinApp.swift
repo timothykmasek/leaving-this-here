@@ -16,7 +16,9 @@ struct RootView: View {
     @EnvironmentObject private var session: Session
 
     var body: some View {
-        if !session.isSignedIn {
+        if session.resolving {
+            DotGround()
+        } else if !session.isSignedIn {
             SignInView()
         } else if session.needsSetup {
             ClaimHandleView()
