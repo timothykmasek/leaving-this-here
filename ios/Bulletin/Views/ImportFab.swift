@@ -59,7 +59,7 @@ struct ImportFab: View {
             } else {
                 Button(action: bloom) {
                     PlusGlyph()
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.ink.opacity(0.75))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .contentShape(Rectangle())
                 }
@@ -69,6 +69,10 @@ struct ImportFab: View {
         .frame(maxWidth: open ? .infinity : 56, alignment: .leading)
         .background(frost)
         .clipShape(RoundedRectangle(cornerRadius: 18))
+        // Frost alone vanishes on an empty white page (App Review missed the
+        // button), so the tile carries a hairline and a lift of its own.
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.black.opacity(0.08), lineWidth: 1))
+        .shadow(color: .black.opacity(0.12), radius: 12, y: 4)
         .animation(curve, value: open)
     }
 
