@@ -269,12 +269,19 @@ struct ClaimHandleView: View {
                 label("Links (optional)").padding(.top, 18)
                 VStack(spacing: 8) {
                     ForEach(links, id: \.self) { link in
-                        HStack {
-                            Text(Self.display(link))
+                        HStack(spacing: 12) {
+                            Image("link-\(Self.platform(link))")
+                                .resizable()
+                                .renderingMode(.template)
+                                .scaledToFit()
+                                .frame(width: 15, height: 15)
+                                .foregroundStyle(Color.ink.opacity(0.7))
+                            Text(Self.linkLabel(link))
                                 .font(.mier(15))
                                 .foregroundStyle(Color.ink)
                                 .lineLimit(1)
-                            Spacer()
+                                .truncationMode(.middle)
+                            Spacer(minLength: 0)
                             Button {
                                 links.removeAll { $0 == link }
                             } label: {
@@ -287,19 +294,26 @@ struct ClaimHandleView: View {
                         }
                         .padding(.leading, 16)
                         .padding(.trailing, 6)
-                        .frame(height: 46)
+                        .frame(height: 50)
                         .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
-                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink.opacity(0.1), lineWidth: 1))
+                        .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color(red: 0xE3 / 255, green: 0xE3 / 255, blue: 0xE3 / 255), lineWidth: 1))
                     }
                     if links.count < 12 {
                         field {
-                            TextField("+ Add a link (Instagram, X, your site…)", text: $linkDraft)
-                                .keyboardType(.URL)
-                                .textInputAutocapitalization(.never)
-                                .autocorrectionDisabled()
-                                .submitLabel(.done)
-                                .onSubmit { addDraftLink() }
-                                .onChange(of: linkDraft) { _, _ in linkInvalid = false }
+                            HStack(spacing: 8) {
+                                TextField("+ Add a link (Instagram, X, your site…)", text: $linkDraft)
+                                    .keyboardType(.URL)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .submitLabel(.done)
+                                    .onSubmit { addDraftLink() }
+                                    .onChange(of: linkDraft) { _, _ in linkInvalid = false }
+                                if !linkDraft.trimmingCharacters(in: .whitespaces).isEmpty {
+                                    Button("Add", action: addDraftLink)
+                                        .font(.mierDemi(14))
+                                        .foregroundStyle(Color.ink)
+                                }
+                            }
                         }
                     }
                 }
@@ -344,10 +358,28 @@ struct ClaimHandleView: View {
         return candidate
     }
 
-    static func display(_ link: String) -> String {
-        guard let url = URL(string: link), let host = url.host else { return link }
-        let path = url.path == "/" ? "" : url.path
-        return host.replacingOccurrences(of: "www.", with: "") + path
+    // lib/profileLinks.ts, ported: the platform picks the row's icon (the
+    // web's LINK_ICONS, as template assets), the label drops scheme, www,
+    // and a trailing slash: "instagram.com/timmasek".
+    static func platform(_ link: String) -> String {
+        guard var host = URL(string: link)?.host?.lowercased() else { return "website" }
+        if host.hasPrefix("www.") { host.removeFirst(4) }
+        func on(_ d: String) -> Bool { host == d || host.hasSuffix("." + d) }
+        if host == "x.com" || host == "twitter.com" { return "x" }
+        if on("linkedin.com") { return "linkedin" }
+        if on("instagram.com") { return "instagram" }
+        if on("tiktok.com") { return "tiktok" }
+        if on("substack.com") { return "substack" }
+        if on("youtube.com") || host == "youtu.be" { return "youtube" }
+        return "website"
+    }
+
+    static func linkLabel(_ link: String) -> String {
+        var t = link
+        if let r = t.range(of: #"^https?://"#, options: .regularExpression) { t.removeSubrange(r) }
+        if t.hasPrefix("www.") { t.removeFirst(4) }
+        if t.hasSuffix("/") { t.removeLast() }
+        return t
     }
 
     // MARK: - 3. Interests
