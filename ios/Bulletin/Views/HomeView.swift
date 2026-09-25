@@ -117,15 +117,22 @@ struct HomeView: View {
         }
     }
 
-    // The search pill — Cardo placeholder like the web's "Search my mind"
-    // moment, semantic under the hood (/api/search, bearer door).
+    // The search field, in the web's dress (ProfileClient): 12pt radius, the
+    // #BCBCBC hairline at 70%, 56pt tall, sans type (semibold typed, regular
+    // placeholder at 40%), a 16pt magnifier at 35%. Semantic under the hood
+    // (/api/search, bearer door).
     private var searchPill: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 12) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.ink.opacity(0.35))
-            TextField("Search your Bulletin…", text: $query)
-                .font(.cardo(15))
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(Color.black.opacity(0.35))
+            TextField("", text: $query, prompt:
+                Text("Search your Bulletin")
+                    .font(.mier(16))
+                    .foregroundStyle(Color.black.opacity(0.4))
+            )
+                .font(.mierDemi(16))
+                .foregroundStyle(Color.black)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .submitLabel(.search)
@@ -137,15 +144,22 @@ struct HomeView: View {
                     query = ""
                     results = nil
                 } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(Color.ink.opacity(0.25))
+                    Image(systemName: "xmark")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Color.black.opacity(0.4))
+                        .frame(width: 32, height: 32)
                 }
+                .accessibilityLabel("Clear search")
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .background(Color.white, in: Capsule())
-        .overlay(Capsule().stroke(Color.black.opacity(0.08), lineWidth: 1))
+        .padding(.leading, 20)
+        .padding(.trailing, 12)
+        .frame(height: 56)
+        .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(red: 0xBC / 255, green: 0xBC / 255, blue: 0xBC / 255).opacity(0.7), lineWidth: 1)
+        )
         .padding(.top, 16)
     }
 
