@@ -602,7 +602,7 @@ function About({
         <input
           value={bio}
           onChange={(e) => setBio(e.target.value.slice(0, BIO_MAX))}
-          placeholder="Venture Designer @ Founders Factory"
+          placeholder="Head of Design @ Pentagram"
           className={fieldClass}
         />
         <div className={`mt-1 text-right text-xs ${bio.length >= BIO_MAX ? 'text-ink' : 'text-black/30'}`}>

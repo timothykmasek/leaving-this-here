@@ -1034,7 +1034,7 @@ export default function ProfileClient({
                 type="text"
                 value={editBio}
                 onChange={(e) => setEditBio(e.target.value)}
-                placeholder="Venture Designer @ Founders Factory"
+                placeholder="Head of Design @ Pentagram"
                 maxLength={120}
                 className="w-full rounded-[16px] border border-[#E3E3E3] bg-white px-5 py-3.5 font-sans text-[15px] font-[500] text-ink placeholder:text-black/30 focus:border-black/40 focus:outline-none"
               />

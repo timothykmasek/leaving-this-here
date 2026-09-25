@@ -259,7 +259,7 @@ struct ClaimHandleView: View {
                 }
                 .padding(.top, 18)
                 field {
-                    TextField("What you're into, what you do", text: $bio, axis: .vertical)
+                    TextField("Head of Design @ Pentagram", text: $bio, axis: .vertical)
                         .lineLimit(1...3)
                         .padding(.vertical, 14)
                         .onChange(of: bio) { _, v in if v.count > Self.bioMax { bio = String(v.prefix(Self.bioMax)) } }
