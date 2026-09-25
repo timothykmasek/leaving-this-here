@@ -132,8 +132,48 @@ final class Session: NSObject, ObservableObject {
         try await adopt(access: access, refresh: refresh, expiresIn: expiresIn)
     }
 
-    // MARK: - Password door (the App Review demo account — no visible UI
-    // beyond the long-press path on the sign-in screen)
+    // MARK: - Emailed code (the Chrome extension's email lane, ported)
+
+    /// Ask GoTrue to email a one-time sign-in code. create_user true: signups
+    /// are open, so a new address gets an account and lands on onboarding,
+    /// like Apple and Google do.
+    func requestEmailCode(email: String) async throws {
+        var request = URLRequest(url: Config.supabaseURL.appendingPathComponent("auth/v1/otp"))
+        request.httpMethod = "POST"
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["email": email, "create_user": true])
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            struct E: Decodable { let msg: String?; let error_description: String? }
+            let raw = (try? JSONDecoder().decode(E.self, from: data)).flatMap { $0.error_description ?? $0.msg } ?? ""
+            if raw.range(of: "security purposes|rate", options: [.regularExpression, .caseInsensitive]) != nil {
+                throw SessionError.server("Please wait a moment before asking for another code.")
+            }
+            throw SessionError.server(raw.isEmpty ? "Couldn't send the code. Try again." : raw)
+        }
+    }
+
+    /// Exchange the emailed code for a session.
+    @MainActor
+    func verifyEmailCode(email: String, code: String) async throws {
+        var request = URLRequest(url: Config.supabaseURL.appendingPathComponent("auth/v1/verify"))
+        request.httpMethod = "POST"
+        request.setValue(Config.supabaseAnonKey, forHTTPHeaderField: "apikey")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["type": "email", "email": email, "token": code])
+        let (data, response) = try await URLSession.shared.data(for: request)
+        struct Grant: Decodable { let access_token: String?; let refresh_token: String?; let expires_in: Double? }
+        let grant = try? JSONDecoder().decode(Grant.self, from: data)
+        guard (response as? HTTPURLResponse)?.statusCode == 200,
+              let access = grant?.access_token, let refresh = grant?.refresh_token else {
+            throw SessionError.server("That code didn't match. Check the newest email, or send a new one.")
+        }
+        try await adopt(access: access, refresh: refresh, expiresIn: grant?.expires_in ?? 3600)
+    }
+
+    // MARK: - Password (the App Review demo account, behind "Use a password
+    // instead" on the email screen)
 
     @MainActor
     func signInWithPassword(email: String, password: String) async throws {
