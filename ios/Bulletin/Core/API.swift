@@ -204,17 +204,49 @@ enum API {
     }
 
     /// Give a signed-in account its Bulletin: the same route the web's /start
-    /// wizard ends on, minus the seed picks. Returns the claimed username.
+    /// wizard ends on (bio, links, and three seed picks that become the first
+    /// bullets in a starter list). Returns the claimed username.
     /// A handle taken in the meantime comes back as http(409, …).
-    static func setUp(handle: String, displayName: String) async throws -> String {
+    static func setUp(handle: String, displayName: String, bio: String = "",
+                      links: [String] = [], picks: [String] = []) async throws -> String {
         struct Done: Decodable { let username: String? }
         let data = try await request("api/onboarding/setup", method: "POST",
-                                     body: ["handle": handle, "displayName": displayName, "picks": [String]()])
+                                     body: ["handle": handle, "displayName": displayName,
+                                            "bio": bio, "links": links, "picks": picks])
         guard let username = try JSONDecoder().decode(Done.self, from: data).username else {
             throw APIError.http(500, "Something went wrong setting up your Bulletin.")
         }
         Session.shared.noteUsername(username)
         return username
+    }
+
+    struct Interest: Decodable, Identifiable, Hashable {
+        let key: String
+        let label: String
+        var id: String { key }
+    }
+
+    struct Seed: Decodable, Identifiable, Hashable {
+        let title: String
+        let url: String
+        let domain: String
+        let type: String
+        let interests: [String]
+        let image: String
+        var id: String { url }
+    }
+
+    struct SeedLibrary: Decodable {
+        let interests: [Interest]
+        let seeds: [Seed]
+    }
+
+    /// The /start wizard's interests and pick-3 library, served from
+    /// lib/seedLibrary so the app never carries its own copy. Public.
+    static func seedLibrary() async throws -> SeedLibrary {
+        let url = Config.siteURL.appendingPathComponent("api/onboarding/seeds")
+        let (data, _) = try await URLSession.shared.data(from: url)
+        return try JSONDecoder().decode(SeedLibrary.self, from: data)
     }
 
     /// Delete the signed-in account — the App Store's in-app deletion rule.

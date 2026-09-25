@@ -2,8 +2,8 @@ import SwiftUI
 import AuthenticationServices
 
 // Sign-in — the front door, in the site's voice: dot ground, the wordmark,
-// Apple above Google (the App Store requires Apple's button once Google is
-// offered, with equal prominence). A first sign-in creates the account, and
+// Apple above Google, dressed alike (the App Store requires Apple's
+// button once Google is offered, with equal prominence). A first sign-in creates the account, and
 // RootView sends it on to ClaimHandleView for a handle. A long-press on the
 // wordmark opens the password door — no visible UI, it exists for App
 // Review's demo credentials.
@@ -54,16 +54,17 @@ struct SignInView: View {
                 Button {
                     Task { await run { try await session.signInWithGoogle() } }
                 } label: {
+                    // Dressed as Apple's button (black, same type and size)
+                    // so the two ways in read as equals.
                     HStack(spacing: 8) {
-                        if busy { ProgressView().tint(Color.ink) }
+                        if busy { ProgressView().tint(.white) }
                         Text(busy ? "Signing in…" : "Continue with Google")
-                            .font(.mierDemi(16))
+                            .font(.system(size: 19, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.ink.opacity(0.18), lineWidth: 1))
-                    .foregroundStyle(Color.ink)
+                    .background(Color.black, in: RoundedRectangle(cornerRadius: 10))
+                    .foregroundStyle(.white)
                 }
                 .disabled(busy)
                 .padding(.horizontal, 44)

@@ -16,7 +16,7 @@ settings:
     TARGETED_DEVICE_FAMILY: "1"          # iPhone-first, like the product
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: 99L24P45G7         # Tim's Apple Developer team
-    CURRENT_PROJECT_VERSION: "5"
+    CURRENT_PROJECT_VERSION: "6"
     MARKETING_VERSION: "1.0"
 
 targets:
