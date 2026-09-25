@@ -255,7 +255,7 @@ export function ListDetailClient({
         name={list.name}
         count={bullets.length}
         backHref={backHref}
-        backLabel="&larr; All lists"
+        backLabel="&larr; back"
         onRename={handleRename}
         onDelete={handleDeleteList}
       />

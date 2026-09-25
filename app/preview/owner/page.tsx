@@ -241,7 +241,7 @@ export default function OwnerPreview() {
           name={mastheadName}
           count={BULLETS.length}
           backHref="/preview/owner"
-          backLabel="&larr; All lists"
+          backLabel="&larr; back"
           // Renames for real (in memory) the way the list page does:
           // optimistic, the write landing after. Walk click → type → Enter.
           onRename={async (n) => {
@@ -260,7 +260,7 @@ export default function OwnerPreview() {
           name="Rooms I think about when I cannot sleep at night"
           count={BULLETS.length}
           backHref="/preview/owner"
-          backLabel="&larr; All lists"
+          backLabel="&larr; back"
           onRename={() => {}}
           onDelete={() => {}}
         />
@@ -274,7 +274,7 @@ export default function OwnerPreview() {
           name="Reading later"
           count={0}
           backHref="/preview/owner"
-          backLabel="&larr; All lists"
+          backLabel="&larr; back"
           onRename={() => {}}
           onDelete={() => {}}
         />
