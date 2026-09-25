@@ -22,7 +22,6 @@ import { LoadMoreSentinel, RENDER_PAGE } from '@/components/LoadMoreSentinel'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useRevealFooter } from '@/lib/useRevealFooter'
-import { useMinSm } from '@/lib/useMinSm'
 import { uniqueSlug } from '@/lib/slug'
 import { forgetSuggestion } from '@/components/SuggestionShelf'
 import { SelectionBar, type BarMessage } from '@/components/SelectionBar'
@@ -151,7 +150,6 @@ export default function ProfileClient({
   // The search field sits above the sections (full width on phones) and, from
   // lg up, rides the top of the viewport once scrolled past — mymind's pill.
   // `searchStuck` gives it the floating shadow only while it's riding.
-  const minSm = useMinSm()
   const searchSentinelRef = useRef<HTMLDivElement | null>(null)
   const [searchStuck, setSearchStuck] = useState(false)
   useEffect(() => {
@@ -1173,7 +1171,7 @@ export default function ProfileClient({
                 <input
                   type="search"
                   value={query}
-                  placeholder={minSm ? 'Search your Bulletin' : 'Search'}
+                  placeholder="Search your Bulletin"
                   autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"

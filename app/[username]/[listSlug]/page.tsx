@@ -192,7 +192,7 @@ export default async function ListPage({
           count={bullets.length}
           ownerName={owner}
           backHref={backHref}
-          backLabel={`\u2190 ${owner.split(' ')[0]}\u2019s lists`}
+          backLabel="&larr; back"
           coverUrl={(list as any).cover_image_url}
           stripThumbs={stripThumbs}
         />
