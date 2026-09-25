@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { uniqueSlug } from '@/lib/slug'
 import { createBookmarkFromUrl } from '@/lib/createBookmark'
-import { SEED_LIBRARY, CATEGORY, seedImageUrl, type SeedLink } from '@/lib/seedLibrary'
+import { SEED_LIBRARY, INTERESTS, seedImageUrl, type Interest, type SeedLink } from '@/lib/seedLibrary'
 import { INVITE_ONLY } from '@/lib/beta'
 import { coerceUrl } from '@/lib/profileLinks'
 import { RESERVED_HANDLES } from '@/lib/reservedHandles'
@@ -15,8 +15,8 @@ import { createClient } from '@supabase/supabase-js'
 // a real page — no AI:
 //
 //   1. re-check + claim the handle  → profiles row (display name, bio)
-//   2. starter list, named for WHY  → lists row (templated from picks, frozen slug)
-//   3. the 3 picked seed links      → real bookmarks via the shared pipeline
+//   2. one starter list, for the interest most picks came from, named for WHY
+//   3. the 3 picked seed links      → real bookmarks; that interest's picks filed in the list
 //
 // Idempotent: if the user already has a profile we return it untouched, so a
 // double-submit (or a returning user) can't duplicate anything.
@@ -129,15 +129,22 @@ export async function POST(request: NextRequest) {
 
   // Everything below is best-effort: the page exists; enrich what we can.
 
-  // The starter list is named for the LAST pick's category, and all three
-  // picks are filed into it. Filing is what puts a bullet on the page
-  // (migration 028: unfiled = unpublished), so loose starter cards would leave
-  // a brand-new profile looking empty to everyone but its owner.
-  const listPick = picks.length ? picks[picks.length - 1] : null
+  // One starter list, for the interest most of the picks came from (a tie goes
+  // to the earliest pick), named for that interest: 2 food + 1 travel → "Worth
+  // tasting" holding the two food picks. Picks from other interests stay
+  // standalone bullets rather than being filed under a name that doesn't fit
+  // them. (Unfiled = unpublished, migration 028, so those are owner-only until
+  // the user files them.)
+  const tally = new Map<Interest, number>()
+  for (const p of picks) tally.set(p.interest, (tally.get(p.interest) ?? 0) + 1)
+  const listInterest = picks.reduce<Interest | null>(
+    (best, p) => (best && tally.get(best)! >= tally.get(p.interest)! ? best : p.interest),
+    null,
+  )
 
   let listId: string | null = null
-  if (listPick) {
-    const listName = CATEGORY[listPick.type].listName
+  if (listInterest) {
+    const listName = INTERESTS.find((i) => i.key === listInterest)!.listName
     const { data: list } = await supabase
       .from('lists')
       .insert({ user_id: user.id, name: listName, slug: uniqueSlug(listName, []) })
@@ -146,7 +153,7 @@ export async function POST(request: NextRequest) {
     listId = list?.id || null
   }
 
-  // ── Seed bookmarks: every pick attaches to the starter list ─────────────
+  // ── Seed bookmarks: the list interest's picks attach to the list ────────
   // Insert all picks concurrently and off the metadata critical path. Each row
   // lands immediately from the curated seed (hand-written title + baked
   // screenshot) via deferEnrichment, and the live fetch + embedding run in the
@@ -158,7 +165,7 @@ export async function POST(request: NextRequest) {
     picks.map(async (pick) => {
       await createBookmarkFromUrl(supabase, user.id, pick.url, {
         origin,
-        listId,
+        listId: pick.interest === listInterest ? listId : null,
         source: 'onboarding',
         // Curated seed data beats whatever a live fetch returns for these
         // domains — the library title is hand-written, and the baked screenshot

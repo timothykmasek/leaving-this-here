@@ -6,10 +6,10 @@
 // bookmarks (metadata + embed + screenshot) via /api/onboarding/setup.
 //
 // Two orthogonal axes per link:
-//   • `type`     — the card FORMAT (tool/essay/product/…). Drives the picker
-//                  thumbnail colour and the templated starter-list name.
+//   • `type`     — the card FORMAT (tool/essay/product/…). Descriptive only.
 //   • `interest` — the one TOPIC it belongs to. Drives the interests-first
-//                  filter. Exactly one per link, so no card shows up under two.
+//                  filter and the starter list a pick is filed into. Exactly
+//                  one per link, so no card shows up under two.
 //
 // Review and prune the library at /preview/seeds. Preview images are baked into Supabase Storage keyed
 // by domain (scripts/bake-seed-images.ts); un-baked/failed domains fall back to
@@ -36,33 +36,21 @@ export interface SeedLink {
   interest: Interest
 }
 
-// Interest taxonomy — lifestyle-forward, matching where the harvest is deep.
-// Order = display order in the onboarding chip grid.
-export const INTERESTS: { key: Interest; label: string }[] = [
-  { key: 'style', label: 'Style & shopping' },
-  { key: 'food', label: 'Food & drink' },
-  { key: 'travel', label: 'Travel & places' },
-  { key: 'culture', label: 'Culture & ideas' },
-  { key: 'design', label: 'Design' },
-  { key: 'tech', label: 'Tech & startups' },
+// Interest taxonomy. Order = display order in the onboarding chip grid.
+// `listName` names the starter list a new user's picks from this interest are
+// filed into, written for WHY you'd keep them, not the topic (lists overhaul).
+export const INTERESTS: { key: Interest; label: string; listName: string }[] = [
+  { key: 'style', label: 'Style & shopping', listName: 'Things worth owning' },
+  { key: 'food', label: 'Food & drink', listName: 'Worth tasting' },
+  { key: 'travel', label: 'Travel & places', listName: 'Places to go' },
+  { key: 'culture', label: 'Culture & ideas', listName: 'Rabbit holes' },
+  { key: 'design', label: 'Design', listName: 'Beautifully made' },
+  { key: 'tech', label: 'Tech & startups', listName: 'Ones to watch' },
 ]
 
 export const INTEREST_LABEL: Record<Interest, string> = Object.fromEntries(
   INTERESTS.map((i) => [i.key, i.label]),
 ) as Record<Interest, string>
-
-// Per-format styling for the picker thumbnail + the templated starter-list
-// name (lists are about WHY you saved, not the topic — see the lists overhaul).
-export const CATEGORY: Record<SeedType, { bg: string; fg: string; listName: string }> = {
-  tool: { bg: '#e7eaf2', fg: '#26314f', listName: 'Tools I keep open' },
-  essay: { bg: '#efe9df', fg: '#2a2419', listName: 'Worth reading twice' },
-  article: { bg: '#e4efe6', fg: '#244a2e', listName: 'Long reads' },
-  product: { bg: '#f1e3d8', fg: '#5a2f1e', listName: 'Things worth buying' },
-  brand: { bg: '#dfe7df', fg: '#22402a', listName: 'Brands done right' },
-  place: { bg: '#e6e4d8', fg: '#3a3a26', listName: 'Places to go' },
-  video: { bg: '#1a1a1a', fg: '#f4d35e', listName: 'Watch later' },
-  book: { bg: '#e9e2f0', fg: '#3a2a55', listName: 'On my shelf' },
-}
 
 export const SEED_LIBRARY: SeedLink[] = [
 
