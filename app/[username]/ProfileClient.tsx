@@ -1262,8 +1262,11 @@ export default function ProfileClient({
             {/* Equal columns that fill the width at every breakpoint — a fixed-
                 width auto-fill grid left-packed the cards and left a big empty
                 gap on the right at mid-wide viewports. One gap value both
-                ways, so rows and columns read as the same grid. */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6 lg:grid-cols-4">
+                ways, so rows and columns read as the same grid. That value is
+                Masonry's (16 / 40, = the page margin), so each list card sits
+                exactly over a bullet column below; at gap-6 every inner edge
+                drifted ~12px off the bullets. */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-[40px] lg:grid-cols-4">
                 {sortedLists.map((l) => (
                   <CollectionCard
                     key={l.id}
