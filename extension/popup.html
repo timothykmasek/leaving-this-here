@@ -12,25 +12,27 @@
         <p class="muted center" style="padding: 18px">loading…</p>
       </section>
 
-      <!-- Signed out. The popup's only job is auth: while signed in the popup
-           is cleared and the icon click saves directly, with the on-page card
-           (content/toast.js) as the whole save experience. -->
+      <!-- Signed out -->
       <section id="view-signin" class="hidden">
         <header class="phead">
           <img class="logo" src="icons/bulletin-logo.png" alt="Bulletin" />
         </header>
         <div class="pbody">
-          <p class="muted">Save anything you find. One click, filed to your page.</p>
+          <p class="muted">Save anything you find. Filed to your page.</p>
 
           <!-- Bulletin is passwordless. Google is primary; the second lane is
                the web's magic-link email, extension-shaped: a link can't hand
                a session to a popup, so the user types the one-time code that
                rides in the same email (see auth.js requestEmailCode). -->
           <button id="btn-signin" class="cta" type="button">Continue with Google</button>
+          <button id="btn-apple" class="cta ghost apple" type="button">
+            <svg viewBox="0 0 814 1000" aria-hidden="true"><path fill="currentColor" d="M788 341c-6 4-107 61-107 187 0 146 128 198 132 199-1 3-20 70-67 139-42 60-86 120-152 120s-83-38-159-38c-74 0-101 40-161 40s-102-56-150-124C68 785 22 660 22 541c0-191 124-292 246-292 65 0 119 43 160 43 39 0 100-45 174-45 28 0 129 2 186 94zM559 162c30-36 52-86 52-136 0-7-1-14-2-20-49 2-108 33-143 74-28 32-54 82-54 133 0 8 1 15 2 18 3 1 9 2 14 2 44 0 99-30 131-71z"/></svg>
+            Continue with Apple
+          </button>
 
-          <div class="divider"><span>or</span></div>
+          <button id="btn-email-lane" class="link center email-lane" type="button">Email me a code instead</button>
 
-          <form id="form-email" autocomplete="on">
+          <form id="form-email" class="hidden" autocomplete="on">
             <input id="email" class="cfield" type="email" name="email"
               placeholder="Email" autocomplete="username" required />
             <button id="btn-email-code" class="cta ghost" type="submit">Email me a code</button>
@@ -48,16 +50,49 @@
         </div>
       </section>
 
-      <!-- Signed in (rarely seen — the icon click saves directly) -->
-      <section id="view-ready" class="hidden">
-        <div class="pbody">
-          <div class="topbar">
-            <img class="logo-sm" src="icons/bulletin-logo.png" alt="Bulletin" />
-            <button id="btn-signout" class="link">Sign out</button>
+      <!-- Signed in: the save. One fixed-size stage (Chrome jumps, never
+           animates, a popup window that changes height), and one plate that
+           morphs: the save button → the list picker's header tile. Done
+           closes the popup; there's no final screen. Phase lives on #stage
+           as data-phase: confirm | saving | lists | error | blocked -->
+      <section id="view-save" class="hidden">
+        <div id="stage" class="stage" data-phase="confirm">
+          <div class="hair" aria-hidden="true"><div class="hair-fill" id="hair-fill"></div></div>
+          <div class="band" aria-hidden="true"></div>
+
+
+          <button class="plate" id="plate" type="button">
+            <canvas class="dots" id="dots" aria-hidden="true"></canvas>
+            <img class="shot" id="shot" alt="" />
+            <span class="pcenter">
+              <img class="pmark" src="icons/mark.png" alt="" />
+              <span class="plabel" id="plabel">Save this page</span>
+              <span class="pmsg" id="pmsg"></span>
+            </span>
+            <span class="ring" aria-hidden="true"></span>
+          </button>
+
+          <div class="htext">
+            <p class="htitle" id="htitle">Saved to your Bulletin</p>
+            <p class="hsub" id="hsub">Add it to a list…</p>
           </div>
-          <p class="muted" style="margin-bottom: 0">
-            You’re all set. Click the Bulletin icon on any page to save it instantly.
-          </p>
+
+          <div class="lists" id="lists">
+            <div id="rows"></div>
+            <div class="row create" id="create">
+              <span class="clabel">Create new list</span>
+              <input class="lfield" id="lfield" autocomplete="off" spellcheck="false" maxlength="80"
+                placeholder="List name" aria-label="New list name" />
+              <button class="chint" id="chint" type="button">Create ↵</button>
+            </div>
+          </div>
+
+          <div class="foot">
+            <a class="cta ghost profile" id="profile" href="#">
+              View your Bulletin
+            </a>
+            <button class="cta done" id="done" type="button">Skip</button>
+          </div>
         </div>
       </section>
     </div>

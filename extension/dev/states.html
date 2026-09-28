@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Save card states</title>
+  <!-- Dev-only: every state of the save card side by side, each a live
+       popup.html on mock data, driven into its state and held there. Serve
+       extension/ over HTTP and open /dev/states.html. Not shipped. -->
+  <style>
+    @font-face { font-family: 'Mier A'; src: url('../fonts/MierA-Book.woff2') format('woff2'); font-weight: 400; }
+    @font-face { font-family: 'Mier A'; src: url('../fonts/MierA-Regular.woff2') format('woff2'); font-weight: 500; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 32px 24px 64px;
+      font-family: 'Mier A', system-ui, sans-serif; color: #000;
+      background: #fff;
+      background-image: radial-gradient(circle, rgba(0,0,0,0.12) 1px, transparent 1.2px);
+      background-size: 24px 24px;
+    }
+    h1 { margin: 0 0 4px; font-weight: 500; font-size: 18px; line-height: 24px; }
+    .sub { margin: 0 0 28px; font-size: 12px; line-height: 16px; letter-spacing: 0.05em; color: rgba(0,0,0,0.5); }
+    .grid { display: flex; flex-wrap: wrap; gap: 40px 32px; align-items: flex-start; }
+    figure { margin: 0; width: 360px; }
+    figcaption { margin-bottom: 10px; font-size: 12px; line-height: 16px; letter-spacing: 0.05em; }
+    figcaption b { font-weight: 500; }
+    figcaption span { color: rgba(0,0,0,0.5); }
+    iframe { display: block; width: 360px; height: 248px; border: 0; background: #fff; }
+    /* The two frames, as they really are (see preview.html). */
+    .card iframe {
+      border-radius: 16px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 16px 44px -12px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .native iframe { box-shadow: 0 0 0 1px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.16); }
+  </style>
+</head>
+<body>
+  <h1>Save card states</h1>
+  <p class="sub">Each one is the real card on mock data, held in its state. Reload to replay.</p>
+  <div class="grid" id="grid"></div>
+
+  <script>
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    const until = async (fn, ms = 8000) => {
+      const t0 = performance.now()
+      while (!fn()) {
+        if (performance.now() - t0 > ms) return false
+        await sleep(40)
+      }
+      return true
+    }
+    const inLists = (d) => d.getElementById('stage')?.dataset.phase === 'lists'
+    const save = async (d, wait = true) => {
+      await until(() => d.getElementById('stage')?.dataset.phase === 'confirm')
+      d.getElementById('plate').click()
+      if (wait) await until(() => inLists(d))
+    }
+    const tick = (d, i) => d.querySelectorAll('#rows .row')[i]?.click()
+    const type = async (d, text) => {
+      d.getElementById('create').click()
+      const f = d.getElementById('lfield')
+      f.value = text
+      f.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    const enter = (d) =>
+      d.getElementById('lfield').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+
+    // [title, note, scenario, frame, extra params, steps]
+    const STATES = [
+      ['Open', 'Nothing saved until the plate is clicked', 'fresh', 'card', '', null],
+      ['Saving', 'Dots dissolve into the page; held here (save never answers)', 'hang', 'card', '', (d) => save(d, false)],
+      ['Saved, pick lists', 'Timer on the top hairline (held here)', 'fresh', 'card', '', (d) => save(d)],
+      ['Filed to a list', '', 'fresh', 'card', '', async (d) => { await save(d); tick(d, 0); tick(d, 3) }],
+      ['Creating a list', '"Create ↵" once there’s a name', 'fresh', 'card', '', async (d) => { await save(d); await type(d, 'Studio ideas') }],
+      ['List created', '"Saved!" then it lands at the top, filed', 'fresh', 'card', '', async (d) => { await save(d); await type(d, 'Studio ideas'); enter(d) }],
+      ['Already saved', 'Re-save: its lists come ticked', 'resaved', 'card', '', (d) => save(d)],
+      ['No lists yet', 'A new account', 'nolists', 'card', '', (d) => save(d)],
+      ['No image', 'Nothing to show: the tile keeps the dots', 'noimage', 'card', '', (d) => save(d)],
+      ['Couldn’t save', 'Click the plate to retry', 'error', 'card', '', (d) => save(d, false)],
+      ['No Bulletin yet', 'Signed up, no handle: click goes to /start', 'onboarding', 'card', '', (d) => save(d, false)],
+      ['Chrome page', 'Toolbar popup (no card on chrome://)', 'blocked', 'native', '', null],
+      ['Signed out', 'Toolbar popup', 'signedout', 'native', '', null],
+    ]
+
+    const grid = document.getElementById('grid')
+    for (const [title, note, s, kind, extra, steps] of STATES) {
+      const fig = document.createElement('figure')
+      fig.className = kind
+      fig.innerHTML = `<figcaption><b>${title}</b>${note ? `<br><span>${note}</span>` : ''}</figcaption>`
+      const frame = document.createElement('iframe')
+      const card = kind === 'card' ? '&card=1&tab=1&k=dev' : ''
+      frame.src = `../popup.html?s=${s}&hold=86400000&beat=1500${card}${extra}&t=${Date.now()}`
+      fig.append(frame)
+      grid.append(fig)
+      frame.addEventListener('load', async () => {
+        const d = frame.contentDocument
+        // Nothing may close these: they're held for review.
+        frame.contentWindow.close = () => {}
+        if (steps) {
+          await sleep(300)
+          await steps(d)
+        }
+      })
+    }
+    // Heights, from both the card's and the mock's messages.
+    addEventListener('message', (e) => {
+      const frame = [...document.querySelectorAll('iframe')].find((f) => f.contentWindow === e.source)
+      if (!frame || !e.data) return
+      if (e.data.type === 'size' && e.data.h > 0) frame.style.height = `${e.data.h}px`
+    })
+  </script>
+</body>
+</html>

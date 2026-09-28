@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Popup preview</title>
+  <!-- Dev-only: the real popup.html in an iframe, on mocked chrome APIs
+       (dev/mock-chrome.js). Serve extension/ over HTTP and open
+       /dev/preview.html. Not shipped. -->
+  <style>
+    @font-face { font-family: 'Mier A'; src: url('../fonts/MierA-Book.woff2') format('woff2'); font-weight: 400; }
+    @font-face { font-family: 'Mier A'; src: url('../fonts/MierA-Regular.woff2') format('woff2'); font-weight: 500; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      font-family: 'Mier A', system-ui, sans-serif; color: #000;
+      background: #fff;
+      background-image: radial-gradient(circle, rgba(0,0,0,0.12) 1px, transparent 1.2px);
+      background-size: 24px 24px;
+    }
+    .chrome {
+      height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 14px;
+      background: #f1f1f1; border-bottom: 1px solid #e2e2e2;
+    }
+    .omni {
+      flex: 1; height: 30px; border-radius: 999px; background: #fff; border: 1px solid #e2e2e2;
+      display: flex; align-items: center; padding: 0 14px;
+      font-size: 13px; letter-spacing: 0.02em; color: rgba(0,0,0,0.55);
+    }
+    .icon {
+      width: 30px; height: 30px; border-radius: 8px; border: none; cursor: pointer;
+      background: transparent; display: grid; place-items: center;
+    }
+    .icon:hover, .icon.on { background: #e2e2e2; }
+    .icon img { width: 18px; height: 18px; }
+    /* Two ways the extension shows up, drawn as they really are:
+       .card   — the card floated onto the page (background.js mountCard):
+                 same size, corners, shadow and height animation.
+       .native — the toolbar popup (Chrome pages, signed out): Chrome's own
+                 square frame. Never draw either softer than the real thing. */
+    .popup { position: absolute; right: 14px; width: auto; }
+    .popup.card { top: 54px; }
+    .popup.card iframe {
+      border-radius: 16px; background: #fff;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 16px 44px -12px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.08);
+      transition: height 520ms cubic-bezier(0.22,1,0.36,1);
+    }
+    .popup.native {
+      top: 44px; overflow: hidden; background: #fff;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.12), 0 8px 24px rgba(0,0,0,0.16);
+    }
+    .popup iframe { display: block; width: 332px; height: 260px; border: 0; }
+    .popup.gone { display: none; }
+    .panel {
+      position: absolute; top: 72px; left: 32px; width: 360px;
+      font-size: 12px; line-height: 16px; letter-spacing: 0.05em;
+    }
+    @media (max-width: 760px) { .panel { top: 668px; left: 16px; right: 16px; width: auto; } }
+    h1 { margin: 0 0 4px; font-weight: 500; font-size: 18px; line-height: 24px; letter-spacing: 0; }
+    .muted { color: rgba(0,0,0,0.5); margin: 0 0 20px; }
+    .group { margin-bottom: 20px; }
+    .group > span { display: block; margin-bottom: 8px; color: rgba(0,0,0,0.5); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chips button {
+      height: 30px; padding: 0 12px; border-radius: 8px; cursor: pointer;
+      border: 1px solid #e0e0e0; background: #fff;
+      font: inherit; color: #000;
+    }
+    .chips button:hover { border-color: #b9b9b9; }
+    .chips button.on { background: #111827; border-color: #111827; color: #fff; }
+    .log { min-height: 80px; color: rgba(0,0,0,0.7); }
+    .log div { padding: 3px 0; border-bottom: 1px solid #ececec; }
+    .closed { color: rgba(0,0,0,0.5); }
+  </style>
+</head>
+<body>
+  <div class="chrome">
+    <div class="omni">craftjournal.com/issues/12/the-quiet-workshop</div>
+    <button class="icon on" id="icon" title="Bulletin"><img src="../icons/icon48.png" alt="" /></button>
+  </div>
+
+  <div class="panel">
+    <h1>Save popup preview</h1>
+    <p class="muted">The real popup.html on mock data. Click the Bulletin icon to reopen.</p>
+
+    <div class="group">
+      <span>Scenario</span>
+      <div class="chips" id="scenarios"></div>
+    </div>
+    <div class="group">
+      <span>Jump to (held there)</span>
+      <div class="chips" id="jumps"></div>
+    </div>
+    <div class="group">
+      <span>Saving beat</span>
+      <div class="chips" id="beats"></div>
+    </div>
+    <div class="group">
+      <span>Lists</span>
+      <div class="chips" id="listmodes"></div>
+      <div class="chips" id="counts" style="margin-top:6px"></div>
+    </div>
+    <div class="group">
+      <span>What would happen</span>
+      <div class="log" id="log"><div class="closed">Nothing yet.</div></div>
+    </div>
+  </div>
+
+  <div class="popup" id="popup"><iframe id="frame" title="Popup"></iframe></div>
+
+  <script>
+    const SCENARIOS = [
+      ['fresh', 'New save'], ['og', 'Scrolled (og image)'], ['ogwins', 'Card leads with og'], ['noimage', 'No image'],
+      ['resaved', 'Already saved'], ['slow', 'Slow save'], ['nolists', 'No lists yet'],
+      ['error', 'Error'], ['onboarding', 'No Bulletin yet'], ['blocked', 'Chrome page'],
+      ['signedout', 'Signed out'],
+    ]
+    const BEATS = [1800, 2200, 2500, 3000, 4200]
+    const q = new URLSearchParams(location.search)
+    let s = q.get('s') || 'fresh'
+    let beat = Number(q.get('beat')) || 2200
+    let lm = q.get('lists') || 'expand'
+    let n = Number(q.get('n')) || 7
+
+    const frame = document.getElementById('frame')
+    const popup = document.getElementById('popup')
+    const log = document.getElementById('log')
+
+    function chips(el, items, current, pick) {
+      el.textContent = ''
+      for (const [val, label] of items) {
+        const b = document.createElement('button')
+        b.textContent = label
+        b.className = String(val) === String(current) ? 'on' : ''
+        b.onclick = () => pick(val)
+        el.append(b)
+      }
+    }
+    function paint() {
+      chips(document.getElementById('scenarios'), SCENARIOS, s, (v) => { s = v; open() })
+      chips(document.getElementById('beats'), BEATS.map((b) => [b, `${b / 1000}s`]), beat, (v) => { beat = v; open() })
+      chips(document.getElementById('listmodes'), [['expand', 'Expand'], ['scroll', 'Scroll']], lm, (v) => { lm = v; open() })
+      chips(document.getElementById('counts'), [3, 7, 10, 14].map((c) => [c, `${c} lists`]), n, (v) => { n = v; open() })
+      history.replaceState(null, '', `?s=${s}&beat=${beat}&lists=${lm}&n=${n}`)
+    }
+    // Held states: drive the card into them and stop the clock there.
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+    const until = async (fn, ms = 8000) => {
+      const t0 = performance.now()
+      while (!fn()) { if (performance.now() - t0 > ms) return; await sleep(40) }
+    }
+    const doc = () => frame.contentDocument
+    const phase = () => doc()?.getElementById('stage')?.dataset.phase
+    const save = async (wait = true) => {
+      await until(() => phase() === 'confirm')
+      doc().getElementById('plate').click()
+      if (wait) await until(() => phase() === 'lists')
+    }
+    const typeName = () => {
+      doc().getElementById('create').click()
+      const f = doc().getElementById('lfield')
+      f.value = 'Studio ideas'
+      f.dispatchEvent(new Event('input', { bubbles: true }))
+    }
+    const JUMPS = [
+      ['saving', 'Saving', 'hang', () => save(false)],
+      ['lists', 'Pick lists', 'fresh', () => save()],
+      ['filed', 'Filed', 'fresh', async () => { await save(); const r = doc().querySelectorAll('#rows .row'); r[0]?.click(); r[3]?.click() }],
+      ['creating', 'Creating a list', 'fresh', async () => { await save(); typeName() }],
+      ['created', 'List created', 'fresh', async () => {
+        await save(); typeName()
+        doc().getElementById('lfield').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+      }],
+    ]
+    let jump = null
+    function paintJumps() {
+      chips(document.getElementById('jumps'), JUMPS.map(([k, label]) => [k, label]), jump, (k) => {
+        const j = JUMPS.find((x) => x[0] === k)
+        jump = k
+        s = j[2]
+        open(j[3])
+      })
+    }
+
+    function open(steps) {
+      if (typeof steps !== 'function') { steps = null; jump = null }
+      paint()
+      log.innerHTML = '<div class="closed">Nothing yet.</div>'
+      popup.classList.remove('gone')
+      document.getElementById('icon').classList.add('on')
+      // Chrome pages and signed-out get the toolbar popup; everything else the card.
+      const card = s !== 'blocked' && s !== 'signedout'
+      popup.classList.toggle('card', card)
+      popup.classList.toggle('native', !card)
+      frame.src = `../popup.html?s=${s}&beat=${beat}&lists=${lm}&n=${n}${card ? '&card=1&tab=1&k=dev' : ''}${steps ? '&hold=86400000' : ''}&t=${Date.now()}`
+      paintJumps()
+      if (steps) frame.onload = async () => { frame.contentWindow.close = () => {}; await sleep(300); await steps() }
+      else frame.onload = null
+    }
+    function note(text, cls) {
+      if (log.querySelector('.closed') && !cls) log.textContent = ''
+      const d = document.createElement('div')
+      d.textContent = text
+      if (cls) d.className = cls
+      log.append(d)
+    }
+    window.addEventListener('message', (e) => {
+      const m = e.data
+      // The card's own messages, as the page script would get them.
+      if (m?.source === 'bulletin-card') {
+        if (m.type === 'size' && m.h > 0) frame.style.height = `${m.h}px`
+        if (m.type === 'close') {
+          popup.classList.add('gone')
+          document.getElementById('icon').classList.remove('on')
+          note('Card closed.', 'closed')
+        }
+        return
+      }
+      if (m?.source !== 'bulletin-popup') return
+      if (m.type === 'size') {
+        frame.style.height = `${m.h}px`
+        frame.style.width = `${m.w}px`
+      }
+      if (m.type === 'log') note(m.text)
+      if (m.type === 'closed') {
+        popup.classList.add('gone')
+        document.getElementById('icon').classList.remove('on')
+        note('Popup closed.', 'closed')
+      }
+    })
+    document.getElementById('icon').onclick = () => open()
+    open()
+  </script>
+</body>
+</html>

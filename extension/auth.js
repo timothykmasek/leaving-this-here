@@ -26,15 +26,18 @@ async function setSession(session) {
 }
 
 export async function signOut() {
-  await chrome.storage.local.remove(STORAGE_KEY)
+  // ig_username: the popup's remembered handle (see popup.js USER_KEY).
+  await chrome.storage.local.remove([STORAGE_KEY, 'ig_username'])
 }
 
-// Kick off the Google OAuth flow and persist the resulting tokens.
-export async function signIn() {
+// Kick off an OAuth flow (Google, or Apple — both Supabase providers, the
+// same implicit flow) and persist the resulting tokens.
+export async function signIn(provider = 'google') {
+  if (provider !== 'google' && provider !== 'apple') throw new Error('unknown provider')
   const redirectUri = getRedirectUri()
   const authUrl =
     `${CONFIG.SUPABASE_URL}/auth/v1/authorize` +
-    `?provider=google&redirect_to=${encodeURIComponent(redirectUri)}`
+    `?provider=${provider}&redirect_to=${encodeURIComponent(redirectUri)}`
 
   const responseUrl = await chrome.identity.launchWebAuthFlow({
     url: authUrl,
@@ -256,12 +259,6 @@ async function apiGet(path) {
 // Save a gem. `payload` = { url, title?, note?, image_url? }.
 export async function saveGem(payload) {
   return apiPost('/api/extension/save', payload)
-}
-
-// Undo a save — deletes the bullet outright (the toast's undo icon, moments
-// after saving; nothing else calls this).
-export async function deleteBullet(bookmarkId) {
-  return apiSend('DELETE', '/api/extension/save', { bookmark_id: bookmarkId })
 }
 
 // Upload the out-of-band screenshot for a just-saved bullet. Separate from the

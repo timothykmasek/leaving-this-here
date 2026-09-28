@@ -12,6 +12,7 @@ import {
   persistCardImage,
 } from '@/lib/screenshot'
 import { maybeStoreImagePref } from '@/lib/cardImageJudge'
+import { cardImageCandidates } from '@/lib/cardImage'
 import { maybeEnrichPlace } from '@/lib/placeEnrich'
 import { withProductFact } from '@/lib/productFact'
 import type { SaveSource } from '@/lib/importQuota'
@@ -410,6 +411,14 @@ export async function POST(request: NextRequest) {
   // to one). The stored `url` stays exactly what the user saved.
   const url_key = normalizeUrl(url)
 
+  // Which image the card will lead with once the extension's screenshot lands:
+  // the same rule the card renders by (cardImageCandidates), run against a
+  // stand-in screenshot. Pure string logic, no I/O. The popup uses it to show
+  // the image the card will actually wear, instead of guessing.
+  const SHOT = 'client-shot:pending'
+  const leadFor = (imagePref?: string | null): 'og' | 'screenshot' =>
+    cardImageCandidates(url, image_url, SHOT, card_type, imagePref)[0] === SHOT ? 'screenshot' : 'og'
+
   // Refresh an existing bullet in place — the user's "re-save = refresh this
   // card" gesture: overwrite metadata, re-embed, re-capture, while preserving
   // note, list membership, and created_at. Deliberately overwrites a
@@ -420,7 +429,7 @@ export async function POST(request: NextRequest) {
       .from('bookmarks')
       .update({ title, description, image_url, favicon_url, card_type, raw_metadata: withProductFact(meta.raw, meta.product), url_key })
       .eq('id', existingId)
-      .select('id, title, image_url, favicon_url, is_private')
+      .select('id, title, image_url, favicon_url, is_private, image_pref')
       .single()
     if (refreshErr || !refreshed) {
       return json({ error: 'already saved', alreadySaved: true }, 409)
@@ -454,7 +463,8 @@ export async function POST(request: NextRequest) {
     if (dupShot) waitUntil(persistClientShot(refreshed.id, dupShot, card_type))
     persistRemoteImage(refreshed.id, image_url)
     backfillLateMeta(refreshed.id)
-    return json({ bookmark: refreshed, refreshed: true, username: await profilePromise })
+    const { image_pref, ...bookmark } = refreshed
+    return json({ bookmark, refreshed: true, lead: leadFor(image_pref), username: await profilePromise })
   }
 
   // Near-dupe / exact re-save guard: if this user already has a bullet whose
@@ -564,5 +574,5 @@ export async function POST(request: NextRequest) {
 
   backfillLateMeta(inserted.id)
 
-  return json({ ok: true, bookmark: inserted, username: await profilePromise })
+  return json({ ok: true, bookmark: inserted, lead: leadFor(), username: await profilePromise })
 }

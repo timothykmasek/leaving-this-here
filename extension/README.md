@@ -7,43 +7,58 @@ pipeline server-side (metadata → embedding).
 
 ## How it works
 
-mymind-style, one-click:
+A card floated onto the page is the whole experience (2026-09-28 redesign):
 
-- **Toolbar icon (signed in)** → saves the current page *immediately*. No popup,
-  no preview, no "save" button. A small **on-page card** slides in ("Saving to
-  your bulletin…" → "Saved to your bulletin / Now, publish to a list…") where
-  you **file it into a list** right there: your three most recently used lists
-  on top, the rest under "All other lists", and "Create new list" as a field
-  in place (type, Enter, "Saved!").
+- **Toolbar icon** → takes the page's screenshot, then floats a card onto the
+  page (top-right, real rounded corners and shadow): an iframe of
+  `popup.html?card=1` in a closed shadow root (`mountCard` in
+  `background.js`). Nothing saves until you click the plate (or press Enter).
+  Click outside, Esc, or the icon again closes it. The card only renders when
+  the worker vouches for its tab + one-time key, so a site framing
+  `popup.html` (it's web-accessible) gets nothing.
+- **Where a page can't take a card** (chrome://, the Web Store, PDF viewers)
+  and when signed out, the same `popup.html` opens as the toolbar popup.
+- **Saving** is a designed 2.2s beat (`SAVE_BEAT` in `popup.js`): the plate's
+  dot grid merges into the page's screenshot, grabbed from your own tab.
+- **Lists**: the plate shrinks into the header tile ("Saved to your Bulletin /
+  Add it to a list…") and your lists appear, most recently used first. Click a
+  row to file, ↗ opens the list, "Create new list" is a field in place.
+  **Done**/**Skip** closes the popup. Otherwise it closes itself on a clock
+  (8s, top hairline). Creating a list stops it while you type, shows
+  "Saved!" and lands the new list at the top, then the clock crawls back. The
+  header is the confirmation; there's no final screen.
+- **Already saved**: re-saving jumps to "Already in your Bulletin" with its
+  lists ticked.
+- **Your Bulletin** is always one click away: the wordmark and the
+  "View your Bulletin · yourbulletin.com/you ↗" button both open your page.
 - **Filing is publishing.** A bullet in at least one list is on your public
-  page; a bullet in no list is yours alone. There is no public/private toggle
-  anywhere — not on the bullet, not on the list (migration 028 derives
-  `bookmarks.is_private` from membership, lists are always public).
-- **Toolbar icon (signed out)** → opens a tiny popup whose only job is Google
-  sign-in. The moment you sign in it saves the page you were on and closes.
-- **Right-click a page / image / selection** → save just that. Same on-page toast.
-- **Right-click the toolbar icon** → "Open my finds" / "Sign out".
+  page; a bullet in no list is yours alone (migration 028).
+- **Signed out** → the popup shows sign-in (Google, or an emailed code).
+- **Right-click the toolbar icon** → "Open your Bulletin" / "Sign out".
+  There are no right-click save menus any more.
 - **Auth**: Google sign-in via `chrome.identity.launchWebAuthFlow` against
   Supabase's OAuth endpoint (implicit flow). Tokens live in
   `chrome.storage.local` and auto-refresh, so you stay signed in.
 
-How the click knows whether to save or sign in: while signed in we clear the
-action popup (`chrome.action.setPopup({popup:''})`) so the click fires straight
-into the service worker; signed out, `popup.html` is restored.
+The save itself (tab capture, live-DOM meta read, the request, the
+screenshot upload) runs in the service worker, driven over a port
+(`ig-save`), so it finishes even if the popup closes mid-save.
 
-The toast (`content/toast.js`) is injected into the page in a shadow DOM, so the
-host page's CSS can't touch it. On pages where Chrome forbids injection
-(`chrome://`, the Web Store, some PDF viewers) it falls back to a native
-notification.
+### Previewing the popup without installing
+`dev/preview.html` runs the real `popup.html` on mocked chrome APIs
+(`dev/mock-chrome.js`), with a scenario switcher (new save, already saved,
+error, …) and a saving-beat picker. Serve this folder over HTTP
+(`python3 -m http.server 4322 -d extension`) and open
+`http://localhost:4322/dev/preview.html`. Leave `dev/` out of the store zip.
 
 No build step — it's plain JS/HTML loaded as an unpacked extension.
 
 ### Endpoints it calls
 - `POST /api/extension/save` — enrich + insert (metadata → embed). `PATCH`
-  uploads the out-of-band screenshot; `DELETE` is the card's Undo.
+  uploads the out-of-band screenshot; `DELETE` served older builds' Undo (the popup has none).
 - `GET/POST /api/extension/lists` — the user's lists, most recently used first,
   plus their handle (so every row links to its page); create a new one and/or
-  add/remove a bullet (from the card).
+  add/remove a bullet (from the popup).
 - `POST /api/extension/suggest-list-name` — retired stub (always empty); kept
   only for older store builds. We don't suggest list names.
 - `GET /api/extension/finds` — the user's most recent bullets (parked new-tab page).

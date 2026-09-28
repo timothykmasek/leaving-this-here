@@ -60,7 +60,9 @@ async function authed(request: NextRequest): Promise<
   return { supabase, userId: user.id }
 }
 
-type ListRow = { id: string; name: string; slug: string }
+// is_private (migration 033): the picker shows a lock on the owner's private
+// lists. Display only; nothing at save time switches it.
+type ListRow = { id: string; name: string; slug: string; is_private?: boolean }
 
 export async function GET(request: NextRequest) {
   const a = await authed(request)
@@ -97,7 +99,7 @@ export async function GET(request: NextRequest) {
   const [{ data, error }, { data: prof }] = await Promise.all([
     a.supabase
       .from('lists')
-      .select('id, name, slug, created_at, list_bookmarks(added_at)')
+      .select('id, name, slug, is_private, created_at, list_bookmarks(added_at)')
       .eq('user_id', a.userId),
     a.supabase.from('profiles').select('username').eq('id', a.userId).maybeSingle(),
   ])
@@ -118,7 +120,7 @@ export async function GET(request: NextRequest) {
   }
   const lists: ListRow[] = ((data || []) as any[])
     .sort((x, y) => lastUsed(y) - lastUsed(x))
-    .map((l) => ({ id: l.id, name: l.name, slug: l.slug }))
+    .map((l) => ({ id: l.id, name: l.name, slug: l.slug, is_private: !!l.is_private }))
   const username: string | null = prof?.username ?? null
 
   const bookmarkId = new URL(request.url).searchParams.get('bookmark_id')

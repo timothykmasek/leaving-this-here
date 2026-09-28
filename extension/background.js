@@ -1,22 +1,29 @@
 // Service worker — the extension's brain.
 //
-// Saving is mymind-style: a single left-click on the toolbar icon saves the
-// current page immediately, and the on-page card (content/toast.js) is the
-// whole experience — saving state, then the list picker ("publish to a
-// list"). No popup while signed in. There is no visibility control: a bullet
-// is on the page when it's in a list (migration 028), and never otherwise.
+// Saving happens in a CARD floated onto the page (2026-09-28 redesign). The
+// icon click injects it (mountCard below): an iframe of popup.html?card=1,
+// in a closed shadow root, top-right under the toolbar, with real rounded
+// corners and shadow (a toolbar popup can't have either). You confirm the
+// save on the plate, watch the page's hero resolve on it, file it to lists,
+// and the card goes away. No silent one-click save, no right-click save.
 //
-// To make the icon click fire here instead of opening a popup, we clear the
-// action popup while signed in (chrome.action.setPopup({popup:''})). When
-// signed out we restore popup.html so the click opens sign-in. The popup's
-// only job is auth; everything else happens on the page.
+// Where a page can't take a card (chrome://, the Web Store, PDF viewers) the
+// same popup.html opens as the ordinary toolbar popup instead. Signed out,
+// the icon opens the popup too (sign-in).
+//
+// The card and the popup are short-lived, so the work that must finish runs
+// HERE: the tab capture, the live-DOM meta read, the save request and the
+// out-of-band screenshot upload. The page drives it over a port ('ig-save')
+// and just renders what comes back. If it closes mid-save, the save lands.
+//
+// There is no visibility control: a bullet is on the page when it's in a
+// list (migration 028), and never otherwise.
 
 import {
+  getSession,
   saveGem,
-  deleteBullet,
   sendClientShot,
   sendNoShot,
-  getSession,
   signIn,
   signOut,
   getLists,
@@ -25,19 +32,16 @@ import {
 } from './auth.js'
 import { CONFIG } from './config.js'
 
-// Right-click menus on a page/image/selection, plus two items on the
-// right-click menu of the toolbar icon itself (contexts: 'action').
+// Only the toolbar icon's own right-click menu survives: open your page, sign
+// out. Page/image/selection saves were retired with the popup-only flow.
 const MENU = {
-  PAGE: 'ig_save_page',
-  IMAGE: 'ig_save_image',
-  SELECTION: 'ig_save_selection',
   OPEN: 'ig_open_gems',
   SIGNOUT: 'ig_sign_out',
 }
 
-// ── Popup state ─────────────────────────────────────────────────────
-// Signed in → no popup (click saves + shows the on-page card). Signed out →
-// popup.html (click signs in).
+// Signed in → no toolbar popup, so the click reaches onClicked and floats
+// the card. Signed out → popup.html (sign-in). Kept in step with the session
+// by watching storage, so every sign-in/out path is covered.
 async function syncPopup() {
   const session = await getSession()
   await chrome.action.setPopup({ popup: session ? '' : 'popup.html' })
@@ -46,30 +50,19 @@ async function syncPopup() {
 chrome.runtime.onInstalled.addListener(() => {
   buildMenus()
   syncPopup()
+  // The stale sticky-secret counter from builds ≤0.5.2.
+  chrome.storage.local.remove('ig_private_streak').catch?.(() => {})
 })
 chrome.runtime.onStartup.addListener(syncPopup)
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && 'ig_session' in changes) syncPopup()
+})
 
 function buildMenus() {
   chrome.contextMenus.removeAll(() => {
     chrome.contextMenus.create({
-      id: MENU.PAGE,
-      title: 'Save this page to Bulletin',
-      contexts: ['page', 'link'],
-    })
-    chrome.contextMenus.create({
-      id: MENU.IMAGE,
-      title: 'Save this image to Bulletin',
-      contexts: ['image'],
-    })
-    chrome.contextMenus.create({
-      id: MENU.SELECTION,
-      title: 'Save this quote to Bulletin',
-      contexts: ['selection'],
-    })
-    // Items on the toolbar-icon right-click menu.
-    chrome.contextMenus.create({
       id: MENU.OPEN,
-      title: 'Open my finds',
+      title: 'Open your Bulletin',
       contexts: ['action'],
     })
     chrome.contextMenus.create({
@@ -78,26 +71,6 @@ function buildMenus() {
       contexts: ['action'],
     })
   })
-}
-
-// ── One-click save (toolbar icon) ───────────────────────────────────
-// Only fires when the popup is cleared, i.e. while signed in.
-chrome.action.onClicked.addListener((tab) => {
-  saveActiveTab(tab)
-})
-
-async function saveActiveTab(tab) {
-  const session = await getSession()
-  if (!session) return promptSignIn()
-  // The screenshot rides OUT-OF-BAND: capture starts now, in parallel with the
-  // save, and uploads separately once the bookmark id exists — the save request
-  // stays skinny (no half-megabyte base64 blob) and never waits on the camera.
-  // Capturing the user's own tab still matters where it happens (top-of-page
-  // saves): their session/IP bypasses the datacenter block that defeats the
-  // server screenshot on paywalled/bot-blocked sites.
-  const shotPromise = captureTab(tab)
-  const clientMeta = await readPageMeta(tab?.id)
-  await saveFlow(tab, { url: tab?.url, title: tab?.title, clientMeta }, shotPromise)
 }
 
 // Known cookie-consent / newsletter-popup containers, by their STABLE vendor
@@ -524,126 +497,242 @@ async function readPageMeta(tabId) {
   }
 }
 
-// ── Context menus ───────────────────────────────────────────────────
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+// ── The card ────────────────────────────────────────────────────────
+// Each card gets a one-time key, tied to its tab. popup.html is web-
+// accessible (it has to be, to sit in a page), so any site could frame it;
+// without the key a framed copy renders nothing.
+const cardKeys = new Map() // tabId → key
+// The screenshot is taken at the click, BEFORE the card appears, so the card
+// can never land in its own screenshot. The save picks it up from here.
+const clickShots = new Map() // tabId → { at, shot: Promise<dataUrl|null> }
+const CARD_ORIGIN = chrome.runtime.getURL('').replace(/\/$/, '')
+
+chrome.action.onClicked.addListener(async (tab) => {
+  if (!(await getSession())) return openPopupHere(tab)
+  if (!/^https?:/i.test(tab?.url || '')) return openPopupHere(tab)
+  let open
+  try {
+    ;[{ result: open } = {}] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => !!document.getElementById('bulletin-card-host'),
+    })
+  } catch {
+    return openPopupHere(tab) // the page won't take a script (PDF viewer, …)
+  }
+  // A second click on the icon closes the card.
+  if (open) return injectCard(tab.id, null)
+  const shot = captureTab(tab).catch(() => null)
+  clickShots.set(tab.id, { at: Date.now(), shot })
+  await shot
+  const key = crypto.randomUUID()
+  cardKeys.set(tab.id, key)
+  injectCard(tab.id, chrome.runtime.getURL(`popup.html?card=1&tab=${tab.id}&k=${key}`))
+})
+
+function injectCard(tabId, src) {
+  chrome.scripting
+    .executeScript({ target: { tabId }, func: mountCard, args: [src, CARD_ORIGIN] })
+    .catch(() => {})
+}
+
+// The ordinary toolbar popup, for this tab only (reset when it navigates).
+async function openPopupHere(tab) {
+  try {
+    await chrome.action.setPopup({ tabId: tab.id, popup: 'popup.html' })
+    await chrome.action.openPopup()
+  } catch {
+    notify('Bulletin', 'Click the Bulletin icon again to open it here.')
+  }
+}
+chrome.tabs.onUpdated.addListener((tabId, info) => {
+  if (info.url) chrome.action.setPopup({ tabId, popup: '' }).catch(() => {})
+})
+chrome.tabs.onRemoved.addListener((tabId) => {
+  cardKeys.delete(tabId)
+  clickShots.delete(tabId)
+})
+
+// Runs IN the page (self-contained: no closures). src = the card's page, or
+// null to close an open card. Toggles: a second call closes.
+function mountCard(src, origin) {
+  const ID = 'bulletin-card-host'
+  const old = document.getElementById(ID)
+  if (old) {
+    old.__bulletinClose?.()
+    return
+  }
+  if (!src) return
+  const host = document.createElement('div')
+  host.id = ID
+  host.style.cssText = 'all:initial;position:fixed;top:10px;right:14px;z-index:2147483647;'
+  const root = host.attachShadow({ mode: 'closed' })
+  const style = document.createElement('style')
+  style.textContent = `
+    iframe {
+      display: block; width: 360px; height: 248px; border: 0; border-radius: 16px;
+      background: #fff; color-scheme: light;
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.06), 0 16px 44px -12px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.08);
+      opacity: 0; transform: translateY(-6px) scale(0.985); transform-origin: top right;
+      transition: opacity 220ms ease, transform 320ms cubic-bezier(0.22,1,0.36,1),
+        height 520ms cubic-bezier(0.22,1,0.36,1);
+    }
+    iframe.in { opacity: 1; transform: none; }
+    iframe.out { opacity: 0; transform: translateY(-6px); transition: opacity 200ms ease, transform 200ms ease; }
+  `
+  const frame = document.createElement('iframe')
+  frame.src = src
+  frame.title = 'Bulletin'
+  root.append(style, frame)
+  document.documentElement.append(host)
+  requestAnimationFrame(() => requestAnimationFrame(() => frame.classList.add('in')))
+
+  let closed = false
+  const close = () => {
+    if (closed) return
+    closed = true
+    removeEventListener('message', onMessage)
+    document.removeEventListener('mousedown', onDown, true)
+    document.removeEventListener('keydown', onKey, true)
+    frame.classList.remove('in')
+    frame.classList.add('out')
+    setTimeout(() => host.remove(), 220)
+  }
+  const onMessage = (e) => {
+    if (e.origin !== origin || e.source !== frame.contentWindow) return
+    const m = e.data
+    if (!m || m.source !== 'bulletin-card') return
+    if (m.type === 'size' && m.h > 0) frame.style.height = `${m.h}px`
+    if (m.type === 'close') close()
+  }
+  // Clicks inside the card land in its frame, never here: any mousedown the
+  // page sees is outside it.
+  const onDown = () => close()
+  const onKey = (e) => { if (e.key === 'Escape') close() }
+  addEventListener('message', onMessage)
+  document.addEventListener('mousedown', onDown, true)
+  document.addEventListener('keydown', onKey, true)
+  host.__bulletinClose = close
+}
+
+// Hide the card for a capture when there's no click-time shot to use (the
+// worker restarted between the click and the save).
+async function captureUnderCard(tab) {
+  const setVis = (v) =>
+    chrome.scripting
+      .executeScript({
+        target: { tabId: tab.id },
+        func: (vis) => { const h = document.getElementById('bulletin-card-host'); if (h) h.style.visibility = vis },
+        args: [v],
+      })
+      .catch(() => {})
+  await setVis('hidden')
+  await new Promise((r) => setTimeout(r, 60))
+  try {
+    return await captureTab(tab)
+  } finally {
+    await setVis('visible')
+  }
+}
+
+// ── Toolbar-icon menu ───────────────────────────────────────────────
+chrome.contextMenus.onClicked.addListener(async (info) => {
   if (info.menuItemId === MENU.OPEN) {
     chrome.tabs.create({ url: CONFIG.API_BASE })
     return
   }
   if (info.menuItemId === MENU.SIGNOUT) {
     await signOut()
-    await syncPopup()
     notify('Signed out', 'Click the Bulletin icon to sign back in.')
-    return
   }
-
-  const session = await getSession()
-  if (!session) return promptSignIn()
-
-  // Page/selection saves are "this page" → attach client-read og. Image saves
-  // keep their explicit srcUrl (the server lets imageOverride win), but still
-  // benefit from the client title.
-  // Start the capture (where wanted) before the meta read, so both run while
-  // the save is being assembled. For a link save (info.linkUrl) the target
-  // isn't what's on screen, and an image save's src IS the picture — no shot.
-  const wantShot =
-    info.menuItemId === MENU.SELECTION ||
-    (info.menuItemId === MENU.PAGE && !info.linkUrl)
-  const shotPromise = wantShot ? captureTab(tab) : null
-  const clientMeta = await readPageMeta(tab?.id)
-  let payload
-  if (info.menuItemId === MENU.IMAGE) {
-    payload = { url: info.pageUrl || tab?.url, title: tab?.title, image_url: info.srcUrl, clientMeta }
-  } else if (info.menuItemId === MENU.SELECTION) {
-    payload = { url: info.pageUrl || tab?.url, title: tab?.title, note: info.selectionText, clientMeta }
-  } else {
-    payload = { url: info.linkUrl || info.pageUrl || tab?.url, title: tab?.title, clientMeta }
-  }
-  await saveFlow(tab, payload, shotPromise)
 })
 
-// ── The save flow shared by every entry point ───────────────────────
-async function saveFlow(tab, payload, shotPromise = null) {
-  const tabId = tab?.id
-  const injected = tabId != null ? await injectToast(tabId) : false
+// ── The save, driven by the popup over a port ───────────────────────
+// Popup → { type: 'save', tab: { id, windowId, url, title } }
+// Worker → { type: 'shot', dataUrl }      the tab capture, for the reveal
+//          { type: 'meta', image, title } the live-DOM og read
+//          { type: 'saved', bookmark, refreshed, lead, username }
+//            lead: 'og' | 'screenshot', the image the card will lead with
+//          { type: 'error', message, code, authExpired, alreadySaved }
+// Every post is best-effort: the popup may already be gone, and the save
+// carries on without it.
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'ig-save') return
+  let alive = true
+  port.onDisconnect.addListener(() => { alive = false })
+  const post = (m) => { if (alive) try { port.postMessage(m) } catch { alive = false } }
+  port.onMessage.addListener((msg) => {
+    if (msg?.type === 'save' && msg.tab) saveTab(msg.tab, post, !!msg.card)
+  })
+})
 
-  // The stale sticky-secret counter from builds ≤0.5.2 — clear it so it
-  // can't be read by anything ever again.
-  chrome.storage.local.remove('ig_private_streak').catch?.(() => {})
+async function saveTab(tab, post, card) {
+  // The screenshot rides OUT-OF-BAND: capture starts now, in parallel with the
+  // save, and uploads separately once the bookmark id exists — the save request
+  // stays skinny and never waits on the camera. Capturing the user's own tab
+  // still matters: their session/IP bypasses the datacenter block that defeats
+  // the server screenshot on paywalled/bot-blocked sites. The popup also gets
+  // the shot, so the plate can show the hero landing.
+  // In the card, the shot was taken at the click (before the card showed).
+  const early = clickShots.get(tab.id)
+  clickShots.delete(tab.id)
+  const shotPromise =
+    early && Date.now() - early.at < 10 * 60 * 1000
+      ? early.shot
+      : card
+        ? captureUnderCard(tab)
+        : captureTab(tab)
+  shotPromise.then((dataUrl) => { if (dataUrl) post({ type: 'shot', dataUrl }) }, () => {})
 
-  // Optimistic reveal: the card opens fully — "Saved to your bulletin", the
-  // list picker — the moment it injects, while the save is still in flight.
-  // Anything the user does queues in the card and flushes when the confirm
-  // below delivers the bookmark id; a failure flips the card to its error
-  // state instead.
-  if (injected) toast(tabId, 'optimistic', {})
+  const clientMeta = await readPageMeta(tab.id)
+  if (clientMeta) post({ type: 'meta', image: clientMeta.image || null, title: clientMeta.title || null })
 
   try {
     // shotPending tells the server our own tab capture is on its way, so it
-    // doesn't also buy a ScreenshotOne shot (which used to land later and
-    // overwrite ours). If the capture comes back empty we say so below.
-    const result = await saveGem({ ...payload, source: 'extension', shotPending: !!shotPromise })
+    // doesn't also buy a ScreenshotOne shot.
+    const result = await saveGem({
+      url: tab.url,
+      title: tab.title,
+      clientMeta,
+      source: 'extension',
+      shotPending: true,
+    })
     const bm = result?.bookmark || {}
-    const refreshed = !!result?.refreshed
-    // The card's title links to the user's live page.
-    const profileUrl = result?.username ? `${CONFIG.API_BASE}/${result.username}` : null
-    if (injected) {
-      // `refreshed` = re-save updated the existing card in place.
-      toast(tabId, 'saved', { id: bm.id, title: bm.title, refreshed, profileUrl })
-    } else {
-      notify(refreshed ? 'Updated' : 'Saved', bm.title || 'Added to your collection.')
-    }
-    // The out-of-band screenshot: upload once both the shot and the id exist.
-    // Fire-and-forget — the card never waits on this, and a failed upload just
-    // leaves the server screenshot fallback to cover the card.
-    if (shotPromise && bm.id) {
+    post({
+      type: 'saved',
+      bookmark: { id: bm.id, title: bm.title, image_url: bm.image_url || null },
+      refreshed: !!result?.refreshed,
+      lead: result?.lead || null,
+      username: result?.username || null,
+    })
+    if (bm.id) {
       shotPromise
         .catch(() => null)
         .then((shot) => (shot ? sendClientShot(bm.id, shot) : sendNoShot(bm.id)))
         .catch(() => {})
     }
   } catch (err) {
-    const msg = String(err.message || err)
-    const dup = msg.includes('already saved')
-    // Session died mid-save: refresh() has already cleared the dead session.
-    // Don't show the raw auth error ("Invalid Refresh Token…") — restore the
-    // sign-in popup and prompt a friendly re-sign-in instead.
-    if (err?.authExpired) {
-      await syncPopup() // restore popup.html so the next icon click opens sign-in
-      if (injected) {
-        toast(tabId, 'signin', { title: payload.title })
-      } else {
-        notify('Session expired', 'Click the Bulletin icon to sign in again.')
-      }
-      // Best effort: the save was triggered by a recent icon-click gesture, so
-      // this may pop sign-in open right away. Harmless if the gesture lapsed.
-      try { await chrome.action.openPopup() } catch {}
-      return
-    }
-    if (injected) {
-      toast(tabId, dup ? 'duplicate' : 'error', { message: msg, title: payload.title })
-    } else {
-      notify(dup ? 'Already saved' : 'Couldn’t save', msg)
-    }
+    const message = String(err?.message || err)
+    post({
+      type: 'error',
+      message,
+      code: err?.code || (/finish setting up/i.test(message) ? 'needs_onboarding' : null),
+      authExpired: !!err?.authExpired,
+      alreadySaved: message.includes('already saved'),
+    })
   }
 }
 
-// ── Messages from popup (post-login) and toast (tag edits) ──────────
+// ── Messages from the popup ─────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  // Google sign-in runs HERE, not in the popup. launchWebAuthFlow opens an
-  // external window, which steals focus and makes Chrome destroy the popup —
-  // so any "signed in ✓" feedback wired into the popup never renders and the
-  // post-login save never fires. The service worker survives that, so it owns
-  // the flow: complete OAuth, confirm with a notification, then save the page
-  // the user was on (captured before the auth window can change the active tab).
+  // Google / Apple sign-in (msg.provider) runs HERE, not in the popup. launchWebAuthFlow opens an
+  // external window, which steals focus and makes Chrome destroy the popup.
+  // The service worker survives that, so it owns the flow. It no longer saves
+  // the page afterwards: saving is always the user's click in the popup.
   if (msg?.type === 'ig-google-signin') {
     ;(async () => {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
       try {
-        await signIn()
-        await syncPopup()
-        notify('Signed in ✓', 'Saving this page to Bulletin…')
-        if (tab) await saveActiveTab(tab)
+        await signIn(msg.provider || 'google')
+        notify('Signed in', 'Click the Bulletin icon to save this page.')
         sendResponse({ ok: true })
       } catch (err) {
         notify('Sign-in failed', String(err?.message || err))
@@ -652,17 +741,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     })()
     return true // async response
   }
-  if (msg?.type === 'ig-save-current-tab') {
-    ;(async () => {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
-      if (tab) await saveActiveTab(tab)
-      sendResponse({ ok: true })
-    })()
-    return true // keep the channel open for the async response
+  // The card asks whether it was really put there by us (its tab + key).
+  if (msg?.type === 'ig-card-verify') {
+    const ok = !!msg.key && cardKeys.get(msg.tab) === msg.key && _sender?.tab?.id === msg.tab
+    sendResponse({ ok })
+    return
   }
   if (msg?.type === 'ig-get-lists') {
-    // `origin` + `username` let the card link every list row (and its title)
-    // to the live page from the first paint, without waiting on the save.
     getLists(msg.bookmarkId)
       .then((r) =>
         sendResponse({
@@ -673,7 +758,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           origin: CONFIG.API_BASE,
         })
       )
-      .catch((e) => sendResponse({ error: String(e.message || e) }))
+      .catch((e) => sendResponse({ error: String(e.message || e), authExpired: !!e?.authExpired }))
     return true
   }
   if (msg?.type === 'ig-create-list') {
@@ -688,39 +773,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((e) => sendResponse({ error: String(e.message || e) }))
     return true
   }
-  if (msg?.type === 'ig-delete-bullet') {
-    deleteBullet(msg.bookmarkId)
-      .then(() => sendResponse({ ok: true }))
-      .catch((e) => sendResponse({ error: String(e.message || e) }))
-    return true
-  }
 })
-
-// ── Toast injection + messaging ─────────────────────────────────────
-// Returns true if the content script is in place. Injection is blocked on
-// chrome:// pages, the Web Store, some PDF viewers — there we fall back to a
-// native notification.
-async function injectToast(tabId) {
-  try {
-    await chrome.scripting.executeScript({ target: { tabId }, files: ['content/toast.js'] })
-    return true
-  } catch {
-    return false
-  }
-}
-function toast(tabId, state, data) {
-  chrome.tabs.sendMessage(tabId, { type: 'ig-toast', state, data }).catch(() => {})
-}
-
-// ── Signed-out handling from a click ────────────────────────────────
-async function promptSignIn() {
-  await syncPopup() // restore popup.html so the next click opens sign-in
-  try {
-    await chrome.action.openPopup() // best effort — needs a recent gesture
-  } catch {
-    notify('Sign in to save', 'Click the Bulletin icon to sign in with Google.')
-  }
-}
 
 function notify(title, message) {
   try {
