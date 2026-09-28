@@ -496,7 +496,7 @@ export default function ProfileClient({
     try {
       const { data, error } = await supabase
         .from('lists')
-        .select('id, name, slug, created_at, list_bookmarks(bookmark_id)')
+        .select('id, name, slug, created_at, is_private, list_bookmarks(bookmark_id)')
         .eq('user_id', uid)
         .order('created_at', { ascending: false })
       if (!error) return shape(data)
@@ -1273,6 +1273,7 @@ export default function ProfileClient({
                     name={l.name}
                     count={l.bookmark_ids.length}
                     thumbs={listThumbs(l)}
+                    isPrivate={!!l.is_private}
                     // Clicking a list navigates straight to its own URL — for
                     // the owner too (the list page carries the owner controls).
                     // A slugless list (pre-migration) still falls back to the

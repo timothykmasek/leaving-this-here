@@ -410,7 +410,7 @@ async function callTool(
 
     case 'get_lists': {
       const profile = await targetProfile(supabase, caller, args?.username)
-      // Lists are always public (migration 028) — no owner/visitor split.
+      // RLS (migration 033) hides private lists from everyone but their owner.
       const { data, error } = await supabase
         .from('lists')
         .select('name, slug, list_bookmarks(bookmark_id)')

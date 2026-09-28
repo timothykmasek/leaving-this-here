@@ -3,8 +3,8 @@
 // The masthead for a list page, per the ProjectX list frame: the back link
 // leading, then the list's name as a full-width editorial display — Cardo at
 // poster scale, one line, running off the right edge into white when it's long
-// — over a quiet meta row (bullet count, and the owner's delete link on
-// hover). The attribution ("A list by Tim Masek") lives in the header's
+// — over a quiet meta row (bullet count, and the owner's ⋯ menu: make
+// private / public, delete). The attribution ("A list by Tim Masek") lives in the header's
 // centred tagline slot, descriptions dropped from display entirely, and the
 // cover band is retired — the name IS the identity now.
 //
@@ -39,8 +39,9 @@ export function ListMasthead({
   backLabel,
   onRename,
   onDelete,
+  isPrivate = false,
+  onSetPrivate,
   // Retired — accepted so call sites compile.
-  isPrivate: _isPrivate,
   ownerName: _ownerName,
   coverUrl: _coverUrl,
   stripThumbs: _stripThumbs,
@@ -53,10 +54,12 @@ export function ListMasthead({
   backLabel: string
   /** Persist a rename. Present → the poster title edits in place on click. */
   onRename?: (name: string) => void
-  /** Delete the list. Present → a quiet confirm-guarded link in the meta row. */
+  /** Delete the list. Present → an item in the owner's ⋯ menu, confirm-guarded. */
   onDelete?: () => void
-  /** Retired with migration 028 — lists are always public. */
+  /** Private lists (migration 033). Only the owner ever sees one. */
   isPrivate?: boolean
+  /** Flip visibility. Present → Make private / Make public in the ⋯ menu. */
+  onSetPrivate?: (next: boolean) => void
   ownerName?: string
   coverUrl?: string | null
   stripThumbs?: string[]
@@ -93,7 +96,28 @@ export function ListMasthead({
 
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
-  const [confirmingDelete, setConfirmingDelete] = useState(false)
+  // The owner's ⋯ menu, and which of its actions (if any) is awaiting a yes.
+  // Going private and deleting both confirm inline in the meta row; going
+  // public doesn't — private is meant to take a step, public never is.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [confirming, setConfirming] = useState<'private' | 'delete' | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!menuOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [menuOpen])
+  const hasMenu = !!(onDelete || onSetPrivate)
 
   // Enter saves and unmounts the input, and the unmount can fire onBlur,
   // which would save a second time. One save per edit.
@@ -197,43 +221,123 @@ export function ListMasthead({
         )}
       </div>
 
-      {/* Meta row: count left, and on the right — the slot the count used to
-          hold — the owner's delete, dressed exactly like the count (same 12px,
-          same 56% black), underlining only under the pointer. Confirm-guarded
-          inline, same pattern as the bullet modal. */}
-      <div className="mt-10 flex items-center justify-between gap-4 pb-8 font-sans text-[12px] font-medium leading-4 tracking-[0.05em] sm:mt-24">
-        <span className="text-black/[0.56]">
-          {count} {count === 1 ? 'Bullet' : 'Bullets'}
+      {/* Meta row: count left (plus a lock when the list is private), and on
+          the right the owner's ⋯ menu, dressed in the same 12px 56% black.
+          Confirms happen inline in the menu's slot, same pattern as the
+          bullet modal. */}
+      <div className="mt-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 pb-8 font-sans text-[12px] font-medium leading-4 tracking-[0.05em] sm:mt-24">
+        <span className="flex items-center gap-3 whitespace-nowrap text-black/[0.56]">
+          <span>
+            {count} {count === 1 ? 'Bullet' : 'Bullets'}
+          </span>
+          {isPrivate && (
+            // The lock alone, no word (Tim, 2026-09-28). The label stays for
+            // screen readers and as the hover title.
+            <span className="flex items-center" title="Private: only you can see this list">
+              <LockGlyph />
+              <span className="sr-only">Private</span>
+            </span>
+          )}
         </span>
-        {onDelete &&
-          (confirmingDelete ? (
-            <span className="flex items-center gap-2.5">
-              {/* Filing is publishing (migration 028): bullets that live only
-                  here come off the page with the list. The bullets themselves
-                  survive, unpublished. */}
-              <span className="text-black/45">Delete this list? Bullets only in it come off your page.</span>
-              <button
-                onClick={onDelete}
-                className="text-[#a31f34] underline underline-offset-2 transition-opacity hover:opacity-60"
+        {hasMenu &&
+          (confirming ? (
+            // Confirms are just the two words, in the count's grey (Tim,
+            // 2026-09-28): the action you picked, then Cancel. Filing is
+            // publishing (028), so a delete unpublishes bullets that lived
+            // only here; they survive, unfiled.
+            <span className="flex items-center gap-4">
+              <TextAction
+                onClick={() => {
+                  const which = confirming
+                  setConfirming(null)
+                  if (which === 'delete') onDelete?.()
+                  else onSetPrivate?.(true)
+                }}
               >
-                Delete
-              </button>
-              <button
-                onClick={() => setConfirmingDelete(false)}
-                className="text-black/45 transition-opacity hover:opacity-60"
-              >
-                Cancel
-              </button>
+                {confirming === 'delete' ? 'Delete' : 'Make private'}
+              </TextAction>
+              <TextAction onClick={() => setConfirming(null)}>Cancel</TextAction>
             </span>
           ) : (
-            <button
-              onClick={() => setConfirmingDelete(true)}
-              className="text-black/[0.56] hover:underline hover:underline-offset-2"
-            >
-              Delete list
-            </button>
+            // ⋯ opens the options INLINE, to its left, as plain text in the
+            // count's grey (Tim, 2026-09-28): no dropdown, no pills.
+            <div ref={menuRef} className="flex items-center gap-4">
+              {menuOpen && (
+                <>
+                  {onSetPrivate && (
+                    <TextAction
+                      onClick={() => {
+                        setMenuOpen(false)
+                        // Public is one click. Private asks first.
+                        if (isPrivate) onSetPrivate(false)
+                        else setConfirming('private')
+                      }}
+                    >
+                      {isPrivate ? 'Make public' : 'Make private'}
+                    </TextAction>
+                  )}
+                  {onDelete && (
+                    <TextAction
+                      onClick={() => {
+                        setMenuOpen(false)
+                        setConfirming('delete')
+                      }}
+                    >
+                      Delete list
+                    </TextAction>
+                  )}
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => setMenuOpen((o) => !o)}
+                aria-expanded={menuOpen}
+                aria-label="List options"
+                // 32px hit target around three 3px dots; the dots are the
+                // brand's registration-mark motif laid on its side.
+                className="-mr-2 flex h-8 w-8 items-center justify-center gap-[3px] rounded-lg text-black/[0.56] transition-colors hover:bg-black/[0.04] hover:text-black/80"
+              >
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="block h-[3px] w-[3px] rounded-full bg-current" />
+                ))}
+              </button>
+            </div>
           ))}
       </div>
     </header>
+  )
+}
+
+// The meta row's action voice: same 12px, same 56% black as "27 Bullets",
+// underlining only under the pointer. The old "Delete list" link's dress.
+function TextAction({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="whitespace-nowrap text-black/[0.56] hover:underline hover:underline-offset-2"
+    >
+      {children}
+    </button>
+  )
+}
+
+function LockGlyph() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      // Box-centring puts the lock ~1.3px low: Mier's caps and figures
+      // centre at 6.7px in the 16px line, not 8. Nudged onto the figures.
+      className="h-[12px] w-[12px] -translate-y-[1.3px]"
+    >
+      <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
+      <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+    </svg>
   )
 }

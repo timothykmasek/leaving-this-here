@@ -182,6 +182,7 @@ const OWNER_GRID = 'max-w-[1720px] px-4 sm:px-10'
 export default function OwnerPreview() {
   const [opened, setOpened] = useState<string | null>(null)
   const [mastheadName, setMastheadName] = useState('The fit check')
+  const [mastheadPrivate, setMastheadPrivate] = useState(false)
   // The dock and the lists it can publish to — fixtures, minted in memory so
   // the Create New List flow can be walked end to end without a database.
   const [fixtureLists, setFixtureLists] = useState([
@@ -249,7 +250,29 @@ export default function OwnerPreview() {
             await new Promise((r) => setTimeout(r, 300))
           }}
           onDelete={() => {}}
+          isPrivate={mastheadPrivate}
+          onSetPrivate={setMastheadPrivate}
         />
+      </Section>
+
+      <Section
+        title="List masthead — ⋯ menu, make private"
+        note="The owner's options sit behind the ⋯ at the right of the meta row. Click it: Make private and Delete list open inline to its left as grey callouts. Make private asks first, inline; confirm and a lock joins the count, here and on the profile's list card below (Agencies & Studios follows this masthead; Gift ideas is a list that's already private). Click ⋯ again: it now offers Make public, one click, no confirm. On the real page the header byline also becomes 'A private list by …' with no copy glyph."
+      >
+        <ListMasthead
+          name="Agencies & Studios"
+          count={27}
+          backHref="/preview/owner"
+          backLabel="&larr; back"
+          onRename={() => {}}
+          onDelete={() => {}}
+          isPrivate={mastheadPrivate}
+          onSetPrivate={setMastheadPrivate}
+        />
+        <div className="mt-8 grid grid-cols-2 gap-x-[40px] gap-y-[40px] sm:grid-cols-3 lg:grid-cols-4">
+          <CollectionCard name="Agencies & Studios" count={27} thumbs={IMAGES} isPrivate={mastheadPrivate} />
+          <CollectionCard name="Gift ideas" count={4} thumbs={IMAGES.slice(2, 6)} isPrivate />
+        </div>
       </Section>
 
       <Section

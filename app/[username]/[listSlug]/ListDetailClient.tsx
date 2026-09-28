@@ -22,6 +22,7 @@ type List = {
   slug: string | null
   cover_image_url: string | null
   bookmark_ids: string[]
+  is_private?: boolean
 }
 
 export function ListDetailClient({
@@ -239,6 +240,19 @@ export function ListDetailClient({
     router.refresh()
   }
 
+  // Private lists (migration 033). Optimistic like rename; the refresh
+  // re-renders the server header, whose byline and copy-link follow the flag.
+  const handleSetPrivate = async (next: boolean) => {
+    const before = !!list.is_private
+    setList((prev) => ({ ...prev, is_private: next }))
+    const { error } = await supabase.from('lists').update({ is_private: next }).eq('id', list.id)
+    if (error) {
+      setList((prev) => ({ ...prev, is_private: before }))
+      return
+    }
+    router.refresh()
+  }
+
   const handleDeleteList = async () => {
     await supabase.from('lists').delete().eq('id', list.id)
     router.push(`/${username}`)
@@ -248,7 +262,8 @@ export function ListDetailClient({
   return (
     <>
       {/* The masthead IS the editor now: the owner clicks the poster title to
-          rename in place, and delete rides the meta row behind a confirm. The
+          rename in place, and the meta row's ⋯ menu carries make private /
+          public and delete. The
           old panel (name input + description textarea + save row) went with
           descriptions — one job left, done where the title already is. */}
       <ListMasthead
@@ -258,6 +273,8 @@ export function ListDetailClient({
         backLabel="&larr; back"
         onRename={handleRename}
         onDelete={handleDeleteList}
+        isPrivate={!!list.is_private}
+        onSetPrivate={handleSetPrivate}
       />
 
       {bullets.length > 0 ? (

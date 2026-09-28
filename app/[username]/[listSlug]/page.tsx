@@ -10,9 +10,10 @@ import { ListDetailClient } from './ListDetailClient'
 import { SiteFooter } from '@/components/SiteFooter'
 import { CopyTagline } from '@/components/CopyTagline'
 
-// Public, shareable page for a single list at /username/<slug>. Read-only —
-// owners manage membership and rename from their profile. RLS hides private
-// lists from everyone but the owner, so a private slug 404s for visitors.
+// Public, shareable page for a single list at /username/<slug>. Visitors get a
+// read-only render; the owner gets ListDetailClient's controls. RLS hides
+// private lists (migration 033) from everyone but the owner, so a private slug
+// 404s for visitors.
 //
 // Server-rendered: the card grid ships in the initial HTML (good for shared-link
 // previews + first paint) instead of a client-side loading→fetch waterfall.
@@ -55,7 +56,7 @@ export default async function ListPage({
       supabase
         .from('lists')
         .select(
-          `id, name, slug, cover_image_url,
+          `id, name, slug, cover_image_url, is_private,
            profiles!inner(id, username, display_name, bio, links),
            list_bookmarks(bookmark_id, bookmarks(${BULLET_COLS}))`
         )
@@ -77,6 +78,7 @@ export default async function ListPage({
     name: row.name,
     slug: row.slug,
     cover_image_url: row.cover_image_url,
+    is_private: !!row.is_private,
     list_bookmarks: (row.list_bookmarks || []).map((x: any) => ({
       bookmark_id: x.bookmark_id,
     })),
@@ -143,10 +145,18 @@ export default async function ListPage({
           widthClassName={LIST_GRID}
           stickyLogo
           tagline={
-            <CopyTagline path={`/${profile.username}/${listSlug}`}>
-              A list by{' '}
-              <span className="text-ink underline decoration-black/20 underline-offset-2">{owner}</span>
-            </CopyTagline>
+            // A private list's link 404s for everyone else, so there's
+            // nothing worth copying: plain byline, no copy glyph.
+            list.is_private ? (
+              <span>
+                A private list by <span className="text-ink">{owner}</span>
+              </span>
+            ) : (
+              <CopyTagline path={`/${profile.username}/${listSlug}`}>
+                A list by{' '}
+                <span className="text-ink underline decoration-black/20 underline-offset-2">{owner}</span>
+              </CopyTagline>
+            )
           }
         />
         <div className={`mx-auto ${LIST_GRID} pb-16 pt-4 sm:pt-8`}>
@@ -160,6 +170,7 @@ export default async function ListPage({
               slug: (list as any).slug ?? null,
               cover_image_url: (list as any).cover_image_url ?? null,
               bookmark_ids: ids,
+              is_private: list.is_private,
             }}
             initialBullets={bullets}
             initialLists={shapedLists}

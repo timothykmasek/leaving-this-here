@@ -53,10 +53,13 @@ export function CollectionCard({
   thumbs,
   onClick,
   href,
+  isPrivate = false,
 }: {
   name: string
   count: number
   thumbs: string[]
+  /** Private list (migration 033) — only the owner ever gets one to render. */
+  isPrivate?: boolean
   onClick?: () => void
   // When set, the card is a real link to the list's public URL (visitors go
   // straight to /username/<slug>). Otherwise it's a button (owner in-page view).
@@ -141,8 +144,19 @@ export function CollectionCard({
               in this family's inverted metadata, so 400 is the faithful value;
               500 would silently load Regular. Fill 0.7 × layer opacity 0.8 =
               0.56, the same alpha the bullet card's title settled on. */}
-          <p className="mt-2 font-sans text-[12px] font-[400] leading-4 tracking-[0.05em] text-black/[0.56]">
+          <p className="mt-2 flex items-center gap-2 whitespace-nowrap font-sans text-[12px] font-[400] leading-4 tracking-[0.05em] text-black/[0.56]">
             {count} {count === 1 ? 'Item' : 'Items'}
+            {isPrivate && (
+              // The lock alone, no word (Tim, 2026-09-28). The label stays
+              // for screen readers and as the hover title.
+              <span className="flex items-center" title="Private: only you can see this list">
+                <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="h-[12px] w-[12px] -translate-y-[1.3px] opacity-60">
+                  <rect x="4.5" y="10.5" width="15" height="10" rx="2.5" />
+                  <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3" />
+                </svg>
+                <span className="sr-only">Private</span>
+              </span>
+            )}
           </p>
         </div>
       </div>
