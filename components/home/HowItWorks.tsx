@@ -88,7 +88,7 @@ function VignetteLists() {
       </div>
       <div className="flex h-[316px] w-[220px] flex-col items-center justify-center gap-1 rounded-[20px] bg-card">
         <span className="text-[20px] leading-[26px] text-black">Fit Check</span>
-        <span className="text-[12px] leading-4 tracking-[0.05em] text-black/50">[&nbsp;38 items&nbsp;]</span>
+        <span className="text-[12px] leading-4 tracking-[0.05em] text-black/50">[&nbsp;38 bullets&nbsp;]</span>
         <span className="mt-1 text-[12px] leading-4 tracking-[0.05em] text-black/30">yourbulletin.com/tim/fit-check</span>
       </div>
     </div>

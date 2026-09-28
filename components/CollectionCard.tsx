@@ -145,7 +145,7 @@ export function CollectionCard({
               500 would silently load Regular. Fill 0.7 × layer opacity 0.8 =
               0.56, the same alpha the bullet card's title settled on. */}
           <p className="mt-2 flex items-center gap-2 whitespace-nowrap font-sans text-[12px] font-[400] leading-4 tracking-[0.05em] text-black/[0.56]">
-            {count} {count === 1 ? 'Item' : 'Items'}
+            {count} {count === 1 ? 'bullet' : 'bullets'}
             {isPrivate && (
               // The lock alone, no word (Tim, 2026-09-28). The label stays
               // for screen readers and as the hover title.

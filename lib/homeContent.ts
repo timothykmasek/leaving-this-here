@@ -223,8 +223,8 @@ export const HERO_LISTS = [
 
 // Profile plates — Cardo name over a bracketed count. 168×168, no caption.
 export const HERO_PROFILES = [
-  { key: 'tim', name: 'Tim', count: '142 items', href: '/tim', left: 330, top: 830 },
-  { key: 'remi', name: 'Remi', count: '96 items', href: '/remi', left: 1130, top: 760 },
+  { key: 'tim', name: 'Tim', count: '142 bullets', href: '/tim', left: 330, top: 830 },
+  { key: 'remi', name: 'Remi', count: '96 bullets', href: '/remi', left: 1130, top: 760 },
 ]
 
 export const STEPS = [
@@ -253,15 +253,15 @@ export const STEPS = [
 // Featured tables. Real Bulletin pages only, so every row clicks through;
 // counts are fixed per the handoff (this page makes no DB call).
 export const FEATURED_PROFILES = [
-  { name: 'Tim', href: '/tim', count: '142 items', thumbs: ['/home/rubiroa-fit-article.png', '/home/western-hat-fit-product.png'] },
-  { name: 'Remi', href: '/remi', count: '96 items', thumbs: ['/home/noguchi-interior.png', '/home/cherry-interior-location.png'] },
-  { name: 'Hugh', href: '/hugh', count: '61 items', thumbs: ['/home/service-works-interior-product.png', '/home/nigo-interior-article.png'] },
+  { name: 'Tim', href: '/tim', count: '142 bullets', thumbs: ['/home/rubiroa-fit-article.png', '/home/western-hat-fit-product.png'] },
+  { name: 'Remi', href: '/remi', count: '96 bullets', thumbs: ['/home/noguchi-interior.png', '/home/cherry-interior-location.png'] },
+  { name: 'Hugh', href: '/hugh', count: '61 bullets', thumbs: ['/home/service-works-interior-product.png', '/home/nigo-interior-article.png'] },
 ]
 
 export const FEATURED_LISTS = [
-  { name: 'The Fit Check', href: '/tim/the-fit-check', count: '38 items', thumbs: ['/home/plasticana-fit-product.png', '/home/western-hat-fit-product.png', '/home/eou-website-fit.png'] },
-  { name: 'Furniture Reccs', href: '/remi/furniture-reccs', count: '24 items', thumbs: ['/home/noguchi-interior.png', '/home/cherry-interior-location.png', '/home/blouse-paris-location.jpg'] },
-  { name: 'AI tools', href: '/tim/ai-tools', count: '17 items', thumbs: ['/home/nigo-interior-article.png', '/home/service-works-interior-product.png', '/home/rubirosa-fit-location.png'] },
+  { name: 'The Fit Check', href: '/tim/the-fit-check', count: '38 bullets', thumbs: ['/home/plasticana-fit-product.png', '/home/western-hat-fit-product.png', '/home/eou-website-fit.png'] },
+  { name: 'Furniture Reccs', href: '/remi/furniture-reccs', count: '24 bullets', thumbs: ['/home/noguchi-interior.png', '/home/cherry-interior-location.png', '/home/blouse-paris-location.jpg'] },
+  { name: 'AI tools', href: '/tim/ai-tools', count: '17 bullets', thumbs: ['/home/nigo-interior-article.png', '/home/service-works-interior-product.png', '/home/rubirosa-fit-location.png'] },
 ]
 
 /**

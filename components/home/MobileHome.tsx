@@ -333,7 +333,7 @@ export function MobileHome() {
               <div className={slotClass(3)}><Slot index={slots[3]} height={SLOT_HEIGHTS[3]} /></div>
               <a href="/remi" target="_blank" rel="noopener" className="flex h-[150px] flex-col items-center justify-center gap-1 rounded-[20px] bg-card">
                 <span className="font-serif text-[22px] leading-[26px] text-black">Remi</span>
-                <span className="text-[12px] leading-4 tracking-[0.05em] text-black/50">[&nbsp;96 items&nbsp;]</span>
+                <span className="text-[12px] leading-4 tracking-[0.05em] text-black/50">[&nbsp;96 bullets&nbsp;]</span>
               </a>
             </div>
           </div>

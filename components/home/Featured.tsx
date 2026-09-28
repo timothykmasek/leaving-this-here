@@ -66,7 +66,7 @@ function Table({
             {r.name}
           </span>
           <span className="whitespace-nowrap text-[12px] leading-4 tracking-[0.05em] text-black/30">
-            [&nbsp;{compact ? r.count.replace(' items', '') : r.count}&nbsp;]
+            [&nbsp;{compact ? r.count.replace(' bullets', '') : r.count}&nbsp;]
           </span>
         </a>
       ))}
