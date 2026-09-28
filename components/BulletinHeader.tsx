@@ -31,6 +31,7 @@ export function BulletinHeader({
   tagline,
   widthClassName = 'max-w-[1208px] px-4 sm:px-6',
   stickyLogo = false,
+  logoLeft = false,
 }: {
   // Pass `action={null}` for a logo-only header (e.g. auth pages).
   action?: { label: string; href?: string; onClick?: () => void } | null
@@ -49,6 +50,9 @@ export function BulletinHeader({
   // against whatever passes beneath. Opt-in, and only worth it on the pages
   // with a card feed long enough to scroll under it (profile, list detail).
   stickyLogo?: boolean
+  // Left-align the wordmark on desktop too, at the exact spot the profile's
+  // pinned logo sits (same frame, same left edge), without pinning it.
+  logoLeft?: boolean
 } = {}) {
   const wordmark = (
     // eslint-disable-next-line @next/next/no-img-element
@@ -71,7 +75,7 @@ export function BulletinHeader({
           mark lines up with the right card column, and the logo centers over it. */}
       {/* Mobile: logo sits on the SAME left gutter as the bio/nav below it, so the
           whole page shares one left edge. Desktop: centered masthead. */}
-      <div className={`relative mx-auto flex items-center ${widthClassName} ${tagline || stickyLogo ? 'justify-start' : 'justify-start sm:justify-center'}`}>
+      <div className={`relative mx-auto flex items-center ${widthClassName} ${tagline || stickyLogo || logoLeft ? 'justify-start' : 'justify-start sm:justify-center'}`}>
         {/* wordmark — always links to "/". Logged-out visitors land on the
             homepage; logged-in users are server-redirected to their own profile
             (see app/page.tsx), so the logo is a universal "home". Centred by

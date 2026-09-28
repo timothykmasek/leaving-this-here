@@ -10,6 +10,7 @@ import { BackLink } from '@/components/BackLink'
 //   column: full-bleed on a profile, a 672px huddle on Privacy.)
 // - The reading column is 760 — a comfortable measure, wider than the old 672
 //   phone column — and centred inside that frame.
+// - The wordmark sits exactly where the profile's does (left, same frame).
 // - One "← back" in one place, one top rhythm.
 //
 // Works from server and client pages alike (ImportClient renders it).
@@ -31,7 +32,7 @@ export function SecondaryPage({
 }) {
   return (
     <main className="flex min-h-screen flex-col">
-      <BulletinHeader action={action} logoClassName="h-[32px] sm:h-[44px]" widthClassName={SECONDARY_FRAME} />
+      <BulletinHeader action={action} logoClassName="h-[32px] sm:h-[44px]" widthClassName={SECONDARY_FRAME} logoLeft />
       <div className={`mx-auto w-full ${SECONDARY_FRAME} flex-1`}>
         <div className="mx-auto w-full max-w-[760px] pb-20 pt-6 sm:pb-28 sm:pt-12">
           <BackLink fallbackHref={backHref} className="mb-8 sm:mb-10" />
