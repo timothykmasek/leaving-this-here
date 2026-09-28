@@ -58,10 +58,11 @@ body {
 
 /* Dot-grid ground — the redesign's surface plane (Bulletin DS, Ship 01, Figma
    node 886:16573 "Circle Grid"). One tiled radial-gradient, NOT 15k DOM dots:
-   a 2px #d9d9d9 circle on a 32px pitch from origin 0 0. Intentionally near-
-   invisible on white — texture, not pattern; don't darken it to "make it show".
-   Origin stays 0 0 so the grid is continuous — never nest this on an inner
-   wrapper or the phase resets and the seam shows.
+   a 2px #d9d9d9 circle on a ~32px pitch. Intentionally near-invisible on
+   white — texture, not pattern; don't darken it to "make it show". The pitch
+   and x-phase are locked to the card columns (see DOT_PHASE_SCRIPT in
+   app/layout.tsx) so every gutter holds one centred dot column. Never nest this
+   on an inner wrapper or the phase resets and the seam shows.
 
    The grid is PINNED TO THE VIEWPORT — the page scrolls over a still ground.
    Done with a fixed pseudo-element rather than `background-attachment: fixed`,
@@ -81,7 +82,9 @@ body {
   pointer-events: none;
   background-image: radial-gradient(circle, var(--rivet) 1px, transparent 1px);
   background-size: var(--dot-pitch) var(--dot-pitch);
-  background-position: 0 0;
+  /* --dot-x / --dot-pitch are phase-locked to the card columns by the inline
+     script in app/layout.tsx; 0 / 32px is the no-JS fallback. */
+  background-position: var(--dot-x, 0px) 0;
 }
 
 
