@@ -4,6 +4,17 @@ import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { PrimaryCard } from '@/components/PrimaryCard'
 import { Masonry } from '@/components/Masonry'
+import { PILL_LABEL } from '@/components/ImportFab'
+
+// The shelf's header row wears the list masthead's meta type ("3 Bullets" /
+// "Delete list"), so the page has one small-print voice, not a second
+// all-caps one.
+const META = 'font-sans text-[12px] font-medium leading-4 tracking-[0.05em] text-black/[0.56]'
+// Solid, not outlined-on-nothing: the controls sit on the dot grid, and a
+// transparent button let the dots run through it. White tile + hairline, the
+// dock's 10px corner, Cardo label like the dock pills.
+const SHELF_BUTTON =
+  'rounded-[10px] border border-black/[0.08] bg-white transition-colors hover:border-black/25'
 
 // "Ambient shelf" — a quiet panel under a list's bullets that surfaces OTHER
 // links the owner already saved that fit this list, for one-tap filing. Design
@@ -343,13 +354,13 @@ export function SuggestionShelf({
   }
 
   return (
-    <section ref={sectionRef} className="mt-12 border-t border-black/[0.06] pt-8">
-      <div className="mb-6 flex items-baseline justify-between gap-4">
-        <span className="label text-black/30">You might also add</span>
+    <section ref={sectionRef} className="mt-16 sm:mt-24">
+      <div className={`mb-6 flex items-baseline justify-between gap-4 ${META}`}>
+        <span>You might also add</span>
         {pending.length > COLLAPSED_MAX && (
           <button
             onClick={() => setShowAll((v) => !v)}
-            className="label text-black/30 transition-colors hover:text-ink"
+            className="hover:underline hover:underline-offset-2"
           >
             {showAll ? 'Show less' : `See all ${pending.length}`}
           </button>
@@ -386,16 +397,16 @@ export function SuggestionShelf({
             <div className="mt-2 flex items-stretch gap-2">
               <button
                 onClick={() => handleAdd(s)}
-                className="label flex-1 rounded-full border border-black/10 py-2 text-ink transition-colors hover:bg-ink hover:text-white"
+                className={`flex-1 py-2.5 ${SHELF_BUTTON} ${PILL_LABEL}`}
               >
-                + Add
+                Add
               </button>
               <button
                 type="button"
                 onClick={() => handleDismiss(s)}
                 aria-label="dismiss suggestion"
                 title="not for this list"
-                className="flex shrink-0 items-center justify-center rounded-full border border-black/10 px-3 text-black/40 transition-colors hover:border-black/30 hover:text-ink"
+                className={`flex shrink-0 items-center justify-center px-3.5 text-black/40 hover:text-ink ${SHELF_BUTTON}`}
               >
                 <svg
                   aria-hidden
