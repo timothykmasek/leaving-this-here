@@ -265,7 +265,7 @@ export function ListDetailClient({
       ) : (
         <div className="text-center py-16">
           <p className="text-gray-500 text-sm">
-            empty list — open a bullet and add it to this list
+            Nothing here yet. Open any bullet to add it to this list.
           </p>
         </div>
       )}

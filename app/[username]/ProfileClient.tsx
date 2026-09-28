@@ -1413,7 +1413,7 @@ export default function ProfileClient({
             ) : (
               <div className="text-center py-16">
                 <p className="text-gray-500 text-sm">
-                  empty list{isOwner ? ' — open a bullet and add it to this list' : ''}
+                  {isOwner ? 'Nothing here yet. Open any bullet to add it to this list.' : 'Nothing here yet.'}
                 </p>
               </div>
             )}

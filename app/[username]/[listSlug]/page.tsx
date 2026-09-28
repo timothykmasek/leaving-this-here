@@ -202,7 +202,7 @@ export default async function ListPage({
           <ListGrid bullets={bullets} username={username} />
         ) : (
           <div className="text-center py-16">
-            <p className="text-gray-500 text-sm">empty list</p>
+            <p className="text-gray-500 text-sm">Nothing here yet.</p>
           </div>
         )}
       </div>

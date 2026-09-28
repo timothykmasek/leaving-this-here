@@ -77,7 +77,10 @@ export const SiteFooter = forwardRef<
             // it floats OVER cards and has to admit there is something beneath
             // it. This one sits at the end of the page with nothing behind it
             // but ground, so translucency would only let the dots back in.
-            'border-t border-black/[0.06] bg-paper py-10'
+            //
+            // Same 18px padding as the reveal bar: one footer height site-wide
+            // (it was py-10 here, a 98px slab next to the profile's 54px bar).
+            'border-t border-black/[0.06] bg-paper pt-[18px] pb-[max(18px,env(safe-area-inset-bottom))]'
       }
     >
       {/* Both modes render one slim justified row, on mobile too, so the static
