@@ -1,11 +1,10 @@
 'use client'
 
-import { SiteFooter } from '@/components/SiteFooter'
 import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BulletinHeader } from '@/components/BulletinHeader'
+import { SecondaryPage, SECONDARY_TITLE } from '@/components/SecondaryPage'
 import { checkImport, requestUpgrade, importsLeftLabel, limitContext } from '@/lib/importLimitClient'
 
 // Bulk import: paste anything (or drop a CSV) → we pull out the URLs → save
@@ -124,19 +123,8 @@ export default function ImportClient({ username }: { username: string }) {
   const pct = urls.length ? Math.round((progress.done / urls.length) * 100) : 0
 
   return (
-    <main className="min-h-screen">
-      <BulletinHeader
-        action={{ label: 'Log out', onClick: handleSignOut }}
-        logoClassName="h-[32px] sm:h-[44px]"
-      />
-      <div className="mx-auto max-w-2xl px-6 pb-20 pt-8 sm:px-8">
-        <Link
-          href={`/${username}`}
-          className="label mb-6 inline-block text-black/35 transition-colors hover:text-ink"
-        >
-          ← back
-        </Link>
-        <h1 className="mb-2 font-sans text-3xl font-bold tracking-tight text-ink">
+    <SecondaryPage action={{ label: 'Log out', onClick: handleSignOut }} backHref={`/${username}`}>
+        <h1 className={`mb-2 ${SECONDARY_TITLE}`}>
           Import links
         </h1>
         <p className="mb-8 text-[15px] leading-relaxed text-black/60">
@@ -264,8 +252,6 @@ export default function ImportClient({ username }: { username: string }) {
             )}
           </div>
         )}
-      </div>
-      <SiteFooter widthClassName="max-w-2xl px-6 sm:px-8" />
-    </main>
+    </SecondaryPage>
   )
 }

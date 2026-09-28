@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
-import { BulletinHeader } from '@/components/BulletinHeader'
-import { SiteFooter } from '@/components/SiteFooter'
+import { SecondaryPage } from '@/components/SecondaryPage'
 import { CopyConnectorUrl } from './CopyConnectorUrl'
 
 // /claude — the Claude connector's entire product surface: pitch, connector
@@ -29,10 +28,8 @@ const STEPS: [string, React.ReactNode, boolean?][] = [
 
 export default function ClaudePage() {
   return (
-    <main className="min-h-screen">
-      <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
-
-      <div className="mx-auto max-w-2xl px-6 pb-24 pt-10 sm:px-8 sm:pt-16">
+    <SecondaryPage backHref="/">
+      <div>
         {/* Lockup — Mier Book 400, the intended editorial weight (see fonts.ts:
             don't bump it back to 600/700 because it "looks light"). */}
         <h1 className="text-balance text-center font-sans text-[34px] font-[400] leading-[1.1] tracking-[-0.02em] text-ink sm:text-[44px]">
@@ -86,8 +83,6 @@ export default function ClaudePage() {
           ))}
         </ol>
       </div>
-
-      <SiteFooter widthClassName="max-w-2xl px-6 sm:px-8" />
-    </main>
+    </SecondaryPage>
   )
 }

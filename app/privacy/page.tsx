@@ -1,9 +1,5 @@
-import { SiteFooter } from '@/components/SiteFooter'
 import type { Metadata } from 'next'
-import { BulletinHeader } from '@/components/BulletinHeader'
-
-// Footers must sit on the same measure as the page above them.
-const PAGE_GRID = 'max-w-2xl px-6 sm:px-8'
+import { SecondaryPage, SECONDARY_TITLE } from '@/components/SecondaryPage'
 
 export const metadata: Metadata = {
   title: 'Privacy',
@@ -15,10 +11,8 @@ export const metadata: Metadata = {
 // update this page whenever data handling actually changes.
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen">
-      <BulletinHeader action={null} logoClassName="h-[32px] sm:h-[44px]" />
-      <div className="mx-auto max-w-2xl px-6 pb-20 pt-8 sm:px-8">
-        <h1 className="mb-2 font-sans text-3xl font-bold tracking-tight text-ink">
+    <SecondaryPage backHref="/">
+        <h1 className={`mb-2 ${SECONDARY_TITLE}`}>
           Privacy
         </h1>
         <p className="mb-10 text-sm text-black/40">
@@ -26,7 +20,7 @@ export default function PrivacyPage() {
           Bulletin Chrome extension
         </p>
 
-        <div className="space-y-8 text-[15px] leading-relaxed text-black/70">
+        <div className="space-y-8 text-[15px] leading-relaxed text-black/70 sm:text-[16px]">
           <section>
             <h2 className="font-sans font-[600] text-lg text-ink mb-2">the short version</h2>
             <p>
@@ -118,8 +112,6 @@ export default function PrivacyPage() {
             </p>
           </section>
         </div>
-      </div>
-      <SiteFooter widthClassName={PAGE_GRID} />
-    </main>
+    </SecondaryPage>
   )
 }
