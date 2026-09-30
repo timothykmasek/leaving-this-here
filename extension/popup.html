@@ -54,9 +54,9 @@
            animates, a popup window that changes height), and one plate that
            morphs: the save button → the list picker's header tile. Done
            closes the popup; there's no final screen. Phase lives on #stage
-           as data-phase: confirm | saving | lists | error | blocked -->
+           as data-phase: checking | confirm | saving | lists | error | blocked -->
       <section id="view-save" class="hidden">
-        <div id="stage" class="stage" data-phase="confirm">
+        <div id="stage" class="stage" data-phase="checking">
           <div class="hair" aria-hidden="true"><div class="hair-fill" id="hair-fill"></div></div>
           <div class="band" aria-hidden="true"></div>
 
@@ -66,7 +66,7 @@
             <img class="shot" id="shot" alt="" />
             <span class="pcenter">
               <img class="pmark" src="icons/mark.png" alt="" />
-              <span class="plabel" id="plabel">Save this page</span>
+              <span class="plabel" id="plabel">Loading…</span>
               <span class="pmsg" id="pmsg"></span>
             </span>
             <span class="ring" aria-hidden="true"></span>
@@ -76,6 +76,8 @@
             <p class="htitle" id="htitle">Saved to your Bulletin</p>
             <p class="hsub" id="hsub">Add it to a list…</p>
           </div>
+          <!-- Already saved: take it off your Bulletin (then Undo, same spot). -->
+          <button class="hact" id="remove" type="button">Remove</button>
 
           <div class="lists" id="lists">
             <div id="rows"></div>
@@ -96,6 +98,7 @@
         </div>
       </section>
     </div>
+    <script src="boot.js"></script>
     <script type="module" src="popup.js"></script>
   </body>
 </html>

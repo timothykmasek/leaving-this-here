@@ -8,7 +8,9 @@
 //   og         scrolled page: no capture, the og image leads
 //   ogwins     the capture lands, but the card leads with og: the plate swaps
 //   noimage    nothing to show; the plate keeps the mark
-//   resaved    the page was already saved and filed
+//   saved      already in your Bulletin: the card opens on the picker
+//   savedlate  same, but the check answers late (the plate flips to it)
+//   resaved    old path: already saved, found out only by saving again
 //   slow       the save takes 6s (bar holds at 92%)
 //   error      the save fails
 //   onboarding account without a Bulletin yet (no handle → Finish setup)
@@ -70,8 +72,22 @@ function connect() {
 }
 
 async function sendMessage(msg) {
-  await wait(msg?.type === 'ig-get-lists' ? 250 : 180)
+  await wait(msg?.type === 'ig-get-lists' ? 250 : msg?.type === 'ig-check-saved' ? 450 : 180)
   switch (msg?.type) {
+    case 'ig-check-saved': {
+      if (!['saved', 'savedlate'].includes(S)) return { bookmark: null }
+      if (S === 'savedlate') await wait(900)
+      return {
+        bookmark: { id: 'b1', title: 'The quiet workshop', image_url: 'dev/sample-shot.jpg' },
+        lists, memberOf: ['l1', 'l4'], username: 'tim',
+      }
+    }
+    case 'ig-remove':
+      tell({ type: 'log', text: 'Removed (held 5s for Undo, then deleted)' })
+      return { ok: true }
+    case 'ig-undo-remove':
+      tell({ type: 'log', text: 'Undo: kept' })
+      return { ok: true }
     case 'ig-get-lists':
       return { ok: true, lists, memberOf: msg.bookmarkId ? [...members] : [], username: S === 'onboarding' ? null : 'tim' }
     case 'ig-set-list':

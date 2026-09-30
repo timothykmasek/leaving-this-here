@@ -29,6 +29,7 @@ import {
   getLists,
   createList,
   setListMembership,
+  deleteBullet,
 } from './auth.js'
 import { CONFIG } from './config.js'
 
@@ -505,6 +506,20 @@ const cardKeys = new Map() // tabId → key
 // The screenshot is taken at the click, BEFORE the card appears, so the card
 // can never land in its own screenshot. The save picks it up from here.
 const clickShots = new Map() // tabId → { at, shot: Promise<dataUrl|null> }
+// "Is this page already saved?", asked at the click alongside the screenshot,
+// so the card usually has its answer the moment it asks.
+const clickChecks = new Map() // tabId → { at, url, answer: Promise }
+const checkSaved = (url) =>
+  getLists(null, url).then(
+    (r) => ({
+      ok: true,
+      bookmark: r.saved ? { id: r.saved.id, title: r.saved.title, image_url: r.saved.image } : null,
+      lists: r.lists || [],
+      memberOf: r.member_of || [],
+      username: r.username || null,
+    }),
+    (e) => ({ error: String(e?.message || e), authExpired: !!e?.authExpired }),
+  )
 const CARD_ORIGIN = chrome.runtime.getURL('').replace(/\/$/, '')
 
 chrome.action.onClicked.addListener(async (tab) => {
@@ -521,6 +536,7 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
   // A second click on the icon closes the card.
   if (open) return injectCard(tab.id, null)
+  clickChecks.set(tab.id, { at: Date.now(), url: tab.url, answer: checkSaved(tab.url) })
   const shot = captureTab(tab).catch(() => null)
   clickShots.set(tab.id, { at: Date.now(), shot })
   await shot
@@ -550,6 +566,7 @@ chrome.tabs.onUpdated.addListener((tabId, info) => {
 chrome.tabs.onRemoved.addListener((tabId) => {
   cardKeys.delete(tabId)
   clickShots.delete(tabId)
+  clickChecks.delete(tabId)
 })
 
 // Runs IN the page (self-contained: no closures). src = the card's page, or
@@ -712,6 +729,7 @@ async function saveTab(tab, post, card) {
     }
   } catch (err) {
     const message = String(err?.message || err)
+    console.error('[bulletin] save failed:', tab.url, err)
     post({
       type: 'error',
       message,
@@ -761,6 +779,35 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       .catch((e) => sendResponse({ error: String(e.message || e), authExpired: !!e?.authExpired }))
     return true
   }
+  // The card asks whether its page is already saved. The click's answer if
+  // it's for this page and fresh; otherwise ask now. A bullet whose Remove is
+  // still in its Undo window is deleted first, so the answer is the truth
+  // (and a save that follows can't be undone by the late delete).
+  if (msg?.type === 'ig-check-saved') {
+    ;(async () => {
+      const early = clickChecks.get(msg.tabId)
+      clickChecks.delete(msg.tabId)
+      if (removals.size) await Promise.all([...removals.keys()].map(commitRemoval))
+      const fresh = early && early.url === msg.url && Date.now() - early.at < 60 * 1000 && !removedSince(early.at)
+      sendResponse(await (fresh ? early.answer : checkSaved(msg.url)))
+    })()
+    return true
+  }
+  // Remove is held for its Undo window, then deleted here (the card may be
+  // gone by then). Undo just cancels it.
+  if (msg?.type === 'ig-remove' && msg.bookmarkId) {
+    const id = msg.bookmarkId
+    clearTimeout(removals.get(id)?.timer)
+    removals.set(id, { timer: setTimeout(() => commitRemoval(id), REMOVE_GRACE) })
+    sendResponse({ ok: true })
+    return
+  }
+  if (msg?.type === 'ig-undo-remove' && msg.bookmarkId) {
+    clearTimeout(removals.get(msg.bookmarkId)?.timer)
+    removals.delete(msg.bookmarkId)
+    sendResponse({ ok: true })
+    return
+  }
   if (msg?.type === 'ig-create-list') {
     createList(msg.name, msg.bookmarkId)
       .then((r) => sendResponse({ ok: true, list: r.list, url: r.url }))
@@ -774,6 +821,25 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true
   }
 })
+
+// ── Remove ──────────────────────────────────────────────────────────
+// The card shows Undo for 5s; the delete waits a beat longer than that.
+const REMOVE_GRACE = 6000
+const removals = new Map() // bookmarkId → { timer }
+let lastRemovalAt = 0
+const removedSince = (t) => lastRemovalAt >= t
+async function commitRemoval(id) {
+  const r = removals.get(id)
+  if (!r) return
+  clearTimeout(r.timer)
+  removals.delete(id)
+  lastRemovalAt = Date.now()
+  try {
+    await deleteBullet(id)
+  } catch (err) {
+    if (!/not found/i.test(String(err?.message))) notify('Couldn’t remove', 'It’s still in your Bulletin. Try again.')
+  }
+}
 
 function notify(title, message) {
   try {

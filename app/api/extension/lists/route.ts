@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { uniqueSlug } from '@/lib/slug'
 import { DISPLAY_BULLET_COLS, mapDisplayBullet } from '@/lib/displayBullet'
+import { normalizeUrl } from '@/lib/normalizeUrl'
 
 // Lists API for the Chrome extension.
 //
@@ -9,6 +10,10 @@ import { DISPLAY_BULLET_COLS, mapDisplayBullet } from '@/lib/displayBullet'
 //     ?bookmark_id=… also returns { member_of: [listId] } — which of those lists
 //     already hold that bullet, so the toast can show its checkmarks on a
 //     re-save instead of claiming the bullet is filed nowhere.
+//     ?url=… asks "is this page already in my Bulletin?" (same url_key dedupe
+//     as the save) and adds { saved: { id, title, image } | null } plus that
+//     bullet's member_of. The card asks at the click, so an already-saved page
+//     opens on its lists instead of offering the save again.
 //   POST /api/extension/lists           → op-dispatched:
 //     { op: 'create', name, bookmark_id? } → mints a frozen slug, publishes the
 //          list, optionally adds the bullet. Returns { list, url, existed }.
@@ -94,14 +99,32 @@ export async function GET(request: NextRequest) {
     return json({ list, bullets })
   }
 
+  // ?url= → the caller's bullet for this page, if any. Indexed on
+  // (user_id, url_key), so it rides along at no real cost.
+  const pageUrl = new URL(request.url).searchParams.get('url')
+  let urlKey: string | null = null
+  if (pageUrl) {
+    try { urlKey = normalizeUrl(pageUrl) } catch { urlKey = null }
+  }
+  const savedQuery = urlKey
+    ? a.supabase
+        .from('bookmarks')
+        .select(DISPLAY_BULLET_COLS)
+        .eq('user_id', a.userId)
+        .eq('url_key', urlKey)
+        .limit(1)
+        .maybeSingle()
+    : Promise.resolve({ data: null })
+
   // The card links each list to its page, so it needs the owner's handle;
   // fetched alongside the lists rather than waiting on the save response.
-  const [{ data, error }, { data: prof }] = await Promise.all([
+  const [{ data, error }, { data: prof }, { data: savedRow }] = await Promise.all([
     a.supabase
       .from('lists')
       .select('id, name, slug, is_private, created_at, list_bookmarks(added_at)')
       .eq('user_id', a.userId),
     a.supabase.from('profiles').select('username').eq('id', a.userId).maybeSingle(),
+    savedQuery,
   ])
   if (error) return json({ error: error.message }, 400)
   // Most recently USED first (latest filing, else creation) — the three lists
@@ -123,8 +146,18 @@ export async function GET(request: NextRequest) {
     .map((l) => ({ id: l.id, name: l.name, slug: l.slug, is_private: !!l.is_private }))
   const username: string | null = prof?.username ?? null
 
-  const bookmarkId = new URL(request.url).searchParams.get('bookmark_id')
-  if (!bookmarkId || lists.length === 0) return json({ lists, member_of: [], username })
+  // The card's tile wears the image the bullet's card shows on the site.
+  // undefined (key omitted) when no ?url= was asked.
+  let saved: { id: string; title: string; image: string | null } | null | undefined
+  if (savedRow) {
+    const b = mapDisplayBullet(savedRow)
+    saved = { id: b.id, title: b.display_title, image: b.display_image }
+  } else if (pageUrl) {
+    saved = null
+  }
+
+  const bookmarkId = saved?.id || new URL(request.url).searchParams.get('bookmark_id')
+  if (!bookmarkId || lists.length === 0) return json({ lists, member_of: [], username, saved })
 
   // Constrained to the caller's own list ids, so this can't be used to probe
   // which of someone else's lists a bullet sits in.
@@ -136,7 +169,7 @@ export async function GET(request: NextRequest) {
   if (memErr) return json({ error: memErr.message }, 400)
   const memberOf = (mem || []).map((m) => m.list_id)
 
-  return json({ lists, member_of: memberOf, username })
+  return json({ lists, member_of: memberOf, username, saved })
 }
 
 export async function POST(request: NextRequest) {

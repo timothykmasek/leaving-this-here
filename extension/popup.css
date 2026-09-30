@@ -302,6 +302,24 @@ body {
 .htitle { font-weight: 500; font-size: 16px; line-height: 24px; color: #000; }
 .hsub { font-weight: 500; font-size: 12px; line-height: 16px; letter-spacing: 0.05em; color: #000; opacity: 0.8; }
 
+/* Already saved (.saved): the card opens on the picker, and the header's
+   right side offers Remove. Quiet, in the sub-line's small voice: it's the
+   rare action, never the obvious one. After a remove it reads Undo. */
+.hact {
+  position: absolute; top: 24px; right: 18px; z-index: 2;
+  padding: 0; border: none; background: none; cursor: pointer;
+  font-family: inherit; font-weight: 500; font-size: 12px; line-height: 16px; letter-spacing: 0.05em;
+  color: var(--ink-50);
+  opacity: 0; pointer-events: none;
+  transition: opacity 300ms ease 200ms, color 150ms ease;
+}
+.stage.saved[data-phase='lists'] .hact { opacity: 1; pointer-events: auto; }
+.hact:hover { color: #000; text-decoration: underline; text-underline-offset: 2px; }
+.stage.removed .hact { color: #000; }
+/* Removed: the lists and the tile step back; nothing there is live now. */
+.stage.removed[data-phase='lists'] .lists { opacity: 0.35; pointer-events: none; transition: opacity 300ms ease; }
+.stage.removed[data-phase='lists'] .plate { opacity: 0.4; transition: opacity 300ms ease; }
+
 /* ── The list picker ── */
 .lists {
   position: absolute; top: 80px; left: 0; right: 0; bottom: 68px;

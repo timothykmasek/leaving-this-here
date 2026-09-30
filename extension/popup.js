@@ -4,6 +4,8 @@
 //   confirm   → the plate says "Save this page"; clicking it (or Enter) saves
 //   saving    → a designed beat (SAVE_BEAT): the plate's dots merge into the
 //               page's screenshot while the request runs in the service worker
+//   (already saved: the card skips the plate and opens here, lists ticked,
+//    with Remove / Undo in the header and no countdown)
 //   lists     → the plate shrinks into the header tile; pick lists, then
 //               Done/Skip (or leave it 8s) and the popup just goes away.
 //               The header ("Saved to your Bulletin / In Reading") is the
@@ -42,6 +44,13 @@ if (CARD) {
 const SAVE_BEAT = Number(new URLSearchParams(location.search).get('beat')) || 2200
 // ?hold= overrides it (the dev states board holds the picker open).
 const HOLD = Number(new URLSearchParams(location.search).get('hold')) || 8000 // list picker, at full pace, before it closes itself
+// "Already saved?": the plate says "Loading…" until it's answered (usually
+// at once: it's asked at the click, alongside the screenshot the card already
+// waits on). Past this, the plate offers the save anyway; a later answer
+// still flips it to the picker, as long as they haven't clicked Save.
+const CHECK_WAIT = 3000
+// After Remove: the Undo window before the card closes itself.
+const REMOVE_HOLD = 5000
 
 // The list picker either EXPANDS to show every list (no scrolling, up to
 // Chrome's 600px popup cap) or holds 3½ rows and scrolls. Expand is the
@@ -147,10 +156,11 @@ const plate = $('plate')
 const shot = $('shot')
 
 let tab = null
-let phase = 'confirm'
+let phase = 'checking'
 let port = null
 let bookmarkId = null
 let refreshed = false
+let alreadySaved = false // opened on a page that's already in their Bulletin
 let username = null
 let lists = [] // [{ id, name, slug }], most recently used first
 let memberOf = new Set()
@@ -277,8 +287,33 @@ async function initSave() {
     $('pmsg').textContent = 'Browser pages can’t be saved.'
     return
   }
+  // Already in their Bulletin: the plate shrinks into the picker instead of
+  // offering "Save this page".
+  setPhase('checking')
+  $('plabel').textContent = 'Loading…'
+  const ask = chrome.runtime
+    .sendMessage({ type: 'ig-check-saved', tabId: tab.id, url: tab.url })
+    .then((r) => (r?.bookmark?.id ? r : null), () => null)
+  const known = await Promise.race([ask, new Promise((res) => setTimeout(() => res(null), CHECK_WAIT))])
+  if (known) return openSaved(known)
+  $('plabel').textContent = 'Save this page'
   setPhase('confirm')
   plate.focus({ preventScroll: true })
+  ask.then((late) => { if (late && phase === 'confirm') openSaved(late) })
+}
+
+// The bullet as it is, its lists ticked: the plate morphs down into the tile.
+function openSaved(r) {
+  alreadySaved = true
+  refreshed = true
+  bookmarkId = r.bookmark.id
+  if (r.lists) lists = r.lists
+  memberOf = new Set(r.memberOf || [])
+  setUsername(r.username)
+  stage.classList.add('saved')
+  decided = true
+  if (r.bookmark.image_url) setImage(r.bookmark.image_url, 'lead')
+  enterLists()
 }
 
 let needsSetup = false
@@ -634,8 +669,11 @@ function showError(err) {
     $('plabel').textContent = 'Almost there'
     $('pmsg').textContent = 'Finish setting up your Bulletin, then save again. Click to go there.'
   } else {
+    // Show why: a bare "Couldn't save" hid every cause (server error, network,
+    // dead session) behind the same words.
+    console.error('[bulletin] save failed:', err.message)
     $('plabel').textContent = 'Couldn’t save'
-    $('pmsg').textContent = 'Click to try again'
+    $('pmsg').textContent = err.message ? `${err.message}. Click to try again` : 'Click to try again'
   }
 }
 
@@ -650,6 +688,8 @@ async function enterLists() {
   stage.classList.add('rows-in')
   setTimeout(() => stage.classList.remove('rows-in'), 40 + (lists.length + 1) * 35 + 400)
   setPhase('lists')
+  // They came to look or edit: no countdown hurrying them out.
+  if (alreadySaved) return
   startClock(HOLD, finish)
 
   // A re-save is already filed places: tick the lists it's in.
@@ -673,7 +713,30 @@ function selectedNames() {
 function updateSub() {
   const names = selectedNames()
   $('hsub').textContent = names.length ? `In ${names.join(', ')}` : 'Add it to a list…'
-  $('done').textContent = names.length ? 'Done' : 'Skip'
+  $('done').textContent = names.length || alreadySaved ? 'Done' : 'Skip'
+}
+
+// ── Remove (already saved only) ──
+// Remove → Undo in the same spot for a few seconds, then the card closes.
+// The worker holds the delete for that window, so Undo just cancels it.
+const removeBtn = $('remove')
+removeBtn.addEventListener('click', () => (stage.classList.contains('removed') ? undoRemove() : removeBullet()))
+function removeBullet() {
+  stage.classList.add('removed')
+  removeBtn.textContent = 'Undo'
+  $('htitle').textContent = 'Removed from your Bulletin'
+  $('hsub').textContent = 'Off your page and out of every list'
+  $('done').textContent = 'Done'
+  chrome.runtime.sendMessage({ type: 'ig-remove', bookmarkId }).catch(() => {})
+  startClock(REMOVE_HOLD, finish)
+}
+function undoRemove() {
+  stopClock()
+  stage.classList.remove('removed')
+  removeBtn.textContent = 'Remove'
+  $('htitle').textContent = 'Already in your Bulletin'
+  updateSub()
+  chrome.runtime.sendMessage({ type: 'ig-undo-remove', bookmarkId }).catch(() => {})
 }
 
 // Expanded: the stage grows to hold header + every row + "Create new list" +
@@ -876,7 +939,9 @@ document.addEventListener('keydown', (e) => {
 
 // ── Render based on auth state ──────────────────────────────────────
 async function render() {
-  show('loading')
+  // The card only opens signed in, so it starts on its own plate ("Loading…")
+  // rather than the popup's bare loading line.
+  show(CARD ? 'save' : 'loading')
   if (CARD) {
     const v = await chrome.runtime
       .sendMessage({ type: 'ig-card-verify', tab: CARD_TAB, key: params.get('k') })

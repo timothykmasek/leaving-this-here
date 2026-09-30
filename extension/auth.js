@@ -284,9 +284,20 @@ export async function sendNoShot(bookmarkId) {
 // The signed-in user's lists: [{ id, name, slug }].
 // The user's lists. Pass a bookmarkId to also get `member_of` — the ids of the
 // lists that already hold it (only meaningful for a bullet saved earlier).
-export async function getLists(bookmarkId) {
-  const qs = bookmarkId ? `?bookmark_id=${encodeURIComponent(bookmarkId)}` : ''
+// Pass a page url instead to ask whether it's already saved: `saved` comes
+// back as { id, title, image } (with its member_of) or null.
+export async function getLists(bookmarkId, url) {
+  const qs = bookmarkId
+    ? `?bookmark_id=${encodeURIComponent(bookmarkId)}`
+    : url
+      ? `?url=${encodeURIComponent(url)}`
+      : ''
   return apiGet(`/api/extension/lists${qs}`)
+}
+
+// Delete a bullet (the card's Remove, once its Undo window has passed).
+export async function deleteBullet(bookmarkId) {
+  return apiSend('DELETE', '/api/extension/save', { bookmark_id: bookmarkId })
 }
 
 // Create a new list and optionally add a gem to it. Returns
