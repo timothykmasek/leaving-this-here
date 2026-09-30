@@ -20,8 +20,19 @@ const EVERYDAY: SaveSource[] = ['extension', 'ios', 'web', 'claude']
 
 // Tim's own accounts: his Gmail, its +aliases (the hugh/remi personas) and the
 // seeded preview personas he curates by hand after seeding them by script.
-function isExempt(email: string | null | undefined): boolean {
-  const e = (email || '').toLowerCase()
+//
+// An email match alone isn't proof: with "Confirm email" off, anyone can sign
+// up as timothykmasek+anything@gmail.com without owning the inbox. So the
+// pattern only counts for accounts that existed before signup opened to
+// lookalikes (the 2026-09-30 audit); newer accounts of Tim's go in
+// EXEMPT_USER_IDS (comma-separated, Vercel env).
+const EXEMPT_EMAILS_BEFORE = Date.parse('2026-09-30T00:00:00Z')
+function isExempt(user: { id: string; email?: string | null; created_at?: string }): boolean {
+  const ids = (process.env.EXEMPT_USER_IDS || '').split(',').map((s) => s.trim())
+  if (ids.includes(user.id)) return true
+  const e = (user.email || '').toLowerCase()
+  const created = user.created_at ? Date.parse(user.created_at) : NaN
+  if (!(created < EXEMPT_EMAILS_BEFORE)) return false
   return /^timothykmasek(\+[^@]*)?@gmail\.com$/.test(e) || e.endsWith('@seed.bulletin.local')
 }
 
@@ -56,10 +67,10 @@ async function countSince(
  */
 export async function checkSaveLimit(
   supabase: SupabaseClient,
-  user: { id: string; email?: string | null },
+  user: { id: string; email?: string | null; created_at?: string },
   door: SaveSource | null,
 ): Promise<LimitHit | null> {
-  if (isExempt(user.email)) return null
+  if (isExempt(user)) return null
   const userId = user.id
   // Imports and onboarding seeds have their own rules. An unidentified caller
   // (door null) is held to the strictest per-door limit.

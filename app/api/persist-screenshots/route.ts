@@ -8,6 +8,7 @@ import {
 } from '@/lib/screenshot'
 import { prefersOgImage, shouldSkipScreenshot } from '@/lib/cardImage'
 import { maybeStoreImagePref } from '@/lib/cardImageJudge'
+import { isInternalRequest } from '@/lib/internalAuth'
 
 // Row filter: "no screenshot of ours stored yet" — null, the '' sentinel, or a
 // legacy live-API URL. Every server write is conditioned on it so a capture
@@ -32,6 +33,11 @@ const NO_STORED_SHOT = `screenshot_url.is.null,screenshot_url.not.like.*/${SCREE
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
+  // Server-to-server only: every call spends ScreenshotOne credit and writes
+  // with the service role. 404 so a probe learns nothing.
+  if (!isInternalRequest(request)) {
+    return NextResponse.json({ error: 'not found' }, { status: 404 })
+  }
   if (!process.env.SCREENSHOTONE_ACCESS_KEY) {
     return NextResponse.json(
       { error: 'SCREENSHOTONE_ACCESS_KEY is not set' },
@@ -55,7 +61,8 @@ export async function POST(request: NextRequest) {
   )
 
   const body = await request.json().catch(() => ({}))
-  const { limit = 8, offset = 0, id = null, ids = null, force = false } = body
+  const { limit: rawLimit = 8, offset = 0, id = null, ids = null, force = false } = body
+  const limit = Math.min(Math.max(Number(rawLimit) || 8, 1), 50)
 
   try {
     await ensureBucket(supabaseAdmin)

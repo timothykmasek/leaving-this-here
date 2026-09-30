@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { allowRequest, clientIp } from '@/lib/rateLimit'
 
 // POST /api/waitlist  { email }
 //
@@ -30,6 +31,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false }, { status: 400 })
   }
 
+  // Anonymous and it emails Tim: brake per IP. A braked request still gets the
+  // optimistic { ok: true } (same reasoning as above).
+  if (!(await allowRequest(`waitlist:${clientIp(req)}`, 5, 3600))) {
+    return NextResponse.json({ ok: true })
+  }
+
   const admin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -47,7 +54,7 @@ export async function POST(req: NextRequest) {
   // Doorbell: email Tim on each genuinely new signup (duplicates stay silent).
   // Awaited (a serverless runtime may not finish a dangling promise after the
   // response) but never fatal.
-  if (!error && process.env.RESEND_API_KEY) {
+  if (!error && process.env.RESEND_API_KEY && (await allowRequest('waitlist:doorbell', 20, 86400))) {
     try {
       const { count } = await admin
         .from('waitlist')

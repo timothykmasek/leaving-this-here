@@ -78,7 +78,7 @@ export default async function ProfilePage({
       supabase.auth.getSession(),
       supabase
         .from('profiles')
-        .select(`*, bookmarks(${BULLET_COLS}), lists(id, name, slug, description, created_at, is_private, list_bookmarks(bookmark_id))`)
+        .select(`*, bookmarks(${BULLET_COLS}), lists(id, name, slug, created_at, is_private, list_bookmarks(bookmark_id))`)
         .eq('username', username)
         .order('created_at', { referencedTable: 'bookmarks', ascending: false })
         .limit(INITIAL_BULLETS, { referencedTable: 'bookmarks' })

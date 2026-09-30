@@ -30,6 +30,23 @@ const nextConfig = {
       },
     ]
   },
+  // Nothing legitimately frames Bulletin (the extension card frames its own
+  // popup.html, not the site), so no page can be embedded: that stops
+  // clickjacking on /oauth/consent's Approve and /settings' delete. Referrer
+  // policy is left at the browser default on purpose: outbound clicks send
+  // our origin as referrer (lib/outboundUrl).
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+    ]
+  },
   // /setup and /bookmarklet were orphaned legacy from before extension-only
   // saving (flagged for cleanup in 0e6b698, removed 2026-08-29). Old links and
   // crawlers land on onboarding instead of a 404.

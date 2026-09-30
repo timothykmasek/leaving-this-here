@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createSupabaseServer } from '@/lib/supabase/server'
 import { embed } from '@/lib/embed'
+import { allowRequest, tooManyRequests } from '@/lib/rateLimit'
 
 // Token-scoped client for bearer callers (the iOS app) — RLS sees the caller,
 // mirroring /api/extension/*.
@@ -86,6 +87,8 @@ export async function POST(req: Request) {
     if (!user) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
     }
+    // Each search is a paid Voyage embed.
+    if (!(await allowRequest(`search:${user.id}`, 60, 60))) return tooManyRequests()
     const user_id = body?.user_id || user.id
     const isOwner = user.id === user_id
 

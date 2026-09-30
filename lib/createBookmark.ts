@@ -7,6 +7,7 @@ import { enrichKeywords } from '@/lib/enrichKeywords'
 import { normalizeUrl } from '@/lib/normalizeUrl'
 import { withProductFact } from '@/lib/productFact'
 import type { SaveSource } from '@/lib/importQuota'
+import { internalHeaders, internalOrigin } from '@/lib/internalAuth'
 
 type SupabaseServer = Awaited<ReturnType<typeof createSupabaseServer>>
 
@@ -60,6 +61,7 @@ export async function createBookmarkFromUrl(
   } = { origin: '' }
 ): Promise<{ id: string } | { skipped: 'duplicate' } | { error: string }> {
   try {
+    if (!/^https?:\/\//i.test(url)) return { error: 'only http(s) links can be saved' }
     const url_key = normalizeUrl(url)
 
     // Near-dupe guard: if this user already saved a URL that normalizes to the
@@ -146,9 +148,9 @@ export async function createBookmarkFromUrl(
             }
             // Only capture a screenshot if the caller didn't hand us a baked one.
             if (opts.origin && !opts.screenshotUrl) {
-              await fetch(`${opts.origin}/api/persist-screenshots`, {
+              await fetch(`${internalOrigin(opts.origin)}/api/persist-screenshots`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...internalHeaders() },
                 body: JSON.stringify({ id: inserted.id }),
               }).catch(() => {})
             }
@@ -221,9 +223,9 @@ export async function createBookmarkFromUrl(
       // freezes right after responding, leaving screenshot_url null forever and
       // the card stuck on the og:image.
       waitUntil(
-        fetch(`${opts.origin}/api/persist-screenshots`, {
+        fetch(`${internalOrigin(opts.origin)}/api/persist-screenshots`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...internalHeaders() },
           body: JSON.stringify({ id: inserted.id }),
         }).catch(() => {}),
       )

@@ -25,7 +25,9 @@ export function resolveOutbound(
 export function withBulletinUtm(url: string, campaign?: string | null): string {
   try {
     const u = new URL(url)
-    if (u.protocol !== 'http:' && u.protocol !== 'https:') return url
+    // Only web links are clickable. A stored javascript:/data: URL would run
+    // in the visitor's browser, so anything else renders as a dead link.
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '#'
     // A URL that already carries someone's utm_source is left alone — the
     // saver kept it on purpose, and two sources make both meaningless.
     if (u.searchParams.has('utm_source')) return url

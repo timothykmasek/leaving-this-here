@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { embed } from '@/lib/embed'
 import { SITE_URL } from '@/lib/meta'
 import { normalizeUrl } from '@/lib/normalizeUrl'
+import { allowRequest, clientIp } from '@/lib/rateLimit'
 
 // MCP server — Bulletin as a Claude connector, mounted twice:
 //
@@ -69,6 +70,9 @@ function sb(token?: string): SupabaseClient {
     },
   )
 }
+
+// Largest JSON-RPC batch we'll run in one request.
+const MAX_BATCH = 20
 
 type Caller = { userId: string; username: string | null } | null
 
@@ -538,6 +542,18 @@ export function makeMcpRoutes({ personal }: { personal: boolean }) {
       const scoped = caller ? sb(token) : supabase
 
       const messages = Array.isArray(body) ? body : [body]
+      if (messages.length > MAX_BATCH) {
+        return NextResponse.json(rpcError(null, -32600, `Batch too large (max ${MAX_BATCH})`), { status: 400, headers: CORS_HEADERS })
+      }
+      // Tool calls spend money (Voyage per search, Haiku per save): brake them
+      // per account, or per IP for the anonymous public mount.
+      const toolCalls = messages.filter((m) => m?.method === 'tools/call').length
+      if (toolCalls) {
+        const who = caller ? `u:${caller.userId}` : `ip:${clientIp(request)}`
+        if (!(await allowRequest(`mcp:${who}`, caller ? 120 : 60, 60))) {
+          return NextResponse.json(rpcError(null, -32000, 'Too many requests. Try again in a minute.'), { status: 429, headers: CORS_HEADERS })
+        }
+      }
       const responses = (
         await Promise.all(messages.map((m) => handleMessage(m, caller, scoped, personal, token)))
       ).filter(Boolean)

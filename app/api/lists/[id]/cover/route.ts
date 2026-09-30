@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { SCREENSHOT_BUCKET } from '@/lib/screenshot'
+import { SCREENSHOT_BUCKET, isRasterImage } from '@/lib/screenshot'
+import { safeFetch } from '@/lib/safeFetch'
 
 // POST   /api/lists/[id]/cover   — store a cover image, return its public URL
 // DELETE /api/lists/[id]/cover   — clear the cover ("no cover" is a real choice)
@@ -44,7 +45,7 @@ async function fetchImage(
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000)
-    res = await fetch(url, {
+    res = await safeFetch(url, {
       signal: controller.signal,
       headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
     })
@@ -53,7 +54,7 @@ async function fetchImage(
     return { error: `could not fetch that image: ${String(err)}` }
   }
   const contentType = res.headers.get('content-type') || ''
-  if (!res.ok || !contentType.startsWith('image/')) {
+  if (!res.ok || !isRasterImage(contentType)) {
     return { error: `source returned HTTP ${res.status} / ${contentType || 'no content-type'}` }
   }
   return { bytes: new Uint8Array(await res.arrayBuffer()), contentType }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { internalHeaders, internalOrigin } from '@/lib/internalAuth'
 
 // GET /api/cron/backfill-screenshots
 //
@@ -29,7 +30,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
-  const origin = new URL(req.url).origin
+  const origin = internalOrigin(new URL(req.url).origin)
   const BATCH = 12
   const MAX_BATCHES = 3 // bound per-run work so we stay well under maxDuration
 
@@ -44,7 +45,7 @@ export async function GET(req: Request) {
     try {
       res = await fetch(`${origin}/api/persist-screenshots`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...internalHeaders() },
         body: JSON.stringify({ limit: BATCH }),
       })
     } catch (err: any) {

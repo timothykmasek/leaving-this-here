@@ -13,6 +13,7 @@
 // project_card_image_judge (memory); tune via a labelled eval set, not by feel.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { safeFetch } from '@/lib/safeFetch'
 
 const JUDGE_MODEL = 'claude-haiku-4-5'
 
@@ -38,7 +39,7 @@ async function fetchImagePart(url: string): Promise<ImagePart | null> {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 12000)
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       signal: controller.signal,
       headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
     })

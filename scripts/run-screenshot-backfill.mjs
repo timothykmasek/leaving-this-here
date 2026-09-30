@@ -8,6 +8,20 @@
 //
 // Run the dev server first: `npm run dev`.
 
+import fs from 'node:fs'
+import path from 'node:path'
+import { createHash } from 'node:crypto'
+
+// The route only answers internal callers (lib/internalAuth.ts): the token is
+// derived from the service-role key in .env.local.
+for (const line of fs.readFileSync(path.join(process.cwd(), '.env.local'), 'utf8').split('\n')) {
+  const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
+  if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
+}
+const INTERNAL = createHash('sha256')
+  .update(`bulletin-internal:${process.env.SUPABASE_SERVICE_ROLE_KEY}`)
+  .digest('hex')
+
 const ENDPOINT = 'http://localhost:3000/api/persist-screenshots'
 const BATCH = 12             // route processes these 3-at-a-time (bounded concurrency)
 const BATCH_PAUSE_MS = 800   // brief breather between batches
@@ -27,7 +41,7 @@ while (true) {
   try {
     res = await fetch(ENDPOINT, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'x-bulletin-internal': INTERNAL },
       body: JSON.stringify({ limit: BATCH }),
     })
   } catch (err) {

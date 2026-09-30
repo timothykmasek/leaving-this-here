@@ -20,8 +20,13 @@ export function normalizeProfileLinks(
   links: Record<string, string> | string[] | null | undefined
 ): string[] {
   if (!links) return []
-  if (Array.isArray(links)) return links.filter((u) => typeof u === 'string' && u.trim())
-  return LEGACY_ORDER.map((k) => links[k]).filter(Boolean)
+  const raw = Array.isArray(links) ? links : LEGACY_ORDER.map((k) => links[k])
+  // Through coerceUrl on the way out too: rows written before the editor (or
+  // straight through the API) may hold bare domains or non-http schemes, and
+  // these render as hrefs.
+  return raw
+    .map((u) => (typeof u === 'string' ? coerceUrl(u) : null))
+    .filter((u): u is string => !!u)
 }
 
 export function detectPlatform(url: string): LinkPlatform {

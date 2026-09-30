@@ -12,6 +12,7 @@
 // rate limiting.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { safeFetch } from '@/lib/safeFetch'
 
 export const SCREENSHOT_BUCKET = 'card-images'
 
@@ -155,6 +156,11 @@ export function isRotProneImageUrl(imageUrl: string | null | undefined): boolean
  * so a plain server-side fetch works — no cookies needed, the signature IS the
  * access grant.
  */
+/** Raster types we'll store in the public bucket. Never SVG: it can carry script. */
+export function isRasterImage(contentType: string): boolean {
+  return /^image\/(png|jpe?g|webp|gif|avif)\b/i.test(contentType.trim())
+}
+
 export async function persistCardImage(
   supabase: SupabaseClient,
   bookmarkId: string,
@@ -164,7 +170,7 @@ export async function persistCardImage(
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 15000)
-    res = await fetch(imageUrl, {
+    res = await safeFetch(imageUrl, {
       signal: controller.signal,
       headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' },
     })
@@ -173,7 +179,7 @@ export async function persistCardImage(
     return { publicUrl: null, error: `fetch failed: ${String(err)}` }
   }
   const contentType = res.headers.get('content-type') || ''
-  if (!res.ok || !contentType.startsWith('image/')) {
+  if (!res.ok || !isRasterImage(contentType)) {
     return { publicUrl: null, error: `HTTP ${res.status} / ${contentType}` }
   }
   const bytes = new Uint8Array(await res.arrayBuffer())

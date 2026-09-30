@@ -10,6 +10,7 @@
 
 import { fetchOEmbed, type OEmbedResult } from '@/lib/oembed'
 import { urlDerivedTitle, isMapsShortLink, pdfFilenameTitle } from '@/lib/urlTitle'
+import { safeFetch } from '@/lib/safeFetch'
 
 export interface RawMetadata {
   og: Record<string, string>
@@ -87,7 +88,7 @@ export async function fetchHtml(url: string): Promise<FetchHtmlResult> {
   const timeoutId = setTimeout(() => controller.abort(), 15000)
 
   try {
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       headers: {
         'User-Agent': uaForUrl(url),
         Accept:
@@ -160,7 +161,7 @@ async function resolveRedirectUrl(url: string): Promise<string | null> {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), 8000)
   try {
-    const res = await fetch(url, {
+    const res = await safeFetch(url, {
       headers: { 'User-Agent': 'facebookexternalhit/1.1' },
       redirect: 'manual',
       signal: controller.signal,

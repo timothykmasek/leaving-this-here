@@ -10,6 +10,7 @@ import {
   ensureBucket,
   storeImageBytes,
   persistCardImage,
+  isRasterImage,
 } from '@/lib/screenshot'
 import { maybeStoreImagePref } from '@/lib/cardImageJudge'
 import { cardImageCandidates } from '@/lib/cardImage'
@@ -17,6 +18,8 @@ import { maybeEnrichPlace } from '@/lib/placeEnrich'
 import { withProductFact } from '@/lib/productFact'
 import type { SaveSource } from '@/lib/importQuota'
 import { checkSaveLimit } from '@/lib/saveLimits'
+import { internalHeaders, internalOrigin } from '@/lib/internalAuth'
+import { allowRequest } from '@/lib/rateLimit'
 
 // Persist a client-side screenshot (data URL from the extension's
 // captureVisibleTab) to storage and point the row at it. Runs with the service
@@ -25,7 +28,7 @@ import { checkSaveLimit } from '@/lib/saveLimits'
 async function persistClientShot(bookmarkId: string, dataUrl: string, cardType: string | null) {
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return
   const m = /^data:(image\/[a-z0-9.+-]+);base64,(.+)$/i.exec(dataUrl)
-  if (!m) return
+  if (!m || !isRasterImage(m[1])) return
   let bytes: Uint8Array
   try {
     bytes = new Uint8Array(Buffer.from(m[2], 'base64'))
@@ -127,9 +130,9 @@ function saveSource(request: NextRequest, body: any): SaveSource | null {
 // instance alive until the request is sent.
 function requestServerShot(origin: string, bookmarkId: string) {
   waitUntil(
-    fetch(`${origin}/api/persist-screenshots`, {
+    fetch(`${internalOrigin(origin)}/api/persist-screenshots`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...internalHeaders() },
       body: JSON.stringify({ id: bookmarkId }),
     }).catch(() => {}),
   )
@@ -306,7 +309,9 @@ export async function POST(request: NextRequest) {
 
   let url: string
   try {
-    url = new URL(body.url).toString()
+    const parsed = new URL(body.url)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') throw new Error('not a web link')
+    url = parsed.toString()
   } catch {
     return json({ error: 'a valid url is required' }, 400)
   }
@@ -425,6 +430,11 @@ export async function POST(request: NextRequest) {
   // hand-edited title: an explicit re-save says "take the page as it is now".
   // Used for both exact re-saves and near-dupes (same url_key, different url).
   const refreshExisting = async (existingId: string) => {
+    // A re-save skips the daily save limit but still pays for Haiku keywords,
+    // a Voyage embed and an image copy, so it gets a brake of its own.
+    if (!(await allowRequest(`resave:${user.id}`, 60, 3600))) {
+      return json({ error: 'Too many re-saves in the last hour. Try again later.', limitReached: true, limit: 'resave_hourly' }, 429)
+    }
     const { data: refreshed, error: refreshErr } = await supabase
       .from('bookmarks')
       .update({ title, description, image_url, favicon_url, card_type, raw_metadata: withProductFact(meta.raw, meta.product), url_key })
