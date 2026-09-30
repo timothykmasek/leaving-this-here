@@ -83,7 +83,7 @@ async function sendMessage(msg) {
       }
     }
     case 'ig-remove':
-      tell({ type: 'log', text: 'Removed (held 5s for Undo, then deleted)' })
+      tell({ type: 'log', text: 'Deleted (held 5s for Undo)' })
       return { ok: true }
     case 'ig-undo-remove':
       tell({ type: 'log', text: 'Undo: kept' })

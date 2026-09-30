@@ -5,7 +5,7 @@
 //   saving    → a designed beat (SAVE_BEAT): the plate's dots merge into the
 //               page's screenshot while the request runs in the service worker
 //   (already saved: the card skips the plate and opens here, lists ticked,
-//    with Remove / Undo in the header and no countdown)
+//    with Delete / Undo in the header and no countdown)
 //   lists     → the plate shrinks into the header tile; pick lists, then
 //               Done/Skip (or leave it 8s) and the popup just goes away.
 //               The header ("Saved to your Bulletin / In Reading") is the
@@ -49,7 +49,7 @@ const HOLD = Number(new URLSearchParams(location.search).get('hold')) || 8000 //
 // waits on). Past this, the plate offers the save anyway; a later answer
 // still flips it to the picker, as long as they haven't clicked Save.
 const CHECK_WAIT = 3000
-// After Remove: the Undo window before the card closes itself.
+// After Delete: the Undo window before the card closes itself.
 const REMOVE_HOLD = 5000
 
 // The list picker either EXPANDS to show every list (no scrolling, up to
@@ -716,15 +716,15 @@ function updateSub() {
   $('done').textContent = names.length || alreadySaved ? 'Done' : 'Skip'
 }
 
-// ── Remove (already saved only) ──
-// Remove → Undo in the same spot for a few seconds, then the card closes.
+// ── Delete (already saved only) ──
+// Delete → Undo in the same spot for a few seconds, then the card closes.
 // The worker holds the delete for that window, so Undo just cancels it.
 const removeBtn = $('remove')
 removeBtn.addEventListener('click', () => (stage.classList.contains('removed') ? undoRemove() : removeBullet()))
 function removeBullet() {
   stage.classList.add('removed')
   removeBtn.textContent = 'Undo'
-  $('htitle').textContent = 'Removed from your Bulletin'
+  $('htitle').textContent = 'Deleted from your Bulletin'
   $('hsub').textContent = 'Off your page and out of every list'
   $('done').textContent = 'Done'
   chrome.runtime.sendMessage({ type: 'ig-remove', bookmarkId }).catch(() => {})
@@ -733,7 +733,7 @@ function removeBullet() {
 function undoRemove() {
   stopClock()
   stage.classList.remove('removed')
-  removeBtn.textContent = 'Remove'
+  removeBtn.textContent = 'Delete'
   $('htitle').textContent = 'Already in your Bulletin'
   updateSub()
   chrome.runtime.sendMessage({ type: 'ig-undo-remove', bookmarkId }).catch(() => {})

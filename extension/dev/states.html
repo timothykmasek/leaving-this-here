@@ -73,7 +73,7 @@
       ['Creating a list', '"Create ↵" once there’s a name', 'fresh', 'card', '', async (d) => { await save(d); await type(d, 'Studio ideas') }],
       ['List created', '"Saved!" then it lands at the top, filed', 'fresh', 'card', '', async (d) => { await save(d); await type(d, 'Studio ideas'); enter(d) }],
       ['Already saved', 'Opens here: its lists ticked, no countdown', 'saved', 'card', '', (d) => until(() => inLists(d))],
-      ['Removed', 'Undo for 5s, then the card closes', 'saved', 'card', '', async (d) => { await until(() => inLists(d)); d.getElementById('remove').click() }],
+      ['Deleted', 'Undo for 5s, then the card closes', 'saved', 'card', '', async (d) => { await until(() => inLists(d)); d.getElementById('remove').click() }],
       ['No lists yet', 'A new account', 'nolists', 'card', '', (d) => save(d)],
       ['No image', 'Nothing to show: the tile keeps the dots', 'noimage', 'card', '', (d) => save(d)],
       ['Couldn’t save', 'Click the plate to retry', 'error', 'card', '', (d) => save(d, false)],
