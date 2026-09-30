@@ -16,32 +16,24 @@ export const getProfileByUsername = cache(async (username: string) => {
   return data
 })
 
-// added_at used to ride along for a "Last Updated" line in the masthead. That
-// line is gone, and nothing else reads the column, so it is no longer fetched —
-// it was a value per member row, on lists with up to 146 members.
-const LIST_COLS = 'id, name, slug, list_bookmarks(bookmark_id)'
+// Everything a list page renders, in ONE round trip: the list, its owner's
+// profile and every member bullet (see app/[username]/[listSlug]/page.tsx for
+// why the hop count is what matters). Shared by the page and its
+// generateMetadata, so the share card no longer costs two sequential lookups
+// of its own before the page's query even starts.
+export const LIST_BULLET_COLS =
+  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, image_pref, is_private, outbound_url, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
 
-/** PostgREST's undefined_column. Selecting a column that doesn't exist is a hard
- *  400, unlike a missing TABLE, which this app already tolerates. */
-function isMissingColumn(error: any, column: string): boolean {
-  return error?.code === '42703' || String(error?.message || '').includes(column)
-}
-
-export const getListBySlug = cache(async (profileId: string, slug: string) => {
+export const getListPage = cache(async (username: string, slug: string) => {
   const supabase = await createSupabaseServer()
-  const query = (cols: string) =>
-    supabase.from('lists').select(cols).eq('user_id', profileId).eq('slug', slug).single()
-
-  // Migrations here are run by hand in the Supabase SQL editor, and this repo
-  // deliberately keeps deploys independent of that (see migration 008's header).
-  // So a list page must still render on a database where 019 hasn't been applied
-  // — it just has no cover. One wasted round-trip until the column lands, then
-  // never again.
-  let { data, error } = await query(`${LIST_COLS}, cover_image_url`)
-  if (error && isMissingColumn(error, 'cover_image_url')) {
-    ({ data, error } = await query(LIST_COLS))
-  }
-  // Selecting via a runtime string forfeits supabase-js's column inference, so
-  // the row comes back untyped. Callers already read it through `as any`.
-  return { data: data as any, error }
+  return supabase
+    .from('lists')
+    .select(
+      `id, name, slug, cover_image_url, is_private,
+       profiles!inner(id, username, display_name, bio, links, is_preview),
+       list_bookmarks(bookmark_id, bookmarks(${LIST_BULLET_COLS}))`
+    )
+    .eq('profiles.username', username)
+    .eq('slug', slug)
+    .maybeSingle()
 })

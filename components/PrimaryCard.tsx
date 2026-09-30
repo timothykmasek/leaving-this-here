@@ -226,13 +226,15 @@ interface PrimaryCardProps {
   selecting?: boolean
   selected?: boolean
   onSelect?: (id: string, shift: boolean) => void
+  // Above-the-fold card: load its image eagerly instead of lazily.
+  priority?: boolean
 }
 
 export const PrimaryCard = memo(function PrimaryCard({
   id, url, title, description, imageUrl, screenshotUrl, faviconUrl, rawMetadata,
   cardType, imagePref, place: placeProp, product: productProp,
   customImage: customImageProp, listName, listHref, onOpen, utmCampaign,
-  outboundOverride, selecting = false, selected = false, onSelect,
+  outboundOverride, selecting = false, selected = false, onSelect, priority = false,
 }: PrimaryCardProps) {
   const domain = getDomain(url)
   const outboundUrl = resolveOutbound(url, outboundOverride, utmCampaign)
@@ -396,6 +398,7 @@ export const PrimaryCard = memo(function PrimaryCard({
           ) : (
           <CardThumb
             candidates={candidates}
+            priority={priority}
             placeholderAspect={fmt.aspect}
             onEdgeLightness={handleEdgeLightness}
             onExhausted={setImageExhausted}

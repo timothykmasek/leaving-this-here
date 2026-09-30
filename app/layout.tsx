@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from 'next'
 import { serif, sans } from './fonts'
-import { Header } from '@/components/Header'
 import { SITE_URL, SITE_NAME, SITE_DESCRIPTION } from '@/lib/meta'
 import './globals.css'
 
@@ -73,7 +72,6 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: DOT_PHASE_SCRIPT }} />
       </head>
       <body className="dot-ground text-ink">
-        <Header />
         {children}
       </body>
     </html>

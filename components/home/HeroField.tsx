@@ -221,7 +221,7 @@ export function HeroField() {
       <div aria-hidden className="absolute left-[516px] top-0 z-[7] h-[100px] w-[298px] bg-paper" />
       <Link href="/" aria-label="Bulletin home" className="absolute left-[596px] top-[26px] z-[7] block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/bulletin-logo.png" alt="Bulletin" className="block h-10 w-auto" />
+        <img src="/bulletin-logo.webp" alt="Bulletin" className="block h-10 w-auto" />
       </Link>
 
       {/* Link cards */}

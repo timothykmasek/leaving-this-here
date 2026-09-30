@@ -7,6 +7,9 @@ import { useEffect, useRef } from 'react'
 // every image request in one burst. Grids render a page at a time and grow as
 // the sentinel scrolls into view, so only what's near the viewport ever mounts.
 export const RENDER_PAGE = 48
+// Cards in the first row of a grid (4 columns at desktop) load their images
+// eagerly: they're the page's largest paint.
+export const FIRST_ROW = 4
 
 // Invisible tripwire at the tail of a grid. When it scrolls within 800px of
 // the viewport it calls onReach, which reveals the next RENDER_PAGE.

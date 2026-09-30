@@ -16,15 +16,15 @@ import Link from 'next/link'
 
 // The nine links the four image slots draw from.
 const POOL: { src: string; caption: string; href: string }[] = [
-  { src: '/home/rubirosa-fit-location.png', caption: 'Rubirosa’s — Shop, Paris 2e', href: 'https://share.google/gNrQPgJ7vDw5qQvZB' },
-  { src: '/home/western-hat-fit-product.png', caption: 'Western Hydrodynamic Research', href: 'https://www.whr.institute/' },
-  { src: '/home/cherry-interior-location.png', caption: 'Cherry — Paris, 7ème', href: 'https://share.google/gNrQPgJ7vDw5qQvZB' },
-  { src: '/home/noguchi-interior.png', caption: 'Noguchi Museum — Akari 1A', href: 'https://shop.noguchi.org/products/akari-1a' },
-  { src: '/home/plasticana-fit-product.png', caption: 'Plasticana — Woven leather loafers', href: 'https://merci-merci.com/en/products/plasticana-mules-opana-chanvre' },
-  { src: '/home/nigo-interior-article.png', caption: 'Interview — Inside Nigo’s archive', href: 'https://www.usm.com/en-uk/stories/nigo-from-japan-with-love' },
-  { src: '/home/rubiroa-fit-article.png', caption: 'Vogue — Lauren Rubinski', href: 'https://www.vogue.com/article/lauren-rubinski-rubirosas-9-5-style' },
-  { src: '/home/eou-website-fit.png', caption: 'eou.world — Korean streetwear', href: 'https://eouglobal.com/' },
-  { src: '/home/blouse-paris-location.jpg', caption: 'La Blouse de Lyon — Paris', href: 'https://www.instagram.com/lablousedelyon/?hl=en' },
+  { src: '/home/rubirosa-fit-location.webp', caption: 'Rubirosa’s — Shop, Paris 2e', href: 'https://share.google/gNrQPgJ7vDw5qQvZB' },
+  { src: '/home/western-hat-fit-product.webp', caption: 'Western Hydrodynamic Research', href: 'https://www.whr.institute/' },
+  { src: '/home/cherry-interior-location.webp', caption: 'Cherry — Paris, 7ème', href: 'https://share.google/gNrQPgJ7vDw5qQvZB' },
+  { src: '/home/noguchi-interior.webp', caption: 'Noguchi Museum — Akari 1A', href: 'https://shop.noguchi.org/products/akari-1a' },
+  { src: '/home/plasticana-fit-product.webp', caption: 'Plasticana — Woven leather loafers', href: 'https://merci-merci.com/en/products/plasticana-mules-opana-chanvre' },
+  { src: '/home/nigo-interior-article.webp', caption: 'Interview — Inside Nigo’s archive', href: 'https://www.usm.com/en-uk/stories/nigo-from-japan-with-love' },
+  { src: '/home/rubiroa-fit-article.webp', caption: 'Vogue — Lauren Rubinski', href: 'https://www.vogue.com/article/lauren-rubinski-rubirosas-9-5-style' },
+  { src: '/home/eou-website-fit.webp', caption: 'eou.world — Korean streetwear', href: 'https://eouglobal.com/' },
+  { src: '/home/blouse-paris-location.webp', caption: 'La Blouse de Lyon — Paris', href: 'https://www.instagram.com/lablousedelyon/?hl=en' },
 ]
 
 const SLOT_HEIGHTS = [224, 160, 196, 160] // a, b (left column) · c, d (right)
@@ -77,7 +77,7 @@ function MobileVignette({ step }: { step: number }) {
       <div className="relative w-[292px]">
         <MiniBrowser address="nigo-interview.com" pageHeight={150}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/home/nigo-interior-article.png" alt="" className="block h-full w-full object-cover" />
+          <img src="/home/nigo-interior-article.webp" alt="" className="block h-full w-full object-cover" />
         </MiniBrowser>
         <div className="absolute -bottom-3 right-0 flex w-[170px] flex-col gap-2 rounded-xl bg-paper px-3.5 py-3 shadow-[0_4px_18px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.03)]">
           <div className="flex items-center gap-2">
@@ -94,7 +94,7 @@ function MobileVignette({ step }: { step: number }) {
     return (
       <div className="flex w-[292px] items-start gap-3">
         <div className="grid grid-cols-2 gap-2.5">
-          {['/home/plasticana-fit-product.png', '/home/western-hat-fit-product.png', '/home/rubiroa-fit-article.png'].map((s, i) => (
+          {['/home/plasticana-fit-product.webp', '/home/western-hat-fit-product.webp', '/home/rubiroa-fit-article.webp'].map((s, i) => (
             <span key={s} className="block h-[68px] w-[68px] overflow-hidden rounded-2xl bg-card">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -124,9 +124,9 @@ function MobileVignette({ step }: { step: number }) {
         </div>
         <div className="mt-4 flex items-start gap-2.5">
           {[
-            { src: '/home/cherry-interior-location.png', h: 132 },
-            { src: '/home/rubirosa-fit-location.png', h: 98 },
-            { src: '/home/blouse-paris-location.jpg', h: 115 },
+            { src: '/home/cherry-interior-location.webp', h: 132 },
+            { src: '/home/rubirosa-fit-location.webp', h: 98 },
+            { src: '/home/blouse-paris-location.webp', h: 115 },
           ].map((r) => (
             <span key={r.src} className="block w-[90px] overflow-hidden rounded-2xl bg-card" style={{ height: r.h }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -143,16 +143,16 @@ function MobileVignette({ step }: { step: number }) {
         <div className="absolute inset-0 bg-paper">
           <div className="flex flex-col items-center gap-0.5 pt-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/bulletin-logo.png" alt="Bulletin" className="mb-1.5 block h-3 w-auto" />
+            <img src="/bulletin-logo.webp" alt="Bulletin" className="mb-1.5 block h-3 w-auto" />
             <span className="text-[13px] leading-4 text-black">Tim Masek</span>
             <span className="font-serif text-[11px] leading-4 text-black/50">Venture designer @ founders factory</span>
           </div>
           <div className="grid grid-cols-4 items-start gap-1.5 px-3 pt-3">
             {[
-              [{ src: '/home/plasticana-fit-product.png', h: 54 }, { src: '/home/nigo-interior-article.png', h: 44 }],
-              [{ src: '/home/noguchi-interior.png', h: 68 }, { src: '/home/blouse-paris-location.jpg', h: 34 }],
-              [{ src: '/home/western-hat-fit-product.png', h: 46 }, { src: '/home/cherry-interior-location.png', h: 60 }],
-              [{ src: '/home/rubiroa-fit-article.png', h: 76 }, { src: '/home/rubirosa-fit-location.png', h: 40 }],
+              [{ src: '/home/plasticana-fit-product.webp', h: 54 }, { src: '/home/nigo-interior-article.webp', h: 44 }],
+              [{ src: '/home/noguchi-interior.webp', h: 68 }, { src: '/home/blouse-paris-location.webp', h: 34 }],
+              [{ src: '/home/western-hat-fit-product.webp', h: 46 }, { src: '/home/cherry-interior-location.webp', h: 60 }],
+              [{ src: '/home/rubiroa-fit-article.webp', h: 76 }, { src: '/home/rubirosa-fit-location.webp', h: 40 }],
             ].map((col, i) => (
               <span key={i} className="flex flex-col gap-1.5">
                 {col.map((p) => (
@@ -291,7 +291,7 @@ export function MobileHome() {
       <div className="flex items-center justify-between px-6 pt-[18px]">
         <Link href="/" aria-label="Bulletin home" className="block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/bulletin-logo.png" alt="Bulletin" className="block h-[26px] w-auto" />
+          <img src="/bulletin-logo.webp" alt="Bulletin" className="block h-[26px] w-auto" />
         </Link>
         <Link href="/start" className="text-[12px] leading-4 tracking-[0.05em] text-black/70">Sign up</Link>
       </div>

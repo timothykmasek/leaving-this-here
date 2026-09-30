@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { createClient } from '@/lib/supabase/client'
 import { formatTimestampLabel } from '@/lib/timestampLabel'
 import { PrimaryCard } from '@/components/PrimaryCard'
@@ -13,19 +14,23 @@ import { INVITE_ONLY } from '@/lib/beta'
 import { CollectionCard } from '@/components/CollectionCard'
 import { ProfileIdentity, LINK_ICONS } from '@/components/ProfileIdentity'
 import { coerceUrl, detectPlatform, linkLabel, normalizeProfileLinks } from '@/lib/profileLinks'
-import { BulletDetail } from '@/components/BulletDetail'
 import { SaveHelp } from '@/components/SaveHelp'
 import { WelcomeBanner } from '@/components/WelcomeBanner'
 import { PreviewBanner } from '@/components/PreviewBanner'
-import { ImportFab } from '@/components/ImportFab'
-import { LoadMoreSentinel, RENDER_PAGE } from '@/components/LoadMoreSentinel'
+import { FIRST_ROW, LoadMoreSentinel, RENDER_PAGE } from '@/components/LoadMoreSentinel'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import { SiteFooter } from '@/components/SiteFooter'
 import { useRevealFooter } from '@/lib/useRevealFooter'
 import { uniqueSlug } from '@/lib/slug'
-import { forgetSuggestion } from '@/components/SuggestionShelf'
-import { SelectionBar, type BarMessage } from '@/components/SelectionBar'
+import { forgetSuggestion } from '@/lib/suggestionCache'
+import type { BarMessage } from '@/components/SelectionBar'
 import { createReadOnlyClient } from '@/lib/supabase/readOnlyClient'
+
+// Owner-only tools, loaded only when the owner opens them: a visitor to a
+// profile never renders these, so they stay out of the page's bundle.
+const BulletDetail = dynamic(() => import('@/components/BulletDetail').then((m) => m.BulletDetail), { ssr: false })
+const ImportFab = dynamic(() => import('@/components/ImportFab').then((m) => m.ImportFab), { ssr: false })
+const SelectionBar = dynamic(() => import('@/components/SelectionBar').then((m) => m.SelectionBar), { ssr: false })
 
 // Hybrid: the server component ([username]/page.tsx) fetches profile + bullets +
 // lists and passes them in as props, so this island hydrates with content already
@@ -887,7 +892,7 @@ export default function ProfileClient({
   const renderBulletGrid = (items: any[]) => (
     <>
       <Masonry>
-        {items.slice(0, visibleCount).map((b) => (
+        {items.slice(0, visibleCount).map((b, i) => (
           <div
             key={b.id}
             // Owner: no iOS link-preview callout, so a long-press can mean select.
@@ -900,6 +905,7 @@ export default function ProfileClient({
             onContextMenu={isOwner ? (e) => { if (pressFired.current) e.preventDefault() } : undefined}
           >
           <PrimaryCard
+            priority={i < FIRST_ROW}
             id={b.id}
             url={b.url}
             title={b.title}

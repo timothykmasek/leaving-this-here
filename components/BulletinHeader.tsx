@@ -56,7 +56,7 @@ export function BulletinHeader({
 } = {}) {
   const wordmark = (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src="/bulletin-logo.png" alt="Bulletin" className={`${logoClassName} w-auto`} />
+    <img src="/bulletin-logo.webp" alt="Bulletin" width={840} height={253} className={`${logoClassName} w-auto`} />
   )
   // Plain Mier BOOK, no uppercase, no registration-mark dots (Figma node
   // 912:25144). The class said font-[500] — which is Mier REGULAR, a different

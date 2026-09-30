@@ -1,26 +1,24 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { getProfileByUsername, getListBySlug } from '@/lib/queries'
+import { getListPage } from '@/lib/queries'
 import { SITE_NAME } from '@/lib/meta'
 
 // Dynamic share metadata for a published list at /username/<slug>. Mirrors the
-// profile layout so a shared list URL gets its own title + description. The
-// profile + list lookups go through cache()d fetchers so the page component
-// (which needs the same rows) reuses them instead of re-querying.
+// profile layout so a shared list URL gets its own title + description. Reads
+// the same cache()d one-shot query the page renders from.
 
 export async function generateMetadata({
   params,
 }: {
   params: { username: string; listSlug: string }
 }): Promise<Metadata> {
-  const profile = await getProfileByUsername(params.username)
+  // The page's own one-shot query (cache()d), so metadata adds no round trip.
+  const { data: list } = (await getListPage(params.username, params.listSlug)) as { data: any }
 
   // Same reason as the profile layout: the status line is committed before the
   // page body runs, so an unknown owner or list has to be refused here.
-  if (!profile) notFound()
-
-  const { data: list } = await getListBySlug(profile.id, params.listSlug)
-  if (!list) notFound()
+  const profile = list?.profiles
+  if (!list || !profile) notFound()
 
   const listName: string | null = list.name || null
 

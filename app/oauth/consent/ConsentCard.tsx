@@ -8,7 +8,7 @@ export function ConsentShell({ children }: { children: React.ReactNode }) {
   return (
     <main className="flex min-h-screen items-center justify-center px-6 py-16">
       <div className="card-lift w-full max-w-[440px] rounded-[20px] bg-paper px-8 py-10 sm:px-10">
-        <img src="/bulletin-logo.png" alt="Bulletin" className="mx-auto h-[28px] w-auto" />
+        <img src="/bulletin-logo.webp" alt="Bulletin" className="mx-auto h-[28px] w-auto" />
         {children}
       </div>
     </main>

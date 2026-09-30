@@ -2,7 +2,6 @@
 
 import { forwardRef, useEffect, useState } from 'react'
 import { CHROME_STORE_URL, IOS_APP_URL } from '@/lib/extension'
-import { createClient } from '@/lib/supabase/client'
 import { useExtensionInstalled } from '@/lib/useExtensionInstalled'
 import Link from 'next/link'
 
@@ -25,17 +24,19 @@ import Link from 'next/link'
 //   so keyboard users can tab to Privacy/Extension while it's tucked away.
 export const SiteFooter = forwardRef<
   HTMLElement,
-  { reveal?: boolean; revealed?: boolean; widthClassName?: string }
+  { reveal?: boolean; revealed?: boolean; widthClassName?: string; signedIn?: boolean }
 >(function SiteFooter(
   // widthClassName must match the page's grid, or the footer row sits inside
   // (or outside) the column edges above it. Defaults to the 1208 grid.
-  { reveal = false, revealed = false, widthClassName = 'max-w-[1208px] px-6' },
+  // signedIn: pass it when the page already knows (the server does), so the
+  // footer needn't load the Supabase client just to find out.
+  { reveal = false, revealed = false, widthClassName = 'max-w-[1208px] px-6', signedIn: signedInProp },
   ref,
 ) {
   // Starts false so a signed-out reader never sees Import flash and vanish; a
   // signed-in one gets it a tick later instead. getSession is a local JWT
   // decode, not a network call — same pattern as Header.
-  const [signedIn, setSignedIn] = useState(false)
+  const [signedIn, setSignedIn] = useState(signedInProp ?? false)
   const extInstalled = useExtensionInstalled()
   // Only where the pitch can be acted on: a desktop Chromium browser (Chrome,
   // Arc, Brave, Edge all carry "Chrome/" in the UA). Phones and Safari/Firefox
@@ -47,9 +48,10 @@ export const SiteFooter = forwardRef<
   }, [])
   const pitchExtension = signedIn && canInstall && extInstalled === false
   useEffect(() => {
+    if (signedInProp !== undefined) return
     let cancelled = false
-    createClient()
-      .auth.getSession()
+    import('@/lib/supabase/client')
+      .then(({ createClient }) => createClient().auth.getSession())
       .then(({ data: { session } }) => {
         if (!cancelled) setSignedIn(!!session?.user)
       })
@@ -57,7 +59,7 @@ export const SiteFooter = forwardRef<
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [signedInProp])
 
   return (
     <footer

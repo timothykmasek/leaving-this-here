@@ -45,7 +45,7 @@ export function BetaLanding() {
 
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/bulletin-logo.png"
+        src="/bulletin-logo.webp"
         alt="Bulletin"
         className="relative z-[1] block h-auto w-[min(280px,45vw)]"
       />

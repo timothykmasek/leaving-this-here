@@ -300,6 +300,9 @@ export function DepthHero() {
                 <img
                   src={c.image}
                   alt=""
+                  // Phones hide the odd cards (applyViewport); lazy keeps a
+                  // display:none card from downloading at all.
+                  loading={i % 2 === 1 ? 'lazy' : undefined}
                   className="block h-full w-full object-cover"
                   style={c.objectPosition ? { objectPosition: c.objectPosition } : undefined}
                 />
@@ -335,7 +338,7 @@ export function DepthHero() {
       <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-8 p-6 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/bulletin-logo.png"
+          src="/bulletin-logo.webp"
           alt="Bulletin"
           className="block h-auto w-[min(220px,38vw)] sm:w-[min(280px,45vw)]"
         />

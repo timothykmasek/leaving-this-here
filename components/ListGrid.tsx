@@ -10,7 +10,7 @@
 import { useState } from 'react'
 import { Masonry } from '@/components/Masonry'
 import { PrimaryCard } from '@/components/PrimaryCard'
-import { LoadMoreSentinel, RENDER_PAGE } from '@/components/LoadMoreSentinel'
+import { FIRST_ROW, LoadMoreSentinel, RENDER_PAGE } from '@/components/LoadMoreSentinel'
 
 export function ListGrid({
   bullets,
@@ -29,10 +29,11 @@ export function ListGrid({
   return (
     <>
       <Masonry>
-        {bullets.slice(0, visibleCount).map((b) => (
+        {bullets.slice(0, visibleCount).map((b, i) => (
           // Every card is already in THIS list, so no list line.
           <PrimaryCard
             key={b.id}
+            priority={i < FIRST_ROW}
             id={b.id}
             url={b.url}
             title={b.title}

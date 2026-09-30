@@ -32,12 +32,12 @@ import { SettingsClient } from '@/app/settings/SettingsClient'
 
 // Real local files, so cards look like cards rather than grey boxes.
 const IMAGES = [
-  '/home/rubirosa-fit-location.png',
-  '/home/eou-website-fit.png',
-  '/home/cherry-interior-location.png',
-  '/home/noguchi-interior.png',
-  '/home/plasticana-fit-product.png',
-  '/home/western-hat-fit-product.png',
+  '/home/rubirosa-fit-location.webp',
+  '/home/eou-website-fit.webp',
+  '/home/cherry-interior-location.webp',
+  '/home/noguchi-interior.webp',
+  '/home/plasticana-fit-product.webp',
+  '/home/western-hat-fit-product.webp',
 ]
 
 const BULLETS = [

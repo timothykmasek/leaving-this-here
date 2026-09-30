@@ -5,7 +5,6 @@
 // "Log out" — so a signed-in owner never sees a "Sign in" prompt on their own
 // content. Mirrors the profile header's behaviour.
 import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import { BulletinHeader } from '@/components/BulletinHeader'
 import { INVITE_ONLY } from '@/lib/beta'
 
@@ -23,10 +22,12 @@ export function PublicHeader({
   stickyLogo?: boolean
 }) {
   const router = useRouter()
-  const supabase = createClient()
 
+  // The Supabase client loads only when someone actually signs out: readers of
+  // a public list never need it, and it's a big chunk of the page's JS.
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
+    const { createClient } = await import('@/lib/supabase/client')
+    await createClient().auth.signOut()
     router.push('/')
     router.refresh()
   }

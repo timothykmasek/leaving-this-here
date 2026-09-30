@@ -79,10 +79,15 @@ export function CardThumb({
   // arrives at 150px; a card is 295-430px wide, so covering the plate with it
   // means a 2x blow-up that reads as broken. Measured after load, because the
   // natural size is not knowable before it.
+  //
+  // Both samplers wait for the visible <img> to load: each opens its own
+  // CORS Image(), and firing them on mount pulled every mounted card's image
+  // (thousands of px below the fold) past loading="lazy". After load, the
+  // sampler's request is served from the HTTP cache.
   const [field, setField] = useState<ImageField | null>(null)
   useEffect(() => {
     setField(null)
-    if (!src) return
+    if (!src || !loaded) return
     let cancelled = false
     const cancelIdle = onIdle(() => {
       sampleImageField(src).then((f) => {
@@ -90,12 +95,12 @@ export function CardThumb({
       })
     })
     return () => { cancelled = true; cancelIdle() }
-  }, [src])
+  }, [src, loaded])
 
   // Measure the src that WON the fallback chain, not candidates[0] — a card
   // that fell back from a 404 og to its screenshot is showing a different image.
   useEffect(() => {
-    if (!src || !onEdgeLightness) return
+    if (!src || !loaded || !onEdgeLightness) return
     let cancelled = false
     const cancelIdle = onIdle(() => {
       sampleEdgeLightness(src).then((v) => {
@@ -104,7 +109,7 @@ export function CardThumb({
       })
     })
     return () => { cancelled = true; cancelIdle() }
-  }, [src, onEdgeLightness])
+  }, [src, loaded, onEdgeLightness])
 
   if (!src) return <>{fallback}</>
 

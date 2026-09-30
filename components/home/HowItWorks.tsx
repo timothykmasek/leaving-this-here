@@ -12,14 +12,14 @@ import { STEPS } from '@/lib/homeContent'
 // The vignettes' own plates give it its silhouette.
 
 const SHOT = {
-  nigo: '/home/nigo-interior-article.png',
-  plasticana: '/home/plasticana-fit-product.png',
-  whr: '/home/western-hat-fit-product.png',
-  vogue: '/home/rubiroa-fit-article.png',
-  cherry: '/home/cherry-interior-location.png',
-  rubirosa: '/home/rubirosa-fit-location.png',
-  blouse: '/home/blouse-paris-location.jpg',
-  noguchi: '/home/noguchi-interior.png',
+  nigo: '/home/nigo-interior-article.webp',
+  plasticana: '/home/plasticana-fit-product.webp',
+  whr: '/home/western-hat-fit-product.webp',
+  vogue: '/home/rubiroa-fit-article.webp',
+  cherry: '/home/cherry-interior-location.webp',
+  rubirosa: '/home/rubirosa-fit-location.webp',
+  blouse: '/home/blouse-paris-location.webp',
+  noguchi: '/home/noguchi-interior.webp',
 }
 
 /** The browser window used by vignettes 01 and 04 — same template, same 296px page area. */
@@ -136,7 +136,7 @@ function VignettePage() {
         <div className="relative m-3 h-[296px] overflow-hidden rounded-lg bg-paper">
           <div className="flex flex-col items-center gap-1 pt-[18px]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/bulletin-logo.png" alt="Bulletin" className="mb-2.5 block h-4 w-auto" />
+            <img src="/bulletin-logo.webp" alt="Bulletin" className="mb-2.5 block h-4 w-auto" />
             <span className="text-[18px] leading-6 text-black">Tim Masek</span>
             <span className="font-serif text-[13px] leading-[18px] text-black/50">
               Venture designer @ founders factory

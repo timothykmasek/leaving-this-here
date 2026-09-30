@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createSupabaseServer } from '@/lib/supabase/server'
-import { getProfileByUsername } from '@/lib/queries'
+import { getListPage } from '@/lib/queries'
 import { timed } from '@/lib/timing'
 import { ListGrid } from '@/components/ListGrid'
 import { pickCardImage } from '@/lib/cardImage'
@@ -18,12 +18,9 @@ import { CopyTagline } from '@/components/CopyTagline'
 // Server-rendered: the card grid ships in the initial HTML (good for shared-link
 // previews + first paint) instead of a client-side loading→fetch waterfall.
 
-// Only the columns the cards render (raw_metadata is passed but never read).
 // Same fluid grid as the profile: page margin equals the column gutter.
 const LIST_GRID = 'max-w-[1720px] px-4 sm:px-10'
 
-const BULLET_COLS =
-  'id, title, description, url, image_url, screenshot_url, favicon_url, note, card_type, image_pref, is_private, outbound_url, created_at, keywords, place:raw_metadata->place, product:raw_metadata->product, customImage:raw_metadata->customImage'
 
 export default async function ListPage({
   params,
@@ -53,16 +50,7 @@ export default async function ListPage({
   const [{ data: { session } }, oneShot] = await timed('list:one-shot', () =>
     Promise.all([
       supabase.auth.getSession(),
-      supabase
-        .from('lists')
-        .select(
-          `id, name, slug, cover_image_url, is_private,
-           profiles!inner(id, username, display_name, bio, links),
-           list_bookmarks(bookmark_id, bookmarks(${BULLET_COLS}))`
-        )
-        .eq('profiles.username', username)
-        .eq('slug', listSlug)
-        .maybeSingle(),
+      getListPage(username, listSlug),
     ])
   )
   const user = session?.user ?? null
@@ -178,7 +166,7 @@ export default async function ListPage({
             stripThumbs={stripThumbs}
           />
         </div>
-        <SiteFooter widthClassName={LIST_GRID} />
+        <SiteFooter widthClassName={LIST_GRID} signedIn={!!user} />
       </main>
     )
   }
@@ -217,7 +205,7 @@ export default async function ListPage({
           </div>
         )}
       </div>
-      <SiteFooter widthClassName={LIST_GRID} />
+      <SiteFooter widthClassName={LIST_GRID} signedIn={!!user} />
     </main>
   )
 }
