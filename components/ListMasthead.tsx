@@ -100,7 +100,7 @@ export function ListMasthead({
   // Going private and deleting both confirm inline in the meta row; going
   // public doesn't — private is meant to take a step, public never is.
   const [menuOpen, setMenuOpen] = useState(false)
-  const [confirming, setConfirming] = useState<'private' | 'delete' | null>(null)
+  const [confirming, setConfirming] = useState<'delete' | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!menuOpen) return
@@ -248,13 +248,11 @@ export function ListMasthead({
             <span className="flex items-center gap-4">
               <TextAction
                 onClick={() => {
-                  const which = confirming
                   setConfirming(null)
-                  if (which === 'delete') onDelete?.()
-                  else onSetPrivate?.(true)
+                  onDelete?.()
                 }}
               >
-                {confirming === 'delete' ? 'Delete' : 'Make private'}
+                Delete
               </TextAction>
               <TextAction onClick={() => setConfirming(null)}>Cancel</TextAction>
             </span>
@@ -268,9 +266,10 @@ export function ListMasthead({
                     <TextAction
                       onClick={() => {
                         setMenuOpen(false)
-                        // Public is one click. Private asks first.
-                        if (isPrivate) onSetPrivate(false)
-                        else setConfirming('private')
+                        // One click both ways (Tim, 2026-10-01): the old
+                        // confirm repeated the same words, so the first click
+                        // looked like it had saved. It's reversible anyway.
+                        onSetPrivate(!isPrivate)
                       }}
                     >
                       {isPrivate ? 'Make public' : 'Make private'}

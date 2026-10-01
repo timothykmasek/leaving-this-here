@@ -257,7 +257,7 @@ export default function OwnerPreview() {
 
       <Section
         title="List masthead — ⋯ menu, make private"
-        note="The owner's options sit behind the ⋯ at the right of the meta row. Click it: Make private and Delete list open inline to its left as grey callouts. Make private asks first, inline; confirm and a lock joins the count, here and on the profile's list card below (Agencies & Studios follows this masthead; Gift ideas is a list that's already private). Click ⋯ again: it now offers Make public, one click, no confirm. On the real page the header byline also becomes 'A private list by …' with no copy glyph."
+        note="The owner's options sit behind the ⋯ at the right of the meta row. Click it: Make private and Delete list open inline to its left as grey callouts. Make private is one click (no confirm, 2026-10-01): a lock joins the count, here and on the profile's list card below (Agencies & Studios follows this masthead; Gift ideas is a list that's already private). Click ⋯ again: it now offers Make public, also one click. On the real page the header byline also becomes 'A private list by …' with no copy glyph."
       >
         <ListMasthead
           name="Agencies & Studios"
