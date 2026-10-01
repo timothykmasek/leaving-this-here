@@ -95,8 +95,7 @@ export default function PrivacyPage() {
             <p>
               You can delete any save from your page at any time, and deleting is
               permanent. To delete your whole account and everything in it, go to
-              Settings and choose Delete account, or email us and we&rsquo;ll do
-              it promptly.
+              Settings and choose Delete account.
             </p>
           </section>
 
