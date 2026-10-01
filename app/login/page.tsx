@@ -41,7 +41,9 @@ function LoginPageInner() {
       ? 'That Google account isn’t on the guest list yet. Bulletin is invite-only right now.'
       : searchParams?.get('error') === 'auth_failed'
         ? 'Sign-in didn’t go through. Mind trying again?'
-        : null
+        : searchParams?.get('error') === 'link_expired'
+          ? 'That sign-in link has expired or was already used. Send yourself a fresh one below.'
+          : null
   )
 
   const supabase = createClient()
