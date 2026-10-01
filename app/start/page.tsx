@@ -932,8 +932,8 @@ function CheckEmail() {
 /* ── 07 · anywhere ───────────────────────────────────────────────────── */
 // The last screen: every way into Bulletin besides this tab. Each row opens in
 // a new tab so the wizard stays put; the page itself is the one primary action.
-// The iPhone row says "Coming soon" until IOS_APP_URL is set (App Store
-// approval), then links to the store with no other change.
+// The iPhone row links to the App Store via IOS_APP_URL (says "Coming soon"
+// if that's ever null).
 
 function Anywhere({ onDone }: { onDone: () => void }) {
   const rows: { title: string; body: string; cta: string; href: string | null }[] = [

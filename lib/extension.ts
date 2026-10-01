@@ -12,7 +12,8 @@
 export const CHROME_STORE_URL =
   'https://chromewebstore.google.com/detail/dgpigmcmbffpoigjalnbgfmpgidoabgc'
 
-// The iOS app's App Store page. null until Apple approves it (in review since
-// 2026-09-22): the footer's iOS link only renders once this is set, so going
-// live is this one edit.
-export const IOS_APP_URL: string | null = null
+// The iOS app's App Store page (approved 2026-10-01). No storefront in the
+// path, so Apple routes each visitor to their own country's store. Drives the
+// footer's iOS link and the iPhone row on /start; null hides both.
+export const IOS_APP_URL: string | null =
+  'https://apps.apple.com/app/bulletin-links-lists/id6814739882'
