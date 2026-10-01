@@ -124,9 +124,18 @@ export default function StartPage() {
     } catch {}
   }, [booting, handle, displayName, bio, links, interests, picks])
 
-  const showBack = step === 'about' || step === 'interests' || step === 'picks'
-  const back = () =>
+  const showBack = step === 'username' || step === 'about' || step === 'interests' || step === 'picks'
+  const back = async () => {
+    // The account already exists by the handle step, so "back" from there
+    // means "wrong account": end the session and return to sign-in (boot would
+    // otherwise resume an authed user straight back at the handle).
+    if (step === 'username') {
+      await supabase.auth.signOut()
+      setStep('account')
+      return
+    }
     setStep(step === 'picks' ? 'interests' : step === 'interests' ? 'about' : 'username')
+  }
   const wide = step === 'picks'
 
   return (

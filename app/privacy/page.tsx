@@ -94,8 +94,9 @@ export default function PrivacyPage() {
             <h2 className="font-sans font-[600] text-lg text-ink mb-2">deleting your stuff</h2>
             <p>
               You can delete any save from your page at any time, and deleting is
-              permanent. To delete your whole account and everything in it, email
-              us and we&rsquo;ll do it promptly.
+              permanent. To delete your whole account and everything in it, go to
+              Settings and choose Delete account, or email us and we&rsquo;ll do
+              it promptly.
             </p>
           </section>
 
