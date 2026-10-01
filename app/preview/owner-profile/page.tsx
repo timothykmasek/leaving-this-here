@@ -38,7 +38,7 @@ export default async function OwnerProfilePreview({
     admin.from('bookmarks').select(BULLET_COLS).eq('user_id', profile.id).order('created_at', { ascending: false }),
     admin
       .from('lists')
-      .select('id, name, slug, created_at, list_bookmarks(bookmark_id)')
+      .select('id, name, slug, created_at, is_private, list_bookmarks(bookmark_id)')
       .eq('user_id', profile.id)
       .order('created_at', { ascending: false }),
     // Same query as GET /api/dead-links (confirmed gone, not kept).

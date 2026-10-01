@@ -247,7 +247,10 @@ export function ListDetailClient({
     setList((prev) => ({ ...prev, is_private: next }))
     const { error } = await supabase.from('lists').update({ is_private: next }).eq('id', list.id)
     if (error) {
+      // Never fail silently: the lock vanishing on its own read as "saved".
       setList((prev) => ({ ...prev, is_private: before }))
+      console.error('[list] set private failed:', error)
+      window.alert(`Couldn’t make this list ${next ? 'private' : 'public'}. ${error.message}`)
       return
     }
     router.refresh()
